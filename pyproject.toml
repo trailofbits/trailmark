@@ -14,7 +14,7 @@ authors = [
 ]
 dependencies = [
     "tree-sitter>=0.25,<1.0",
-    "tree-sitter-language-pack>=0.13,<1.0",
+    "tree-sitter-language-pack>=0.13,<2.0",
     "rustworkx>=0.17,<1.0",
 ]
 
