@@ -226,6 +226,11 @@ trailmark analyze path/to/project
 trailmark analyze --language rust path/to/project
 trailmark analyze --language javascript path/to/project
 
+# Polyglot: auto-detect and merge every supported language found in the
+# tree, or pass an explicit comma-separated list.
+trailmark analyze --language auto path/to/project
+trailmark analyze --language python,rust,solidity path/to/project
+
 # Summary statistics
 trailmark analyze --summary path/to/project
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
 from trailmark.analysis.augment import augment_from_sarif, augment_from_weaudit
@@ -38,6 +39,30 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "masm": ("trailmark.parsers.masm", "MasmParser"),
 }
 
+# Extensions used for language auto-detection. Kept in sync with each parser's
+# internal _EXTENSIONS tuple. Shared extensions (e.g., `.h` between C and C++)
+# are handled by prioritizing the more specific language — C++ is tried before
+# plain C when both report files.
+_LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
+    "python": (".py",),
+    "javascript": (".js", ".jsx", ".mjs", ".cjs"),
+    "typescript": (".ts", ".tsx"),
+    "php": (".php",),
+    "ruby": (".rb",),
+    "c": (".c",),
+    "cpp": (".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx"),
+    "c_sharp": (".cs",),
+    "java": (".java",),
+    "go": (".go",),
+    "rust": (".rs",),
+    "solidity": (".sol",),
+    "cairo": (".cairo",),
+    "circom": (".circom",),
+    "haskell": (".hs",),
+    "erlang": (".erl",),
+    "masm": (".masm",),
+}
+
 _SUPPORTED_LANGUAGES = frozenset(_PARSER_MAP.keys())
 
 
@@ -50,6 +75,117 @@ def _get_parser(language: str) -> LanguageParser:
     module = importlib.import_module(entry[0])
     cls = getattr(module, entry[1])
     return cls()
+
+
+def _resolve_languages(path: str, spec: str) -> list[str]:
+    """Expand a ``language`` argument into a concrete list of languages.
+
+    Accepts:
+    - ``"auto"`` — detect from file extensions under ``path``.
+    - ``"python,rust"`` — comma-separated explicit list.
+    - ``"python"`` — single language (the common case; returned as a
+      single-element list).
+    """
+    if spec == "auto":
+        detected = detect_languages(path)
+        if not detected:
+            msg = f"No supported languages detected under {path}"
+            raise ValueError(msg)
+        return detected
+    names = [name.strip() for name in spec.split(",") if name.strip()] if "," in spec else [spec]
+    for name in names:
+        if name not in _PARSER_MAP:
+            msg = f"Unsupported language: {name}"
+            raise ValueError(msg)
+    return names
+
+
+def _parse_and_merge(path: str, languages: list[str]) -> CodeGraph:
+    """Parse ``path`` with each language's parser and merge into one graph."""
+    if len(languages) == 1:
+        # Preserves pre-polyglot behavior exactly for the common case.
+        return _get_parser(languages[0]).parse_directory(path)
+
+    merged = CodeGraph(
+        language="polyglot",
+        root_path=str(Path(path).resolve()),
+    )
+    for lang in languages:
+        sub = _get_parser(lang).parse_directory(path)
+        merged.merge(sub)
+    # merge() doesn't touch `language`; preserve the polyglot marker.
+    merged.language = "polyglot"
+    return merged
+
+
+def detect_languages(path: str) -> list[str]:
+    """Return the sorted list of languages with at least one file under ``path``.
+
+    Detection walks the directory once, classifies each file by extension,
+    and returns the languages that have at least one match. Order is the
+    order languages are registered in ``_LANGUAGE_EXTENSIONS``, which
+    roughly corresponds to popularity and keeps deterministic behavior.
+    """
+    import os
+
+    root = Path(path)
+    if not root.exists():
+        return []
+
+    ext_to_language: dict[str, str] = {}
+    for lang, exts in _LANGUAGE_EXTENSIONS.items():
+        for ext in exts:
+            # When languages share an extension (none currently do, but
+            # guard against it), the FIRST registration wins.
+            ext_to_language.setdefault(ext, lang)
+
+    found: set[str] = set()
+    for dirpath, _dirs, files in os.walk(root):
+        # Skip common vendor / generated dirs to keep detection snappy.
+        if _should_skip_dir(dirpath):
+            continue
+        for name in files:
+            ext = _file_extension(name)
+            if ext in ext_to_language:
+                found.add(ext_to_language[ext])
+        if len(found) == len(_LANGUAGE_EXTENSIONS):
+            break
+
+    return [lang for lang in _LANGUAGE_EXTENSIONS if lang in found]
+
+
+_SKIP_DIR_NAMES = frozenset(
+    {
+        ".git",
+        ".hg",
+        ".svn",
+        "node_modules",
+        "__pycache__",
+        ".venv",
+        "venv",
+        "env",
+        ".tox",
+        "dist",
+        "build",
+        "target",
+        ".mutants",
+        "mutants",
+    }
+)
+
+
+def _should_skip_dir(dirpath: str) -> bool:
+    """Return True for directories we should exclude from language detection."""
+    parts = Path(dirpath).parts
+    return any(part in _SKIP_DIR_NAMES for part in parts)
+
+
+def _file_extension(name: str) -> str:
+    """Return the lowercase extension including leading dot, or ''."""
+    dot = name.rfind(".")
+    if dot < 0:
+        return ""
+    return name[dot:].lower()
 
 
 class QueryEngine:
@@ -68,13 +204,18 @@ class QueryEngine:
     ) -> QueryEngine:
         """Parse a directory and return a ready-to-query engine.
 
+        ``language`` accepts a specific language name (e.g. ``"python"``,
+        ``"rust"``, ``"solidity"``), ``"auto"`` to detect and merge every
+        language with at least one matching file under ``path``, or a
+        comma-separated list like ``"python,rust"`` for an explicit set.
+
         Entrypoint detection runs automatically so that ``attack_surface()``
         and the entrypoint-dependent preanalysis passes have data to work
         with. Pass ``detect_entrypoints_=False`` to skip it (e.g. when the
         caller wants to drive detection separately).
         """
-        parser = _get_parser(language)
-        graph = parser.parse_directory(path)
+        languages = _resolve_languages(path, language)
+        graph = _parse_and_merge(path, languages)
         if detect_entrypoints_:
             graph.entrypoints.update(detect_entrypoints(graph, path))
         store = GraphStore(graph)
