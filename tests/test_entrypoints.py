@@ -651,6 +651,112 @@ class TestDart:
         assert any(ep["node_id"] == "app:main" for ep in surface), surface
 
 
+class TestGo:
+    def test_http_handlefunc_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "server.go").write_text(
+            "package main\n"
+            'import "net/http"\n'
+            "\n"
+            "func loginHandler(w http.ResponseWriter, r *http.Request) {}\n"
+            "\n"
+            "func main() {\n"
+            '    http.HandleFunc("/login", loginHandler)\n'
+            "}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="go")
+        surface = engine.attack_surface()
+        descriptions = {ep.get("description") or "" for ep in surface}
+        assert any("Go HTTP handler" in d for d in descriptions), surface
+
+    def test_gin_route_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "app.go").write_text(
+            "package main\n"
+            'import "github.com/gin-gonic/gin"\n'
+            "\n"
+            "func getUser(c *gin.Context) {}\n"
+            "\n"
+            "func main() {\n"
+            "    r := gin.Default()\n"
+            '    r.GET("/users/:id", getUser)\n'
+            "}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="go")
+        surface = engine.attack_surface()
+        ids = {ep["node_id"] for ep in surface}
+        assert any("getUser" in nid for nid in ids), surface
+
+
+class TestRuby:
+    def test_rails_controller_action_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "users_controller.rb").write_text(
+            "class UsersController < ApplicationController\n"
+            "  def show\n"
+            "    @user = User.find(params[:id])\n"
+            "  end\n"
+            "\n"
+            "  def create\n"
+            "    User.create(params[:user])\n"
+            "  end\n"
+            "end\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="ruby")
+        surface = engine.attack_surface()
+        descriptions = {ep.get("description") or "" for ep in surface}
+        assert any("Rails controller" in d for d in descriptions), surface
+
+    def test_non_controller_class_not_flagged(self, tmp_path: Path) -> None:
+        (tmp_path / "util.rb").write_text(
+            "class Util\n  def helper(x)\n    x + 1\n  end\nend\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="ruby")
+        assert engine.attack_surface() == []
+
+    def test_sidekiq_worker_perform_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "mailer.rb").write_text(
+            "class EmailWorker\n"
+            "  include Sidekiq::Worker\n"
+            "\n"
+            "  def perform(user_id)\n"
+            "    puts user_id\n"
+            "  end\n"
+            "end\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="ruby")
+        surface = engine.attack_surface()
+        descriptions = {ep.get("description") or "" for ep in surface}
+        assert any("Sidekiq" in d for d in descriptions), surface
+
+
+class TestCCpp:
+    def test_extern_c_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "api.cpp").write_text(
+            'extern "C" int add_one(int x) {\n    return x + 1;\n}\n',
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="cpp")
+        surface = engine.attack_surface()
+        descriptions = {ep.get("description") or "" for ep in surface}
+        assert any('extern "C"' in d or "exported" in d for d in descriptions), surface
+
+    def test_dllexport_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "lib.c").write_text(
+            "__declspec(dllexport)\nint compute(int x) {\n    return x * 2;\n}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="c")
+        surface = engine.attack_surface()
+        descriptions = {ep.get("description") or "" for ep in surface}
+        assert any("dllexport" in d or "exported" in d for d in descriptions), surface
+
+    def test_plain_c_function_not_flagged(self, tmp_path: Path) -> None:
+        (tmp_path / "util.c").write_text(
+            "int helper(int x) {\n    return x + 1;\n}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="c")
+        # `main` is always flagged by the main-heuristic; helper is not.
+        surface = engine.attack_surface()
+        ids = {ep["node_id"] for ep in surface}
+        assert not any("helper" in nid for nid in ids), surface
+
+
 @pytest.fixture(autouse=True)
 def _isolate_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Some tests create pyproject.toml in tmp_path; make sure detection does

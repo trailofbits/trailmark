@@ -196,6 +196,44 @@ _DART_VM_ENTRY_POINT = re.compile(
     r"^\s*@\s*pragma\s*\(\s*['\"]vm:entry-point['\"]",
 )
 
+# Go — `http.HandleFunc("/path", handler)` / `http.Handle("/path", h)`.
+# The stdlib net/http registrations accept a string path and a handler
+# reference.
+_GO_HTTP_HANDLE = re.compile(
+    r"\bhttp\.(HandleFunc|Handle)\s*\(\s*\"[^\"]*\"\s*,\s*([A-Za-z_][\w.]*)",
+)
+
+# Go — gin/chi/echo/fiber route registration: `<router>.<VERB>("/path", handler)`.
+# Matches GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS on any receiver. This is
+# looser than the stdlib pattern so it catches most community routers,
+# at the cost of possibly matching non-HTTP methods on unrelated types.
+_GO_ROUTER_VERB = re.compile(
+    r"\b([A-Za-z_]\w*)\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|Any|Match)"
+    r"\s*\(\s*\"[^\"]*\"\s*,\s*([A-Za-z_][\w.]*)",
+)
+
+# Ruby — Rails controller: `class FooController < ApplicationController`
+# (or any ActionController base / another controller).
+_RUBY_RAILS_CONTROLLER_CLASS = re.compile(
+    r"^\s*class\s+(\w+)\s*<\s*(ApplicationController|ActionController::\w+|\w+Controller)\b",
+)
+
+# Ruby — Sidekiq worker: either `include Sidekiq::Worker` or
+# `include Sidekiq::Job` inside a class body.
+_RUBY_SIDEKIQ_INCLUDE = re.compile(
+    r"^\s*include\s+Sidekiq::(Worker|Job)\b",
+)
+
+# C / C++ — explicit library export markers on the signature line.
+#   extern "C" ...             (C++ C-linkage declaration)
+#   __attribute__((visibility("default")))
+#   __declspec(dllexport)
+_C_EXPORT_MARKERS = re.compile(
+    r'\bextern\s+"C"'
+    r'|__attribute__\s*\(\s*\(\s*visibility\s*\(\s*"default"'
+    r"|__declspec\s*\(\s*dllexport\s*\)",
+)
+
 _KIND_BY_NAME = {k.value: k for k in EntrypointKind}
 _TRUST_BY_NAME = {t.value: t for t in TrustLevel}
 _ASSET_BY_NAME = {a.value: a for a in AssetValue}
@@ -292,6 +330,12 @@ def _detect_for_unit(
         return _detect_kotlin(cache, unit, path)
     if path.endswith(".dart"):
         return _detect_dart(cache, unit, path)
+    if path.endswith(".go"):
+        return _detect_go(cache, unit, path)
+    if path.endswith(".rb"):
+        return _detect_ruby(cache, unit, path)
+    if path.endswith((".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".hxx")):
+        return _detect_c_cpp(cache, unit, path)
     return None
 
 
@@ -719,6 +763,117 @@ def _detect_kotlin(
     return None
 
 
+def _detect_go(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    """Detect Go entrypoints via call-site route registrations.
+
+    Go has no annotation syntax for HTTP handlers — they're wired at
+    call sites like ``http.HandleFunc("/path", name)`` or
+    ``r.GET("/path", handler)``. For each file we compile the set of
+    function names referenced as handlers, then tag matching nodes.
+    Registrations that pass anonymous closures or method expressions
+    (``obj.Method``) are also captured — the second form is recorded
+    dotted; we tag any node whose basename matches.
+    """
+    handlers = cache.go_http_handler_names(path)
+    if not handlers:
+        return None
+    if unit.name in handlers:
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Go HTTP handler (net/http or router DSL)",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
+def _detect_ruby(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    """Detect Ruby entrypoints: Rails controller actions and Sidekiq workers.
+
+    Rails controllers are classes that inherit from
+    ``ApplicationController`` / ``ActionController::*`` — every public
+    instance method of such a class is an action. We tag any method
+    whose node id starts with ``<Module>:<ClassName>.`` and whose class
+    name appears in the file's controller set.
+
+    Sidekiq workers are classes that ``include Sidekiq::Worker`` /
+    ``include Sidekiq::Job``. Their ``perform`` method handles queue
+    messages — only that one method is tagged per worker class.
+    """
+    controllers = cache.ruby_rails_controller_classes(path)
+    workers = cache.ruby_sidekiq_worker_classes(path)
+    if not controllers and not workers:
+        return None
+
+    # Node IDs look like "module:ClassName.method" for methods, or just
+    # "module:ClassName" for the class itself. Only tag method nodes.
+    if unit.kind.value != "method":
+        return None
+    node_id = unit.id
+    if ":" not in node_id or "." not in node_id:
+        return None
+    class_part = node_id.split(":", 1)[1].split(".", 1)[0]
+    if class_part in controllers:
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Rails controller action",
+            asset_value=AssetValue.HIGH,
+        )
+    if class_part in workers and unit.name == "perform":
+        return EntrypointTag(
+            kind=EntrypointKind.THIRD_PARTY,
+            trust_level=TrustLevel.SEMI_TRUSTED_EXTERNAL,
+            description="Sidekiq worker perform method",
+            asset_value=AssetValue.MEDIUM,
+        )
+    return None
+
+
+def _detect_c_cpp(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    """Detect C / C++ library exports by explicit linkage markers.
+
+    Matches ``extern "C"``, ``__attribute__((visibility("default")))``,
+    and ``__declspec(dllexport)`` on or just above the signature line.
+    Plain non-``static`` functions in headers are NOT flagged by default
+    because that inversion ("everything not static is exported") is too
+    broad for audit purposes — use the override file for projects where
+    that's the intent.
+    """
+    # Explicit markers sometimes appear on the line above the signature
+    # (e.g. `__declspec(dllexport)\nint foo(...)`), so scan both.
+    signature = cache.signature_block(path, unit.location.start_line) or ""
+    if _C_EXPORT_MARKERS.search(signature):
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description='C/C++ exported symbol (extern "C" / visibility / dllexport)',
+            asset_value=AssetValue.HIGH,
+        )
+    # Also check one line above — some projects put the attribute on its own line.
+    above = cache.line(path, unit.location.start_line - 1) or ""
+    if _C_EXPORT_MARKERS.search(above):
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description='C/C++ exported symbol (extern "C" / visibility / dllexport)',
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
 def _detect_dart(
     cache: _SourceCache,
     unit: CodeUnit,
@@ -770,6 +925,7 @@ class _SourceCache:
 
     def __init__(self) -> None:
         self._lines: dict[str, list[str]] = {}
+        self._scan_cache: dict[str, set[str]] = {}
 
     def _read(self, path: str) -> list[str]:
         cached = self._lines.get(path)
@@ -793,6 +949,72 @@ class _SourceCache:
     def iter_lines(self, path: str) -> list[str]:
         """Return all lines of the file (cached) for whole-file scans."""
         return self._read(path)
+
+    def go_http_handler_names(self, path: str) -> set[str]:
+        """Extract Go HTTP handler names registered in the file.
+
+        Scans for ``http.HandleFunc("/path", name)``, ``http.Handle(...)``,
+        and router-DSL shapes like ``r.GET("/path", handler)``. The
+        handler reference is usually a bare identifier (``handler``) but
+        can be a method expression (``obj.Method``); we record the last
+        dotted segment for lookup against Trailmark node names.
+        """
+        key = f"go_handlers::{path}"
+        cached = self._scan_cache.get(key)
+        if cached is not None:
+            return cached
+        names: set[str] = set()
+        for line in self._read(path):
+            for match in _GO_HTTP_HANDLE.finditer(line):
+                names.add(match.group(2).rsplit(".", 1)[-1])
+            for match in _GO_ROUTER_VERB.finditer(line):
+                names.add(match.group(3).rsplit(".", 1)[-1])
+        self._scan_cache[key] = names
+        return names
+
+    def ruby_rails_controller_classes(self, path: str) -> set[str]:
+        """Extract class names that inherit from Rails controller bases."""
+        key = f"ruby_rails::{path}"
+        cached = self._scan_cache.get(key)
+        if cached is not None:
+            return cached
+        names: set[str] = set()
+        for line in self._read(path):
+            match = _RUBY_RAILS_CONTROLLER_CLASS.match(line)
+            if match:
+                names.add(match.group(1))
+        self._scan_cache[key] = names
+        return names
+
+    def ruby_sidekiq_worker_classes(self, path: str) -> set[str]:
+        """Return class names whose body contains ``include Sidekiq::Worker``.
+
+        Tracked by scanning for the include directive and associating it
+        with the most recently opened ``class <Name>`` block. This is a
+        one-level heuristic — nested classes aren't perfectly modeled —
+        but matches idiomatic Sidekiq worker layout.
+        """
+        key = f"ruby_sidekiq::{path}"
+        cached = self._scan_cache.get(key)
+        if cached is not None:
+            return cached
+        names: set[str] = set()
+        class_stack: list[str] = []
+        for line in self._read(path):
+            stripped = line.strip()
+            # Crude class-open / class-close tracking. Good enough for
+            # typical worker files, not a general Ruby parser.
+            class_open = re.match(r"^\s*class\s+(\w+)\b", line)
+            if class_open:
+                class_stack.append(class_open.group(1))
+                continue
+            if stripped == "end" and class_stack:
+                class_stack.pop()
+                continue
+            if class_stack and _RUBY_SIDEKIQ_INCLUDE.match(line):
+                names.add(class_stack[-1])
+        self._scan_cache[key] = names
+        return names
 
     def decorators_above(self, path: str, start_line: int) -> list[str]:
         """Return decorator-style lines around ``start_line``.

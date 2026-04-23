@@ -297,6 +297,9 @@ Framework coverage:
 | Objective-C | `UIApplicationDelegate` lifecycle selectors (e.g. `application:openURL:options:`) |
 | Kotlin | Spring MVC / WebFlux annotations (shared with Java), Android component lifecycle methods (`onCreate`, `onReceive`, `onBind`, ...) |
 | Dart | `@pragma('vm:entry-point')` native-callable markers |
+| Go | `http.HandleFunc` / `http.Handle` stdlib registrations, gin/chi/echo-style `<router>.GET/POST/...` handler registrations |
+| Ruby | Rails controller actions (classes inheriting `ApplicationController` / `ActionController::*`), Sidekiq worker `perform` methods |
+| C / C++ | `extern "C"` linkage, `__attribute__((visibility("default")))`, `__declspec(dllexport)` |
 
 For anything the heuristics miss, declare entrypoints explicitly in `.trailmark/entrypoints.toml` at the project root:
 

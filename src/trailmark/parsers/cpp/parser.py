@@ -127,6 +127,11 @@ def _visit_top_level_node(
             module_id,
             graph,
         )
+    elif child.type == "linkage_specification":
+        # `extern "C" { ... }` wraps nested declarations — unwrap and
+        # dispatch each child back through this visitor.
+        for nested in child.children:
+            _visit_top_level_node(nested, file_path, module_id, class_id, graph)
     elif child.type == "class_specifier":
         _extract_class(child, file_path, module_id, graph)
     elif child.type == "struct_specifier":
