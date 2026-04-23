@@ -37,6 +37,7 @@ from trailmark.parsers._common import (
     add_module_node,
     collect_body_info,
     compute_complexity,
+    first_child_by_type,
     make_location,
     module_id_from_path,
     node_text,
@@ -135,7 +136,7 @@ def _extract_class_like(
     graph: CodeGraph,
 ) -> None:
     """Extract a Kotlin class / interface / data class / object."""
-    name_node = _first_child_by_type(node, "type_identifier")
+    name_node = first_child_by_type(node, "type_identifier")
     if name_node is None:
         return
     class_name = node_text(name_node)
@@ -149,9 +150,9 @@ def _extract_class_like(
     )
     add_contains_edge(graph, module_id, class_id)
 
-    body = _first_child_by_type(node, "class_body")
+    body = first_child_by_type(node, "class_body")
     if body is None:
-        body = _first_child_by_type(node, "enum_class_body")
+        body = first_child_by_type(node, "enum_class_body")
     if body is None:
         return
     for member in body.children:
@@ -192,7 +193,7 @@ def _extract_function(
     graph: CodeGraph,
 ) -> None:
     """Extract a Kotlin function (top-level or method)."""
-    name_node = _first_child_by_type(node, "simple_identifier")
+    name_node = first_child_by_type(node, "simple_identifier")
     if name_node is None:
         return
     func_name = node_text(name_node)
@@ -201,7 +202,7 @@ def _extract_function(
 
     params = _extract_parameters(node)
     return_type = _extract_return_type(node)
-    body = _first_child_by_type(node, "function_body")
+    body = first_child_by_type(node, "function_body")
 
     branches, exception_types, calls = _collect_func_body(body, file_path)
     complexity = compute_complexity(branches)
@@ -225,7 +226,7 @@ def _extract_function(
 
 def _extract_parameters(node: Node) -> list[Parameter]:
     """Extract parameters from a function_declaration."""
-    plist = _first_child_by_type(node, "function_value_parameters")
+    plist = first_child_by_type(node, "function_value_parameters")
     if plist is None:
         return []
     params: list[Parameter] = []
@@ -312,10 +313,3 @@ def _extract_import(node: Node, graph: CodeGraph) -> None:
             dep = raw.rsplit(".", 1)[-1]
             if dep and dep not in graph.dependencies:
                 graph.dependencies.append(dep)
-
-
-def _first_child_by_type(node: Node, type_name: str) -> Node | None:
-    for child in node.children:
-        if child.type == type_name:
-            return child
-    return None

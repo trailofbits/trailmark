@@ -239,3 +239,14 @@ def add_contains_edge(
             kind=EdgeKind.CONTAINS,
         )
     )
+
+
+def first_child_by_type(node: Node, type_name: str) -> Node | None:
+    """Return the first direct child of ``node`` whose type matches.
+
+    Shared helper used by parsers that hand-walk AST children by type.
+    """
+    for child in node.children:
+        if child.type == type_name:
+            return child
+    return None

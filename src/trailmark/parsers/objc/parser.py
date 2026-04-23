@@ -38,6 +38,7 @@ from trailmark.parsers._common import (
     add_module_node,
     collect_body_info,
     compute_complexity,
+    first_child_by_type,
     make_location,
     module_id_from_path,
     node_text,
@@ -266,7 +267,7 @@ def _extract_method_definition(
     method_id = f"{class_id}.{selector}"
     params = _extract_objc_parameters(node)
     return_type = _extract_objc_return_type(node)
-    body = _first_child_by_type(node, "compound_statement")
+    body = first_child_by_type(node, "compound_statement")
 
     branches, exception_types, calls = _collect_func_body(body, file_path)
     complexity = compute_complexity(branches)
@@ -355,11 +356,11 @@ def _extract_c_parameters(node: Node) -> list[Parameter]:
     declarator = node.child_by_field_name("declarator")
     if declarator is None:
         return []
-    plist = _first_child_by_type(declarator, "parameter_list")
+    plist = first_child_by_type(declarator, "parameter_list")
     if plist is None:
         # Could be wrapped one level deeper (function_declarator).
         for child in declarator.children:
-            nested = _first_child_by_type(child, "parameter_list")
+            nested = first_child_by_type(child, "parameter_list")
             if nested is not None:
                 plist = nested
                 break
@@ -445,13 +446,6 @@ def _extract_import(node: Node, graph: CodeGraph) -> None:
             dep = raw.rsplit("/", 1)[-1].removesuffix(".h")
             if dep and dep not in graph.dependencies:
                 graph.dependencies.append(dep)
-
-
-def _first_child_by_type(node: Node, type_name: str) -> Node | None:
-    for child in node.children:
-        if child.type == type_name:
-            return child
-    return None
 
 
 def _first_identifier_text(node: Node) -> str:

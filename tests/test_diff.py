@@ -190,14 +190,83 @@ class TestQueryEngineIntegration:
 
 
 class TestFormatDiff:
+    """Precise assertions on format_diff's human-readable output.
+
+    These tests lock in every visible token — headers, line prefixes,
+    separators, truncation wording — so string-mutating mutants don't
+    silently survive.
+    """
+
     def test_empty_diff_returns_no_changes(self) -> None:
         assert format_diff({}) == "No structural changes."
 
-    def test_format_renders_summary_and_nodes(self) -> None:
+    def test_empty_dict_with_no_changes_returns_no_changes(self) -> None:
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        assert format_diff(diff) == "No structural changes."
+
+    def test_summary_header_present(self) -> None:
+        diff = {
+            "summary_delta": {"nodes": {"before": 1, "after": 2, "delta": 1}},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        assert "Summary:" in format_diff(diff)
+
+    def test_summary_renders_each_metric(self) -> None:
         diff = {
             "summary_delta": {
                 "nodes": {"before": 10, "after": 12, "delta": 2},
+                "edges": {"before": 5, "after": 3, "delta": -2},
+                "entrypoints": {"before": 0, "after": 4, "delta": 4},
             },
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert "nodes: 10 -> 12 (+2)" in out
+        assert "edges: 5 -> 3 (-2)" in out
+        assert "entrypoints: 0 -> 4 (+4)" in out
+
+    def test_positive_delta_gets_plus_sign(self) -> None:
+        diff = {
+            "summary_delta": {"nodes": {"before": 1, "after": 3, "delta": 2}},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        assert "(+2)" in format_diff(diff)
+
+    def test_zero_delta_still_shown_with_plus(self) -> None:
+        # `delta == 0` meets the `>= 0` guard so it gets the plus sign.
+        diff = {
+            "summary_delta": {"nodes": {"before": 5, "after": 5, "delta": 0}},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        assert "(+0)" in format_diff(diff)
+
+    def test_negative_delta_has_no_extra_plus(self) -> None:
+        diff = {
+            "summary_delta": {"nodes": {"before": 5, "after": 3, "delta": -2}},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert "(-2)" in out
+        assert "(+-2)" not in out
+
+    def test_added_nodes_section(self) -> None:
+        diff = {
+            "summary_delta": {},
             "nodes": {
                 "added": [
                     {"id": "mod:new", "kind": "function", "file": "mod.py"},
@@ -209,8 +278,213 @@ class TestFormatDiff:
             "entrypoints": {"added": [], "removed": [], "modified": []},
         }
         out = format_diff(diff)
-        assert "nodes: 10 -> 12 (+2)" in out
-        assert "+ mod:new" in out
+        assert "Added nodes (1):" in out
+        assert "+ mod:new  (function, mod.py)" in out
+
+    def test_removed_nodes_section(self) -> None:
+        diff = {
+            "summary_delta": {},
+            "nodes": {
+                "added": [],
+                "removed": [
+                    {"id": "mod:gone", "kind": "method", "file": "old.py"},
+                ],
+                "modified": [],
+            },
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert "Removed nodes (1):" in out
+        assert "- mod:gone  (method, old.py)" in out
+
+    def test_modified_nodes_section_with_complexity(self) -> None:
+        diff = {
+            "summary_delta": {},
+            "nodes": {
+                "added": [],
+                "removed": [],
+                "modified": [
+                    {
+                        "id": "mod:grew",
+                        "changes": {
+                            "cyclomatic_complexity": {
+                                "before": 2,
+                                "after": 9,
+                            },
+                        },
+                    },
+                ],
+            },
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert "Modified nodes (1):" in out
+        assert "~ mod:grew  (cyclomatic_complexity)" in out
+        assert "complexity: 2 -> 9" in out
+
+    def test_modified_nodes_truncates_after_twenty(self) -> None:
+        modified = [
+            {"id": f"mod:n{i}", "changes": {"parameters": {"before": [], "after": []}}}
+            for i in range(25)
+        ]
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": [], "removed": [], "modified": modified},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert "Modified nodes (25):" in out
+        assert "... and 5 more" in out
+        # First 20 shown, last five collapsed.
+        assert "~ mod:n19  " in out
+        assert "~ mod:n20  " not in out
+
+    def test_added_nodes_truncates_after_twenty(self) -> None:
+        added = [{"id": f"mod:a{i}", "kind": "function", "file": "f.py"} for i in range(22)]
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": added, "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert "Added nodes (22):" in out
+        assert "... and 2 more" in out
+
+    def test_entrypoint_added_section(self) -> None:
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {
+                "added": [
+                    {
+                        "id": "app:login",
+                        "kind": "api",
+                        "trust_level": "untrusted_external",
+                        "asset_value": "high",
+                    },
+                ],
+                "removed": [],
+                "modified": [],
+            },
+        }
+        out = format_diff(diff)
+        assert "Attack surface:" in out
+        assert "+ entrypoint app:login  (api, trust=untrusted_external, asset=high)" in out
+
+    def test_entrypoint_removed_section(self) -> None:
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {
+                "added": [],
+                "removed": [
+                    {
+                        "id": "app:old",
+                        "kind": "user_input",
+                        "trust_level": "trusted_internal",
+                        "asset_value": "low",
+                    },
+                ],
+                "modified": [],
+            },
+        }
+        out = format_diff(diff)
+        assert "Attack surface:" in out
+        assert "- entrypoint app:old  (user_input, trust=trusted_internal, asset=low)" in out
+
+    def test_entrypoint_modified_trust_change(self) -> None:
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {
+                "added": [],
+                "removed": [],
+                "modified": [
+                    {
+                        "id": "svc:dispatch",
+                        "before": {
+                            "kind": "api",
+                            "trust_level": "semi_trusted_external",
+                            "asset_value": "low",
+                        },
+                        "after": {
+                            "kind": "api",
+                            "trust_level": "untrusted_external",
+                            "asset_value": "low",
+                        },
+                    },
+                ],
+            },
+        }
+        out = format_diff(diff)
+        assert "~ entrypoint svc:dispatch" in out
+        assert "trust: semi_trusted_external -> untrusted_external" in out
+        assert "asset:" not in out  # unchanged
+
+    def test_entrypoint_modified_asset_change(self) -> None:
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {
+                "added": [],
+                "removed": [],
+                "modified": [
+                    {
+                        "id": "svc:upgrade",
+                        "before": {
+                            "kind": "api",
+                            "trust_level": "untrusted_external",
+                            "asset_value": "low",
+                        },
+                        "after": {
+                            "kind": "api",
+                            "trust_level": "untrusted_external",
+                            "asset_value": "high",
+                        },
+                    },
+                ],
+            },
+        }
+        out = format_diff(diff)
+        assert "asset: low -> high" in out
+        assert "trust:" not in out  # unchanged
+
+    def test_edges_count_line(self) -> None:
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {
+                "added": [
+                    {"source": "a", "target": "b", "kind": "calls"},
+                    {"source": "a", "target": "c", "kind": "calls"},
+                ],
+                "removed": [
+                    {"source": "x", "target": "y", "kind": "calls"},
+                ],
+            },
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert "Edges: +2  -1" in out
+
+    def test_output_has_no_trailing_whitespace(self) -> None:
+        diff = {
+            "summary_delta": {"nodes": {"before": 1, "after": 2, "delta": 1}},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert out == out.rstrip()
+        assert not out.endswith("\n")
 
 
 class TestGitWorktree:

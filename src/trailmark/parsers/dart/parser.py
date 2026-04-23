@@ -43,6 +43,7 @@ from trailmark.parsers._common import (
     add_module_node,
     collect_body_info,
     compute_complexity,
+    first_child_by_type,
     make_location,
     module_id_from_path,
     node_text,
@@ -200,7 +201,7 @@ def _extract_class(
     graph: CodeGraph,
 ) -> None:
     """Extract a Dart class (including abstract classes)."""
-    name_node = _first_child_by_type(node, "identifier")
+    name_node = first_child_by_type(node, "identifier")
     if name_node is None:
         return
     class_name = node_text(name_node)
@@ -213,7 +214,7 @@ def _extract_class(
     )
     add_contains_edge(graph, module_id, class_id)
 
-    body = _first_child_by_type(node, "class_body")
+    body = first_child_by_type(node, "class_body")
     if body is None:
         return
     _walk_siblings(body.children, file_path, module_id, class_id, graph)
@@ -275,7 +276,7 @@ def _extract_function_from_signature(
 def _unwrap_method_signature(node: Node) -> Node:
     """Return the inner function_signature inside a method_signature wrapper."""
     if node.type == "method_signature":
-        inner = _first_child_by_type(node, "function_signature")
+        inner = first_child_by_type(node, "function_signature")
         if inner is not None:
             return inner
     return node
@@ -301,7 +302,7 @@ def _function_name_node(signature: Node) -> Node | None:
 
 def _extract_parameters(signature: Node) -> list[Parameter]:
     """Extract parameters from a function_signature's formal_parameter_list."""
-    plist = _first_child_by_type(signature, "formal_parameter_list")
+    plist = first_child_by_type(signature, "formal_parameter_list")
     if plist is None:
         return []
     params: list[Parameter] = []
@@ -466,7 +467,7 @@ def _extract_import(node: Node, graph: CodeGraph) -> None:
 
 
 def _extract_library_import(node: Node, graph: CodeGraph) -> None:
-    spec = _first_child_by_type(node, "import_specification")
+    spec = first_child_by_type(node, "import_specification")
     if spec is None:
         return
     raw_text = node_text(spec)
@@ -495,10 +496,3 @@ def _merge_locations(
         start_col=start_node.start_point.column,
         end_col=end_node.end_point.column,
     )
-
-
-def _first_child_by_type(node: Node, type_name: str) -> Node | None:
-    for child in node.children:
-        if child.type == type_name:
-            return child
-    return None
