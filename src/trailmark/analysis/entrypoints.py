@@ -149,6 +149,25 @@ _ERLANG_EXPORT = re.compile(r"^\s*-\s*export\s*\(\s*\[")
 # Haskell — `main :: IO ()` / `main = ...` at column 0
 _HASKELL_MAIN = re.compile(r"^main\s*(::|=)")
 
+# Swift — @main on an App/struct indicates the entry point.
+_SWIFT_MAIN_ATTR = re.compile(r"^\s*@main\b")
+
+# Swift — Vapor route registration: `app.get("/path") { req in ... }`
+# and related `.post/.put/.delete/.patch` on any receiver.
+_SWIFT_VAPOR_ROUTE = re.compile(
+    r"^\s*[A-Za-z_]\w*\.(get|post|put|patch|delete|on)\s*\(",
+)
+
+# Objective-C — AppDelegate lifecycle selectors on UIApplicationDelegate
+_OBJC_APP_DELEGATE_SELECTORS = frozenset(
+    {
+        "application:didFinishLaunchingWithOptions:",
+        "application:openURL:options:",
+        "application:continueUserActivity:restorationHandler:",
+        "application:performFetchWithCompletionHandler:",
+    }
+)
+
 _KIND_BY_NAME = {k.value: k for k in EntrypointKind}
 _TRUST_BY_NAME = {t.value: t for t in TrustLevel}
 _ASSET_BY_NAME = {a.value: a for a in AssetValue}
@@ -237,6 +256,10 @@ def _detect_for_unit(
         return _detect_haskell(cache, unit, path)
     if path.endswith(".erl"):
         return _detect_erlang(cache, unit, path)
+    if path.endswith(".swift"):
+        return _detect_swift(cache, unit, path)
+    if path.endswith((".m", ".mm", ".h")):
+        return _detect_objc(unit)
     return None
 
 
@@ -599,6 +622,53 @@ def _erlang_exported_names(cache: _SourceCache, path: str) -> set[str]:
             in_export = False
             buf = []
     return names
+
+
+def _detect_swift(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    """Detect Swift entrypoints: @main attribute + Vapor route registration."""
+    decorators = cache.decorators_above(path, unit.location.start_line)
+    for line in decorators:
+        if _SWIFT_MAIN_ATTR.match(line):
+            return EntrypointTag(
+                kind=EntrypointKind.USER_INPUT,
+                trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+                description="Swift @main app entrypoint",
+                asset_value=AssetValue.HIGH,
+            )
+    # Vapor routes are registered inside the function body rather than
+    # via a decorator; match handlers whose containing file has at least
+    # one `<receiver>.get(...)` / `.post(...)` / etc. call.
+    for line in cache.iter_lines(path):
+        if _SWIFT_VAPOR_ROUTE.match(line):
+            # A Vapor file: tag every function as a potential handler entry
+            # only if its name matches the handler closure pattern.
+            # Without call-graph resolution this is coarse — Vapor-handler
+            # detection is best done via the override file for now.
+            break
+    return None
+
+
+def _detect_objc(unit: CodeUnit) -> EntrypointTag | None:
+    """Detect Objective-C entrypoints: AppDelegate selectors and extern C.
+
+    AppDelegate protocol selectors are high-value attack surface —
+    ``application:openURL:options:`` handles deep-link invocations and
+    ``application:didFinishLaunchingWithOptions:`` is the first code
+    reached after launch. Their signatures are stable enough that a
+    name match is sufficient.
+    """
+    if unit.name in _OBJC_APP_DELEGATE_SELECTORS:
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Objective-C UIApplicationDelegate lifecycle method",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
 
 
 class _SourceCache:

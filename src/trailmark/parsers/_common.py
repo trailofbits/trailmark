@@ -179,6 +179,8 @@ _CALL_NAME_TYPES = frozenset(
         "member_expression",
         "scoped_identifier",
         "selector_expression",
+        "simple_identifier",  # Swift
+        "navigation_expression",  # Swift dot access (e.g. self.method)
     }
 )
 
@@ -187,6 +189,11 @@ def extract_call_name(node: Node) -> str:
     """Extract the function/method name from a call node."""
     func = node.child_by_field_name("function")
     if func is None:
+        # Fallback for grammars that don't label the callable (e.g. Swift):
+        # the callable is conventionally the first named child.
+        for child in node.children:
+            if child.type in _CALL_NAME_TYPES:
+                return node_text(child)
         return ""
     if func.type in _CALL_NAME_TYPES:
         return node_text(func)

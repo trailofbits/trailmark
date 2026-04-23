@@ -226,6 +226,7 @@ _LANGUAGE_ALIASES = {
     "c++": "cpp",
     "c#": "c_sharp",
     "miden assembly": "masm",
+    "objective-c": "objc",
 }
 
 

@@ -542,6 +542,50 @@ class TestErlang:
         assert "internal_only" not in exported_names, surface
 
 
+class TestSwift:
+    def test_at_main_attribute_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "app.swift").write_text(
+            "@main\nstruct App {\n    static func main() {}\n}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="swift")
+        surface = engine.attack_surface()
+        descriptions = [ep.get("description") or "" for ep in surface]
+        assert any("Swift @main" in d for d in descriptions), surface
+
+
+class TestObjectiveC:
+    def test_app_delegate_selector_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "AppDelegate.m").write_text(
+            "#import <UIKit/UIKit.h>\n"
+            "@interface AppDelegate : NSObject\n"
+            "- (BOOL)application:(UIApplication *)app "
+            "didFinishLaunchingWithOptions:(NSDictionary *)opts;\n"
+            "@end\n"
+            "@implementation AppDelegate\n"
+            "- (BOOL)application:(UIApplication *)app "
+            "didFinishLaunchingWithOptions:(NSDictionary *)opts {\n"
+            "    return YES;\n"
+            "}\n"
+            "@end\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="objc")
+        surface = engine.attack_surface()
+        descriptions = [ep.get("description") or "" for ep in surface]
+        assert any("UIApplicationDelegate" in d for d in descriptions), surface
+
+    def test_non_app_method_not_flagged(self, tmp_path: Path) -> None:
+        (tmp_path / "Foo.m").write_text(
+            "@interface Foo : NSObject\n"
+            "- (void)helper;\n"
+            "@end\n"
+            "@implementation Foo\n"
+            "- (void)helper { }\n"
+            "@end\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="objc")
+        assert engine.attack_surface() == []
+
+
 @pytest.fixture(autouse=True)
 def _isolate_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Some tests create pyproject.toml in tmp_path; make sure detection does

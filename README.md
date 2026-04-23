@@ -59,6 +59,8 @@ A language-specific parser walks the directory, parses each file into a tree-sit
 | Haskell | `.hs` | functions, data types, type classes, instances |
 | Erlang | `.erl` | functions, records, behaviours, modules |
 | Miden Assembly | `.masm` | procedures, entrypoints, constants, invocations |
+| Swift | `.swift` | functions, classes, structs, enums, protocols, extensions |
+| Objective-C | `.m`, `.mm`, `.h` | C functions, classes, methods (selector-based naming) |
 
 ```mermaid
 flowchart TD
@@ -289,6 +291,8 @@ Framework coverage:
 | Miden Assembly | `export.<name>` directives |
 | Haskell | top-level `main ::` / `main =` |
 | Erlang | functions listed in `-export([...])` |
+| Swift | `@main` app attribute |
+| Objective-C | `UIApplicationDelegate` lifecycle selectors (e.g. `application:openURL:options:`) |
 
 For anything the heuristics miss, declare entrypoints explicitly in `.trailmark/entrypoints.toml` at the project root:
 
