@@ -1,3 +1,3 @@
 """Trailmark: Parse source code into queryable graphs for security analysis."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.3"

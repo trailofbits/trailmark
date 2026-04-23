@@ -46,7 +46,7 @@ _FUNCTION_DECL_TYPES = frozenset({"function_declaration", "generator_function_de
 
 _FUNCTION_EXPR_TYPES = frozenset({"arrow_function", "function", "function_expression"})
 
-_EXTENSIONS = (".js", ".jsx")
+_EXTENSIONS = (".js", ".jsx", ".mjs", ".cjs")
 
 
 class JavaScriptParser:
@@ -69,7 +69,7 @@ class JavaScriptParser:
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
-        """Parse all .js/.jsx files under dir_path."""
+        """Parse all supported JavaScript files under ``dir_path``."""
         return parse_directory(
             self.parse_file,
             "javascript",

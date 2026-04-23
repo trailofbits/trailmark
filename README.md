@@ -43,7 +43,7 @@ A language-specific parser walks the directory, parses each file into a tree-sit
 | Language | Extensions | Key constructs |
 | --- | --- | --- |
 | Python | `.py` | functions, classes, methods |
-| JavaScript | `.js`, `.jsx` | functions, classes, arrow functions |
+| JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | functions, classes, arrow functions |
 | TypeScript | `.ts`, `.tsx` | functions, classes, interfaces, enums |
 | PHP | `.php` | functions, classes, interfaces, traits |
 | Ruby | `.rb` | methods, classes, modules |
@@ -111,11 +111,17 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | `attack_surface()` | Entrypoints tagged with trust level and asset value |
 | `complexity_hotspots(n)` | Functions with cyclomatic complexity &ge; n |
 | `functions_that_raise(exc)` | Functions whose parser-detected exception list includes `exc` |
-| `annotate(name, kind, desc, source)` | Add a semantic annotation to a node |
+| `annotate(name, kind, description, source)` | Add a semantic annotation to a node |
 | `annotations_of(name, kind=None)` | Get annotations for a node, optionally filtered by kind |
 | `nodes_with_annotation(kind)` | Every node tagged with the given annotation kind |
 | `clear_annotations(name, kind=None)` | Remove annotations from a node |
 | `diff_against(other)` | Structural diff of this engine's graph vs. another |
+| `preanalysis()` | Run the built-in pre-analysis passes and store annotations/subgraphs |
+| `augment_sarif(path)` | Merge SARIF findings into the graph |
+| `augment_weaudit(path)` | Merge weAudit findings into the graph |
+| `findings(kind=None)` | Return nodes carrying finding-style annotations |
+| `subgraph(name)` | Return the nodes in a named subgraph |
+| `subgraph_names()` | List every named subgraph currently on the graph |
 | `summary()` | Node counts, edge counts, dependencies |
 | `to_json()` | Full graph export |
 
@@ -220,8 +226,16 @@ graph TD
 
 ## Installation
 
+The examples below track the current development branch. For the latest
+published package, install from PyPI. For the exact feature set described
+here, install from a checkout and run commands via `uv run`.
+
 ```bash
+# Latest published release
 uv pip install trailmark
+
+# Current checkout / development branch
+uv sync --all-groups
 ```
 
 Requires Python &ge; 3.12.
@@ -394,6 +408,15 @@ before = QueryEngine.from_directory("before/")
 diff = engine.diff_against(before)
 # diff contains: summary_delta, nodes {added/removed/modified},
 # edges {added/removed}, entrypoints {added/removed/modified}
+
+# Run the built-in audit-oriented preanalysis passes
+engine.preanalysis()
+engine.findings()
+engine.subgraph_names()
+
+# Programmatic augmentation hooks for external tooling
+engine.augment_sarif("results.sarif")
+engine.augment_weaudit("findings.json")
 ```
 
 ## Development
@@ -410,7 +433,7 @@ uv run ruff format
 uv tool install ty && ty check
 
 # Tests
-uv run pytest -q
+uv run pytest -q tests/
 
 # Mutation testing (on macOS, set this env var to avoid rustworkx fork segfaults)
 OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES uv run mutmut run

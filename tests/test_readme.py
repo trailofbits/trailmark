@@ -16,7 +16,9 @@ from typing import cast
 
 import pytest
 
+import trailmark
 from trailmark.cli import build_parser
+from trailmark.parsers.javascript.parser import _EXTENSIONS as JS_EXTENSIONS
 from trailmark.query.api import _PARSER_MAP, QueryEngine
 
 
@@ -72,6 +74,20 @@ class TestInstallation:
             )
 
 
+class TestPackageMetadata:
+    def test_dunder_version_matches_pyproject(
+        self,
+        pyproject_data: dict[str, object],
+    ) -> None:
+        """`trailmark.__version__` should match the packaged version."""
+        project_raw = pyproject_data.get("project")
+        assert isinstance(project_raw, dict), "pyproject.toml has no [project] table"
+        project = cast("dict[str, object]", project_raw)
+        version = project.get("version")
+        assert isinstance(version, str), "project.version is missing or not a string"
+        assert trailmark.__version__ == version
+
+
 class TestUsageSection:
     @pytest.fixture(scope="class")
     def cli_subcommands(self) -> set[str]:
@@ -108,6 +124,11 @@ class TestSupportedLanguages:
                 f"Parser `{key}` is registered but not documented in README"
             )
 
+    def test_javascript_extensions_match_parser(self, readme_text: str) -> None:
+        """README's JavaScript extension list should match the parser."""
+        extensions = _extract_extensions_for_language(readme_text, "JavaScript")
+        assert set(extensions) == set(JS_EXTENSIONS)
+
 
 class TestQueryEngineAPI:
     EXPECTED_METHODS = (
@@ -125,6 +146,12 @@ class TestQueryEngineAPI:
         "nodes_with_annotation",
         "clear_annotations",
         "diff_against",
+        "preanalysis",
+        "augment_sarif",
+        "augment_weaudit",
+        "findings",
+        "subgraph",
+        "subgraph_names",
         "summary",
         "to_json",
     )
@@ -257,3 +284,22 @@ def _extract_languages_from_readme(readme_text: str) -> list[str]:
         langs.append(first_cell)
     assert langs, "No language rows parsed from Supported Languages table"
     return langs
+
+
+def _extract_extensions_for_language(readme_text: str, language: str) -> list[str]:
+    """Return the parsed extension list from a README Supported Languages row."""
+    section = re.search(
+        r"### Supported Languages\s*\n(.*?)(?=\n###|\n## )",
+        readme_text,
+        re.DOTALL,
+    )
+    assert section, "Could not find '### Supported Languages' section in README"
+    for line in section.group(1).splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if len(cells) < 2 or cells[0] != language:
+            continue
+        return [item.strip().strip("`") for item in cells[1].split(",") if item.strip()]
+    raise AssertionError(f"Could not find `{language}` row in Supported Languages table")

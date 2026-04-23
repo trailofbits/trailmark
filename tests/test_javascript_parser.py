@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -257,6 +258,18 @@ class TestJavaScriptExtraFeatures:
         graph = _parse_extra()
         names = {n.name for n in graph.nodes.values()}
         assert "ExportedWidget" in names
+
+
+class TestJavaScriptParserExtensions:
+    def test_parse_directory_includes_mjs_and_cjs(self, tmp_path: Path) -> None:
+        (tmp_path / "alpha.mjs").write_text("export function alpha() { return 1; }\n")
+        (tmp_path / "beta.cjs").write_text("function beta() { return 2; }\n")
+
+        graph = JavaScriptParser().parse_directory(str(tmp_path))
+
+        names = {n.name for n in graph.nodes.values()}
+        assert "alpha" in names
+        assert "beta" in names
 
     def test_rest_parameter(self) -> None:
         graph = _parse_extra()

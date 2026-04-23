@@ -46,6 +46,11 @@ class TestDetectLanguages:
     def test_missing_path_returns_empty(self, tmp_path: Path) -> None:
         assert detect_languages(str(tmp_path / "does-not-exist")) == []
 
+    def test_detects_modern_javascript_module_extensions(self, tmp_path: Path) -> None:
+        (tmp_path / "route.mjs").write_text("export function handler() {}\n")
+        (tmp_path / "worker.cjs").write_text("function worker() {}\n")
+        assert detect_languages(str(tmp_path)) == ["javascript"]
+
 
 class TestFromDirectoryAuto:
     def test_auto_detects_and_merges(self, tmp_path: Path) -> None:
@@ -117,3 +122,9 @@ class TestFromDirectoryAuto:
         surface = engine.attack_surface()
         assert len(surface) == 1
         assert surface[0]["node_id"] == "a:main"
+
+    def test_auto_parses_mjs_files_into_nodes(self, tmp_path: Path) -> None:
+        (tmp_path / "route.mjs").write_text("export function handler() { return 1; }\n")
+        engine = QueryEngine.from_directory(str(tmp_path), language="auto")
+        summary = engine.summary()
+        assert summary["functions"] >= 1
