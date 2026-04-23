@@ -10,7 +10,6 @@ from trailmark.models import (
     CodeEdge,
     CodeGraph,
     CodeUnit,
-    DeclaredContract,
     EdgeConfidence,
     EdgeKind,
     EntrypointKind,
@@ -19,7 +18,6 @@ from trailmark.models import (
     Parameter,
     SourceLocation,
     TrustLevel,
-    TypeConstraint,
     TypeRef,
 )
 
@@ -160,19 +158,6 @@ class TestAnnotations:
         tag = EntrypointTag(kind=EntrypointKind.USER_INPUT)
         assert tag.trust_level == TrustLevel.UNTRUSTED_EXTERNAL
         assert tag.asset_value == AssetValue.LOW
-
-    def test_declared_contract(self) -> None:
-        c = DeclaredContract(
-            parameter_types=(
-                TypeConstraint(
-                    parameter_name="x",
-                    declared_type="int",
-                ),
-            ),
-            return_constraint="str",
-        )
-        assert len(c.parameter_types) == 1
-        assert c.return_constraint == "str"
 
 
 class TestCodeGraph:

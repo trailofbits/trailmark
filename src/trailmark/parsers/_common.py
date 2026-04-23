@@ -7,17 +7,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from trailmark.models.annotations import (
-    DeclaredContract,
-    TypeConstraint,
-)
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
     BranchInfo,
     CodeUnit,
     NodeKind,
-    Parameter,
     SourceLocation,
     TypeRef,
 )
@@ -205,28 +200,6 @@ def extract_call_name(node: Node) -> str:
 def compute_complexity(branches: list[BranchInfo]) -> int:
     """Compute cyclomatic complexity from collected branches."""
     return 1 + len(branches)
-
-
-def build_contract(
-    params: list[Parameter],
-    return_type: TypeRef | None,
-) -> DeclaredContract | None:
-    """Build a DeclaredContract from extracted parameter types."""
-    constraints: list[TypeConstraint] = []
-    for p in params:
-        if p.type_ref is not None:
-            constraints.append(
-                TypeConstraint(
-                    parameter_name=p.name,
-                    declared_type=p.type_ref.name,
-                )
-            )
-    if not constraints and return_type is None:
-        return None
-    return DeclaredContract(
-        parameter_types=tuple(constraints),
-        return_constraint=return_type.name if return_type else None,
-    )
 
 
 def add_module_node(

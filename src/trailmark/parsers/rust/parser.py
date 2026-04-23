@@ -19,7 +19,6 @@ from trailmark.models.nodes import (
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
-    build_contract,
     collect_body_info,
     compute_complexity,
     make_location,
@@ -299,7 +298,6 @@ def _extract_function(
         file_path,
     )
     complexity = compute_complexity(branches)
-    contract = build_contract(params, return_type)
     docstring = _extract_docstring(node)
 
     unit = CodeUnit(
@@ -316,9 +314,6 @@ def _extract_function(
     )
     graph.nodes[func_id] = unit
     add_contains_edge(graph, owner, func_id)
-
-    if contract is not None:
-        graph.annotations.setdefault(func_id, [])
 
     _add_call_edges(
         calls,

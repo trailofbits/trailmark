@@ -4,11 +4,9 @@ from trailmark.models.annotations import (
     Annotation,
     AnnotationKind,
     AssetValue,
-    DeclaredContract,
     EntrypointKind,
     EntrypointTag,
     TrustLevel,
-    TypeConstraint,
 )
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -29,7 +27,6 @@ __all__ = [
     "CodeEdge",
     "CodeGraph",
     "CodeUnit",
-    "DeclaredContract",
     "EdgeConfidence",
     "EdgeKind",
     "EntrypointKind",
@@ -38,6 +35,5 @@ __all__ = [
     "Parameter",
     "SourceLocation",
     "TrustLevel",
-    "TypeConstraint",
     "TypeRef",
 ]

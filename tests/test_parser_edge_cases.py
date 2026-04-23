@@ -266,32 +266,27 @@ class TestLocationFields:
         assert branch_loc.start_col is not None
 
 
-class TestContractBuilding:
-    def test_contract_with_return_only(self) -> None:
+class TestTypeCapture:
+    def test_return_type_captured(self) -> None:
         code = "def f(x) -> int:\n    return x\n"
         _, graph = _parse_code(code)
         func = next(n for n in graph.nodes.values() if n.name == "f")
         assert func.return_type is not None
         assert func.return_type.name == "int"
 
-    def test_contract_with_typed_params(self) -> None:
-        """Typed params should create annotations entry."""
+    def test_typed_parameters_captured(self) -> None:
         code = "def f(x: int, y: str) -> bool:\n    return True\n"
         _, graph = _parse_code(code)
         func = next(n for n in graph.nodes.values() if n.name == "f")
         assert func.return_type is not None
         assert func.return_type.name == "bool"
         assert len(func.parameters) == 2
-        # Contract creates an annotations entry
-        assert func.id in graph.annotations
 
-    def test_no_contract_for_untyped(self) -> None:
-        """Functions with no types should not get annotation."""
+    def test_untyped_function_has_no_return_type(self) -> None:
         code = "def f(x):\n    return x\n"
         _, graph = _parse_code(code)
         func = next(n for n in graph.nodes.values() if n.name == "f")
         assert func.return_type is None
-        assert func.id not in graph.annotations
 
 
 class TestGenericReturnType:

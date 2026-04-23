@@ -63,26 +63,3 @@ class EntrypointTag:
     trust_level: TrustLevel = TrustLevel.UNTRUSTED_EXTERNAL
     description: str | None = None
     asset_value: AssetValue = AssetValue.LOW
-
-
-@dataclass(frozen=True)
-class TypeConstraint:
-    """A constraint on a parameter's type or value domain."""
-
-    parameter_name: str
-    declared_type: str | None = None
-    value_constraint: str | None = None
-
-
-@dataclass(frozen=True)
-class DeclaredContract:
-    """What a function declares it accepts/returns.
-
-    Captured from type annotations, docstrings, assertions,
-    and explicit validation. Separate from effective input domain,
-    which is determined by graph reachability analysis.
-    """
-
-    parameter_types: tuple[TypeConstraint, ...] = ()
-    return_constraint: str | None = None
-    validation_notes: tuple[str, ...] = ()
