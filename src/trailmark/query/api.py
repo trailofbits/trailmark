@@ -109,6 +109,40 @@ class QueryEngine:
             return []
         return [_unit_to_dict(u) for u in self._store.callees_of(node_id)]
 
+    def ancestors_of(self, name: str) -> list[dict[str, Any]]:
+        """Find every function/method that can transitively reach ``name``.
+
+        The dual of ``callees_of`` extended transitively: given a sensitive
+        sink, this surfaces every function that could eventually call it,
+        directly or indirectly. Useful for upward slicing during audits.
+        """
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        ancestor_ids = self._store.ancestors_of(node_id)
+        result: list[dict[str, Any]] = []
+        for aid in ancestor_ids:
+            unit = self._store._graph.nodes.get(aid)  # noqa: SLF001
+            if unit is not None:
+                result.append(_unit_to_dict(unit))
+        return result
+
+    def reachable_from(self, name: str) -> list[dict[str, Any]]:
+        """Find every function/method transitively reachable from ``name``.
+
+        The transitive closure of ``callees_of``.
+        """
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        reachable_ids = self._store.reachable_from(node_id)
+        result: list[dict[str, Any]] = []
+        for rid in reachable_ids:
+            unit = self._store._graph.nodes.get(rid)  # noqa: SLF001
+            if unit is not None:
+                result.append(_unit_to_dict(unit))
+        return result
+
     def paths_between(
         self,
         src: str,
@@ -120,6 +154,48 @@ class QueryEngine:
         if src_id is None or dst_id is None:
             return []
         return self._store.paths_between(src_id, dst_id)
+
+    def entrypoint_paths_to(
+        self,
+        name: str,
+        max_depth: int = 20,
+    ) -> list[list[str]]:
+        """Find call paths from any entrypoint to ``name``.
+
+        Answers the canonical attack-surface question: "given this sink,
+        what concrete entrypoint paths can reach it?" Returns a list of
+        id-path lists, one per reachable entrypoint.
+        """
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        return self._store.entrypoint_paths_to(node_id, max_depth=max_depth)
+
+    def nodes_with_annotation(
+        self,
+        kind: AnnotationKind,
+    ) -> list[dict[str, Any]]:
+        """Return every node tagged with the given annotation kind."""
+        return [_unit_to_dict(u) for u in self._store.nodes_with_annotation(kind)]
+
+    def functions_that_raise(
+        self,
+        exception_name: str,
+    ) -> list[dict[str, Any]]:
+        """Return functions/methods whose parser-detected exception list
+        includes the named exception.
+
+        Looks at the ``exception_types`` field parsers populate when they
+        extract ``raise``/``throw`` statements. Match is by type name
+        (``TypeRef.name``) — modules/generics are ignored.
+        """
+        result: list[dict[str, Any]] = []
+        for unit in self._store._graph.nodes.values():  # noqa: SLF001
+            for exc in unit.exception_types:
+                if exc.name == exception_name:
+                    result.append(_unit_to_dict(unit))
+                    break
+        return result
 
     def attack_surface(self) -> list[dict[str, Any]]:
         """List all entrypoints with their trust levels."""
