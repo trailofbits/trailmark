@@ -1106,9 +1106,9 @@ def _detect_pyproject_scripts(
 ) -> dict[str, EntrypointTag]:
     """Read ``[project.scripts]`` from pyproject.toml and tag each target.
 
-    Entries take the form ``name = "module.path:function"``. We locate the
-    matching node by (file path suffix, function name) because Trailmark's
-    node IDs use file basenames rather than full module paths.
+    Entries take the form ``name = "module.path:function"``. We first try the
+    matching node ID directly, then fall back to an unambiguous file path suffix
+    match for parses rooted below the import root.
     """
     pyproject = repo_root / "pyproject.toml"
     if not pyproject.exists():
@@ -1149,12 +1149,20 @@ def _resolve_script_target(
     func_name: str,
 ) -> str | None:
     """Find the node id matching a ``module.path:function`` script target."""
+    exact_id = f"{module_path}:{func_name}"
+    unit = graph.nodes.get(exact_id)
+    if unit is not None and unit.name == func_name:
+        return exact_id
+
     suffix = module_path.replace(".", "/") + ".py"
+    matches: list[str] = []
     for node_id, unit in graph.nodes.items():
         if unit.name != func_name:
             continue
         if unit.location.file_path.endswith(suffix):
-            return node_id
+            matches.append(node_id)
+    if len(matches) == 1:
+        return matches[0]
     return None
 
 

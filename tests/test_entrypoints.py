@@ -46,8 +46,8 @@ class TestSelfAnalysis:
         engine = QueryEngine.from_directory(str(SRC), language="python")
         surface = engine.attack_surface()
         node_ids = {ep["node_id"] for ep in surface}
-        assert "cli:main" in node_ids, (
-            f"Expected cli:main (the pyproject.toml script target) in {node_ids}"
+        assert "trailmark.cli:main" in node_ids, (
+            f"Expected trailmark.cli:main (the pyproject.toml script target) in {node_ids}"
         )
 
 
@@ -105,6 +105,28 @@ class TestPyprojectScripts:
         engine = QueryEngine.from_directory(str(pkg))
         ids = {ep["node_id"] for ep in engine.attack_surface()}
         assert "app:main" in ids
+
+    def test_pyproject_script_ambiguous_suffix_is_skipped(self, tmp_path: Path) -> None:
+        """Suffix fallback must not select an order-dependent script target."""
+        (tmp_path / "pyproject.toml").write_text(
+            "[project]\n"
+            'name = "demo"\n'
+            'version = "0.0.0"\n'
+            "[project.scripts]\n"
+            'demo = "pkg.app:main"\n',
+        )
+        src_pkg = tmp_path / "src" / "pkg"
+        tests_pkg = tmp_path / "tests" / "pkg"
+        src_pkg.mkdir(parents=True)
+        tests_pkg.mkdir(parents=True)
+        (src_pkg / "app.py").write_text("def main():\n    pass\n")
+        (tests_pkg / "app.py").write_text("def main():\n    pass\n")
+
+        engine = QueryEngine.from_directory(str(tmp_path))
+        surface = {ep["node_id"]: ep for ep in engine.attack_surface()}
+
+        assert surface["src.pkg.app:main"]["trust_level"] == "trusted_internal"
+        assert surface["tests.pkg.app:main"]["trust_level"] == "trusted_internal"
 
     def test_malformed_pyproject_is_tolerated(self, tmp_path: Path) -> None:
         """A broken pyproject.toml must not crash detection."""
@@ -169,7 +191,24 @@ class TestOverrideFile:
         )
         engine = QueryEngine.from_directory(str(tmp_path))
         ids = {ep["node_id"] for ep in engine.attack_surface()}
-        assert "app:serve" in ids
+        assert "pkg.app:serve" in ids
+
+    def test_override_ambiguous_module_reference_is_skipped(self, tmp_path: Path) -> None:
+        """Ambiguous module references should not tag the first suffix match."""
+        src_pkg = tmp_path / "src" / "pkg"
+        tests_pkg = tmp_path / "tests" / "pkg"
+        src_pkg.mkdir(parents=True)
+        tests_pkg.mkdir(parents=True)
+        (src_pkg / "app.py").write_text("def serve():\n    pass\n")
+        (tests_pkg / "app.py").write_text("def serve():\n    pass\n")
+        self._write_override(
+            tmp_path,
+            '[[entrypoint]]\nnode = "pkg.app:serve"\nkind = "api"\n',
+        )
+
+        engine = QueryEngine.from_directory(str(tmp_path))
+
+        assert engine.attack_surface() == []
 
     def test_override_unknown_node_is_skipped(self, tmp_path: Path) -> None:
         (tmp_path / "app.py").write_text("def real():\n    pass\n")
@@ -886,7 +925,7 @@ class TestBulkOverrideRules:
         engine = QueryEngine.from_directory(str(tmp_path), language="python")
         ids = {ep["node_id"] for ep in engine.attack_surface()}
         # In public/ AND matches name_regex -> yes
-        assert "web:handle_login" in ids
+        assert "public.web:handle_login" in ids
         # In public/ but fails name_regex -> no
         assert "util:helper" not in ids
         # Matches name_regex but not in public/ -> no

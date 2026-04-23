@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -39,11 +40,47 @@ def make_location(node: Node, file_path: str) -> SourceLocation:
     )
 
 
+_DIRECTORY_PARSE_ROOT: ContextVar[Path | None] = ContextVar(
+    "_DIRECTORY_PARSE_ROOT",
+    default=None,
+)
+
+
 def module_id_from_path(file_path: str) -> str:
-    """Derive a module ID from a file path."""
+    """Derive a module ID from a file path.
+
+    Single-file parsing preserves the historical filename-stem ID. Directory
+    parsing uses a root-relative dotted path so same-named files in different
+    directories do not overwrite each other when their graphs are merged.
+    """
     p = Path(file_path)
+    root = _DIRECTORY_PARSE_ROOT.get()
+    if root is not None:
+        try:
+            rel_path = _absolute_lexical_path(p).relative_to(root)
+        except ValueError:
+            pass
+        else:
+            if rel_path.stem == "__init__":
+                module_path = rel_path.parent
+                if module_path == Path("."):
+                    return _escape_module_path_part(root.name)
+            else:
+                module_path = rel_path.with_suffix("")
+            return ".".join(_escape_module_path_part(part) for part in module_path.parts)
+
     stem = p.stem if p.stem != "__init__" else p.parent.name
     return stem
+
+
+def _absolute_lexical_path(path: Path) -> Path:
+    """Return an absolute path without resolving symlink targets."""
+    return Path(os.path.abspath(path))
+
+
+def _escape_module_path_part(part: str) -> str:
+    """Escape separators used in dotted module IDs."""
+    return part.replace("\\", "\\\\").replace(".", "\\.")
 
 
 _EXCLUDED_DIRS = frozenset(
@@ -98,9 +135,13 @@ def parse_directory(
         extensions: File extensions to include.
     """
     merged = CodeGraph(language=language, root_path=dir_path)
-    for fpath in walk_source_files(dir_path, extensions):
-        file_graph = parse_file_fn(fpath)
-        merged.merge(file_graph)
+    token = _DIRECTORY_PARSE_ROOT.set(_absolute_lexical_path(Path(dir_path)))
+    try:
+        for fpath in walk_source_files(dir_path, extensions):
+            file_graph = parse_file_fn(fpath)
+            merged.merge(file_graph)
+    finally:
+        _DIRECTORY_PARSE_ROOT.reset(token)
     return merged
 
 
