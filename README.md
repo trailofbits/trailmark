@@ -301,18 +301,50 @@ Framework coverage:
 | Ruby | Rails controller actions (classes inheriting `ApplicationController` / `ActionController::*`), Sidekiq worker `perform` methods |
 | C / C++ | `extern "C"` linkage, `__attribute__((visibility("default")))`, `__declspec(dllexport)` |
 
-For anything the heuristics miss, declare entrypoints explicitly in `.trailmark/entrypoints.toml` at the project root:
+For anything the heuristics miss, declare entrypoints explicitly in `.trailmark/entrypoints.toml` at the project root. The file supports both single-node and rule-based entries:
 
 ```toml
+# Single-node entry
 [[entrypoint]]
 node = "my_module:handle_request"  # node id, or "module.path:function"
 kind = "api"                       # user_input | api | database | file_system | third_party
 trust = "untrusted_external"       # untrusted_external | semi_trusted_external | trusted_internal
 asset_value = "high"               # high | medium | low
 description = "HTTP POST /auth"
+
+# Rule: every PHP script under public_html/ is a web-exposed entrypoint.
+[[entrypoint]]
+file_glob = "public_html/**/*.php"
+kind = "user_input"
+trust = "untrusted_external"
+asset_value = "high"
+description = "Web-exposed PHP script"
+
+# Rule: any function that takes a PSR-7 request object.
+[[entrypoint]]
+param_type = "ServerRequestInterface"
+kind = "api"
+trust = "untrusted_external"
+asset_value = "high"
+description = "PSR-7 HTTP handler"
+
+# Rule: functions named `handle_*`.
+[[entrypoint]]
+name_regex = "^handle_"
+kind = "api"
+trust = "untrusted_external"
+
+# Rule: conditions compose with AND — web.py files AND name starts with handle_.
+[[entrypoint]]
+file_glob = "public/*.py"
+name_regex = "^handle_"
+kind = "api"
+trust = "untrusted_external"
 ```
 
-See [docs/entrypoint-patterns.md](docs/entrypoint-patterns.md) for the full reference, including frameworks not yet implemented (Express / Koa / Fastify, Laravel, Rails, Cobra, axum, warp, clap, and others) with grep-ready patterns contributors can use to add new detectors.
+Later entries override earlier ones when two rules tag the same node, so place broad rules first and specific corrections after.
+
+See [docs/entrypoint-patterns.md](docs/entrypoint-patterns.md) for the full reference, including frameworks not yet implemented (Express / Koa / Fastify, Laravel, Cobra, axum, warp, clap, and others) with grep-ready patterns contributors can use to add new detectors.
 
 ### Programmatic API
 

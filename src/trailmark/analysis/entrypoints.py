@@ -1164,14 +1164,44 @@ def _load_override_file(
 ) -> dict[str, EntrypointTag]:
     """Parse ``.trailmark/entrypoints.toml`` into EntrypointTag entries.
 
-    Expected schema:
+    An entry may identify a single node by id or reference, OR declare a
+    rule that matches many nodes at once. Rule-based entries accept any
+    combination of:
 
+    - ``file_glob``: match ``CodeUnit.location.file_path`` against a
+      shell glob supporting ``**`` (recursive) and ``*`` (single-segment).
+    - ``param_type``: match functions whose parameter list includes a
+      declared type with this name (exact ``TypeRef.name`` match).
+    - ``name_regex``: match functions whose ``name`` satisfies the regex.
+
+    When multiple conditions are supplied in one entry they are combined
+    with AND. Later entries in the file override earlier ones when two
+    rules would tag the same node.
+
+    Examples:
+
+        # Single-node (unchanged)
         [[entrypoint]]
-        node = "cli:main"          # node id OR "module.path:function"
-        kind = "api"               # EntrypointKind value
-        trust = "untrusted_external"  # TrustLevel value (optional)
-        asset_value = "high"       # AssetValue value (optional)
-        description = "HTTP handler"  # optional
+        node = "cli:main"
+        kind = "api"
+
+        # All PHP scripts under public_html/
+        [[entrypoint]]
+        file_glob = "public_html/**/*.php"
+        kind = "user_input"
+        trust = "untrusted_external"
+        asset_value = "high"
+
+        # Any function that takes a PSR-7 request
+        [[entrypoint]]
+        param_type = "ServerRequestInterface"
+        kind = "api"
+        trust = "untrusted_external"
+
+        # Functions whose name starts with `handle_`
+        [[entrypoint]]
+        name_regex = "^handle_"
+        kind = "api"
     """
     path = repo_root / OVERRIDE_FILE
     if not path.exists():
@@ -1190,25 +1220,48 @@ def _load_override_file(
     for entry in entries:
         if not isinstance(entry, dict):
             continue
-        tag_and_id = _entry_to_tag(graph, entry)
-        if tag_and_id is None:
-            continue
-        node_id, tag = tag_and_id
-        result[node_id] = tag
+        for node_id, tag in _entry_to_matches(graph, entry):
+            result[node_id] = tag
     return result
 
 
-def _entry_to_tag(
+def _entry_to_matches(
     graph: CodeGraph,
     entry: dict[str, Any],
-) -> tuple[str, EntrypointTag] | None:
-    node_ref = entry.get("node")
-    if not isinstance(node_ref, str):
-        return None
-    node_id = _resolve_override_node(graph, node_ref)
-    if node_id is None:
-        return None
+) -> list[tuple[str, EntrypointTag]]:
+    """Produce every (node_id, tag) pair an override-file entry implies.
 
+    Returns an empty list if the entry is malformed, references an
+    unknown node, or matches nothing.
+    """
+    tag = _entry_tag(entry)
+    if tag is None:
+        return []
+
+    node_ref = entry.get("node")
+    if isinstance(node_ref, str):
+        node_id = _resolve_override_node(graph, node_ref)
+        if node_id is None:
+            return []
+        return [(node_id, tag)]
+
+    # Rule-based entry — compile match conditions.
+    conditions = _compile_rule_conditions(entry)
+    if conditions is None:
+        # No recognized rule fields (and no `node`); nothing to do.
+        return []
+
+    matches: list[tuple[str, EntrypointTag]] = []
+    for node_id, unit in graph.nodes.items():
+        if unit.kind.value not in {"function", "method"}:
+            continue
+        if all(condition(unit) for condition in conditions):
+            matches.append((node_id, tag))
+    return matches
+
+
+def _entry_tag(entry: dict[str, Any]) -> EntrypointTag | None:
+    """Build the EntrypointTag shared across every match of an entry."""
     kind_name = entry.get("kind", "user_input")
     trust_name = entry.get("trust", "untrusted_external")
     asset_name = entry.get("asset_value", "medium")
@@ -1220,12 +1273,106 @@ def _entry_to_tag(
     if kind is None or trust is None or asset is None:
         return None
 
-    return node_id, EntrypointTag(
+    return EntrypointTag(
         kind=kind,
         trust_level=trust,
         description=description if isinstance(description, str) else None,
         asset_value=asset,
     )
+
+
+def _compile_rule_conditions(
+    entry: dict[str, Any],
+) -> list[Any] | None:
+    """Translate rule fields into predicates evaluated per CodeUnit.
+
+    Returns None if the entry contains no recognized rule fields.
+    """
+    conditions: list[Any] = []
+    file_glob = entry.get("file_glob")
+    if isinstance(file_glob, str):
+        try:
+            pattern = _glob_to_regex(file_glob)
+        except re.error:
+            return None
+        conditions.append(
+            lambda unit, p=pattern: bool(
+                p.search((unit.location.file_path or "").replace("\\", "/"))
+            ),
+        )
+
+    param_type = entry.get("param_type")
+    if isinstance(param_type, str):
+        conditions.append(
+            lambda unit, t=param_type: any(
+                p.type_ref is not None and p.type_ref.name == t for p in unit.parameters
+            ),
+        )
+
+    name_regex = entry.get("name_regex")
+    if isinstance(name_regex, str):
+        try:
+            pattern = re.compile(name_regex)
+        except re.error:
+            return None
+        conditions.append(
+            lambda unit, p=pattern: bool(p.search(unit.name)),
+        )
+
+    return conditions or None
+
+
+def _glob_to_regex(pattern: str) -> re.Pattern[str]:
+    """Translate a shell-style glob with ``**`` support into a regex.
+
+    - ``**`` (with surrounding slashes) matches zero or more path segments.
+    - ``*`` matches any characters except ``/``.
+    - ``?`` matches one character other than ``/``.
+    - Other regex metacharacters are escaped.
+
+    Paths are matched against their string form, with both Windows and
+    POSIX separators normalized to ``/`` before comparison is done by
+    the caller of this function (``_glob_match`` below). We only emit
+    the regex here.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(pattern)
+    while i < n:
+        c = pattern[i]
+        if c == "*" and i + 1 < n and pattern[i + 1] == "*":
+            # `/**/` expands to `(?:/.*)?/` — zero or more segments.
+            if i > 0 and pattern[i - 1] == "/" and i + 2 < n and pattern[i + 2] == "/":
+                # Rewrite the trailing `/` of the preceding segment as
+                # part of the globstar expansion.
+                out[-1] = "(?:/.*)?/"
+                i += 3
+                continue
+            # Leading `**/` or trailing `/**`.
+            if i + 2 < n and pattern[i + 2] == "/":
+                out.append("(?:.*/)?")
+                i += 3
+                continue
+            out.append(".*")
+            i += 2
+        elif c == "*":
+            out.append("[^/]*")
+            i += 1
+        elif c == "?":
+            out.append("[^/]")
+            i += 1
+        elif c in r".+^$()[]{}|\\":
+            out.append("\\" + c)
+            i += 1
+        else:
+            out.append(c)
+            i += 1
+    # Allow the pattern to match a suffix of the full path — users
+    # writing `public_html/**/*.php` shouldn't have to prefix the full
+    # absolute path of the project. `re.search` finds the pattern
+    # anywhere in the string, so we just anchor the end.
+    regex = "(?:^|/)" + "".join(out) + "$"
+    return re.compile(regex)
 
 
 def _resolve_override_node(graph: CodeGraph, reference: str) -> str | None:

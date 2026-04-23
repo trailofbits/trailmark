@@ -757,6 +757,183 @@ class TestCCpp:
         assert not any("helper" in nid for nid in ids), surface
 
 
+class TestBulkOverrideRules:
+    """Rule-based .trailmark/entrypoints.toml entries."""
+
+    def _write_override(self, tmp_path: Path, body: str) -> None:
+        (tmp_path / ".trailmark").mkdir(exist_ok=True)
+        (tmp_path / ".trailmark" / "entrypoints.toml").write_text(body)
+
+    def test_file_glob_marks_every_matching_function(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        (tmp_path / "public_html").mkdir()
+        (tmp_path / "public_html" / "index.php").write_text(
+            "<?php\nfunction index() { return 1; }\n",
+        )
+        (tmp_path / "public_html" / "admin").mkdir()
+        (tmp_path / "public_html" / "admin" / "login.php").write_text(
+            "<?php\nfunction login() { return 2; }\n",
+        )
+        (tmp_path / "lib.php").write_text(
+            "<?php\nfunction helper() { return 3; }\n",
+        )
+        self._write_override(
+            tmp_path,
+            "[[entrypoint]]\n"
+            'file_glob = "public_html/**/*.php"\n'
+            'kind = "user_input"\n'
+            'trust = "untrusted_external"\n'
+            'asset_value = "high"\n'
+            'description = "Web-exposed PHP"\n',
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="php")
+        surface = engine.attack_surface()
+        ids = {ep["node_id"] for ep in surface}
+        # Both public_html scripts — at any nesting depth — are tagged;
+        # the lib.php function is not.
+        assert any(nid.endswith(":index") for nid in ids), ids
+        assert any(nid.endswith(":login") for nid in ids), ids
+        assert not any(nid.endswith(":helper") for nid in ids), ids
+
+    def test_file_glob_single_star_does_not_cross_directories(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """`public/*.py` should NOT match a nested file."""
+        (tmp_path / "public").mkdir()
+        (tmp_path / "public" / "index.py").write_text("def index(): pass\n")
+        (tmp_path / "public" / "admin").mkdir()
+        (tmp_path / "public" / "admin" / "deep.py").write_text("def deep(): pass\n")
+        self._write_override(
+            tmp_path,
+            "[[entrypoint]]\n"
+            'file_glob = "public/*.py"\n'
+            'kind = "api"\n'
+            'trust = "untrusted_external"\n',
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="python")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        assert any(nid.endswith(":index") for nid in ids), ids
+        assert not any(nid.endswith(":deep") for nid in ids), ids
+
+    def test_param_type_matches_psr7(self, tmp_path: Path) -> None:
+        (tmp_path / "handlers.py").write_text(
+            "def handle_login(req: ServerRequestInterface) -> None:\n"
+            "    pass\n"
+            "\n"
+            "def unrelated(x: int) -> None:\n"
+            "    pass\n",
+        )
+        self._write_override(
+            tmp_path,
+            "[[entrypoint]]\n"
+            'param_type = "ServerRequestInterface"\n'
+            'kind = "api"\n'
+            'trust = "untrusted_external"\n'
+            'asset_value = "high"\n'
+            'description = "PSR-7 HTTP handler"\n',
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="python")
+        surface = engine.attack_surface()
+        by_id = {ep["node_id"]: ep for ep in surface}
+        assert "handlers:handle_login" in by_id, surface
+        assert by_id["handlers:handle_login"]["description"] == "PSR-7 HTTP handler"
+        assert not any(nid.endswith(":unrelated") for nid in by_id)
+
+    def test_name_regex_matches(self, tmp_path: Path) -> None:
+        (tmp_path / "api.py").write_text(
+            "def handle_login(req):\n"
+            "    pass\n"
+            "\n"
+            "def handle_logout(req):\n"
+            "    pass\n"
+            "\n"
+            "def internal_helper(x):\n"
+            "    pass\n",
+        )
+        self._write_override(
+            tmp_path,
+            '[[entrypoint]]\nname_regex = "^handle_"\nkind = "api"\ntrust = "untrusted_external"\n',
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="python")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        assert "api:handle_login" in ids
+        assert "api:handle_logout" in ids
+        assert "api:internal_helper" not in ids
+
+    def test_conditions_compose_with_and(self, tmp_path: Path) -> None:
+        """When an entry has multiple conditions, all must match."""
+        (tmp_path / "public").mkdir()
+        (tmp_path / "public" / "web.py").write_text(
+            "def handle_login(req):\n    pass\n",
+        )
+        (tmp_path / "public" / "util.py").write_text(
+            "def helper(x):\n    pass\n",
+        )
+        (tmp_path / "internal.py").write_text(
+            "def handle_internal(x):\n    pass\n",
+        )
+        self._write_override(
+            tmp_path,
+            "[[entrypoint]]\n"
+            'file_glob = "public/*.py"\n'
+            'name_regex = "^handle_"\n'
+            'kind = "api"\n'
+            'trust = "untrusted_external"\n',
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="python")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        # In public/ AND matches name_regex -> yes
+        assert "web:handle_login" in ids
+        # In public/ but fails name_regex -> no
+        assert "util:helper" not in ids
+        # Matches name_regex but not in public/ -> no
+        assert "internal:handle_internal" not in ids
+
+    def test_rule_overrides_heuristic(self, tmp_path: Path) -> None:
+        """Rule-based entries still apply the override-wins precedence."""
+        (tmp_path / "tool.py").write_text("def main(): pass\n")
+        self._write_override(
+            tmp_path,
+            "[[entrypoint]]\n"
+            'name_regex = "^main$"\n'
+            'kind = "api"\n'
+            'trust = "untrusted_external"\n'
+            'asset_value = "high"\n',
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="python")
+        (ep,) = engine.attack_surface()
+        # Heuristic would have tagged user_input / trusted_internal / low;
+        # the rule overrides to api / untrusted_external / high.
+        assert ep["kind"] == "api"
+        assert ep["trust_level"] == "untrusted_external"
+        assert ep["asset_value"] == "high"
+
+    def test_malformed_glob_does_not_crash(self, tmp_path: Path) -> None:
+        (tmp_path / "app.py").write_text("def main(): pass\n")
+        self._write_override(
+            tmp_path,
+            "[[entrypoint]]\n"
+            'file_glob = "public/["\n'  # unclosed bracket → regex error
+            'kind = "api"\n',
+        )
+        # Should still succeed; the malformed rule is skipped and the
+        # main() heuristic still fires.
+        engine = QueryEngine.from_directory(str(tmp_path), language="python")
+        assert engine.attack_surface()
+
+    def test_rule_matching_zero_nodes_is_noop(self, tmp_path: Path) -> None:
+        (tmp_path / "app.py").write_text("def real(): pass\n")
+        self._write_override(
+            tmp_path,
+            '[[entrypoint]]\nname_regex = "^never_matches$"\nkind = "api"\n',
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="python")
+        assert engine.attack_surface() == []
+
+
 @pytest.fixture(autouse=True)
 def _isolate_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Some tests create pyproject.toml in tmp_path; make sure detection does
