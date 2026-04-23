@@ -97,15 +97,21 @@ The `GraphStore` loads the `CodeGraph` into a rustworkx `PyDiGraph` and builds b
 The `QueryEngine` provides a high-level API over the indexed graph:
 
 | Method | Description |
-|---|---|
-| `callers_of(name)` | All functions that call the named target |
-| `callees_of(name)` | All functions called by the named source |
+| --- | --- |
+| `callers_of(name)` | Direct callers of the named target |
+| `callees_of(name)` | Direct callees of the named source |
+| `ancestors_of(name)` | Every function that can transitively reach the target (upward slice) |
+| `reachable_from(name)` | Every function transitively reachable from the source |
 | `paths_between(src, dst)` | All simple call paths between two nodes |
+| `entrypoint_paths_to(name)` | Paths from any detected entrypoint to the target |
 | `attack_surface()` | Entrypoints tagged with trust level and asset value |
 | `complexity_hotspots(n)` | Functions with cyclomatic complexity &ge; n |
+| `functions_that_raise(exc)` | Functions whose parser-detected exception list includes `exc` |
 | `annotate(name, kind, desc, source)` | Add a semantic annotation to a node |
 | `annotations_of(name, kind=None)` | Get annotations for a node, optionally filtered by kind |
+| `nodes_with_annotation(kind)` | Every node tagged with the given annotation kind |
 | `clear_annotations(name, kind=None)` | Remove annotations from a node |
+| `diff_against(other)` | Structural diff of this engine's graph vs. another |
 | `summary()` | Node counts, edge counts, dependencies |
 | `to_json()` | Full graph export |
 
@@ -258,9 +264,33 @@ trailmark diff --repo . main HEAD          # compare git refs
 trailmark diff --json before/ after/        # machine-readable output
 ```
 
-### Declaring entrypoints
+### Entrypoint detection
 
-Trailmark automatically detects entrypoints from common patterns (Python `main()` functions and `[project.scripts]` targets today, with language- and framework-aware detectors arriving in follow-up releases). For anything the heuristics miss, declare entrypoints explicitly in `.trailmark/entrypoints.toml` at the project root:
+Trailmark automatically populates `graph.entrypoints` so `attack_surface()`, taint propagation, and privilege-boundary crossing have data to work with. Detection runs in four layers, each overriding the last:
+
+1. **Generic `main` heuristic.** Any function named `main` in any language. Tagged `user_input` / `trusted_internal` / `low`.
+2. **Framework-aware scan.** Decorator, attribute, and visibility patterns per language — see the table below.
+3. **`pyproject.toml [project.scripts]`.** Explicit CLI targets get an upgraded trust/asset classification.
+4. **Repo-local override file.** Hand-curated entrypoints in `.trailmark/entrypoints.toml` always win.
+
+Framework coverage:
+
+| Language | Frameworks detected |
+| --- | --- |
+| Python | Flask, FastAPI, aiohttp, Click, Typer, Celery |
+| JavaScript / TypeScript | NestJS, Next.js (App Router + Pages API), AWS Lambda |
+| Java | Spring MVC / WebFlux, JAX-RS, Kafka listeners, servlets |
+| C# | ASP.NET Core, Azure Functions |
+| PHP | Symfony `#[Route]` attributes + legacy annotations |
+| Rust | actix-web, rocket, FFI exports (`#[no_mangle]`, `pub extern "C"`), async-main attributes |
+| Solidity | `external` / `public` visibility |
+| Cairo / StarkNet | `#[external]`, `#[view]`, `#[l1_handler]`, `#[constructor]` |
+| Circom | `component main` declarations |
+| Miden Assembly | `export.<name>` directives |
+| Haskell | top-level `main ::` / `main =` |
+| Erlang | functions listed in `-export([...])` |
+
+For anything the heuristics miss, declare entrypoints explicitly in `.trailmark/entrypoints.toml` at the project root:
 
 ```toml
 [[entrypoint]]
@@ -271,28 +301,40 @@ asset_value = "high"               # high | medium | low
 description = "HTTP POST /auth"
 ```
 
-Declared entrypoints override heuristic defaults. The override file is how you teach Trailmark what counts as an attacker surface in your codebase — the resulting `attack_surface()`, taint-propagation, and privilege-boundary passes all key off this data.
+See [docs/entrypoint-patterns.md](docs/entrypoint-patterns.md) for the full reference, including frameworks not yet implemented (Express / Koa / Fastify, Laravel, Rails, Cobra, axum, warp, clap, and others) with grep-ready patterns contributors can use to add new detectors.
 
 ### Programmatic API
 
 ```python
 from trailmark.query.api import QueryEngine
 
+# Single-language (default) or auto-detect + merge across all languages
 engine = QueryEngine.from_directory("path/to/project")
+engine = QueryEngine.from_directory("path/to/project", language="auto")
+engine = QueryEngine.from_directory("path/to/project", language="python,rust")
 
-# Who calls this function?
+# Direct neighbors
 engine.callers_of("handle_request")
-
-# What does this function call?
 engine.callees_of("handle_request")
 
-# Call paths from entrypoint to sensitive function
+# Transitive slicing — who could reach this sink, or what could it reach?
+engine.ancestors_of("Auth._check_sig")
+engine.reachable_from("handle_request")
+
+# Attack-surface paths from any detected entrypoint
+engine.entrypoint_paths_to("Auth._check_sig")
+
+# All call paths between two nodes
 engine.paths_between("handle_request", "Auth._check_sig")
 
 # Functions with cyclomatic complexity >= 10
 engine.complexity_hotspots(10)
 
-# Add a semantic annotation
+# What functions can raise a given exception? (uses parser-detected
+# exception_types; no runtime tracing required)
+engine.functions_that_raise("PermissionError")
+
+# Add and query semantic annotations
 from trailmark.models.annotations import AnnotationKind
 
 engine.annotate(
@@ -301,10 +343,14 @@ engine.annotate(
     "Caller has already authenticated the session token",
     source="llm",
 )
-
-# Retrieve annotations
 engine.annotations_of("handle_request")
-engine.annotations_of("handle_request", kind=AnnotationKind.ASSUMPTION)
+engine.nodes_with_annotation(AnnotationKind.FINDING)
+
+# Diff against an earlier snapshot of the same codebase
+before = QueryEngine.from_directory("before/")
+diff = engine.diff_against(before)
+# diff contains: summary_delta, nodes {added/removed/modified},
+# edges {added/removed}, entrypoints {added/removed/modified}
 ```
 
 ## Development

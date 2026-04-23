@@ -113,12 +113,18 @@ class TestQueryEngineAPI:
     EXPECTED_METHODS = (
         "callers_of",
         "callees_of",
+        "ancestors_of",
+        "reachable_from",
         "paths_between",
+        "entrypoint_paths_to",
         "attack_surface",
         "complexity_hotspots",
+        "functions_that_raise",
         "annotate",
         "annotations_of",
+        "nodes_with_annotation",
         "clear_annotations",
+        "diff_against",
         "summary",
         "to_json",
     )
