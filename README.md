@@ -61,6 +61,7 @@ A language-specific parser walks the directory, parses each file into a tree-sit
 | Miden Assembly | `.masm` | procedures, entrypoints, constants, invocations |
 | Swift | `.swift` | functions, classes, structs, enums, protocols, extensions |
 | Objective-C | `.m`, `.mm`, `.h` | C functions, classes, methods (selector-based naming) |
+| Kotlin | `.kt`, `.kts` | functions, classes, interfaces, data classes, objects, methods |
 
 ```mermaid
 flowchart TD
@@ -293,6 +294,7 @@ Framework coverage:
 | Erlang | functions listed in `-export([...])` |
 | Swift | `@main` app attribute |
 | Objective-C | `UIApplicationDelegate` lifecycle selectors (e.g. `application:openURL:options:`) |
+| Kotlin | Spring MVC / WebFlux annotations (shared with Java), Android component lifecycle methods (`onCreate`, `onReceive`, `onBind`, ...) |
 
 For anything the heuristics miss, declare entrypoints explicitly in `.trailmark/entrypoints.toml` at the project root:
 

@@ -168,6 +168,27 @@ _OBJC_APP_DELEGATE_SELECTORS = frozenset(
     }
 )
 
+# Kotlin — Ktor routing DSL: `get("/path") { ... }`, `post`, etc.
+# These appear as call expressions inside a `routing { ... }` block. The
+# file-level heuristic matches the verb calls; without block-level context
+# we can't distinguish Ktor routes from bare HTTP client calls, so Ktor
+# detection is currently disabled in favor of the override file.
+
+# Kotlin — Android Activity lifecycle overrides. Names and signatures
+# are stable across Android SDK versions.
+_KOTLIN_ANDROID_LIFECYCLE_METHODS = frozenset(
+    {
+        "onCreate",
+        "onStart",
+        "onResume",
+        "onNewIntent",
+        "onActivityResult",
+        "onReceive",  # BroadcastReceiver
+        "onBind",  # Service
+        "onHandleIntent",  # IntentService
+    }
+)
+
 _KIND_BY_NAME = {k.value: k for k in EntrypointKind}
 _TRUST_BY_NAME = {t.value: t for t in TrustLevel}
 _ASSET_BY_NAME = {a.value: a for a in AssetValue}
@@ -260,6 +281,8 @@ def _detect_for_unit(
         return _detect_swift(cache, unit, path)
     if path.endswith((".m", ".mm", ".h")):
         return _detect_objc(unit)
+    if path.endswith((".kt", ".kts")):
+        return _detect_kotlin(cache, unit, path)
     return None
 
 
@@ -649,6 +672,41 @@ def _detect_swift(
             # Without call-graph resolution this is coarse — Vapor-handler
             # detection is best done via the override file for now.
             break
+    return None
+
+
+def _detect_kotlin(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    """Detect Kotlin entrypoints.
+
+    Layers tried in order:
+    1. Spring MVC / WebFlux annotations (``@GetMapping``, ``@PostMapping``,
+       etc.) — shared with the Java detector because the annotations are
+       identical across the two languages.
+    2. Android Activity / Service / BroadcastReceiver lifecycle method
+       names. These are attacker-reachable when the component is exported
+       (``android:exported="true"`` in the manifest) — we over-detect
+       here and let the override file tighten when appropriate.
+    """
+    decorators = cache.decorators_above(path, unit.location.start_line)
+    for line in decorators:
+        if _JAVA_SPRING_HANDLER.match(line):
+            return EntrypointTag(
+                kind=EntrypointKind.API,
+                trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+                description="Spring MVC/WebFlux handler (Kotlin)",
+                asset_value=AssetValue.HIGH,
+            )
+    if unit.name in _KOTLIN_ANDROID_LIFECYCLE_METHODS:
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Android component lifecycle method",
+            asset_value=AssetValue.HIGH,
+        )
     return None
 
 

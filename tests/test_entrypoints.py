@@ -586,6 +586,45 @@ class TestObjectiveC:
         assert engine.attack_surface() == []
 
 
+class TestKotlin:
+    def test_spring_annotation_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "UserController.kt").write_text(
+            "import org.springframework.web.bind.annotation.*\n"
+            "\n"
+            "@RestController\n"
+            "class UserController {\n"
+            '    @GetMapping("/users/{id}")\n'
+            '    fun get(id: Long): String { return "ok" }\n'
+            "}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="kotlin")
+        surface = engine.attack_surface()
+        descriptions = [ep.get("description") or "" for ep in surface]
+        assert any("Spring" in d for d in descriptions), surface
+
+    def test_android_lifecycle_method_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "MainActivity.kt").write_text(
+            "package com.example\n"
+            "\n"
+            "class MainActivity {\n"
+            "    fun onCreate(bundle: Bundle?) {\n"
+            "        super.onCreate(bundle)\n"
+            "    }\n"
+            "}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="kotlin")
+        surface = engine.attack_surface()
+        descriptions = [ep.get("description") or "" for ep in surface]
+        assert any("Android" in d for d in descriptions), surface
+
+    def test_helper_method_not_flagged(self, tmp_path: Path) -> None:
+        (tmp_path / "Util.kt").write_text(
+            "class Util {\n    fun helper(x: Int): Int { return x + 1 }\n}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="kotlin")
+        assert engine.attack_surface() == []
+
+
 @pytest.fixture(autouse=True)
 def _isolate_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Some tests create pyproject.toml in tmp_path; make sure detection does
