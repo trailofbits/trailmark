@@ -189,6 +189,13 @@ _KOTLIN_ANDROID_LIFECYCLE_METHODS = frozenset(
     }
 )
 
+# Dart — `@pragma('vm:entry-point')` marks native-callable functions,
+# often FFI or platform-channel callback targets. These are attacker-
+# reachable from the host platform.
+_DART_VM_ENTRY_POINT = re.compile(
+    r"^\s*@\s*pragma\s*\(\s*['\"]vm:entry-point['\"]",
+)
+
 _KIND_BY_NAME = {k.value: k for k in EntrypointKind}
 _TRUST_BY_NAME = {t.value: t for t in TrustLevel}
 _ASSET_BY_NAME = {a.value: a for a in AssetValue}
@@ -283,6 +290,8 @@ def _detect_for_unit(
         return _detect_objc(unit)
     if path.endswith((".kt", ".kts")):
         return _detect_kotlin(cache, unit, path)
+    if path.endswith(".dart"):
+        return _detect_dart(cache, unit, path)
     return None
 
 
@@ -707,6 +716,33 @@ def _detect_kotlin(
             description="Android component lifecycle method",
             asset_value=AssetValue.HIGH,
         )
+    return None
+
+
+def _detect_dart(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    """Detect Dart entrypoints.
+
+    Today covers ``@pragma('vm:entry-point')``, the explicit Dart marker
+    for functions invoked from native code (FFI callbacks, platform-
+    channel handlers, deferred loading targets). Flutter lifecycle
+    methods on ``StatefulWidget`` / ``StatelessWidget`` (``build``,
+    ``initState``, ``dispose``) are not flagged here because they
+    execute in-process and aren't directly attacker-reachable —
+    add them via the override file if you want them surfaced.
+    """
+    decorators = cache.decorators_above(path, unit.location.start_line)
+    for line in decorators:
+        if _DART_VM_ENTRY_POINT.match(line):
+            return EntrypointTag(
+                kind=EntrypointKind.API,
+                trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+                description="Dart @pragma('vm:entry-point') native callback",
+                asset_value=AssetValue.HIGH,
+            )
     return None
 
 

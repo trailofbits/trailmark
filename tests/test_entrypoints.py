@@ -625,6 +625,32 @@ class TestKotlin:
         assert engine.attack_surface() == []
 
 
+class TestDart:
+    def test_vm_entry_point_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "callbacks.dart").write_text(
+            "@pragma('vm:entry-point')\nvoid nativeCallback(String data) {\n  print(data);\n}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="dart")
+        surface = engine.attack_surface()
+        descriptions = [ep.get("description") or "" for ep in surface]
+        assert any("vm:entry-point" in d for d in descriptions), surface
+
+    def test_plain_function_not_flagged(self, tmp_path: Path) -> None:
+        (tmp_path / "util.dart").write_text(
+            "void log(String s) { print(s); }\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="dart")
+        assert engine.attack_surface() == []
+
+    def test_main_still_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "app.dart").write_text(
+            "void main() { print('hi'); }\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="dart")
+        surface = engine.attack_surface()
+        assert any(ep["node_id"] == "app:main" for ep in surface), surface
+
+
 @pytest.fixture(autouse=True)
 def _isolate_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Some tests create pyproject.toml in tmp_path; make sure detection does

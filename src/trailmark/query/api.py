@@ -40,6 +40,7 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "swift": ("trailmark.parsers.swift", "SwiftParser"),
     "objc": ("trailmark.parsers.objc", "ObjCParser"),
     "kotlin": ("trailmark.parsers.kotlin", "KotlinParser"),
+    "dart": ("trailmark.parsers.dart", "DartParser"),
 }
 
 # Extensions used for language auto-detection. Kept in sync with each parser's
@@ -69,6 +70,7 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     # The parser itself still walks .h when invoked with language="objc".
     "objc": (".m", ".mm"),
     "kotlin": (".kt", ".kts"),
+    "dart": (".dart",),
 }
 
 _SUPPORTED_LANGUAGES = frozenset(_PARSER_MAP.keys())
