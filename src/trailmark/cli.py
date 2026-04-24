@@ -8,16 +8,30 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from trailmark import __version__
 from trailmark.query.api import QueryEngine
+
+_VERSION_STRING = f"trailmark {__version__}"
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Construct the Trailmark CLI's argparse tree."""
     parser = argparse.ArgumentParser(
         prog="trailmark",
-        description="Parse source code into queryable graphs",
+        description=f"Parse source code into queryable graphs (v{__version__})",
+    )
+    parser.add_argument(
+        "--version",
+        "-V",
+        action="version",
+        version=_VERSION_STRING,
     )
     subparsers = parser.add_subparsers(dest="command")
+
+    subparsers.add_parser(
+        "version",
+        help="Print the Trailmark version and exit",
+    )
 
     analyze = subparsers.add_parser(
         "analyze",
@@ -133,6 +147,9 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
+    if args.command == "version":
+        print(_VERSION_STRING)
+        return
     if args.command == "analyze":
         _run_analyze(args)
     elif args.command == "augment":

@@ -58,7 +58,48 @@ class TestTopLevelParser:
     def test_all_subcommands_registered(
         self, subparsers_map: dict[str, argparse.ArgumentParser]
     ) -> None:
-        assert set(subparsers_map) == {"analyze", "augment", "entrypoints", "diff"}
+        assert set(subparsers_map) == {
+            "analyze",
+            "augment",
+            "entrypoints",
+            "diff",
+            "version",
+        }
+
+
+class TestVersionFlag:
+    """Regression for issue #26 — the CLI must expose its version."""
+
+    def test_long_flag_prints_and_exits(
+        self, parser: argparse.ArgumentParser, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import trailmark
+
+        with pytest.raises(SystemExit) as excinfo:
+            parser.parse_args(["--version"])
+        assert excinfo.value.code == 0
+        out = capsys.readouterr().out
+        assert out.strip() == f"trailmark {trailmark.__version__}"
+
+    def test_short_flag_prints_and_exits(
+        self, parser: argparse.ArgumentParser, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import trailmark
+
+        with pytest.raises(SystemExit) as excinfo:
+            parser.parse_args(["-V"])
+        assert excinfo.value.code == 0
+        out = capsys.readouterr().out
+        assert out.strip() == f"trailmark {trailmark.__version__}"
+
+    def test_version_subcommand_registered(
+        self, subparsers_map: dict[str, argparse.ArgumentParser]
+    ) -> None:
+        assert "version" in subparsers_map
+
+    def test_version_subcommand_parses(self, parser: argparse.ArgumentParser) -> None:
+        args = parser.parse_args(["version"])
+        assert args.command == "version"
 
 
 class TestAnalyzeSubparser:
@@ -206,3 +247,16 @@ class TestParseBehavior:
     def test_augment_repeatable_sarif(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["augment", "p", "--sarif", "a.sarif", "--sarif", "b.sarif"])
         assert args.sarif == ["a.sarif", "b.sarif"]
+
+
+class TestVersionSubcommandExecution:
+    def test_main_version_prints_version(
+        self, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import trailmark
+        from trailmark.cli import main
+
+        monkeypatch.setattr("sys.argv", ["trailmark", "version"])
+        main()
+        out = capsys.readouterr().out
+        assert out.strip() == f"trailmark {trailmark.__version__}"

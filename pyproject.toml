@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "trailmark"
-version = "0.2.1"
+version = "0.2.2"
 description = "Parse source code into a queryable graph of functions, classes, calls, and semantic annotations"
 readme = "README.md"
 requires-python = ">=3.12"

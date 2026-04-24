@@ -243,6 +243,10 @@ Requires Python &ge; 3.12.
 ## Usage
 
 ```bash
+# Report the installed version
+trailmark --version     # or: trailmark -V
+trailmark version       # subcommand form
+
 # Full JSON graph (Python, the default)
 trailmark analyze path/to/project
 
