@@ -78,9 +78,9 @@ def _compute_blast_radius(store: GraphStore) -> dict[str, Any]:
     Nodes above the threshold are collected in a subgraph.
     """
     graph = store._graph  # noqa: SLF001
-    digraph = store._digraph  # noqa: SLF001
-    id_to_idx = store._id_to_idx  # noqa: SLF001
-    idx_to_id = store._idx_to_id  # noqa: SLF001
+    digraph = store._call_digraph  # noqa: SLF001
+    id_to_idx = store._call_id_to_idx  # noqa: SLF001
+    idx_to_id = store._call_idx_to_id  # noqa: SLF001
 
     high_blast: set[str] = set()
     max_radius = 0

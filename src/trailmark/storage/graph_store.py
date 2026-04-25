@@ -20,25 +20,39 @@ class GraphStore:
     def __init__(self, graph: CodeGraph) -> None:
         self._graph = graph
         self._digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()
+        self._call_digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()
         self._id_to_idx: dict[str, int] = {}
         self._idx_to_id: dict[int, str] = {}
+        self._call_id_to_idx: dict[str, int] = {}
+        self._call_idx_to_id: dict[int, str] = {}
         self._build_index()
 
     def _build_index(self) -> None:
         """Populate the rustworkx digraph from the CodeGraph."""
         for node_id in self._graph.nodes:
             idx = self._digraph.add_node(node_id)
+            call_idx = self._call_digraph.add_node(node_id)
             self._id_to_idx[node_id] = idx
             self._idx_to_id[idx] = node_id
+            self._call_id_to_idx[node_id] = call_idx
+            self._call_idx_to_id[call_idx] = node_id
 
         for edge in self._graph.edges:
             src_idx = self._id_to_idx.get(edge.source_id)
             tgt_idx = self._id_to_idx.get(edge.target_id)
             if src_idx is not None and tgt_idx is not None:
                 self._digraph.add_edge(src_idx, tgt_idx, edge)
+            if edge.kind == EdgeKind.CALLS:
+                call_src_idx = self._call_id_to_idx.get(edge.source_id)
+                call_tgt_idx = self._call_id_to_idx.get(edge.target_id)
+                if call_src_idx is not None and call_tgt_idx is not None:
+                    self._call_digraph.add_edge(call_src_idx, call_tgt_idx, edge)
 
     def _idx(self, node_id: str) -> int | None:
         return self._id_to_idx.get(node_id)
+
+    def _call_idx(self, node_id: str) -> int | None:
+        return self._call_id_to_idx.get(node_id)
 
     def _node(self, node_id: str) -> CodeUnit | None:
         return self._graph.nodes.get(node_id)
@@ -102,25 +116,25 @@ class GraphStore:
         max_depth: int = 20,
     ) -> list[list[str]]:
         """Find all simple paths between two nodes (up to max_depth)."""
-        src_idx = self._idx(src_id)
-        dst_idx = self._idx(dst_id)
+        src_idx = self._call_idx(src_id)
+        dst_idx = self._call_idx(dst_id)
         if src_idx is None or dst_idx is None:
             return []
         raw_paths: list[list[int]] = rx.digraph_all_simple_paths(
-            self._digraph,
+            self._call_digraph,
             src_idx,
             dst_idx,
             cutoff=max_depth,
         )
-        return [[self._idx_to_id[i] for i in path] for path in raw_paths]
+        return [[self._call_idx_to_id[i] for i in path] for path in raw_paths]
 
     def reachable_from(self, node_id: str) -> set[str]:
         """Return all node IDs reachable from the given node."""
-        idx = self._idx(node_id)
+        idx = self._call_idx(node_id)
         if idx is None:
             return set()
-        descendants = rx.descendants(self._digraph, idx)
-        return {self._idx_to_id[i] for i in descendants}
+        descendants = rx.descendants(self._call_digraph, idx)
+        return {self._call_idx_to_id[i] for i in descendants}
 
     def nodes_with_annotation(
         self,
@@ -234,8 +248,8 @@ class GraphStore:
 
     def ancestors_of(self, node_id: str) -> set[str]:
         """Return all node IDs that can reach the given node."""
-        idx = self._idx(node_id)
+        idx = self._call_idx(node_id)
         if idx is None:
             return set()
-        ancestor_indices = rx.ancestors(self._digraph, idx)
-        return {self._idx_to_id[i] for i in ancestor_indices}
+        ancestor_indices = rx.ancestors(self._call_digraph, idx)
+        return {self._call_idx_to_id[i] for i in ancestor_indices}

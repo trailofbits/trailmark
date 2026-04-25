@@ -36,15 +36,11 @@ class TestAncestorsOf:
         engine = QueryEngine.from_directory(str(tmp_path))
         assert engine.ancestors_of("does_not_exist") == []
 
-    def test_node_with_no_callers_has_only_module_ancestor(self, tmp_path: Path) -> None:
-        """A function with no callers still has the module as an ancestor
-        via the `contains` edge. Function-level ancestors should be empty.
-        """
+    def test_node_with_no_callers_has_no_call_ancestors(self, tmp_path: Path) -> None:
+        """A function with no callers has no call ancestors."""
         (tmp_path / "app.py").write_text("def solo():\n    pass\n")
         engine = QueryEngine.from_directory(str(tmp_path))
-        ancestor_kinds = {a["kind"] for a in engine.ancestors_of("solo")}
-        assert "function" not in ancestor_kinds
-        assert "method" not in ancestor_kinds
+        assert engine.ancestors_of("solo") == []
 
 
 class TestReachableFrom:

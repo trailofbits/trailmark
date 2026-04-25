@@ -51,6 +51,21 @@ def _build_graph() -> tuple[CodeGraph, GraphStore]:
     return graph, GraphStore(graph)
 
 
+def _build_contains_bridge_graph() -> tuple[CodeGraph, GraphStore]:
+    """Build a graph where CONTAINS would be a false call bridge."""
+    nodes = {
+        "mod": _make_node("mod", "mod"),
+        "a": _make_node("a", "a"),
+        "b": _make_node("b", "b"),
+    }
+    edges = [
+        CodeEdge(source_id="mod", target_id="a", kind=EdgeKind.CONTAINS),
+        CodeEdge(source_id="a", target_id="b", kind=EdgeKind.CALLS),
+    ]
+    graph = CodeGraph(nodes=nodes, edges=edges)
+    return graph, GraphStore(graph)
+
+
 class TestGraphStoreCallers:
     def test_callers_of_b(self) -> None:
         _, store = _build_graph()
@@ -209,6 +224,12 @@ class TestGraphStorePaths:
         paths = store.paths_between("a", "a")
         assert len(paths) == 0
 
+    def test_paths_ignore_non_call_edges(self) -> None:
+        """Structural edges must not create call paths."""
+        _, store = _build_contains_bridge_graph()
+        assert store.paths_between("mod", "b") == []
+        assert store.paths_between("a", "b") == [["a", "b"]]
+
 
 class TestGraphStoreReachability:
     def test_reachable_from_a(self) -> None:
@@ -232,6 +253,18 @@ class TestGraphStoreReachability:
     def test_reachable_from_nonexistent(self) -> None:
         _, store = _build_graph()
         assert store.reachable_from("zzz") == set()
+
+    def test_reachable_ignores_non_call_edges(self) -> None:
+        _, store = _build_contains_bridge_graph()
+        assert store.reachable_from("mod") == set()
+        assert store.reachable_from("a") == {"b"}
+
+
+class TestGraphStoreAncestors:
+    def test_ancestors_ignore_non_call_edges(self) -> None:
+        _, store = _build_contains_bridge_graph()
+        assert store.ancestors_of("b") == {"a"}
+        assert store.ancestors_of("a") == set()
 
 
 class TestGraphStoreAnnotations:
@@ -358,6 +391,12 @@ class TestGraphStoreEntrypoints:
         path_strs = [tuple(p) for p in paths]
         assert ("a", "b", "c") in path_strs
         assert ("b", "c") in path_strs
+
+    def test_entrypoint_paths_ignore_non_call_edges(self) -> None:
+        graph, _ = _build_contains_bridge_graph()
+        graph.entrypoints["mod"] = EntrypointTag(kind=EntrypointKind.API)
+        store = GraphStore(graph)
+        assert store.entrypoint_paths_to("b") == []
 
 
 class TestGraphStoreComplexity:

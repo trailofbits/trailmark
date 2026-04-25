@@ -23,11 +23,12 @@ def _node(
     node_id: str,
     name: str,
     complexity: int | None = None,
+    kind: NodeKind = NodeKind.FUNCTION,
 ) -> CodeUnit:
     return CodeUnit(
         id=node_id,
         name=name,
-        kind=NodeKind.FUNCTION,
+        kind=kind,
         location=_LOC,
         cyclomatic_complexity=complexity,
     )
@@ -174,6 +175,22 @@ class TestBlastRadius:
         )
         # handler has CC=12, should appear as critical
         assert "handler" in anns[0]["description"]
+
+    def test_blast_radius_ignores_non_call_edges(self) -> None:
+        nodes = {
+            "mod": _node("mod", "mod", kind=NodeKind.MODULE),
+            "f": _node("f", "f", 7),
+        }
+        graph = CodeGraph(
+            nodes=nodes,
+            edges=[CodeEdge("mod", "f", EdgeKind.CONTAINS)],
+        )
+        engine = QueryEngine.from_graph(graph)
+        result = engine.preanalysis()
+
+        assert result["blast_radius"]["max_radius"] == 0
+        anns = engine.annotations_of("mod", kind=AnnotationKind.BLAST_RADIUS)
+        assert anns[0]["description"].startswith("0 downstream, 0 upstream")
 
 
 class TestEntrypointEnumeration:
