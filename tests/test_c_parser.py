@@ -192,6 +192,66 @@ class TestCParserDependencies:
         assert "myheader.h" in graph.dependencies
 
 
+PREPROC_GUARDED_CODE = """\
+void before_guard(void) {}
+
+#ifdef USE_FEATURE
+void feature_a(int x) {
+    x = x + 1;
+}
+#else
+void feature_b(int x) {
+    x = x - 1;
+}
+#endif
+
+void after_guard(void) {}
+"""
+
+PREPROC_SPLIT_SIGNATURE_CODE = """\
+void before_split(void) {}
+
+#if defined(_WIN32)
+unsigned int __stdcall thread_worker(void * arg)
+#else
+void * thread_worker(void * arg)
+#endif
+{
+    return 0;
+}
+
+void after_split(void) {
+    thread_worker(0);
+}
+"""
+
+
+class TestCParserPreprocessorRecovery:
+    def test_finds_functions_inside_ifdef_branches(self) -> None:
+        parser = CParser()
+        with tempfile.NamedTemporaryFile(suffix=".c", mode="w", delete=False) as f:
+            f.write(PREPROC_GUARDED_CODE)
+            f.flush()
+            graph = parser.parse_file(f.name)
+        os.unlink(f.name)
+        names = {n.name for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION}
+        assert "before_guard" in names
+        assert "after_guard" in names
+        assert "feature_a" in names or "feature_b" in names
+
+    def test_finds_functions_after_split_signature(self) -> None:
+        """Functions after a #if/#else split signature are still extracted."""
+        parser = CParser()
+        with tempfile.NamedTemporaryFile(suffix=".c", mode="w", delete=False) as f:
+            f.write(PREPROC_SPLIT_SIGNATURE_CODE)
+            f.flush()
+            graph = parser.parse_file(f.name)
+        os.unlink(f.name)
+        names = {n.name for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION}
+        assert "before_split" in names
+        assert "after_split" in names
+
+
 class TestCParseDirectory:
     def test_parses_multiple_files(self) -> None:
         parser = CParser()

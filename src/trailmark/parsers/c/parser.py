@@ -92,6 +92,17 @@ def _visit_module(
         _visit_top_level_node(child, file_path, module_id, graph)
 
 
+_PREPROC_CONTAINER_TYPES = frozenset(
+    {
+        "preproc_if",
+        "preproc_ifdef",
+        "preproc_else",
+        "preproc_elif",
+        "ERROR",
+    }
+)
+
+
 def _visit_top_level_node(
     child: Node,
     file_path: str,
@@ -109,6 +120,9 @@ def _visit_top_level_node(
         _extract_struct(child, file_path, module_id, graph)
     elif child.type == "enum_specifier":
         _extract_enum(child, file_path, module_id, graph)
+    elif child.type in _PREPROC_CONTAINER_TYPES:
+        for nested in child.children:
+            _visit_top_level_node(nested, file_path, module_id, graph)
 
 
 def _extract_type_def(
