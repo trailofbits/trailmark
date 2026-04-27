@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import dataclasses
 import os
 from collections.abc import Callable
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
     BranchInfo,
@@ -147,6 +148,7 @@ def parse_directory(
             merged.merge(file_graph)
     finally:
         _DIRECTORY_PARSE_ROOT.reset(token)
+    _link_cross_file_calls(merged)
     return merged
 
 
@@ -296,3 +298,60 @@ def first_child_by_type(node: Node, type_name: str) -> Node | None:
         if child.type == type_name:
             return child
     return None
+
+
+def _link_cross_file_calls(graph: CodeGraph) -> None:
+    """Rewrite dangling call edges to point at definitions in other modules.
+
+    Per-file parsers resolve bare calls like ``foo()`` as
+    ``current_module:foo``.  After merging, if ``foo`` is defined in
+    another module, that edge target doesn't exist.  This pass builds a
+    name index and rewrites those edges to the actual definition site.
+    """
+    defined_nodes = graph.nodes
+
+    name_to_ids: dict[str, list[str]] = {}
+    for node_id, unit in defined_nodes.items():
+        if unit.kind.value in {"function", "method"}:
+            name_to_ids.setdefault(unit.name, []).append(node_id)
+
+    new_edges: list[CodeEdge] = []
+    for edge in graph.edges:
+        if edge.kind != EdgeKind.CALLS or edge.target_id in defined_nodes:
+            new_edges.append(edge)
+            continue
+
+        target = edge.target_id
+        if "::" in target or "->" in target:
+            new_edges.append(edge)
+            continue
+
+        bare_name = target.rsplit(":", 1)[-1] if ":" in target else target
+        if "." in bare_name or "->" in bare_name:
+            new_edges.append(edge)
+            continue
+        candidates = name_to_ids.get(bare_name)
+
+        if not candidates:
+            new_edges.append(edge)
+            continue
+
+        if len(candidates) == 1:
+            new_edges.append(dataclasses.replace(edge, target_id=candidates[0]))
+        else:
+            # Ambiguous — pick the candidate NOT in the caller's own module
+            # to prefer the cross-file definition over a same-file shadow.
+            src_module = edge.source_id.rsplit(":", 1)[0] if ":" in edge.source_id else ""
+            cross = [c for c in candidates if not c.startswith(src_module + ":")]
+            if len(cross) == 1:
+                new_edges.append(dataclasses.replace(edge, target_id=cross[0]))
+            else:
+                new_edges.append(
+                    dataclasses.replace(
+                        edge,
+                        target_id=candidates[0],
+                        confidence=EdgeConfidence.UNCERTAIN,
+                    )
+                )
+
+    graph.edges = new_edges
