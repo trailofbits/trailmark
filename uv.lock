@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-17T00:53:06.94394Z"
+exclude-newer = "2026-04-22T16:05:23.116517Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -599,7 +599,7 @@ wheels = [
 
 [[package]]
 name = "trailmark"
-version = "0.2.2"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "rustworkx" },
