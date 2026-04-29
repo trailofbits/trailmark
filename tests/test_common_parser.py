@@ -221,6 +221,21 @@ def _cross_file_parse(file_path: str) -> CodeGraph:
                 kind=EdgeKind.CALLS,
             )
         )
+    elif stem == "ambiguous_caller":
+        caller_id = f"{module_id}:invoke_shared"
+        nodes[caller_id] = CodeUnit(
+            id=caller_id,
+            name="invoke_shared",
+            kind=NodeKind.FUNCTION,
+            location=location,
+        )
+        edges.append(
+            CodeEdge(
+                source_id=caller_id,
+                target_id=f"{module_id}:shared_name",
+                kind=EdgeKind.CALLS,
+            )
+        )
 
     return CodeGraph(nodes=nodes, edges=edges, language="test", root_path=file_path)
 
@@ -278,3 +293,28 @@ def test_cross_file_linker_leaves_unresolvable_calls(tmp_path: Path) -> None:
     call_edges = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
     assert len(call_edges) == 1
     assert call_edges[0].target_id == "caller:do_work"
+
+
+def test_cross_file_linker_keeps_ambiguous_cross_file_calls_unresolved(
+    tmp_path: Path,
+) -> None:
+    """Multiple cross-file definitions should not produce an arbitrary target."""
+    (tmp_path / "ambiguous1.c").write_text("")
+    (tmp_path / "ambiguous2.c").write_text("")
+    (tmp_path / "ambiguous_caller.c").write_text("")
+
+    graph = parse_directory(
+        _cross_file_parse,
+        language="test",
+        dir_path=str(tmp_path),
+        extensions=(".c",),
+    )
+
+    call_edges = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and e.source_id == "ambiguous_caller:invoke_shared"
+    ]
+    assert len(call_edges) == 1
+    assert call_edges[0].target_id == "ambiguous_caller:shared_name"
+    assert call_edges[0].confidence == EdgeConfidence.UNCERTAIN

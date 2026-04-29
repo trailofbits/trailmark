@@ -228,6 +228,10 @@ class TestParseOnlyAPI:
         assert "from trailmark.parse import parse_directory, parse_file" in readme_text
         assert 'graph = parse_file("path/to/file.py")' in readme_text
 
+    def test_readme_documents_cross_file_call_resolution(self, readme_text: str) -> None:
+        assert "Directory parsing resolves bare cross-file calls" in readme_text
+        assert "ambiguous cross-file calls" in readme_text
+
 
 def _read_requires_python(pyproject_data: dict[str, object]) -> str:
     project_raw = pyproject_data.get("project")

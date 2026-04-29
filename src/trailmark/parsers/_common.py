@@ -121,6 +121,7 @@ def walk_source_files(
     """
     for root, dirs, files in os.walk(dir_path, followlinks=False):
         dirs[:] = [d for d in dirs if not should_skip_dir(d)]
+        dirs.sort()
         for fname in sorted(files):
             if any(fname.endswith(ext) for ext in extensions):
                 yield os.path.join(root, fname)
@@ -339,8 +340,9 @@ def _link_cross_file_calls(graph: CodeGraph) -> None:
         if len(candidates) == 1:
             new_edges.append(dataclasses.replace(edge, target_id=candidates[0]))
         else:
-            # Ambiguous — pick the candidate NOT in the caller's own module
-            # to prefer the cross-file definition over a same-file shadow.
+            # Ambiguous: prefer a single cross-file candidate when a same-file
+            # declaration is also present, but do not invent an arbitrary call
+            # target when multiple cross-file definitions share the same name.
             src_module = edge.source_id.rsplit(":", 1)[0] if ":" in edge.source_id else ""
             cross = [c for c in candidates if not c.startswith(src_module + ":")]
             if len(cross) == 1:
@@ -349,7 +351,6 @@ def _link_cross_file_calls(graph: CodeGraph) -> None:
                 new_edges.append(
                     dataclasses.replace(
                         edge,
-                        target_id=candidates[0],
                         confidence=EdgeConfidence.UNCERTAIN,
                     )
                 )
