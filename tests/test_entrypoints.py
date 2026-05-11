@@ -989,6 +989,14 @@ class TestMoveEntrypoints:
         engine = QueryEngine.from_directory(str(tmp_path), language="move")
         assert engine.attack_surface() == []
 
+    def test_multiline_move_entry_fun_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "exchange.move").write_text(
+            "module 0x1::exchange {\n    public\n    entry\n    fun trade() {}\n}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="move")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        assert any(node_id.endswith(".trade") for node_id in ids)
+
 
 @pytest.fixture(autouse=True)
 def _isolate_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

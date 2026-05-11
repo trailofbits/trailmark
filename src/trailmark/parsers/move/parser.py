@@ -205,7 +205,7 @@ def _extract_function(
     unit = CodeUnit(
         id=func_id,
         name=func_name,
-        kind=NodeKind.METHOD,
+        kind=NodeKind.FUNCTION,
         location=make_location(node, file_path),
         parameters=tuple(params),
         return_type=return_type,

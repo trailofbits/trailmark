@@ -631,7 +631,7 @@ def _detect_move(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    signature = cache.line(path, unit.location.start_line) or ""
+    signature = cache.signature_block(path, unit.location.start_line) or ""
     if _MOVE_ENTRY_FUN.search(signature):
         return EntrypointTag(
             kind=EntrypointKind.API,

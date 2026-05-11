@@ -84,10 +84,10 @@ class TestMoveParserNodes:
         enums = [n for n in graph.nodes.values() if n.kind == NodeKind.ENUM]
         assert {e.name for e in enums} == {"Sign"}
 
-    def test_finds_functions_as_methods(self) -> None:
+    def test_finds_functions(self) -> None:
         _, graph = _parse_sample()
-        methods = [n for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
-        names = {m.name for m in methods}
+        functions = [n for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION]
+        names = {f.name for f in functions}
         assert "helper" in names
         assert "native_hash" in names
         assert "add" in names
