@@ -63,6 +63,7 @@ A language-specific parser walks the directory, parses each file into a tree-sit
 | Objective-C | `.m`, `.mm`, `.h` | C functions, classes, methods (selector-based naming) |
 | Kotlin | `.kt`, `.kts` | functions, classes, interfaces, data classes, objects, methods |
 | Dart | `.dart` | functions, classes, abstract classes, methods, constructors |
+| Move | `.move` | modules, functions, native functions, structs, enums, use dependencies |
 
 ```mermaid
 flowchart TD

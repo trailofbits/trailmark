@@ -32,6 +32,7 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "objc": ("trailmark.parsers.objc", "ObjCParser"),
     "kotlin": ("trailmark.parsers.kotlin", "KotlinParser"),
     "dart": ("trailmark.parsers.dart", "DartParser"),
+    "move": ("trailmark.parsers.move", "MoveParser"),
 }
 
 # Extensions used for language auto-detection. Keep these aligned with each
@@ -62,6 +63,7 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "objc": (".m", ".mm"),
     "kotlin": (".kt", ".kts"),
     "dart": (".dart",),
+    "move": (".move",),
 }
 
 _SUPPORTED_LANGUAGES = tuple(_PARSER_MAP.keys())

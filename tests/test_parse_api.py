@@ -22,6 +22,7 @@ class TestSupportedLanguages:
         assert "python" in languages
         assert "rust" in languages
         assert "typescript" in languages
+        assert "move" in languages
 
 
 class TestParseFile:
@@ -104,3 +105,7 @@ class TestParseDirectory:
         # The JavaScript parser walks .mjs/.cjs as well as .js/.jsx, so
         # detect_languages should mirror that and report "javascript".
         assert detect_languages(str(tmp_path)) == ["javascript"]
+
+    def test_detect_languages_includes_move_extension(self, tmp_path: Path) -> None:
+        (tmp_path / "module.move").write_text("module 0x1::M {}\n")
+        assert detect_languages(str(tmp_path)) == ["move"]
