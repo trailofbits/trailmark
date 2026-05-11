@@ -973,6 +973,23 @@ class TestBulkOverrideRules:
         assert engine.attack_surface() == []
 
 
+class TestMoveEntrypoints:
+    def test_move_entry_fun_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "exchange.move").write_text(
+            "module 0x1::exchange {\n    entry fun trade() {}\n    public fun helper() {}\n}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="move")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        assert any(node_id.endswith(".trade") for node_id in ids)
+
+    def test_non_entry_move_fun_not_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "exchange.move").write_text(
+            "module 0x1::exchange {\n    public fun helper() {}\n}\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="move")
+        assert engine.attack_surface() == []
+
+
 @pytest.fixture(autouse=True)
 def _isolate_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Some tests create pyproject.toml in tmp_path; make sure detection does

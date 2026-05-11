@@ -31,6 +31,7 @@ Detection layers (later layers override earlier ones):
    - Cairo / StarkNet: ``#[external]``, ``#[view]``, ``#[l1_handler]``,
      ``#[constructor]`` attributes.
    - Circom: files declaring ``component main = ...``.
+   - Move (Sui / IOTA): functions declared with ``entry fun``.
    - Miden Assembly: ``export.<name>`` directives.
    - Haskell: top-level ``main ::`` / ``main =`` bindings.
    - Erlang: functions listed in ``-export([...])``.
@@ -139,6 +140,10 @@ _CAIRO_CONTRACT_ATTR = re.compile(
 
 # Circom — component main declaration on the signature line
 _CIRCOM_MAIN = re.compile(r"^\s*component\s+main\b")
+
+# Move (Sui / IOTA) — transaction entry function declaration.
+# Matches `entry fun`, `public entry fun`, and `public(package) entry fun`.
+_MOVE_ENTRY_FUN = re.compile(r"\bentry\s+fun\b")
 
 # Miden Assembly — exported procedures and program begin block
 _MASM_EXPORT = re.compile(r"^\s*export\.([A-Za-z_]\w*)")
@@ -316,6 +321,8 @@ def _detect_for_unit(
         return _detect_cairo(cache, unit, path)
     if path.endswith(".circom"):
         return _detect_circom(cache, unit, path)
+    if path.endswith(".move"):
+        return _detect_move(cache, unit, path)
     if path.endswith(".masm"):
         return _detect_masm(cache, unit, path)
     if path.endswith(".hs"):
@@ -616,6 +623,22 @@ def _detect_circom(
                 description="Circom circuit main component",
                 asset_value=AssetValue.HIGH,
             )
+    return None
+
+
+def _detect_move(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    signature = cache.line(path, unit.location.start_line) or ""
+    if _MOVE_ENTRY_FUN.search(signature):
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Move transaction entry function (Sui/IOTA)",
+            asset_value=AssetValue.HIGH,
+        )
     return None
 
 

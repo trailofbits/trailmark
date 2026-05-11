@@ -309,6 +309,7 @@ Framework coverage:
 | Solidity | `external` / `public` visibility |
 | Cairo / StarkNet | `#[external]`, `#[view]`, `#[l1_handler]`, `#[constructor]` |
 | Circom | `component main` declarations |
+| Move (Sui / IOTA) | `entry fun` transaction entry functions |
 | Miden Assembly | `export.<name>` directives |
 | Haskell | top-level `main ::` / `main =` |
 | Erlang | functions listed in `-export([...])` |

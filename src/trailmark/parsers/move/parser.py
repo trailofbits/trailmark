@@ -366,14 +366,19 @@ def _find_module_identity(node: Node) -> Node | None:
 
 def _extract_docstring(node: Node) -> str | None:
     lines: list[str] = []
-    prev = node.prev_named_sibling
-    while prev is not None and prev.type == "line_comment":
-        text = node_text(prev)
-        if text.startswith("///"):
-            lines.append(text[3:].strip())
-            prev = prev.prev_named_sibling
-        else:
+    prev = node.prev_sibling
+    while prev is not None:
+        if prev.type == "line_comment":
+            text = node_text(prev)
+            if text.startswith("///"):
+                lines.append(text[3:].strip())
+                prev = prev.prev_sibling
+                continue
             break
+        if prev.type == "newline":
+            prev = prev.prev_sibling
+            continue
+        break
     if not lines:
         return None
     lines.reverse()

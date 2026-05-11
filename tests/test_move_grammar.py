@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -75,6 +76,16 @@ class TestBuild:
         assert "-undefined" not in cmd
         assert "dynamic_lookup" not in cmd
 
+    def test_build_raises_permission_error_for_read_only_dir(self) -> None:
+        with (
+            patch.object(os, "access", return_value=False),
+            pytest.raises(
+                PermissionError,
+                match="read-only directory",
+            ),
+        ):
+            move_mod._build()
+
 
 def _mock_so_exists(exists: bool) -> Any:
     real_str = str(move_mod._SO_PATH)
@@ -94,7 +105,7 @@ class TestLanguage:
 
     def test_language_calls_build_if_missing(self) -> None:
         with (
-            _mock_so_exists(False),
+            patch.object(move_mod, "_existing_binding_path", side_effect=[None, move_mod._SO_PATH]),
             patch.object(move_mod, "_build") as mock_build,
             patch.object(importlib.util, "spec_from_file_location") as mock_spec,
         ):
@@ -162,3 +173,48 @@ class TestLanguage:
             ):
                 move_mod.language()
         mock_spec_fn.assert_called_once_with("_binding", str(move_mod._SO_PATH))
+
+    def test_language_uses_existing_binding_even_if_ext_suffix_mismatch(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        alt = tmp_path / "_binding.cpython-312-darwin.so"
+        with (
+            patch.object(move_mod, "_existing_binding_path", return_value=alt),
+            patch.object(move_mod, "_build") as mock_build,
+            patch.object(importlib.util, "spec_from_file_location") as mock_spec_fn,
+        ):
+            mock_loader = MagicMock()
+            mock_spec_obj = MagicMock()
+            mock_spec_obj.loader = mock_loader
+            mock_spec_fn.return_value = mock_spec_obj
+            mock_mod = MagicMock()
+            mock_mod.language.return_value = "capsule"
+            with patch.object(importlib.util, "module_from_spec", return_value=mock_mod):
+                move_mod.language()
+        mock_build.assert_not_called()
+        mock_spec_fn.assert_called_once_with("_binding", str(alt))
+
+    def test_language_wraps_build_permission_errors(self) -> None:
+        with (
+            patch.object(move_mod, "_existing_binding_path", return_value=None),
+            patch.object(
+                move_mod,
+                "_build",
+                side_effect=PermissionError("Cannot build in read-only directory"),
+            ),
+            pytest.raises(RuntimeError, match="read-only installs"),
+        ):
+            move_mod.language()
+
+    def test_language_wraps_build_command_errors(self) -> None:
+        with (
+            patch.object(move_mod, "_existing_binding_path", return_value=None),
+            patch.object(
+                move_mod,
+                "_build",
+                side_effect=subprocess.CalledProcessError(1, ["cc"]),
+            ),
+            pytest.raises(RuntimeError, match="Failed to build Move grammar extension"),
+        ):
+            move_mod.language()
