@@ -405,11 +405,34 @@ def _walk_calls(
     calls: list[tuple[str, Node]],
 ) -> None:
     """Recursively find call nodes and extract targets."""
+    if node.type == "remote":
+        name = _remote_call_name(node)
+        if name:
+            calls.append((name, node))
+        _walk_call_arguments(node.child_by_field_name("fun"), calls)
+        return
+
     if node.type == "call":
         name = _call_target_name(node)
         if name:
             calls.append((name, node))
+        _walk_call_arguments(node, calls)
+        return
+
     for child in node.children:
+        _walk_calls(child, calls)
+
+
+def _walk_call_arguments(
+    node: Node | None,
+    calls: list[tuple[str, Node]],
+) -> None:
+    """Walk a call's argument expressions without re-visiting its target."""
+    if node is None:
+        return
+    for i, child in enumerate(node.children):
+        if node.field_name_for_child(i) == "expr":
+            continue
         _walk_calls(child, calls)
 
 
@@ -433,8 +456,8 @@ def _remote_call_name(remote: Node) -> str:
         return ""
     # remote_module has a module field containing the atom.
     mod_atom = mod_node.child_by_field_name("module")
-    mod_name = node_text(mod_atom) if mod_atom is not None else ""
-    fun_name = node_text(fun_node)
+    mod_name = node_text(mod_atom) if mod_atom is not None else node_text(mod_node).rstrip(":")
+    fun_name = _call_target_name(fun_node) if fun_node.type == "call" else node_text(fun_node)
     if mod_name and fun_name:
         return f"{mod_name}:{fun_name}"
     return ""
