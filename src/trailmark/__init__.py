@@ -13,4 +13,4 @@ __all__ = [
     "parse_file",
     "supported_languages",
 ]
-__version__ = "0.3.0"
+__version__ = "0.3.1"
