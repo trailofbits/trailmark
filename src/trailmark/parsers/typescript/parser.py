@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tree_sitter import Node
-from tree_sitter_language_pack import get_parser
+from tree_sitter import Node, Parser
+from tree_sitter_language_pack import get_language
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -57,7 +57,7 @@ class TypeScriptParser:
         return "typescript"
 
     def __init__(self) -> None:
-        self._parser = get_parser("typescript")
+        self._parser = Parser(get_language("typescript"))
 
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single TypeScript file into a CodeGraph."""

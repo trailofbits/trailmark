@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tree_sitter import Node
-from tree_sitter_language_pack import get_parser
+from tree_sitter import Node, Parser
+from tree_sitter_language_pack import get_language
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -62,7 +62,7 @@ class RustParser:
         return "rust"
 
     def __init__(self) -> None:
-        self._parser = get_parser("rust")
+        self._parser = Parser(get_language("rust"))
 
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Rust file into a CodeGraph."""

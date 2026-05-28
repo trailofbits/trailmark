@@ -271,9 +271,10 @@ class TestCairoParserDependencies:
 class TestFirstPathSegment:
     def _parse_use(self, code: str) -> Node:
         """Parse a use declaration and return the scoped_identifier node."""
-        from tree_sitter_language_pack import get_parser
+        from tree_sitter import Parser
+        from tree_sitter_language_pack import get_language
 
-        p = get_parser("cairo")
+        p = Parser(get_language("cairo"))
         tree = p.parse(code.encode())
         # Navigate: program > cairo_1_file > use_declaration > scoped_identifier
         file_node = tree.root_node.children[0]
@@ -297,9 +298,10 @@ class TestFirstPathSegment:
 
     def test_returns_empty_for_no_identifier(self) -> None:
         """A synthetic node with no identifier children returns empty string."""
-        from tree_sitter_language_pack import get_parser
+        from tree_sitter import Parser
+        from tree_sitter_language_pack import get_language
 
-        p = get_parser("cairo")
+        p = Parser(get_language("cairo"))
         tree = p.parse(b"fn f() {}")
         # Use the function_definition node, which has no identifier
         # in the scoped_identifier sense - just pass a node that

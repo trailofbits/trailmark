@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tree_sitter import Node
-from tree_sitter_language_pack import get_parser
+from tree_sitter import Node, Parser
+from tree_sitter_language_pack import get_language
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -63,9 +63,7 @@ class CSharpParser:
         return "csharp"
 
     def __init__(self) -> None:
-        # tree-sitter-language-pack 1.6.0's stub omits "csharp" from the
-        # SupportedLanguage Literal, but the runtime accepts it fine.
-        self._parser = get_parser("csharp")  # ty: ignore[invalid-argument-type]
+        self._parser = Parser(get_language("csharp"))
 
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single C# file into a CodeGraph."""
