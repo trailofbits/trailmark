@@ -31,16 +31,22 @@
       "target": "taxonomy:branchy"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:intdiv"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:intdiv"
+      "target": "proxy.unresolved:taxonomy:intdiv"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:intval"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:intval"
+      "target": "proxy.unresolved:taxonomy:intval"
     },
     {
       "confidence": "certain",
@@ -103,14 +109,95 @@
       "target": "taxonomy:use_animal"
     },
     {
+      "attributes": {
+        "raw_target": "$d->bark"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:use_animal",
-      "target": "$d->bark"
+      "target": "proxy.unresolved:$d-_bark"
+    },
+    {
+      "attributes": {
+        "type_name": "Dog"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:use_animal",
+      "target": "taxonomy:Dog"
     }
   ],
   "language": "php",
   "nodes": {
+    "proxy.unresolved:$d-_bark": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "$d->bark"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:$d-_bark",
+      "kind": "proxy",
+      "location": {
+        "end_col": 26,
+        "end_line": 78,
+        "file_path": "taxonomy.php",
+        "start_col": 11,
+        "start_line": 78
+      },
+      "name": "$d->bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:intdiv": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:intdiv"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:intdiv",
+      "kind": "proxy",
+      "location": {
+        "end_col": 34,
+        "end_line": 34,
+        "file_path": "taxonomy.php",
+        "start_col": 17,
+        "start_line": 34
+      },
+      "name": "taxonomy:intdiv",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:intval": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:intval"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:intval",
+      "kind": "proxy",
+      "location": {
+        "end_col": 28,
+        "end_line": 37,
+        "file_path": "taxonomy.php",
+        "start_col": 15,
+        "start_line": 37
+      },
+      "name": "taxonomy:intval",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -575,6 +662,7 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 9,
-    "total_nodes": 14
+    "proxies": 3,
+    "total_nodes": 17
   }
 }

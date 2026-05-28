@@ -77,6 +77,24 @@
       "kind": "calls",
       "source": "taxonomy:use_animal",
       "target": "taxonomy:bark"
+    },
+    {
+      "attributes": {
+        "type_name": "Animal"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:make_animal",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "attributes": {
+        "type_name": "Dog"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:make_dog",
+      "target": "taxonomy:Dog"
     }
   ],
   "language": "cairo",
@@ -472,6 +490,7 @@
     ],
     "entrypoints": 0,
     "functions": 8,
+    "proxies": 0,
     "total_nodes": 12
   }
 }

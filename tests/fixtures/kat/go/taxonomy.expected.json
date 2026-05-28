@@ -19,16 +19,22 @@
       "target": "taxonomy:Branchy"
     },
     {
+      "attributes": {
+        "raw_target": "strconv.Atoi"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Branchy",
-      "target": "strconv.Atoi"
+      "target": "proxy.unresolved:strconv.Atoi"
     },
     {
+      "attributes": {
+        "raw_target": "errors.New"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Branchy",
-      "target": "errors.New"
+      "target": "proxy.unresolved:errors.New"
     },
     {
       "confidence": "certain",
@@ -49,10 +55,13 @@
       "target": "taxonomy:Animal.Describe"
     },
     {
+      "attributes": {
+        "raw_target": "fmt.Sprintf"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Animal.Describe",
-      "target": "fmt.Sprintf"
+      "target": "proxy.unresolved:fmt.Sprintf"
     },
     {
       "confidence": "certain",
@@ -79,16 +88,22 @@
       "target": "taxonomy:Dog.Bark"
     },
     {
+      "attributes": {
+        "raw_target": "errors.New"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.Bark",
-      "target": "errors.New"
+      "target": "proxy.unresolved:errors.New"
     },
     {
+      "attributes": {
+        "raw_target": "fmt.Sprintf"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.Bark",
-      "target": "fmt.Sprintf"
+      "target": "proxy.unresolved:fmt.Sprintf"
     },
     {
       "confidence": "certain",
@@ -97,10 +112,13 @@
       "target": "taxonomy:Dog.Greet"
     },
     {
+      "attributes": {
+        "raw_target": "fmt.Sprintf"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.Greet",
-      "target": "fmt.Sprintf"
+      "target": "proxy.unresolved:fmt.Sprintf"
     },
     {
       "confidence": "certain",
@@ -109,14 +127,109 @@
       "target": "taxonomy:UseAnimal"
     },
     {
+      "attributes": {
+        "raw_target": "d.Bark"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:UseAnimal",
-      "target": "d.Bark"
+      "target": "proxy.unresolved:d.Bark"
     }
   ],
   "language": "go",
   "nodes": {
+    "proxy.unresolved:d.Bark": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "d.Bark"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:d.Bark",
+      "kind": "proxy",
+      "location": {
+        "end_col": 21,
+        "end_line": 87,
+        "file_path": "taxonomy.go",
+        "start_col": 8,
+        "start_line": 87
+      },
+      "name": "d.Bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:errors.New": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "errors.New"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:errors.New",
+      "kind": "proxy",
+      "location": {
+        "end_col": 34,
+        "end_line": 46,
+        "file_path": "taxonomy.go",
+        "start_col": 12,
+        "start_line": 46
+      },
+      "name": "errors.New",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:fmt.Sprintf": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "fmt.Sprintf"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:fmt.Sprintf",
+      "kind": "proxy",
+      "location": {
+        "end_col": 51,
+        "end_line": 61,
+        "file_path": "taxonomy.go",
+        "start_col": 8,
+        "start_line": 61
+      },
+      "name": "fmt.Sprintf",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:strconv.Atoi": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "strconv.Atoi"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:strconv.Atoi",
+      "kind": "proxy",
+      "location": {
+        "end_col": 34,
+        "end_line": 44,
+        "file_path": "taxonomy.go",
+        "start_col": 16,
+        "start_line": 44
+      },
+      "name": "strconv.Atoi",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -536,6 +649,7 @@
     ],
     "entrypoints": 0,
     "functions": 8,
-    "total_nodes": 12
+    "proxies": 4,
+    "total_nodes": 16
   }
 }

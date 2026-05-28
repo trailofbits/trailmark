@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+type AttributeValue = str | int | float | bool | None
+type Attribute = tuple[str, AttributeValue]
+
 
 class NodeKind(Enum):
     """The kind of code unit represented by a node."""
@@ -21,6 +24,16 @@ class NodeKind(Enum):
     CONTRACT = "contract"
     LIBRARY = "library"
     TEMPLATE = "template"
+    PROXY = "proxy"
+
+
+class NodeOrigin(Enum):
+    """Where a node came from."""
+
+    SOURCE = "source"
+    PROXY = "proxy"
+    BINARY = "binary"
+    SYNTHETIC = "synthetic"
 
 
 @dataclass(frozen=True)
@@ -41,6 +54,16 @@ class TypeRef:
     name: str
     module: str | None = None
     generic_args: tuple[TypeRef, ...] = ()
+
+
+@dataclass(frozen=True)
+class TypeParameter:
+    """A generic type parameter declared by a code unit."""
+
+    name: str
+    constraints: tuple[TypeRef, ...] = ()
+    default: TypeRef | None = None
+    variance: str | None = None
 
 
 @dataclass(frozen=True)
@@ -72,6 +95,9 @@ class CodeUnit:
     parameters: tuple[Parameter, ...] = ()
     return_type: TypeRef | None = None
     exception_types: tuple[TypeRef, ...] = ()
+    type_parameters: tuple[TypeParameter, ...] = ()
     cyclomatic_complexity: int | None = None
     branches: tuple[BranchInfo, ...] = ()
     docstring: str | None = None
+    origin: NodeOrigin = NodeOrigin.SOURCE
+    attributes: tuple[Attribute, ...] = ()

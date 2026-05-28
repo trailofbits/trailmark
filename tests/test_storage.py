@@ -230,6 +230,28 @@ class TestGraphStorePaths:
         assert store.paths_between("mod", "b") == []
         assert store.paths_between("a", "b") == [["a", "b"]]
 
+    def test_paths_can_use_explicit_projection(self) -> None:
+        nodes = {
+            "src": _make_node("src", "src"),
+            "proxy": _make_node("proxy", "proxy"),
+            "bin": _make_node("bin", "bin"),
+        }
+        graph = CodeGraph(
+            nodes=nodes,
+            edges=[
+                CodeEdge("src", "proxy", EdgeKind.CALLS),
+                CodeEdge("proxy", "bin", EdgeKind.CORRESPONDS_TO),
+            ],
+        )
+        store = GraphStore(graph)
+
+        assert store.paths_between("src", "bin") == []
+        assert store.paths_between(
+            "src",
+            "bin",
+            edge_kinds=frozenset({EdgeKind.CALLS, EdgeKind.CORRESPONDS_TO}),
+        ) == [["src", "proxy", "bin"]]
+
 
 class TestGraphStoreReachability:
     def test_reachable_from_a(self) -> None:
@@ -259,12 +281,74 @@ class TestGraphStoreReachability:
         assert store.reachable_from("mod") == set()
         assert store.reachable_from("a") == {"b"}
 
+    def test_reachable_can_use_explicit_projection(self) -> None:
+        nodes = {
+            "a": _make_node("a", "a"),
+            "b": _make_node("b", "b"),
+            "c": _make_node("c", "c"),
+        }
+        graph = CodeGraph(
+            nodes=nodes,
+            edges=[
+                CodeEdge("a", "b", EdgeKind.TYPE_USES),
+                CodeEdge("b", "c", EdgeKind.CALLS),
+            ],
+        )
+        store = GraphStore(graph)
+
+        assert store.reachable_from("a") == set()
+        assert store.reachable_from(
+            "a",
+            edge_kinds=frozenset({EdgeKind.TYPE_USES, EdgeKind.CALLS}),
+        ) == {"b", "c"}
+
 
 class TestGraphStoreAncestors:
     def test_ancestors_ignore_non_call_edges(self) -> None:
         _, store = _build_contains_bridge_graph()
         assert store.ancestors_of("b") == {"a"}
         assert store.ancestors_of("a") == set()
+
+
+class TestGraphStoreSubgraphConnections:
+    def test_subgraph_edges_induced(self) -> None:
+        nodes = {
+            "a": _make_node("a", "a"),
+            "b": _make_node("b", "b"),
+            "c": _make_node("c", "c"),
+        }
+        graph = CodeGraph(
+            nodes=nodes,
+            edges=[
+                CodeEdge("a", "b", EdgeKind.CALLS),
+                CodeEdge("b", "c", EdgeKind.CALLS),
+            ],
+            subgraphs={"pair": {"a", "b"}},
+        )
+        store = GraphStore(graph)
+
+        edges = store.subgraph_edges("pair")
+        assert [(edge.source_id, edge.target_id) for edge in edges] == [("a", "b")]
+
+    def test_connect_subgraphs(self) -> None:
+        graph, store = _build_graph()
+        graph.subgraphs["sources"] = {"a"}
+        graph.subgraphs["sinks"] = {"c", "d"}
+
+        paths = store.connect_subgraphs("sources", "sinks")
+        assert ["a", "b", "c"] in paths
+        assert ["a", "d"] in paths
+
+    def test_connect_subgraphs_overlap(self) -> None:
+        graph, store = _build_graph()
+        graph.subgraphs["left"] = {"a", "b"}
+        graph.subgraphs["right"] = {"b"}
+
+        assert ["b"] in store.connect_subgraphs("left", "right")
+
+    def test_connect_subgraphs_missing(self) -> None:
+        _, store = _build_graph()
+        assert store.connect_subgraphs("missing", "also_missing") == []
 
 
 class TestGraphStoreAnnotations:

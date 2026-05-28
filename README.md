@@ -107,10 +107,13 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | `ancestors_of(name)` | Every function that can transitively reach the target (upward slice) |
 | `reachable_from(name)` | Every function transitively reachable from the source |
 | `paths_between(src, dst)` | All simple call paths between two nodes |
+| `connect_subgraphs(source, target)` | Paths connecting two named subgraphs |
 | `entrypoint_paths_to(name)` | Paths from any detected entrypoint to the target |
 | `attack_surface()` | Entrypoints tagged with trust level and asset value |
 | `complexity_hotspots(n)` | Functions with cyclomatic complexity &ge; n |
 | `functions_that_raise(exc)` | Functions whose parser-detected exception list includes `exc` |
+| `generic_parameters(name)` | Generic type parameters declared by a node |
+| `type_references(name)` | Parameter, return, exception, and generic-bound type references |
 | `annotate(name, kind, description, source)` | Add a semantic annotation to a node |
 | `annotations_of(name, kind=None)` | Get annotations for a node, optionally filtered by kind |
 | `nodes_with_annotation(kind)` | Every node tagged with the given annotation kind |
@@ -119,8 +122,10 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | `preanalysis()` | Run the built-in pre-analysis passes and store annotations/subgraphs |
 | `augment_sarif(path)` | Merge SARIF findings into the graph |
 | `augment_weaudit(path)` | Merge weAudit findings into the graph |
+| `augment_binary(path)` | Merge an external binary-analysis graph JSON file |
 | `findings(kind=None)` | Return nodes carrying finding-style annotations |
 | `subgraph(name)` | Return the nodes in a named subgraph |
+| `subgraph_edges(name)` | Return induced edges inside a named subgraph |
 | `subgraph_names()` | List every named subgraph currently on the graph |
 | `summary()` | Node counts, edge counts, dependencies |
 | `to_json()` | Full graph export |
@@ -181,11 +186,19 @@ classDiagram
     CodeGraph "1" *-- "*" EntrypointTag
 ```
 
-**Node kinds:** `function`, `method`, `class`, `module`, `struct`, `interface`, `trait`, `enum`, `namespace`, `contract`, `library`
+**Node kinds:** `function`, `method`, `class`, `module`, `struct`, `interface`, `trait`, `enum`, `namespace`, `contract`, `library`, `template`, `proxy`
 
-**Edge kinds:** `calls`, `inherits`, `implements`, `contains`, `imports`
+**Node origins:** `source`, `proxy`, `binary`, `synthetic`
+
+**Edge kinds:** `calls`, `inherits`, `implements`, `contains`, `imports`, `resolves_to`, `type_uses`, `specializes`, `corresponds_to`
 
 **Edge confidence:** `certain`, `inferred`, `uncertain`
+
+Unresolved calls are materialized as proxy nodes such as
+`proxy.unresolved:<raw-symbol>` so traversal results can show where source
+analysis lost resolution instead of silently dropping that edge. Binary
+analysis support imports external JSON call graphs; Trailmark does not
+disassemble executables itself.
 
 ### Example Graph
 

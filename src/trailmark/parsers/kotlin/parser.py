@@ -37,6 +37,7 @@ from trailmark.parsers._common import (
     add_module_node,
     collect_body_info,
     compute_complexity,
+    extract_type_parameters,
     first_child_by_type,
     make_location,
     module_id_from_path,
@@ -147,6 +148,7 @@ def _extract_class_like(
         name=class_name,
         kind=kind,
         location=make_location(node, file_path),
+        type_parameters=extract_type_parameters(node),
     )
     add_contains_edge(graph, module_id, class_id)
 
@@ -215,6 +217,7 @@ def _extract_function(
         parameters=tuple(params),
         return_type=return_type,
         exception_types=tuple(exception_types),
+        type_parameters=extract_type_parameters(node),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
     )

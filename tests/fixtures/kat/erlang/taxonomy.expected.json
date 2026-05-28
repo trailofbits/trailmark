@@ -73,16 +73,22 @@
       "target": "taxonomy:sum_even"
     },
     {
+      "attributes": {
+        "raw_target": "lists:sum"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:sum_even",
-      "target": "lists:sum"
+      "target": "proxy.unresolved:lists:sum"
     },
     {
+      "attributes": {
+        "raw_target": "lists:seq"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:sum_even",
-      "target": "lists:seq"
+      "target": "proxy.unresolved:lists:seq"
     },
     {
       "confidence": "certain",
@@ -103,16 +109,22 @@
       "target": "taxonomy:parse_or_error"
     },
     {
+      "attributes": {
+        "raw_target": "string:to_integer"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:parse_or_error",
-      "target": "string:to_integer"
+      "target": "proxy.unresolved:string:to_integer"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:is_integer"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:parse_or_error",
-      "target": "taxonomy:is_integer"
+      "target": "proxy.unresolved:taxonomy:is_integer"
     },
     {
       "confidence": "certain",
@@ -159,6 +171,98 @@
   ],
   "language": "erlang",
   "nodes": {
+    "proxy.unresolved:lists:seq": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "lists:seq"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:lists:seq",
+      "kind": "proxy",
+      "location": {
+        "end_col": 48,
+        "end_line": 27,
+        "file_path": "taxonomy.erl",
+        "start_col": 25,
+        "start_line": 27
+      },
+      "name": "lists:seq",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:lists:sum": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "lists:sum"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:lists:sum",
+      "kind": "proxy",
+      "location": {
+        "end_col": 65,
+        "end_line": 27,
+        "file_path": "taxonomy.erl",
+        "start_col": 4,
+        "start_line": 27
+      },
+      "name": "lists:sum",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:string:to_integer": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "string:to_integer"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:string:to_integer",
+      "kind": "proxy",
+      "location": {
+        "end_col": 32,
+        "end_line": 35,
+        "file_path": "taxonomy.erl",
+        "start_col": 9,
+        "start_line": 35
+      },
+      "name": "string:to_integer",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:is_integer": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:is_integer"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:is_integer",
+      "kind": "proxy",
+      "location": {
+        "end_col": 37,
+        "end_line": 36,
+        "file_path": "taxonomy.erl",
+        "start_col": 22,
+        "start_line": 36
+      },
+      "name": "taxonomy:is_integer",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -568,6 +672,7 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 10,
-    "total_nodes": 13
+    "proxies": 4,
+    "total_nodes": 17
   }
 }

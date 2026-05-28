@@ -309,6 +309,18 @@ class TestTypeScriptExtraFeatures:
         targets = {e.target_id for e in impl_edges}
         assert any("Orderable" in t for t in targets)
 
+    def test_generic_parameters_extracted(self) -> None:
+        graph = _parse_ts_snippet(
+            "interface Box<T extends Entity> {}\n"
+            "function identity<U>(value: U): U { return value; }\n",
+        )
+        box = next(n for n in graph.nodes.values() if n.name == "Box")
+        identity = next(n for n in graph.nodes.values() if n.name == "identity")
+
+        assert box.type_parameters[0].name == "T"
+        assert box.type_parameters[0].constraints[0].name == "Entity"
+        assert identity.type_parameters[0].name == "U"
+
     def test_optional_parameter(self) -> None:
         graph = _parse_extra()
         fn = next(n for n in graph.nodes.values() if n.name == "withOptional")

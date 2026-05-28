@@ -16,6 +16,8 @@ from trailmark.models import (
     NodeKind,
     SourceLocation,
     TrustLevel,
+    TypeParameter,
+    TypeRef,
 )
 from trailmark.query.api import (
     QueryEngine,
@@ -133,6 +135,101 @@ class TestQueryEnginePaths:
         assert engine.paths_between("db_query", "entry") == []
 
 
+class TestQueryEngineSubgraphs:
+    def test_subgraph_edges(self) -> None:
+        nodes = {
+            "a": _make_node("a", "a"),
+            "b": _make_node("b", "b"),
+            "c": _make_node("c", "c"),
+        }
+        graph = CodeGraph(
+            nodes=nodes,
+            edges=[
+                CodeEdge("a", "b", EdgeKind.CALLS),
+                CodeEdge("b", "c", EdgeKind.CALLS),
+            ],
+            subgraphs={"pair": {"a", "b"}},
+        )
+        engine = QueryEngine.from_graph(graph)
+
+        edges = engine.subgraph_edges("pair")
+        assert edges == [
+            {
+                "source": "a",
+                "target": "b",
+                "kind": "calls",
+                "confidence": "certain",
+            }
+        ]
+
+    def test_connect_subgraphs_with_bridge_edges(self) -> None:
+        nodes = {
+            "src": _make_node("src", "src"),
+            "proxy": _make_node("proxy", "proxy"),
+            "resolved": _make_node("resolved", "resolved"),
+            "bin": _make_node("bin", "bin"),
+        }
+        graph = CodeGraph(
+            nodes=nodes,
+            edges=[
+                CodeEdge("src", "proxy", EdgeKind.CALLS),
+                CodeEdge("proxy", "resolved", EdgeKind.RESOLVES_TO),
+                CodeEdge("resolved", "bin", EdgeKind.CORRESPONDS_TO),
+            ],
+            subgraphs={"source": {"src"}, "binary": {"bin"}},
+        )
+        engine = QueryEngine.from_graph(graph)
+
+        assert engine.connect_subgraphs("source", "binary") == []
+        assert engine.connect_subgraphs(
+            "source",
+            "binary",
+            edge_kinds=("calls", "resolves_to", "corresponds_to"),
+        ) == [["src", "proxy", "resolved", "bin"]]
+
+
+class TestQueryEngineTypes:
+    def test_generic_parameters(self) -> None:
+        node = CodeUnit(
+            id="mod:Box",
+            name="Box",
+            kind=NodeKind.CLASS,
+            location=_LOC,
+            type_parameters=(TypeParameter(name="T", constraints=(TypeRef(name="Sized"),)),),
+        )
+        engine = QueryEngine.from_graph(CodeGraph(nodes={"mod:Box": node}))
+
+        assert engine.generic_parameters("Box") == [
+            {
+                "name": "T",
+                "constraints": [{"name": "Sized", "module": None, "generic_args": []}],
+                "default": None,
+                "variance": None,
+            }
+        ]
+
+    def test_type_references(self) -> None:
+        node = CodeUnit(
+            id="mod:make_box",
+            name="make_box",
+            kind=NodeKind.FUNCTION,
+            location=_LOC,
+            return_type=TypeRef(name="Box", generic_args=(TypeRef(name="int"),)),
+        )
+        engine = QueryEngine.from_graph(CodeGraph(nodes={"mod:make_box": node}))
+
+        assert engine.type_references("make_box") == [
+            {
+                "name": "Box",
+                "module": None,
+                "generic_args": [
+                    {"name": "int", "module": None, "generic_args": []},
+                ],
+            },
+            {"name": "int", "module": None, "generic_args": []},
+        ]
+
+
 class TestQueryEngineAttackSurface:
     def test_attack_surface_exact(self) -> None:
         engine = _build_engine()
@@ -243,6 +340,7 @@ class TestQueryEngineSummary:
         assert s["total_nodes"] == 3
         assert s["functions"] == 3
         assert s["classes"] == 0
+        assert s["proxies"] == 0
         assert s["call_edges"] == 2
         assert s["dependencies"] == ["flask", "sqlalchemy"]
         assert s["entrypoints"] == 1
@@ -250,6 +348,7 @@ class TestQueryEngineSummary:
             "total_nodes",
             "functions",
             "classes",
+            "proxies",
             "call_edges",
             "dependencies",
             "entrypoints",

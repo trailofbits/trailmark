@@ -25,10 +25,13 @@
       "target": "taxonomy:branchy"
     },
     {
+      "attributes": {
+        "raw_target": "StateError"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "StateError"
+      "target": "proxy.unresolved:StateError"
     },
     {
       "confidence": "certain",
@@ -61,10 +64,13 @@
       "target": "taxonomy:Dog.bark"
     },
     {
+      "attributes": {
+        "raw_target": "StateError"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "StateError"
+      "target": "proxy.unresolved:StateError"
     },
     {
       "confidence": "certain",
@@ -77,10 +83,42 @@
       "kind": "contains",
       "source": "taxonomy",
       "target": "taxonomy:useAnimal"
+    },
+    {
+      "attributes": {
+        "type_name": "Dog"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:useAnimal",
+      "target": "taxonomy:Dog"
     }
   ],
   "language": "dart",
   "nodes": {
+    "proxy.unresolved:StateError": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "StateError"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:StateError",
+      "kind": "proxy",
+      "location": {
+        "end_col": 32,
+        "end_line": 31,
+        "file_path": "taxonomy.dart",
+        "start_col": 20,
+        "start_line": 31
+      },
+      "name": "StateError",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -495,6 +533,7 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 8,
-    "total_nodes": 12
+    "proxies": 1,
+    "total_nodes": 13
   }
 }

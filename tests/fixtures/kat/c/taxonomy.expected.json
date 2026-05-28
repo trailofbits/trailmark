@@ -25,10 +25,13 @@
       "target": "taxonomy:branchy"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:strtol"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:strtol"
+      "target": "proxy.unresolved:taxonomy:strtol"
     },
     {
       "confidence": "certain",
@@ -37,16 +40,22 @@
       "target": "taxonomy:animal_init"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:strncpy"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:animal_init",
-      "target": "taxonomy:strncpy"
+      "target": "proxy.unresolved:taxonomy:strncpy"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:strncpy"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:animal_init",
-      "target": "taxonomy:strncpy"
+      "target": "proxy.unresolved:taxonomy:strncpy"
     },
     {
       "confidence": "certain",
@@ -55,10 +64,13 @@
       "target": "taxonomy:animal_describe"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:snprintf"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:animal_describe",
-      "target": "taxonomy:snprintf"
+      "target": "proxy.unresolved:taxonomy:snprintf"
     },
     {
       "confidence": "certain",
@@ -73,16 +85,22 @@
       "target": "taxonomy:animal_init"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:strncpy"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:dog_init",
-      "target": "taxonomy:strncpy"
+      "target": "proxy.unresolved:taxonomy:strncpy"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:strncpy"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:dog_init",
-      "target": "taxonomy:strncpy"
+      "target": "proxy.unresolved:taxonomy:strncpy"
     },
     {
       "confidence": "certain",
@@ -91,10 +109,13 @@
       "target": "taxonomy:dog_bark"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:snprintf"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:dog_bark",
-      "target": "taxonomy:snprintf"
+      "target": "proxy.unresolved:taxonomy:snprintf"
     },
     {
       "confidence": "certain",
@@ -111,6 +132,75 @@
   ],
   "language": "c",
   "nodes": {
+    "proxy.unresolved:taxonomy:snprintf": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:snprintf"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:snprintf",
+      "kind": "proxy",
+      "location": {
+        "end_col": 60,
+        "end_line": 54,
+        "file_path": "taxonomy.c",
+        "start_col": 4,
+        "start_line": 54
+      },
+      "name": "taxonomy:snprintf",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:strncpy": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:strncpy"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:strncpy",
+      "kind": "proxy",
+      "location": {
+        "end_col": 47,
+        "end_line": 48,
+        "file_path": "taxonomy.c",
+        "start_col": 4,
+        "start_line": 48
+      },
+      "name": "taxonomy:strncpy",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:strtol": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:strtol"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:strtol",
+      "kind": "proxy",
+      "location": {
+        "end_col": 40,
+        "end_line": 40,
+        "file_path": "taxonomy.c",
+        "start_col": 18,
+        "start_line": 40
+      },
+      "name": "taxonomy:strtol",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -589,6 +679,7 @@
     ],
     "entrypoints": 0,
     "functions": 7,
-    "total_nodes": 10
+    "proxies": 3,
+    "total_nodes": 13
   }
 }

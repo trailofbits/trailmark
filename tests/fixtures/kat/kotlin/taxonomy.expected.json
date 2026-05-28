@@ -31,16 +31,22 @@
       "target": "taxonomy:branchy"
     },
     {
+      "attributes": {
+        "raw_target": "mode.toInt"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "mode.toInt"
+      "target": "proxy.unresolved:mode.toInt"
     },
     {
+      "attributes": {
+        "raw_target": "RuntimeException"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "RuntimeException"
+      "target": "proxy.unresolved:RuntimeException"
     },
     {
       "confidence": "certain",
@@ -73,10 +79,13 @@
       "target": "taxonomy:Dog.bark"
     },
     {
+      "attributes": {
+        "raw_target": "RuntimeException"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "RuntimeException"
+      "target": "proxy.unresolved:RuntimeException"
     },
     {
       "confidence": "certain",
@@ -91,14 +100,95 @@
       "target": "taxonomy:useAnimal"
     },
     {
+      "attributes": {
+        "raw_target": "d.bark"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:useAnimal",
-      "target": "d.bark"
+      "target": "proxy.unresolved:d.bark"
+    },
+    {
+      "attributes": {
+        "type_name": "Dog"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:useAnimal",
+      "target": "taxonomy:Dog"
     }
   ],
   "language": "kotlin",
   "nodes": {
+    "proxy.unresolved:RuntimeException": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "RuntimeException"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:RuntimeException",
+      "kind": "proxy",
+      "location": {
+        "end_col": 42,
+        "end_line": 37,
+        "file_path": "taxonomy.kt",
+        "start_col": 14,
+        "start_line": 37
+      },
+      "name": "RuntimeException",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:d.bark": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "d.bark"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:d.bark",
+      "kind": "proxy",
+      "location": {
+        "end_col": 24,
+        "end_line": 69,
+        "file_path": "taxonomy.kt",
+        "start_col": 11,
+        "start_line": 69
+      },
+      "name": "d.bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:mode.toInt": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "mode.toInt"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:mode.toInt",
+      "kind": "proxy",
+      "location": {
+        "end_col": 20,
+        "end_line": 35,
+        "file_path": "taxonomy.kt",
+        "start_col": 8,
+        "start_line": 35
+      },
+      "name": "mode.toInt",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -541,6 +631,7 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 8,
-    "total_nodes": 13
+    "proxies": 3,
+    "total_nodes": 16
   }
 }

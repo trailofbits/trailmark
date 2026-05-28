@@ -43,10 +43,13 @@
       "target": "taxonomy:Math.Branchy"
     },
     {
+      "attributes": {
+        "raw_target": "int.Parse"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Math.Branchy",
-      "target": "int.Parse"
+      "target": "proxy.unresolved:int.Parse"
     },
     {
       "confidence": "certain",
@@ -55,10 +58,13 @@
       "target": "taxonomy:Math.FetchAsync"
     },
     {
+      "attributes": {
+        "raw_target": "Task.Yield"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Math.FetchAsync",
-      "target": "Task.Yield"
+      "target": "proxy.unresolved:Task.Yield"
     },
     {
       "confidence": "certain",
@@ -117,6 +123,52 @@
   ],
   "language": "csharp",
   "nodes": {
+    "proxy.unresolved:Task.Yield": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "Task.Yield"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:Task.Yield",
+      "kind": "proxy",
+      "location": {
+        "end_col": 30,
+        "end_line": 63,
+        "file_path": "taxonomy.cs",
+        "start_col": 18,
+        "start_line": 63
+      },
+      "name": "Task.Yield",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:int.Parse": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "int.Parse"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:int.Parse",
+      "kind": "proxy",
+      "location": {
+        "end_col": 38,
+        "end_line": 53,
+        "file_path": "taxonomy.cs",
+        "start_col": 23,
+        "start_line": 53
+      },
+      "name": "int.Parse",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -648,6 +700,7 @@
     ],
     "entrypoints": 0,
     "functions": 9,
-    "total_nodes": 16
+    "proxies": 2,
+    "total_nodes": 18
   }
 }

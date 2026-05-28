@@ -21,6 +21,7 @@ from trailmark.parsers._common import (
     add_module_node,
     collect_body_info,
     compute_complexity,
+    extract_type_parameters,
     make_location,
     module_id_from_path,
     node_text,
@@ -135,6 +136,7 @@ def _extract_struct(
         name=struct_name,
         kind=NodeKind.STRUCT,
         location=make_location(node, file_path),
+        type_parameters=extract_type_parameters(node),
         docstring=docstring,
     )
     graph.nodes[struct_id] = unit
@@ -160,6 +162,7 @@ def _extract_trait(
         name=trait_name,
         kind=NodeKind.TRAIT,
         location=make_location(node, file_path),
+        type_parameters=extract_type_parameters(node),
         docstring=docstring,
     )
     graph.nodes[trait_id] = unit
@@ -198,6 +201,7 @@ def _extract_enum(
         name=enum_name,
         kind=NodeKind.ENUM,
         location=make_location(node, file_path),
+        type_parameters=extract_type_parameters(node),
         docstring=docstring,
     )
     graph.nodes[enum_id] = unit
@@ -308,6 +312,7 @@ def _extract_function(
         parameters=tuple(params),
         return_type=return_type,
         exception_types=tuple(exception_types),
+        type_parameters=extract_type_parameters(node),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,

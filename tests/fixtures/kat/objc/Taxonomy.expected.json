@@ -59,6 +59,15 @@
       "kind": "contains",
       "source": "Taxonomy",
       "target": "Taxonomy:use_animal"
+    },
+    {
+      "attributes": {
+        "type_name": "Dog"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "Taxonomy:use_animal",
+      "target": "Taxonomy:Dog"
     }
   ],
   "language": "objc",
@@ -513,6 +522,7 @@
     ],
     "entrypoints": 0,
     "functions": 8,
+    "proxies": 0,
     "total_nodes": 11
   }
 }

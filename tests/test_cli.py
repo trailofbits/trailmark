@@ -147,6 +147,7 @@ class TestAnalyzeCommand:
             "total_nodes",
             "functions",
             "classes",
+            "proxies",
             "call_edges",
             "dependencies",
             "entrypoints",
@@ -173,14 +174,15 @@ class TestAnalyzeCommand:
         ):
             main()
         lines = mock_out.getvalue().strip().split("\n")
-        assert len(lines) == 6
+        assert len(lines) == 7
         # Verify exact line format with exact string matching
         assert lines[0] == "Nodes: 3"
         assert lines[1] == "  Functions: 1"
         assert lines[2] == "  Classes: 1"
-        assert lines[3] == "Call edges: 0"
-        assert lines[4] == "Dependencies: "
-        assert lines[5] == "Entrypoints: 0"
+        assert lines[3] == "  Proxies: 0"
+        assert lines[4] == "Call edges: 0"
+        assert lines[5] == "Dependencies: "
+        assert lines[6] == "Entrypoints: 0"
 
     def test_analyze_summary_with_dependencies(
         self,
@@ -199,7 +201,7 @@ class TestAnalyzeCommand:
         ):
             main()
         lines = mock_out.getvalue().strip().split("\n")
-        dep_line = lines[4]
+        dep_line = lines[5]
         assert dep_line.startswith("Dependencies: ")
         # Should contain actual dependency names
         assert "os" in dep_line
@@ -225,9 +227,10 @@ class TestAnalyzeCommand:
         assert lines[0].startswith("Nodes: ")
         assert lines[1].startswith("  Functions: ")
         assert lines[2].startswith("  Classes: ")
-        assert lines[3].startswith("Call edges: ")
-        assert lines[4].startswith("Dependencies: ")
-        assert lines[5].startswith("Entrypoints: ")
+        assert lines[3].startswith("  Proxies: ")
+        assert lines[4].startswith("Call edges: ")
+        assert lines[5].startswith("Dependencies: ")
+        assert lines[6].startswith("Entrypoints: ")
 
     def test_analyze_summary_short_flag(
         self,

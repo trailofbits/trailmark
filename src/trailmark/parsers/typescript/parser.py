@@ -21,6 +21,7 @@ from trailmark.parsers._common import (
     add_module_node,
     collect_body_info,
     compute_complexity,
+    extract_type_parameters,
     make_location,
     module_id_from_path,
     node_text,
@@ -245,6 +246,7 @@ def _extract_function_expr(
         location=location,
         parameters=tuple(params),
         return_type=return_type,
+        type_parameters=extract_type_parameters(func_node),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         exception_types=tuple(exception_types),
@@ -282,6 +284,7 @@ def _extract_class(
         name=class_name,
         kind=NodeKind.CLASS,
         location=location,
+        type_parameters=extract_type_parameters(node),
         docstring=_extract_jsdoc(node),
     )
     graph.nodes[class_id] = class_unit
@@ -447,6 +450,7 @@ def _extract_interface(
         name=iface_name,
         kind=NodeKind.INTERFACE,
         location=location,
+        type_parameters=extract_type_parameters(node),
         docstring=_extract_jsdoc(node),
     )
     graph.nodes[iface_id] = iface_unit
@@ -570,6 +574,7 @@ def _extract_method(
         location=location,
         parameters=tuple(params),
         return_type=return_type,
+        type_parameters=extract_type_parameters(node),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         exception_types=tuple(exception_types),
@@ -640,6 +645,7 @@ def _extract_function(
         location=location,
         parameters=tuple(params),
         return_type=return_type,
+        type_parameters=extract_type_parameters(node),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         exception_types=tuple(exception_types),

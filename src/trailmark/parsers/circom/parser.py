@@ -12,6 +12,7 @@ from trailmark.models.nodes import (
     BranchInfo,
     CodeUnit,
     NodeKind,
+    NodeOrigin,
     Parameter,
     TypeRef,
 )
@@ -184,6 +185,7 @@ def _extract_main_component(
         kind=NodeKind.FUNCTION,
         location=make_location(node, file_path),
         cyclomatic_complexity=1,
+        origin=NodeOrigin.SYNTHETIC,
     )
     graph.nodes[main_id] = unit
     add_contains_edge(graph, module_id, main_id)

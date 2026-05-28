@@ -181,6 +181,7 @@ def _print_summary(engine: QueryEngine) -> None:
     print(f"Nodes: {summary['total_nodes']}")
     print(f"  Functions: {summary['functions']}")
     print(f"  Classes: {summary['classes']}")
+    print(f"  Proxies: {summary['proxies']}")
     print(f"Call edges: {summary['call_edges']}")
     print(f"Dependencies: {', '.join(summary['dependencies'])}")
     print(f"Entrypoints: {summary['entrypoints']}")

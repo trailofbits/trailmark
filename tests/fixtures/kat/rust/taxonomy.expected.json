@@ -25,28 +25,40 @@
       "target": "taxonomy:branchy"
     },
     {
+      "attributes": {
+        "raw_target": "mode.parse"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "mode.parse"
+      "target": "proxy.unresolved:mode.parse"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:Ok"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:Ok"
+      "target": "proxy.unresolved:taxonomy:Ok"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:Err"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:Err"
+      "target": "proxy.unresolved:taxonomy:Err"
     },
     {
+      "attributes": {
+        "raw_target": "String::from"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "String::from"
+      "target": "proxy.unresolved:String::from"
     },
     {
       "confidence": "certain",
@@ -67,10 +79,13 @@
       "target": "taxonomy:Animal.new"
     },
     {
+      "attributes": {
+        "raw_target": "String::from"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Animal.new",
-      "target": "String::from"
+      "target": "proxy.unresolved:String::from"
     },
     {
       "confidence": "certain",
@@ -91,16 +106,22 @@
       "target": "taxonomy:Dog.new"
     },
     {
+      "attributes": {
+        "raw_target": "Animal::new"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.new",
-      "target": "Animal::new"
+      "target": "proxy.unresolved:Animal::new"
     },
     {
+      "attributes": {
+        "raw_target": "String::from"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.new",
-      "target": "String::from"
+      "target": "proxy.unresolved:String::from"
     },
     {
       "confidence": "certain",
@@ -109,22 +130,31 @@
       "target": "taxonomy:Dog.bark"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:Err"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "taxonomy:Err"
+      "target": "proxy.unresolved:taxonomy:Err"
     },
     {
+      "attributes": {
+        "raw_target": "String::from"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "String::from"
+      "target": "proxy.unresolved:String::from"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:Ok"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "taxonomy:Ok"
+      "target": "proxy.unresolved:taxonomy:Ok"
     },
     {
       "confidence": "certain",
@@ -145,14 +175,155 @@
       "target": "taxonomy:use_animal"
     },
     {
+      "attributes": {
+        "raw_target": "d.bark"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:use_animal",
-      "target": "d.bark"
+      "target": "proxy.unresolved:d.bark"
     }
   ],
   "language": "rust",
   "nodes": {
+    "proxy.unresolved:Animal::new": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "Animal::new"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:Animal::new",
+      "kind": "proxy",
+      "location": {
+        "end_col": 40,
+        "end_line": 72,
+        "file_path": "taxonomy.rs",
+        "start_col": 23,
+        "start_line": 72
+      },
+      "name": "Animal::new",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:String::from": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "String::from"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:String::from",
+      "kind": "proxy",
+      "location": {
+        "end_col": 46,
+        "end_line": 39,
+        "file_path": "taxonomy.rs",
+        "start_col": 22,
+        "start_line": 39
+      },
+      "name": "String::from",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:d.bark": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "d.bark"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:d.bark",
+      "kind": "proxy",
+      "location": {
+        "end_col": 17,
+        "end_line": 92,
+        "file_path": "taxonomy.rs",
+        "start_col": 4,
+        "start_line": 92
+      },
+      "name": "d.bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:mode.parse": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "mode.parse"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:mode.parse",
+      "kind": "proxy",
+      "location": {
+        "end_col": 29,
+        "end_line": 37,
+        "file_path": "taxonomy.rs",
+        "start_col": 10,
+        "start_line": 37
+      },
+      "name": "mode.parse",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Err": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Err"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Err",
+      "kind": "proxy",
+      "location": {
+        "end_col": 47,
+        "end_line": 39,
+        "file_path": "taxonomy.rs",
+        "start_col": 18,
+        "start_line": 39
+      },
+      "name": "taxonomy:Err",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Ok": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Ok"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Ok",
+      "kind": "proxy",
+      "location": {
+        "end_col": 30,
+        "end_line": 38,
+        "file_path": "taxonomy.rs",
+        "start_col": 17,
+        "start_line": 38
+      },
+      "name": "taxonomy:Ok",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -660,6 +831,7 @@
     ],
     "entrypoints": 0,
     "functions": 9,
-    "total_nodes": 14
+    "proxies": 6,
+    "total_nodes": 20
   }
 }

@@ -15,9 +15,11 @@ from trailmark.models import (
     EntrypointKind,
     EntrypointTag,
     NodeKind,
+    NodeOrigin,
     Parameter,
     SourceLocation,
     TrustLevel,
+    TypeParameter,
     TypeRef,
 )
 
@@ -83,6 +85,19 @@ class TestTypeRef:
         assert t.generic_args[0].name == "int"
 
 
+class TestTypeParameter:
+    def test_type_parameter_defaults(self) -> None:
+        p = TypeParameter(name="T")
+        assert p.name == "T"
+        assert p.constraints == ()
+        assert p.default is None
+        assert p.variance is None
+
+    def test_type_parameter_with_constraint(self) -> None:
+        p = TypeParameter(name="T", constraints=(TypeRef(name="Sized"),))
+        assert p.constraints[0].name == "Sized"
+
+
 class TestParameter:
     def test_untyped(self) -> None:
         p = Parameter(name="x")
@@ -105,6 +120,9 @@ class TestCodeUnit:
     def test_function(self) -> None:
         unit = _make_unit()
         assert unit.kind == NodeKind.FUNCTION
+        assert unit.origin == NodeOrigin.SOURCE
+        assert unit.type_parameters == ()
+        assert unit.attributes == ()
         assert unit.cyclomatic_complexity is None
         assert unit.branches == ()
 
@@ -125,6 +143,19 @@ class TestCodeUnit:
         assert unit.cyclomatic_complexity == 5
         assert len(unit.branches) == 1
 
+    def test_proxy_node(self) -> None:
+        unit = CodeUnit(
+            id="proxy.unresolved:mod:missing",
+            name="mod:missing",
+            kind=NodeKind.PROXY,
+            location=_make_location(),
+            origin=NodeOrigin.PROXY,
+            attributes=(("raw_symbol", "mod:missing"),),
+        )
+        assert unit.kind == NodeKind.PROXY
+        assert unit.origin == NodeOrigin.PROXY
+        assert unit.attributes[0] == ("raw_symbol", "mod:missing")
+
 
 class TestCodeEdge:
     def test_call_edge(self) -> None:
@@ -143,6 +174,22 @@ class TestCodeEdge:
             confidence=EdgeConfidence.UNCERTAIN,
         )
         assert edge.confidence == EdgeConfidence.UNCERTAIN
+
+    def test_new_edge_kinds_and_attributes(self) -> None:
+        edge = CodeEdge(
+            source_id="src:f",
+            target_id="bin.app:f",
+            kind=EdgeKind.CORRESPONDS_TO,
+            attributes=(("artifact", "app"),),
+        )
+        assert edge.kind == EdgeKind.CORRESPONDS_TO
+        assert edge.attributes == (("artifact", "app"),)
+
+    def test_all_graph_model_edge_kinds(self) -> None:
+        assert EdgeKind.RESOLVES_TO.value == "resolves_to"
+        assert EdgeKind.TYPE_USES.value == "type_uses"
+        assert EdgeKind.SPECIALIZES.value == "specializes"
+        assert EdgeKind.CORRESPONDS_TO.value == "corresponds_to"
 
 
 class TestAnnotations:

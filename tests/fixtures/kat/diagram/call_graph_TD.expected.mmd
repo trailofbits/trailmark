@@ -11,11 +11,19 @@ flowchart TD
     taxonomy_Dog___init__["__init__, method, CC=1"]
     taxonomy_Dog_bark["bark, method, CC=2"]
     taxonomy_use_animal["use_animal, function, CC=1"]
-    taxonomy_branchy --> taxonomy_range
-    taxonomy_branchy --> taxonomy_int
-    taxonomy_branchy --> taxonomy_RuntimeError
-    taxonomy_Dog___init__ -.-> super_____init__
-    taxonomy_Dog___init__ --> taxonomy_super
-    taxonomy_Dog_bark --> taxonomy_ValueError
-    taxonomy_use_animal -.-> d_bark
-    taxonomy_use_animal -.-> json_dumps
+    proxy_unresolved_taxonomy_range["taxonomy:range, proxy"]
+    proxy_unresolved_taxonomy_int["taxonomy:int, proxy"]
+    proxy_unresolved_taxonomy_RuntimeError["taxonomy:RuntimeError, proxy"]
+    proxy_unresolved_super____init__["super().__init__, proxy"]
+    proxy_unresolved_taxonomy_super["taxonomy:super, proxy"]
+    proxy_unresolved_taxonomy_ValueError["taxonomy:ValueError, proxy"]
+    proxy_unresolved_d_bark["d.bark, proxy"]
+    proxy_unresolved_json_dumps["json.dumps, proxy"]
+    taxonomy_branchy --> proxy_unresolved_taxonomy_range
+    taxonomy_branchy --> proxy_unresolved_taxonomy_int
+    taxonomy_branchy --> proxy_unresolved_taxonomy_RuntimeError
+    taxonomy_Dog___init__ -.-> proxy_unresolved_super____init__
+    taxonomy_Dog___init__ --> proxy_unresolved_taxonomy_super
+    taxonomy_Dog_bark --> proxy_unresolved_taxonomy_ValueError
+    taxonomy_use_animal -.-> proxy_unresolved_d_bark
+    taxonomy_use_animal -.-> proxy_unresolved_json_dumps

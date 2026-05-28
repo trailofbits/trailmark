@@ -204,6 +204,7 @@
     ],
     "entrypoints": 0,
     "functions": 5,
+    "proxies": 0,
     "total_nodes": 6
   }
 }

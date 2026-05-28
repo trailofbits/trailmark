@@ -31,10 +31,13 @@
       "target": "taxonomy:Animal.describe"
     },
     {
+      "attributes": {
+        "raw_target": "abi.encodePacked"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Animal.describe",
-      "target": "abi.encodePacked"
+      "target": "proxy.unresolved:abi.encodePacked"
     },
     {
       "confidence": "certain",
@@ -79,10 +82,13 @@
       "target": "taxonomy:Dog.bark"
     },
     {
+      "attributes": {
+        "raw_target": "abi.encodePacked"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "abi.encodePacked"
+      "target": "proxy.unresolved:abi.encodePacked"
     },
     {
       "confidence": "certain",
@@ -91,10 +97,13 @@
       "target": "taxonomy:Dog.greet"
     },
     {
+      "attributes": {
+        "raw_target": "abi.encodePacked"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.greet",
-      "target": "abi.encodePacked"
+      "target": "proxy.unresolved:abi.encodePacked"
     },
     {
       "confidence": "certain",
@@ -103,14 +112,63 @@
       "target": "taxonomy:Dog.useAnimal"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:bark"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.useAnimal",
-      "target": "taxonomy:bark"
+      "target": "proxy.unresolved:taxonomy:bark"
     }
   ],
   "language": "solidity",
   "nodes": {
+    "proxy.unresolved:abi.encodePacked": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "abi.encodePacked"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:abi.encodePacked",
+      "kind": "proxy",
+      "location": {
+        "end_col": 62,
+        "end_line": 20,
+        "file_path": "taxonomy.sol",
+        "start_col": 22,
+        "start_line": 20
+      },
+      "name": "abi.encodePacked",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:bark": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:bark"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:bark",
+      "kind": "proxy",
+      "location": {
+        "end_col": 26,
+        "end_line": 73,
+        "file_path": "taxonomy.sol",
+        "start_col": 15,
+        "start_line": 73
+      },
+      "name": "taxonomy:bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -547,6 +605,7 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 9,
-    "total_nodes": 13
+    "proxies": 2,
+    "total_nodes": 15
   }
 }

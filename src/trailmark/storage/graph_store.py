@@ -13,46 +13,85 @@ from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit
 
+_CALL_EDGE_KINDS = frozenset({EdgeKind.CALLS})
+
 
 class GraphStore:
     """Indexed graph store backed by rustworkx for fast traversals."""
 
     def __init__(self, graph: CodeGraph) -> None:
         self._graph = graph
+        self.rebuild_index()
+
+    def rebuild_index(self) -> None:
+        """Rebuild all rustworkx indexes after graph nodes or edges change."""
         self._digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()
-        self._call_digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()
         self._id_to_idx: dict[str, int] = {}
         self._idx_to_id: dict[int, str] = {}
-        self._call_id_to_idx: dict[str, int] = {}
-        self._call_idx_to_id: dict[int, str] = {}
+        self._projection_cache: dict[
+            frozenset[EdgeKind],
+            tuple[
+                rx.PyDiGraph[str, CodeEdge],
+                dict[str, int],
+                dict[int, str],
+            ],
+        ] = {}
         self._build_index()
+        (
+            self._call_digraph,
+            self._call_id_to_idx,
+            self._call_idx_to_id,
+        ) = self._projection_for(_CALL_EDGE_KINDS)
 
     def _build_index(self) -> None:
         """Populate the rustworkx digraph from the CodeGraph."""
         for node_id in self._graph.nodes:
             idx = self._digraph.add_node(node_id)
-            call_idx = self._call_digraph.add_node(node_id)
             self._id_to_idx[node_id] = idx
             self._idx_to_id[idx] = node_id
-            self._call_id_to_idx[node_id] = call_idx
-            self._call_idx_to_id[call_idx] = node_id
 
         for edge in self._graph.edges:
             src_idx = self._id_to_idx.get(edge.source_id)
             tgt_idx = self._id_to_idx.get(edge.target_id)
             if src_idx is not None and tgt_idx is not None:
                 self._digraph.add_edge(src_idx, tgt_idx, edge)
-            if edge.kind == EdgeKind.CALLS:
-                call_src_idx = self._call_id_to_idx.get(edge.source_id)
-                call_tgt_idx = self._call_id_to_idx.get(edge.target_id)
-                if call_src_idx is not None and call_tgt_idx is not None:
-                    self._call_digraph.add_edge(call_src_idx, call_tgt_idx, edge)
+
+    def _projection_for(
+        self,
+        edge_kinds: frozenset[EdgeKind] | None,
+    ) -> tuple[
+        rx.PyDiGraph[str, CodeEdge],
+        dict[str, int],
+        dict[int, str],
+    ]:
+        """Return a cached projection; ``None`` means the default CALLS projection."""
+        key = _CALL_EDGE_KINDS if edge_kinds is None else edge_kinds
+        cached = self._projection_cache.get(key)
+        if cached is not None:
+            return cached
+
+        digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()
+        id_to_idx: dict[str, int] = {}
+        idx_to_id: dict[int, str] = {}
+        for node_id in self._graph.nodes:
+            idx = digraph.add_node(node_id)
+            id_to_idx[node_id] = idx
+            idx_to_id[idx] = node_id
+
+        for edge in self._graph.edges:
+            if edge.kind not in key:
+                continue
+            src_idx = id_to_idx.get(edge.source_id)
+            tgt_idx = id_to_idx.get(edge.target_id)
+            if src_idx is not None and tgt_idx is not None:
+                digraph.add_edge(src_idx, tgt_idx, edge)
+
+        result = (digraph, id_to_idx, idx_to_id)
+        self._projection_cache[key] = result
+        return result
 
     def _idx(self, node_id: str) -> int | None:
         return self._id_to_idx.get(node_id)
-
-    def _call_idx(self, node_id: str) -> int | None:
-        return self._call_id_to_idx.get(node_id)
 
     def _node(self, node_id: str) -> CodeUnit | None:
         return self._graph.nodes.get(node_id)
@@ -114,27 +153,34 @@ class GraphStore:
         src_id: str,
         dst_id: str,
         max_depth: int = 20,
+        edge_kinds: frozenset[EdgeKind] | None = None,
     ) -> list[list[str]]:
-        """Find all simple paths between two nodes (up to max_depth)."""
-        src_idx = self._call_idx(src_id)
-        dst_idx = self._call_idx(dst_id)
+        """Find simple paths using CALLS by default, up to max_depth."""
+        digraph, id_to_idx, idx_to_id = self._projection_for(edge_kinds)
+        src_idx = id_to_idx.get(src_id)
+        dst_idx = id_to_idx.get(dst_id)
         if src_idx is None or dst_idx is None:
             return []
         raw_paths: list[list[int]] = rx.digraph_all_simple_paths(
-            self._call_digraph,
+            digraph,
             src_idx,
             dst_idx,
             cutoff=max_depth,
         )
-        return [[self._call_idx_to_id[i] for i in path] for path in raw_paths]
+        return [[idx_to_id[i] for i in path] for path in raw_paths]
 
-    def reachable_from(self, node_id: str) -> set[str]:
-        """Return all node IDs reachable from the given node."""
-        idx = self._call_idx(node_id)
+    def reachable_from(
+        self,
+        node_id: str,
+        edge_kinds: frozenset[EdgeKind] | None = None,
+    ) -> set[str]:
+        """Return node IDs reachable from the given node over CALLS by default."""
+        digraph, id_to_idx, idx_to_id = self._projection_for(edge_kinds)
+        idx = id_to_idx.get(node_id)
         if idx is None:
             return set()
-        descendants = rx.descendants(self._call_digraph, idx)
-        return {self._call_idx_to_id[i] for i in descendants}
+        descendants = rx.descendants(digraph, idx)
+        return {idx_to_id[i] for i in descendants}
 
     def nodes_with_annotation(
         self,
@@ -159,11 +205,17 @@ class GraphStore:
         self,
         node_id: str,
         max_depth: int = 20,
+        edge_kinds: frozenset[EdgeKind] | None = None,
     ) -> list[list[str]]:
-        """Find all paths from any entrypoint to the given node."""
+        """Find paths from any entrypoint to a node over CALLS by default."""
         all_paths: list[list[str]] = []
         for ep_id in self._graph.entrypoints:
-            paths = self.paths_between(ep_id, node_id, max_depth)
+            paths = self.paths_between(
+                ep_id,
+                node_id,
+                max_depth,
+                edge_kinds=edge_kinds,
+            )
             all_paths.extend(paths)
         return all_paths
 
@@ -246,10 +298,68 @@ class GraphStore:
         """Return all named subgraphs."""
         return dict(self._graph.subgraphs)
 
-    def ancestors_of(self, node_id: str) -> set[str]:
-        """Return all node IDs that can reach the given node."""
-        idx = self._call_idx(node_id)
+    def subgraph_edges(
+        self,
+        name: str,
+        edge_kinds: frozenset[EdgeKind] | None = None,
+    ) -> list[CodeEdge]:
+        """Return induced edges whose endpoints are both in the named subgraph."""
+        node_ids = self.subgraph(name)
+        if not node_ids:
+            return []
+        return [
+            edge
+            for edge in self._graph.edges
+            if edge.source_id in node_ids
+            and edge.target_id in node_ids
+            and (edge_kinds is None or edge.kind in edge_kinds)
+        ]
+
+    def connect_subgraphs(
+        self,
+        source: str,
+        target: str,
+        max_depth: int = 20,
+        edge_kinds: frozenset[EdgeKind] | None = None,
+    ) -> list[list[str]]:
+        """Find paths connecting any node in one subgraph to any node in another."""
+        source_ids = self.subgraph(source)
+        target_ids = self.subgraph(target)
+        if not source_ids or not target_ids:
+            return []
+
+        paths: list[list[str]] = []
+        seen: set[tuple[str, ...]] = set()
+        for src_id in sorted(source_ids):
+            if src_id in target_ids:
+                path = (src_id,)
+                if path not in seen:
+                    seen.add(path)
+                    paths.append([src_id])
+            for dst_id in sorted(target_ids):
+                if src_id == dst_id:
+                    continue
+                for path in self.paths_between(
+                    src_id,
+                    dst_id,
+                    max_depth,
+                    edge_kinds=edge_kinds,
+                ):
+                    key = tuple(path)
+                    if key not in seen:
+                        seen.add(key)
+                        paths.append(path)
+        return paths
+
+    def ancestors_of(
+        self,
+        node_id: str,
+        edge_kinds: frozenset[EdgeKind] | None = None,
+    ) -> set[str]:
+        """Return node IDs that can reach the given node over CALLS by default."""
+        digraph, id_to_idx, idx_to_id = self._projection_for(edge_kinds)
+        idx = id_to_idx.get(node_id)
         if idx is None:
             return set()
-        ancestor_indices = rx.ancestors(self._call_digraph, idx)
-        return {self._call_idx_to_id[i] for i in ancestor_indices}
+        ancestor_indices = rx.ancestors(digraph, idx)
+        return {idx_to_id[i] for i in ancestor_indices}

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from trailmark.models.nodes import SourceLocation
+from trailmark.models.nodes import Attribute, SourceLocation
 
 
 class EdgeKind(Enum):
@@ -16,6 +16,10 @@ class EdgeKind(Enum):
     CONTAINS = "contains"
     IMPORTS = "imports"
     IMPLEMENTS = "implements"
+    RESOLVES_TO = "resolves_to"
+    TYPE_USES = "type_uses"
+    SPECIALIZES = "specializes"
+    CORRESPONDS_TO = "corresponds_to"
 
 
 class EdgeConfidence(Enum):
@@ -35,3 +39,4 @@ class CodeEdge:
     kind: EdgeKind
     confidence: EdgeConfidence = EdgeConfidence.CERTAIN
     location: SourceLocation | None = None
+    attributes: tuple[Attribute, ...] = ()

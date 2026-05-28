@@ -21,6 +21,7 @@ from trailmark.parsers._common import (
     add_module_node,
     collect_body_info,
     compute_complexity,
+    extract_type_parameters,
     make_location,
     module_id_from_path,
     node_text,
@@ -158,6 +159,7 @@ def _extract_type_spec(
         name=type_name,
         kind=kind,
         location=make_location(spec, file_path),
+        type_parameters=extract_type_parameters(spec),
         docstring=docstring,
     )
     graph.nodes[type_id] = unit
@@ -205,6 +207,7 @@ def _extract_function(
         parameters=tuple(params),
         return_type=return_type,
         exception_types=tuple(exception_types),
+        type_parameters=extract_type_parameters(node),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,
@@ -257,6 +260,7 @@ def _extract_method(
         parameters=tuple(params),
         return_type=return_type,
         exception_types=tuple(exception_types),
+        type_parameters=extract_type_parameters(node),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,

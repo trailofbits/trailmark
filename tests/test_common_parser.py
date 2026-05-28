@@ -280,7 +280,7 @@ def test_cross_file_linker_keeps_same_module_when_target_exists(tmp_path: Path) 
 
 
 def test_cross_file_linker_leaves_unresolvable_calls(tmp_path: Path) -> None:
-    """Calls to functions not defined anywhere stay unresolved."""
+    """Calls to functions not defined anywhere are materialized as proxies."""
     (tmp_path / "caller.c").write_text("")
 
     graph = parse_directory(
@@ -292,13 +292,14 @@ def test_cross_file_linker_leaves_unresolvable_calls(tmp_path: Path) -> None:
 
     call_edges = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
     assert len(call_edges) == 1
-    assert call_edges[0].target_id == "caller:do_work"
+    assert call_edges[0].target_id == "proxy.unresolved:caller:do_work"
+    assert "proxy.unresolved:caller:do_work" in graph.nodes
 
 
 def test_cross_file_linker_keeps_ambiguous_cross_file_calls_unresolved(
     tmp_path: Path,
 ) -> None:
-    """Multiple cross-file definitions should not produce an arbitrary target."""
+    """Multiple cross-file definitions should not produce an arbitrary concrete target."""
     (tmp_path / "ambiguous1.c").write_text("")
     (tmp_path / "ambiguous2.c").write_text("")
     (tmp_path / "ambiguous_caller.c").write_text("")
@@ -316,5 +317,5 @@ def test_cross_file_linker_keeps_ambiguous_cross_file_calls_unresolved(
         if e.kind == EdgeKind.CALLS and e.source_id == "ambiguous_caller:invoke_shared"
     ]
     assert len(call_edges) == 1
-    assert call_edges[0].target_id == "ambiguous_caller:shared_name"
+    assert call_edges[0].target_id == "proxy.unresolved:ambiguous_caller:shared_name"
     assert call_edges[0].confidence == EdgeConfidence.UNCERTAIN

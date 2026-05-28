@@ -12,6 +12,7 @@ from trailmark.models.nodes import (
     BranchInfo,
     CodeUnit,
     NodeKind,
+    NodeOrigin,
     Parameter,
 )
 from trailmark.parsers._common import (
@@ -157,6 +158,7 @@ def _extract_entrypoint(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,
+        origin=NodeOrigin.SYNTHETIC,
     )
     graph.nodes[entry_id] = unit
     add_contains_edge(graph, module_id, entry_id)

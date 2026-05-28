@@ -6,6 +6,7 @@ import importlib
 import os
 from pathlib import Path
 
+from trailmark.analysis.proxies import ensure_proxy_nodes
 from trailmark.models.graph import CodeGraph
 from trailmark.parsers._common import should_skip_dir
 from trailmark.parsers.base import LanguageParser
@@ -85,7 +86,7 @@ def parse_file(path: str, language: str | None = None) -> CodeGraph:
     """
     file_path = Path(path)
     resolved_language = _resolve_file_language(file_path, language)
-    return _get_parser(resolved_language).parse_file(str(file_path))
+    return ensure_proxy_nodes(_get_parser(resolved_language).parse_file(str(file_path)))
 
 
 def parse_directory(path: str, language: str = "python") -> CodeGraph:
@@ -188,7 +189,7 @@ def _parse_and_merge(path: str, languages: list[str]) -> CodeGraph:
         merged.merge(sub)
     # merge() doesn't touch `language`; preserve the polyglot marker.
     merged.language = "polyglot"
-    return merged
+    return ensure_proxy_nodes(merged)
 
 
 def _detect_file_language(path: Path) -> str | None:

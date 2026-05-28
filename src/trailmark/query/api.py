@@ -8,13 +8,15 @@ from typing import Any
 
 import trailmark.parse as _parse_api
 from trailmark.analysis.augment import augment_from_sarif, augment_from_weaudit
+from trailmark.analysis.binary import augment_from_binary_graph
 from trailmark.analysis.diff import compute_diff
 from trailmark.analysis.entrypoints import detect_entrypoints
 from trailmark.analysis.preanalysis import run_preanalysis
+from trailmark.analysis.proxies import ensure_proxy_nodes
 from trailmark.models.annotations import Annotation, AnnotationKind
-from trailmark.models.edges import CodeEdge
+from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit
+from trailmark.models.nodes import CodeUnit, NodeOrigin, TypeParameter, TypeRef
 from trailmark.storage.graph_store import GraphStore
 
 
@@ -61,7 +63,7 @@ class QueryEngine:
     @classmethod
     def from_graph(cls, graph: CodeGraph) -> QueryEngine:
         """Create an engine from a pre-built CodeGraph."""
-        store = GraphStore(graph)
+        store = GraphStore(ensure_proxy_nodes(graph))
         return cls(store)
 
     def diff_against(self, other: QueryEngine) -> dict[str, Any]:
@@ -132,6 +134,23 @@ class QueryEngine:
         if src_id is None or dst_id is None:
             return []
         return self._store.paths_between(src_id, dst_id)
+
+    def connect_subgraphs(
+        self,
+        source: str,
+        target: str,
+        *,
+        max_depth: int = 20,
+        edge_kinds: tuple[str | EdgeKind, ...] = ("calls",),
+    ) -> list[list[str]]:
+        """Find paths connecting nodes from one named subgraph to another."""
+        kinds = _coerce_edge_kinds(edge_kinds)
+        return self._store.connect_subgraphs(
+            source,
+            target,
+            max_depth=max_depth,
+            edge_kinds=kinds,
+        )
 
     def entrypoint_paths_to(
         self,
@@ -255,6 +274,7 @@ class QueryEngine:
             "total_nodes": len(graph.nodes),
             "functions": len(funcs),
             "classes": sum(1 for n in graph.nodes.values() if n.kind.value == "class"),
+            "proxies": sum(1 for n in graph.nodes.values() if n.kind.value == "proxy"),
             "call_edges": len(call_edges),
             "dependencies": graph.dependencies,
             "entrypoints": len(graph.entrypoints),
@@ -276,6 +296,19 @@ class QueryEngine:
     def augment_weaudit(self, weaudit_path: str) -> dict[str, Any]:
         """Parse a weAudit file and augment the graph with findings."""
         return augment_from_weaudit(self._store, weaudit_path)
+
+    def augment_binary(
+        self,
+        graph_path: str,
+        *,
+        connect_sources: bool = True,
+    ) -> dict[str, Any]:
+        """Import a Trailmark binary graph JSON file into this graph."""
+        return augment_from_binary_graph(
+            self._store,
+            graph_path,
+            connect_sources=connect_sources,
+        )
 
     def findings(
         self,
@@ -309,9 +342,42 @@ class QueryEngine:
         graph = self._store._graph  # noqa: SLF001
         return [_unit_to_dict(graph.nodes[nid]) for nid in sorted(node_ids) if nid in graph.nodes]
 
+    def subgraph_edges(
+        self,
+        name: str,
+        *,
+        edge_kinds: tuple[str | EdgeKind, ...] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return induced edges whose endpoints are both in a named subgraph."""
+        kinds = None if edge_kinds is None else _coerce_edge_kinds(edge_kinds)
+        return [_edge_to_dict(e) for e in self._store.subgraph_edges(name, kinds)]
+
     def subgraph_names(self) -> list[str]:
         """Return all registered subgraph names."""
         return sorted(self._store.all_subgraphs())
+
+    def generic_parameters(self, name: str) -> list[dict[str, Any]]:
+        """Return generic type parameters declared by the named node."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        graph = self._store._graph  # noqa: SLF001
+        unit = graph.nodes.get(node_id)
+        if unit is None:
+            return []
+        return [_type_parameter_to_dict(tp) for tp in unit.type_parameters]
+
+    def type_references(self, name: str) -> list[dict[str, Any]]:
+        """Return parameter, return, exception, and generic-bound type refs."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        graph = self._store._graph  # noqa: SLF001
+        unit = graph.nodes.get(node_id)
+        if unit is None:
+            return []
+        refs = _unit_type_refs(unit)
+        return [_type_ref_to_dict(ref) for ref in refs]
 
     def to_json(self, indent: int = 2) -> str:
         """Serialize the full graph to JSON."""
@@ -340,17 +406,84 @@ def _unit_to_dict(unit: CodeUnit) -> dict[str, Any]:
     """Convert a CodeUnit to a serializable dict."""
     d = asdict(unit)
     d["kind"] = unit.kind.value
+    if unit.origin == NodeOrigin.SOURCE:
+        d.pop("origin", None)
+    else:
+        d["origin"] = unit.origin.value
+    if not unit.type_parameters:
+        d.pop("type_parameters", None)
+    if unit.attributes:
+        d["attributes"] = _attributes_to_dict(unit.attributes)
+    else:
+        d.pop("attributes", None)
     return d
 
 
 def _edge_to_dict(edge: CodeEdge) -> dict[str, Any]:
     """Convert a CodeEdge to a serializable dict."""
-    return {
+    result: dict[str, Any] = {
         "source": edge.source_id,
         "target": edge.target_id,
         "kind": edge.kind.value,
         "confidence": edge.confidence.value,
     }
+    if edge.attributes:
+        result["attributes"] = _attributes_to_dict(edge.attributes)
+    return result
+
+
+def _coerce_edge_kinds(values: tuple[str | EdgeKind, ...]) -> frozenset[EdgeKind]:
+    """Convert public edge-kind values into EdgeKind members."""
+    return frozenset(value if isinstance(value, EdgeKind) else EdgeKind(value) for value in values)
+
+
+def _attributes_to_dict(attributes: tuple[tuple[str, Any], ...]) -> dict[str, Any]:
+    return dict(attributes)
+
+
+def _type_ref_to_dict(type_ref: TypeRef) -> dict[str, Any]:
+    return {
+        "name": type_ref.name,
+        "module": type_ref.module,
+        "generic_args": [_type_ref_to_dict(arg) for arg in type_ref.generic_args],
+    }
+
+
+def _type_parameter_to_dict(type_parameter: TypeParameter) -> dict[str, Any]:
+    return {
+        "name": type_parameter.name,
+        "constraints": [_type_ref_to_dict(t) for t in type_parameter.constraints],
+        "default": (
+            _type_ref_to_dict(type_parameter.default)
+            if type_parameter.default is not None
+            else None
+        ),
+        "variance": type_parameter.variance,
+    }
+
+
+def _unit_type_refs(unit: CodeUnit) -> list[TypeRef]:
+    refs: list[TypeRef] = []
+    for param in unit.parameters:
+        if param.type_ref is not None:
+            refs.extend(_flatten_type_ref(param.type_ref))
+    if unit.return_type is not None:
+        refs.extend(_flatten_type_ref(unit.return_type))
+    for exc in unit.exception_types:
+        refs.extend(_flatten_type_ref(exc))
+    for type_param in unit.type_parameters:
+        for constraint in type_param.constraints:
+            refs.extend(_flatten_type_ref(constraint))
+        if type_param.default is not None:
+            refs.extend(_flatten_type_ref(type_param.default))
+    return refs
+
+
+def _flatten_type_ref(type_ref: TypeRef) -> list[TypeRef]:
+    refs = [type_ref]
+    for arg in type_ref.generic_args:
+        refs.extend(_flatten_type_ref(arg))
+    return refs
 
 
 def _sort_by_complexity(nodes: list[CodeUnit]) -> list[CodeUnit]:

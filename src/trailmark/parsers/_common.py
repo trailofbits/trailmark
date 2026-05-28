@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import re
 from collections.abc import Callable
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from trailmark.analysis.proxies import ensure_proxy_nodes
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
@@ -16,6 +18,7 @@ from trailmark.models.nodes import (
     CodeUnit,
     NodeKind,
     SourceLocation,
+    TypeParameter,
     TypeRef,
 )
 
@@ -150,7 +153,7 @@ def parse_directory(
     finally:
         _DIRECTORY_PARSE_ROOT.reset(token)
     _link_cross_file_calls(merged)
-    return merged
+    return ensure_proxy_nodes(merged)
 
 
 def collect_body_info(
@@ -287,6 +290,138 @@ def add_contains_edge(
             target_id=child_id,
             kind=EdgeKind.CONTAINS,
         )
+    )
+
+
+def extract_type_parameters(node: Node) -> tuple[TypeParameter, ...]:
+    """Best-effort extraction of generic parameter declarations."""
+    text = node_text(node)
+    raw = _generic_parameter_block(text)
+    if raw is None:
+        return ()
+    params = [_parse_type_parameter(part) for part in _split_top_level(raw)]
+    return tuple(param for param in params if param is not None)
+
+
+def _generic_parameter_block(text: str) -> str | None:
+    """Return the first likely generic parameter block from a declaration."""
+    template = re.search(r"\btemplate\s*<(?P<params>[^<>]*)>", text)
+    if template is not None:
+        return template.group("params")
+
+    header = text.split("{", 1)[0].split("=>", 1)[0]
+    leading = re.search(r"^\s*(?:[\w@[\]().,\"']+\s+)*<", header)
+    if leading is not None:
+        result = _delimited_block_at(header, leading.end() - 1, "<", ">")
+        if result is not None:
+            return result
+
+    declaration = re.search(
+        r"\b(?:class|interface|struct|enum|trait|protocol|extension|type)"
+        r"\s+[A-Za-z_$][\w$]*\s*(?P<open><|\[)",
+        header,
+    )
+    if declaration is not None:
+        return _block_from_match(header, declaration)
+
+    function = re.search(
+        r"\b(?:def|fn|func|function|fun)\s+[A-Za-z_$][\w$]*\s*(?P<open><|\[)",
+        header,
+    )
+    if function is not None:
+        return _block_from_match(header, function)
+
+    method = re.search(r"\b[A-Za-z_$][\w$]*\s*(?P<open><|\[)\s*[^\]>\n]*[\]>]\s*\(", header)
+    if method is not None:
+        return _block_from_match(header, method)
+
+    arrow = re.search(r"^\s*(?P<open><|\[)", header)
+    if arrow is not None:
+        result = _block_from_match(header, arrow)
+        if result is not None:
+            return result
+    return None
+
+
+def _block_from_match(text: str, match: re.Match[str]) -> str | None:
+    opener = match.group("open")
+    closer = ">" if opener == "<" else "]"
+    return _delimited_block_at(text, match.end("open") - 1, opener, closer)
+
+
+def _delimited_block_at(
+    text: str,
+    start: int,
+    opener: str,
+    closer: str,
+) -> str | None:
+    depth = 0
+    for idx in range(start, len(text)):
+        char = text[idx]
+        if char == opener:
+            depth += 1
+        elif char == closer:
+            depth -= 1
+            if depth == 0:
+                return text[start + 1 : idx]
+    return None
+
+
+def _split_top_level(text: str) -> list[str]:
+    parts: list[str] = []
+    start = 0
+    depth = 0
+    pairs = {"<": ">", "[": "]", "(": ")"}
+    closers = set(pairs.values())
+    for idx, char in enumerate(text):
+        if char in pairs:
+            depth += 1
+        elif char in closers and depth > 0:
+            depth -= 1
+        elif char == "," and depth == 0:
+            parts.append(text[start:idx].strip())
+            start = idx + 1
+    tail = text[start:].strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _parse_type_parameter(text: str) -> TypeParameter | None:
+    item = text.strip()
+    if not item:
+        return None
+
+    item = re.sub(r"^(typename|class|const|in|out)\s+", "", item)
+    item = re.sub(r"^\?\s*(extends|super)\s+", "", item)
+
+    default_ref: TypeRef | None = None
+    if "=" in item:
+        item, default = item.split("=", 1)
+        default_ref = TypeRef(name=default.strip())
+
+    constraints: list[TypeRef] = []
+    for marker in (" extends ", " super ", " implements ", ":"):
+        if marker in item:
+            name, raw_constraints = item.split(marker, 1)
+            constraints = [
+                TypeRef(name=constraint.strip())
+                for constraint in re.split(r"[&|+]", raw_constraints)
+                if constraint.strip()
+            ]
+            item = name
+            break
+
+    tokens = item.strip().split()
+    if not tokens:
+        return None
+    name = tokens[0]
+    if len(tokens) > 1 and not constraints:
+        constraints = [TypeRef(name=" ".join(tokens[1:]))]
+    return TypeParameter(
+        name=name,
+        constraints=tuple(constraints),
+        default=default_ref,
     )
 
 

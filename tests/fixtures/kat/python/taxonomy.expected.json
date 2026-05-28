@@ -13,22 +13,31 @@
       "target": "taxonomy:branchy"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:range"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:range"
+      "target": "proxy.unresolved:taxonomy:range"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:int"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:int"
+      "target": "proxy.unresolved:taxonomy:int"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:RuntimeError"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:RuntimeError"
+      "target": "proxy.unresolved:taxonomy:RuntimeError"
     },
     {
       "confidence": "certain",
@@ -79,16 +88,22 @@
       "target": "taxonomy:Dog.__init__"
     },
     {
+      "attributes": {
+        "raw_target": "super().__init__"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.__init__",
-      "target": "super().__init__"
+      "target": "proxy.unresolved:super_.__init__"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:super"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.__init__",
-      "target": "taxonomy:super"
+      "target": "proxy.unresolved:taxonomy:super"
     },
     {
       "confidence": "certain",
@@ -97,10 +112,13 @@
       "target": "taxonomy:Dog.bark"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:ValueError"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "taxonomy:ValueError"
+      "target": "proxy.unresolved:taxonomy:ValueError"
     },
     {
       "confidence": "certain",
@@ -109,20 +127,264 @@
       "target": "taxonomy:use_animal"
     },
     {
+      "attributes": {
+        "raw_target": "d.bark"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:use_animal",
-      "target": "d.bark"
+      "target": "proxy.unresolved:d.bark"
     },
     {
+      "attributes": {
+        "raw_target": "json.dumps"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:use_animal",
-      "target": "json.dumps"
+      "target": "proxy.unresolved:json.dumps"
+    },
+    {
+      "attributes": {
+        "type_name": "int"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:add",
+      "target": "proxy.unresolved:taxonomy:int"
+    },
+    {
+      "attributes": {
+        "type_name": "int"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:branchy",
+      "target": "proxy.unresolved:taxonomy:int"
+    },
+    {
+      "attributes": {
+        "type_name": "RuntimeError"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:branchy",
+      "target": "proxy.unresolved:taxonomy:RuntimeError"
+    },
+    {
+      "attributes": {
+        "type_name": "int"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:counter",
+      "target": "proxy.unresolved:taxonomy:int"
+    },
+    {
+      "attributes": {
+        "type_name": "ValueError"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:Dog.bark",
+      "target": "proxy.unresolved:taxonomy:ValueError"
+    },
+    {
+      "attributes": {
+        "type_name": "Dog"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:use_animal",
+      "target": "taxonomy:Dog"
     }
   ],
   "language": "python",
   "nodes": {
+    "proxy.unresolved:d.bark": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "d.bark"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:d.bark",
+      "kind": "proxy",
+      "location": {
+        "end_col": 28,
+        "end_line": 84,
+        "file_path": "taxonomy.py",
+        "start_col": 10,
+        "start_line": 84
+      },
+      "name": "d.bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:json.dumps": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "json.dumps"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:json.dumps",
+      "kind": "proxy",
+      "location": {
+        "end_col": 35,
+        "end_line": 85,
+        "file_path": "taxonomy.py",
+        "start_col": 11,
+        "start_line": 85
+      },
+      "name": "json.dumps",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:super_.__init__": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "super().__init__"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:super_.__init__",
+      "kind": "proxy",
+      "location": {
+        "end_col": 30,
+        "end_line": 73,
+        "file_path": "taxonomy.py",
+        "start_col": 8,
+        "start_line": 73
+      },
+      "name": "super().__init__",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:RuntimeError": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:RuntimeError"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:RuntimeError",
+      "kind": "proxy",
+      "location": {
+        "end_col": 38,
+        "end_line": 39,
+        "file_path": "taxonomy.py",
+        "start_col": 14,
+        "start_line": 39
+      },
+      "name": "taxonomy:RuntimeError",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:ValueError": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:ValueError"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:ValueError",
+      "kind": "proxy",
+      "location": {
+        "end_col": 40,
+        "end_line": 78,
+        "file_path": "taxonomy.py",
+        "start_col": 18,
+        "start_line": 78
+      },
+      "name": "taxonomy:ValueError",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:int": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:int"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:int",
+      "kind": "proxy",
+      "location": {
+        "end_col": 24,
+        "end_line": 37,
+        "file_path": "taxonomy.py",
+        "start_col": 15,
+        "start_line": 37
+      },
+      "name": "taxonomy:int",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:range": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:range"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:range",
+      "kind": "proxy",
+      "location": {
+        "end_col": 25,
+        "end_line": 31,
+        "file_path": "taxonomy.py",
+        "start_col": 13,
+        "start_line": 31
+      },
+      "name": "taxonomy:range",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:super": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:super"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:super",
+      "kind": "proxy",
+      "location": {
+        "end_col": 15,
+        "end_line": 73,
+        "file_path": "taxonomy.py",
+        "start_col": 8,
+        "start_line": 73
+      },
+      "name": "taxonomy:super",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -610,6 +872,7 @@
     ],
     "entrypoints": 0,
     "functions": 9,
-    "total_nodes": 12
+    "proxies": 8,
+    "total_nodes": 20
   }
 }

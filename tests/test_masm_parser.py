@@ -7,7 +7,7 @@ import tempfile
 
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import NodeKind
+from trailmark.models.nodes import NodeKind, NodeOrigin
 from trailmark.parsers.masm.parser import MasmParser
 
 SAMPLE_CODE = """\
@@ -104,6 +104,7 @@ class TestMasmParserNodes:
         )
         assert begin is not None
         assert begin.kind == NodeKind.FUNCTION
+        assert begin.origin == NodeOrigin.SYNTHETIC
 
     def test_finds_constants(self) -> None:
         _, graph = _parse_sample()

@@ -43,10 +43,13 @@
       "target": "taxonomy:Dog.initialize"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:super"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.initialize",
-      "target": "taxonomy:super"
+      "target": "proxy.unresolved:taxonomy:super"
     },
     {
       "confidence": "certain",
@@ -55,10 +58,13 @@
       "target": "taxonomy:Dog.bark"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:raise"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "taxonomy:raise"
+      "target": "proxy.unresolved:taxonomy:raise"
     },
     {
       "confidence": "certain",
@@ -69,6 +75,52 @@
   ],
   "language": "ruby",
   "nodes": {
+    "proxy.unresolved:taxonomy:raise": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:raise"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:raise",
+      "kind": "proxy",
+      "location": {
+        "end_col": 22,
+        "end_line": 61,
+        "file_path": "taxonomy.rb",
+        "start_col": 6,
+        "start_line": 61
+      },
+      "name": "taxonomy:raise",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:super": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:super"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:super",
+      "kind": "proxy",
+      "location": {
+        "end_col": 17,
+        "end_line": 55,
+        "file_path": "taxonomy.rb",
+        "start_col": 6,
+        "start_line": 55
+      },
+      "name": "taxonomy:super",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -281,6 +333,7 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 5,
-    "total_nodes": 9
+    "proxies": 2,
+    "total_nodes": 11
   }
 }

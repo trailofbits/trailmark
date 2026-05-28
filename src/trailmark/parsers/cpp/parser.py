@@ -21,6 +21,7 @@ from trailmark.parsers._common import (
     add_module_node,
     collect_body_info,
     compute_complexity,
+    extract_type_parameters,
     make_location,
     module_id_from_path,
     node_text,
@@ -162,13 +163,13 @@ def _visit_template_body(
 ) -> None:
     """Visit the body of a template_declaration."""
     for child in node.children:
-        if child.type in (
-            "function_definition",
-            "declaration",
-            "type_definition",
-            "class_specifier",
-            "struct_specifier",
-        ):
+        if child.type == "function_definition":
+            _extract_function(child, file_path, module_id, class_id, graph, node)
+        elif child.type == "class_specifier":
+            _extract_class(child, file_path, module_id, graph, node)
+        elif child.type == "struct_specifier":
+            _extract_struct(child, file_path, module_id, graph, node)
+        elif child.type in ("declaration", "type_definition"):
             _visit_top_level_node(
                 child,
                 file_path,
@@ -235,6 +236,7 @@ def _extract_class(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    generic_node: Node | None = None,
 ) -> None:
     """Extract a class definition and its methods."""
     name_node = node.child_by_field_name("name")
@@ -249,6 +251,7 @@ def _extract_class(
         name=class_name,
         kind=NodeKind.CLASS,
         location=location,
+        type_parameters=extract_type_parameters(generic_node or node),
         docstring=_extract_docstring(node),
     )
     graph.nodes[class_id] = unit
@@ -353,6 +356,7 @@ def _extract_struct(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    generic_node: Node | None = None,
 ) -> None:
     """Extract a struct definition."""
     name_node = node.child_by_field_name("name")
@@ -367,6 +371,7 @@ def _extract_struct(
         name=struct_name,
         kind=NodeKind.STRUCT,
         location=location,
+        type_parameters=extract_type_parameters(generic_node or node),
     )
     graph.nodes[struct_id] = unit
     add_contains_edge(graph, module_id, struct_id)
@@ -402,6 +407,7 @@ def _extract_function(
     module_id: str,
     class_id: str | None,
     graph: CodeGraph,
+    generic_node: Node | None = None,
 ) -> None:
     """Extract a C++ function or method definition."""
     func_name = _get_function_name(node)
@@ -449,6 +455,7 @@ def _extract_function(
         parameters=tuple(params),
         return_type=return_type,
         exception_types=tuple(exception_types),
+        type_parameters=extract_type_parameters(generic_node or node),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,

@@ -31,16 +31,22 @@
       "target": "taxonomy:branchy"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:stoi"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:stoi"
+      "target": "proxy.unresolved:taxonomy:stoi"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:runtime_error"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "taxonomy:runtime_error"
+      "target": "proxy.unresolved:taxonomy:runtime_error"
     },
     {
       "confidence": "certain",
@@ -97,10 +103,13 @@
       "target": "taxonomy:Dog.bark"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:runtime_error"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "taxonomy:runtime_error"
+      "target": "proxy.unresolved:taxonomy:runtime_error"
     },
     {
       "confidence": "certain",
@@ -115,14 +124,86 @@
       "target": "taxonomy:use_animal"
     },
     {
+      "attributes": {
+        "raw_target": "d.bark"
+      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:use_animal",
-      "target": "d.bark"
+      "target": "proxy.unresolved:d.bark"
     }
   ],
   "language": "cpp",
   "nodes": {
+    "proxy.unresolved:d.bark": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "d.bark"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:d.bark",
+      "kind": "proxy",
+      "location": {
+        "end_col": 24,
+        "end_line": 85,
+        "file_path": "taxonomy.cpp",
+        "start_col": 11,
+        "start_line": 85
+      },
+      "name": "d.bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:runtime_error": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:runtime_error"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:runtime_error",
+      "kind": "proxy",
+      "location": {
+        "end_col": 44,
+        "end_line": 44,
+        "file_path": "taxonomy.cpp",
+        "start_col": 14,
+        "start_line": 44
+      },
+      "name": "taxonomy:runtime_error",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:stoi": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:stoi"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:stoi",
+      "kind": "proxy",
+      "location": {
+        "end_col": 30,
+        "end_line": 42,
+        "file_path": "taxonomy.cpp",
+        "start_col": 15,
+        "start_line": 42
+      },
+      "name": "taxonomy:stoi",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -388,7 +469,21 @@
       },
       "name": "Pair",
       "parameters": [],
-      "return_type": null
+      "return_type": null,
+      "type_parameters": [
+        {
+          "constraints": [],
+          "default": null,
+          "name": "A",
+          "variance": null
+        },
+        {
+          "constraints": [],
+          "default": null,
+          "name": "B",
+          "variance": null
+        }
+      ]
     },
     "taxonomy:add": {
       "branches": [],
@@ -589,6 +684,7 @@
     ],
     "entrypoints": 0,
     "functions": 9,
-    "total_nodes": 14
+    "proxies": 3,
+    "total_nodes": 17
   }
 }
