@@ -104,3 +104,64 @@ class TestParseDirectory:
         # The JavaScript parser walks .mjs/.cjs as well as .js/.jsx, so
         # detect_languages should mirror that and report "javascript".
         assert detect_languages(str(tmp_path)) == ["javascript"]
+
+
+class TestFileExtensionHelper:
+    """Direct coverage of trailmark.parse._file_extension."""
+
+    def test_returns_lowercased_extension(self) -> None:
+        from trailmark.parse import _file_extension
+
+        assert _file_extension("auth.py") == ".py"
+
+    def test_lowercases_uppercase_extension(self) -> None:
+        """Kills the .upper() / case-preserving mutations."""
+        from trailmark.parse import _file_extension
+
+        assert _file_extension("README.MD") == ".md"
+        assert _file_extension("Foo.PY") == ".py"
+
+    def test_picks_rightmost_dot(self) -> None:
+        """Kills the rfind→find mutation: must take the LAST dot."""
+        from trailmark.parse import _file_extension
+
+        assert _file_extension("archive.tar.gz") == ".gz"
+        assert _file_extension("a.b.c.d.py") == ".py"
+
+    def test_no_extension_returns_empty_string(self) -> None:
+        """Kills the '' → 'XXXX' mutation."""
+        from trailmark.parse import _file_extension
+
+        assert _file_extension("README") == ""
+        assert _file_extension("Makefile") == ""
+
+    def test_dotfile_has_extension_starting_at_zero(self) -> None:
+        """Kills the `dot < 0` → `dot <= 0` and `dot < 1` mutations.
+
+        For ".hidden", rfind returns 0; the guard must be `< 0`, not `<= 0`,
+        so the function returns ".hidden" (the leading dot IS the extension
+        boundary), not "".
+        """
+        from trailmark.parse import _file_extension
+
+        assert _file_extension(".hidden") == ".hidden"
+        assert _file_extension(".bashrc") == ".bashrc"
+
+
+class TestResolveFileLanguage:
+    """Direct coverage of trailmark.parse._resolve_file_language."""
+
+    def test_auto_keyword_triggers_detection(self, tmp_path: Path) -> None:
+        """Kills the 'auto' / 'AUTO' / 'XXautoXX' string mutations."""
+        path = tmp_path / "main.py"
+        path.write_text("def main():\n    pass\n")
+
+        graph = parse_file(str(path), language="auto")
+        assert graph.language == "python"
+
+    def test_unsupported_language_error_message_names_language(self, tmp_path: Path) -> None:
+        """Kills the `msg = None` and `raise ValueError(None)` mutations."""
+        path = tmp_path / "anything.py"
+        path.write_text("x = 1\n")
+        with pytest.raises(ValueError, match="Unsupported language: notalang"):
+            parse_file(str(path), language="notalang")
