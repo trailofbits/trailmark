@@ -1,0 +1,6 @@
+Nodes: 12
+  Functions: 9
+  Classes: 2
+Call edges: 8
+Dependencies: json, collections, typing
+Entrypoints: 0

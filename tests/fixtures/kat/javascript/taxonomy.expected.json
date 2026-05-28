@@ -1,0 +1,479 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:branchy"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "Math.floor"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:parseInt"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:square"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:fetchAsync"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.constructor"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Dog"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "inherits",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.constructor"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.bark"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:useAnimal"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:useAnimal",
+      "target": "d.bark"
+    }
+  ],
+  "language": "javascript",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 74,
+        "file_path": "taxonomy.js",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal",
+      "kind": "class",
+      "location": {
+        "end_col": 1,
+        "end_line": 54,
+        "file_path": "taxonomy.js",
+        "start_col": 7,
+        "start_line": 45
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal.constructor": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.constructor",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 49,
+        "file_path": "taxonomy.js",
+        "start_col": 4,
+        "start_line": 46
+      },
+      "name": "constructor",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Animal.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 53,
+        "file_path": "taxonomy.js",
+        "start_col": 4,
+        "start_line": 51
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog",
+      "kind": "class",
+      "location": {
+        "end_col": 1,
+        "end_line": 69,
+        "file_path": "taxonomy.js",
+        "start_col": 7,
+        "start_line": 56
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Dog.bark": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(loud)",
+          "location": {
+            "end_col": 9,
+            "end_line": 66,
+            "file_path": "taxonomy.js",
+            "start_col": 8,
+            "start_line": 64
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "Error"
+        }
+      ],
+      "id": "taxonomy:Dog.bark",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 68,
+        "file_path": "taxonomy.js",
+        "start_col": 4,
+        "start_line": 63
+      },
+      "name": "bark",
+      "parameters": [
+        {
+          "default": "false",
+          "name": "loud",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Dog.constructor": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.constructor",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 61,
+        "file_path": "taxonomy.js",
+        "start_col": 4,
+        "start_line": 57
+      },
+      "name": "constructor",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": null
+        },
+        {
+          "default": "null",
+          "name": "breed",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:add",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 15,
+        "file_path": "taxonomy.js",
+        "start_col": 7,
+        "start_line": 13
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(value > 0)",
+          "location": {
+            "end_col": 5,
+            "end_line": 23,
+            "file_path": "taxonomy.js",
+            "start_col": 4,
+            "start_line": 19
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(value < 0)",
+          "location": {
+            "end_col": 5,
+            "end_line": 23,
+            "file_path": "taxonomy.js",
+            "start_col": 11,
+            "start_line": 21
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i < value",
+          "location": {
+            "end_col": 5,
+            "end_line": 28,
+            "file_path": "taxonomy.js",
+            "start_col": 4,
+            "start_line": 24
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(i % 2 === 0)",
+          "location": {
+            "end_col": 9,
+            "end_line": 27,
+            "file_path": "taxonomy.js",
+            "start_col": 8,
+            "start_line": 25
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(total > 100)",
+          "location": {
+            "end_col": 5,
+            "end_line": 31,
+            "file_path": "taxonomy.js",
+            "start_col": 4,
+            "start_line": 29
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "catch_clause",
+          "location": {
+            "end_col": 5,
+            "end_line": 36,
+            "file_path": "taxonomy.js",
+            "start_col": 6,
+            "start_line": 34
+          }
+        }
+      ],
+      "cyclomatic_complexity": 7,
+      "docstring": null,
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "Error"
+        }
+      ],
+      "id": "taxonomy:branchy",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 37,
+        "file_path": "taxonomy.js",
+        "start_col": 7,
+        "start_line": 17
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:fetchAsync": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:fetchAsync",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 43,
+        "file_path": "taxonomy.js",
+        "start_col": 7,
+        "start_line": 41
+      },
+      "name": "fetchAsync",
+      "parameters": [
+        {
+          "default": null,
+          "name": "url",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:square": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:square",
+      "kind": "function",
+      "location": {
+        "end_col": 34,
+        "end_line": 39,
+        "file_path": "taxonomy.js",
+        "start_col": 22,
+        "start_line": 39
+      },
+      "name": "square",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:useAnimal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:useAnimal",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 73,
+        "file_path": "taxonomy.js",
+        "start_col": 7,
+        "start_line": 71
+      },
+      "name": "useAnimal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.js",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 3,
+    "classes": 2,
+    "dependencies": [
+      "fs"
+    ],
+    "entrypoints": 0,
+    "functions": 9,
+    "total_nodes": 12
+  }
+}

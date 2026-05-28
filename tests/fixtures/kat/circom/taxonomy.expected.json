@@ -1,0 +1,191 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:IsZero"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Adder"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Main"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Main",
+      "target": "taxonomy:Adder"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Main",
+      "target": "taxonomy:Branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:main"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "taxonomy:Main"
+    }
+  ],
+  "language": "circom",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 53,
+        "file_path": "taxonomy.circom",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Adder": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Adder",
+      "kind": "template",
+      "location": {
+        "end_col": 1,
+        "end_line": 34,
+        "file_path": "taxonomy.circom",
+        "start_col": 0,
+        "start_line": 28
+      },
+      "name": "Adder",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "for_statement",
+          "location": {
+            "end_col": 5,
+            "end_line": 24,
+            "file_path": "taxonomy.circom",
+            "start_col": 4,
+            "start_line": 22
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Branchy",
+      "kind": "template",
+      "location": {
+        "end_col": 1,
+        "end_line": 26,
+        "file_path": "taxonomy.circom",
+        "start_col": 0,
+        "start_line": 15
+      },
+      "name": "Branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "N",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:IsZero": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:IsZero",
+      "kind": "template",
+      "location": {
+        "end_col": 1,
+        "end_line": 13,
+        "file_path": "taxonomy.circom",
+        "start_col": 0,
+        "start_line": 5
+      },
+      "name": "IsZero",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Main": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Main",
+      "kind": "template",
+      "location": {
+        "end_col": 1,
+        "end_line": 50,
+        "file_path": "taxonomy.circom",
+        "start_col": 0,
+        "start_line": 36
+      },
+      "name": "Main",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:main": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:main",
+      "kind": "function",
+      "location": {
+        "end_col": 24,
+        "end_line": 52,
+        "file_path": "taxonomy.circom",
+        "start_col": 0,
+        "start_line": 52
+      },
+      "name": "main",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.circom",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 3,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 1,
+    "total_nodes": 6
+  }
+}

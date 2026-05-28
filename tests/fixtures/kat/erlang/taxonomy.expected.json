@@ -1,0 +1,573 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:dog"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:sum_even"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:reduce"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:parse_or_error"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:sum_even"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:reduce"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:parse_or_error"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:parse_or_error"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:sum_even"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:sum_even",
+      "target": "lists:sum"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:sum_even",
+      "target": "lists:seq"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:reduce"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:reduce",
+      "target": "taxonomy:reduce"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:parse_or_error"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:parse_or_error",
+      "target": "string:to_integer"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:parse_or_error",
+      "target": "taxonomy:is_integer"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:new_animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:new_dog"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:new_dog",
+      "target": "taxonomy:new_animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:bark"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:use_animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:use_animal",
+      "target": "taxonomy:bark"
+    }
+  ],
+  "language": "erlang",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 58,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:add",
+      "kind": "function",
+      "location": {
+        "end_col": 9,
+        "end_line": 13,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 12
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "A",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "B",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:animal",
+      "kind": "struct",
+      "location": {
+        "end_col": 45,
+        "end_line": 9,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 9
+      },
+      "name": "animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:bark": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "true",
+          "location": {
+            "end_col": 35,
+            "end_line": 52,
+            "file_path": "taxonomy.erl",
+            "start_col": 8,
+            "start_line": 52
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "false",
+          "location": {
+            "end_col": 39,
+            "end_line": 53,
+            "file_path": "taxonomy.erl",
+            "start_col": 8,
+            "start_line": 53
+          }
+        }
+      ],
+      "cyclomatic_complexity": 3,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:bark",
+      "kind": "function",
+      "location": {
+        "end_col": 7,
+        "end_line": 54,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 50
+      },
+      "name": "bark",
+      "parameters": [
+        {
+          "default": null,
+          "name": "_arg0",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "Loud",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "Value > 0",
+          "location": {
+            "end_col": 35,
+            "end_line": 15,
+            "file_path": "taxonomy.erl",
+            "start_col": 26,
+            "start_line": 15
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "Value < 0",
+          "location": {
+            "end_col": 35,
+            "end_line": 19,
+            "file_path": "taxonomy.erl",
+            "start_col": 26,
+            "start_line": 19
+          }
+        }
+      ],
+      "cyclomatic_complexity": 3,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:branchy",
+      "kind": "function",
+      "location": {
+        "end_col": 27,
+        "end_line": 24,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 15
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "Value",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "Mode",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:describe",
+      "kind": "function",
+      "location": {
+        "end_col": 30,
+        "end_line": 44,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 43
+      },
+      "name": "describe",
+      "parameters": [
+        {
+          "default": null,
+          "name": "_arg0",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:dog",
+      "kind": "struct",
+      "location": {
+        "end_col": 28,
+        "end_line": 10,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 10
+      },
+      "name": "dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:new_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:new_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 24,
+        "end_line": 41,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 40
+      },
+      "name": "new_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "Name",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:new_dog": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:new_dog",
+      "kind": "function",
+      "location": {
+        "end_col": 36,
+        "end_line": 48,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 46
+      },
+      "name": "new_dog",
+      "parameters": [
+        {
+          "default": null,
+          "name": "Name",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "Breed",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:parse_or_error": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "{Int, _}",
+          "location": {
+            "end_col": 58,
+            "end_line": 36,
+            "file_path": "taxonomy.erl",
+            "start_col": 8,
+            "start_line": 36
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "_",
+          "location": {
+            "end_col": 32,
+            "end_line": 37,
+            "file_path": "taxonomy.erl",
+            "start_col": 8,
+            "start_line": 37
+          }
+        }
+      ],
+      "cyclomatic_complexity": 3,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:parse_or_error",
+      "kind": "function",
+      "location": {
+        "end_col": 7,
+        "end_line": 38,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 34
+      },
+      "name": "parse_or_error",
+      "parameters": [
+        {
+          "default": null,
+          "name": "Mode",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "Total",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:reduce": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "N > 100",
+          "location": {
+            "end_col": 22,
+            "end_line": 29,
+            "file_path": "taxonomy.erl",
+            "start_col": 15,
+            "start_line": 29
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:reduce",
+      "kind": "function",
+      "location": {
+        "end_col": 5,
+        "end_line": 32,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 29
+      },
+      "name": "reduce",
+      "parameters": [
+        {
+          "default": null,
+          "name": "N",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:sum_even": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:sum_even",
+      "kind": "function",
+      "location": {
+        "end_col": 65,
+        "end_line": 27,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 26
+      },
+      "name": "sum_even",
+      "parameters": [
+        {
+          "default": null,
+          "name": "Value",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:use_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:use_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 20,
+        "end_line": 57,
+        "file_path": "taxonomy.erl",
+        "start_col": 0,
+        "start_line": 56
+      },
+      "name": "use_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "Dog",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.erl",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 14,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 10,
+    "total_nodes": 13
+  }
+}

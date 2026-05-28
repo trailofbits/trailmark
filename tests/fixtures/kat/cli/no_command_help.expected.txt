@@ -1,0 +1,17 @@
+usage: trailmark [-h] [--version]
+                 {version,analyze,diff,entrypoints,augment} ...
+
+Parse source code into queryable graphs (v0.3.1)
+
+positional arguments:
+  {version,analyze,diff,entrypoints,augment}
+    version             Print the Trailmark version and exit
+    analyze             Analyze a directory and output the code graph
+    diff                Structural diff between two code graphs
+    entrypoints         List detected entrypoints and their trust
+                        classification
+    augment             Augment a code graph with SARIF or weAudit findings
+
+options:
+  -h, --help            show this help message and exit
+  --version, -V         show program's version number and exit

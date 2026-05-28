@@ -1,0 +1,21 @@
+flowchart TD
+    taxonomy["taxonomy, module"]
+    taxonomy_add["add, function, CC=1"]
+    taxonomy_branchy["branchy, function, CC=7"]
+    taxonomy_fetch_async["fetch_async, function, CC=1"]
+    taxonomy_counter["counter, function, CC=2"]
+    taxonomy_Animal["Animal, class"]
+    taxonomy_Animal___init__["__init__, method, CC=1"]
+    taxonomy_Animal_describe["describe, method, CC=1"]
+    taxonomy_Dog["Dog, class"]
+    taxonomy_Dog___init__["__init__, method, CC=1"]
+    taxonomy_Dog_bark["bark, method, CC=2"]
+    taxonomy_use_animal["use_animal, function, CC=1"]
+    taxonomy_branchy --> taxonomy_range
+    taxonomy_branchy --> taxonomy_int
+    taxonomy_branchy --> taxonomy_RuntimeError
+    taxonomy_Dog___init__ -.-> super_____init__
+    taxonomy_Dog___init__ --> taxonomy_super
+    taxonomy_Dog_bark --> taxonomy_ValueError
+    taxonomy_use_animal -.-> d_bark
+    taxonomy_use_animal -.-> json_dumps

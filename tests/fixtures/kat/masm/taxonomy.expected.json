@@ -1,0 +1,209 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:CONSTANT"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:call_add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:call_add",
+      "target": "taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:use_animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:use_animal",
+      "target": "taxonomy:call_add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:use_animal",
+      "target": "taxonomy:branchy"
+    }
+  ],
+  "language": "masm",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 45,
+        "file_path": "taxonomy.masm",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:CONSTANT": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:CONSTANT",
+      "kind": "function",
+      "location": {
+        "end_col": 17,
+        "end_line": 6,
+        "file_path": "taxonomy.masm",
+        "start_col": 0,
+        "start_line": 6
+      },
+      "name": "CONSTANT",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": "[export] Adds two field elements on the stack.",
+      "exception_types": [],
+      "id": "taxonomy:add",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 11,
+        "file_path": "taxonomy.masm",
+        "start_col": 0,
+        "start_line": 8
+      },
+      "name": "add",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "if.true",
+          "location": {
+            "end_col": 7,
+            "end_line": 22,
+            "file_path": "taxonomy.masm",
+            "start_col": 4,
+            "start_line": 16
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "while.true",
+          "location": {
+            "end_col": 7,
+            "end_line": 28,
+            "file_path": "taxonomy.masm",
+            "start_col": 4,
+            "start_line": 23
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "repeat.3",
+          "location": {
+            "end_col": 7,
+            "end_line": 31,
+            "file_path": "taxonomy.masm",
+            "start_col": 4,
+            "start_line": 29
+          }
+        }
+      ],
+      "cyclomatic_complexity": 4,
+      "docstring": "[export] Exercises if/else, while, and repeat.",
+      "exception_types": [],
+      "id": "taxonomy:branchy",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 32,
+        "file_path": "taxonomy.masm",
+        "start_col": 0,
+        "start_line": 13
+      },
+      "name": "branchy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:call_add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": "Calls into another procedure.",
+      "exception_types": [],
+      "id": "taxonomy:call_add",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 39,
+        "file_path": "taxonomy.masm",
+        "start_col": 0,
+        "start_line": 34
+      },
+      "name": "call_add",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:use_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": "[export]",
+      "exception_types": [],
+      "id": "taxonomy:use_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 44,
+        "file_path": "taxonomy.masm",
+        "start_col": 0,
+        "start_line": 41
+      },
+      "name": "use_animal",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.masm",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 3,
+    "classes": 0,
+    "dependencies": [
+      "std"
+    ],
+    "entrypoints": 0,
+    "functions": 5,
+    "total_nodes": 6
+  }
+}

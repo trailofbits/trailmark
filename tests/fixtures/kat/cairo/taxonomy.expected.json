@@ -1,0 +1,477 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Dog"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:AnimalTrait"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:AnimalTrait",
+      "target": "taxonomy:AnimalTrait.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:AnimalImpl",
+      "target": "taxonomy:AnimalImpl.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:make_animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:make_dog"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:make_dog",
+      "target": "taxonomy:make_animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:bark"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:use_animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:use_animal",
+      "target": "taxonomy:bark"
+    }
+  ],
+  "language": "cairo",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 74,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 11,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 8
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:AnimalImpl.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:AnimalImpl.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 26,
+        "file_path": "taxonomy.cairo",
+        "start_col": 4,
+        "start_line": 24
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "felt252"
+      }
+    },
+    "taxonomy:AnimalTrait": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:AnimalTrait",
+      "kind": "trait",
+      "location": {
+        "end_col": 1,
+        "end_line": 21,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 19
+      },
+      "name": "AnimalTrait",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:AnimalTrait.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:AnimalTrait.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 42,
+        "end_line": 20,
+        "file_path": "taxonomy.cairo",
+        "start_col": 4,
+        "start_line": 20
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "felt252"
+      }
+    },
+    "taxonomy:Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 17,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 14
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:add",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 31,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 29
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u128"
+          }
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u128"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "u128"
+      }
+    },
+    "taxonomy:bark": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:bark",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 69,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 66
+      },
+      "name": "bark",
+      "parameters": [
+        {
+          "default": null,
+          "name": "loud",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "bool"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "felt252"
+      }
+    },
+    "taxonomy:branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "value > 100",
+          "location": {
+            "end_col": 5,
+            "end_line": 39,
+            "file_path": "taxonomy.cairo",
+            "start_col": 4,
+            "start_line": 35
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "else_clause",
+          "location": {
+            "end_col": 5,
+            "end_line": 39,
+            "file_path": "taxonomy.cairo",
+            "start_col": 6,
+            "start_line": 37
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i >= value",
+          "location": {
+            "end_col": 9,
+            "end_line": 44,
+            "file_path": "taxonomy.cairo",
+            "start_col": 8,
+            "start_line": 42
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i % 2 == 0",
+          "location": {
+            "end_col": 9,
+            "end_line": 47,
+            "file_path": "taxonomy.cairo",
+            "start_col": 8,
+            "start_line": 45
+          }
+        }
+      ],
+      "cyclomatic_complexity": 5,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:branchy",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 54,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 33
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u128"
+          }
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u128"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "u128"
+      }
+    },
+    "taxonomy:make_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:make_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 58,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 56
+      },
+      "name": "make_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "felt252"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Animal"
+      }
+    },
+    "taxonomy:make_dog": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:make_dog",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 64,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 60
+      },
+      "name": "make_dog",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "felt252"
+          }
+        },
+        {
+          "default": null,
+          "name": "breed",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "felt252"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Dog"
+      }
+    },
+    "taxonomy:use_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:use_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 73,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 71
+      },
+      "name": "use_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "@Dog"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "felt252"
+      }
+    }
+  },
+  "root_path": "taxonomy.cairo",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 2,
+    "classes": 0,
+    "dependencies": [
+      "core"
+    ],
+    "entrypoints": 0,
+    "functions": 8,
+    "total_nodes": 12
+  }
+}

@@ -1,0 +1,580 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Greeter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Greeter",
+      "target": "taxonomy:Greeter.greet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:intdiv"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:intval"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.__construct"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Dog"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "inherits",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "implements",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Greeter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.__construct"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.bark"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.greet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:use_animal"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:use_animal",
+      "target": "$d->bark"
+    }
+  ],
+  "language": "php",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 80,
+        "file_path": "taxonomy.php",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal",
+      "kind": "class",
+      "location": {
+        "end_col": 1,
+        "end_line": 54,
+        "file_path": "taxonomy.php",
+        "start_col": 0,
+        "start_line": 43
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal.__construct": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.__construct",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 49,
+        "file_path": "taxonomy.php",
+        "start_col": 4,
+        "start_line": 47
+      },
+      "name": "__construct",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Animal.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 53,
+        "file_path": "taxonomy.php",
+        "start_col": 4,
+        "start_line": 51
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    },
+    "taxonomy:Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog",
+      "kind": "class",
+      "location": {
+        "end_col": 1,
+        "end_line": 75,
+        "file_path": "taxonomy.php",
+        "start_col": 0,
+        "start_line": 56
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Dog.__construct": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.__construct",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 63,
+        "file_path": "taxonomy.php",
+        "start_col": 4,
+        "start_line": 59
+      },
+      "name": "__construct",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        },
+        {
+          "default": "null",
+          "name": "breed",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "?string"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Dog.bark": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "($loud)",
+          "location": {
+            "end_col": 9,
+            "end_line": 68,
+            "file_path": "taxonomy.php",
+            "start_col": 8,
+            "start_line": 66
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.bark",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 70,
+        "file_path": "taxonomy.php",
+        "start_col": 4,
+        "start_line": 65
+      },
+      "name": "bark",
+      "parameters": [
+        {
+          "default": "false",
+          "name": "loud",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "bool"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    },
+    "taxonomy:Dog.greet": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.greet",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 74,
+        "file_path": "taxonomy.php",
+        "start_col": 4,
+        "start_line": 72
+      },
+      "name": "greet",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    },
+    "taxonomy:Greeter": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Greeter",
+      "kind": "interface",
+      "location": {
+        "end_col": 1,
+        "end_line": 10,
+        "file_path": "taxonomy.php",
+        "start_col": 0,
+        "start_line": 8
+      },
+      "name": "Greeter",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Greeter.greet": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Greeter.greet",
+      "kind": "method",
+      "location": {
+        "end_col": 48,
+        "end_line": 9,
+        "file_path": "taxonomy.php",
+        "start_col": 4,
+        "start_line": 9
+      },
+      "name": "greet",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    },
+    "taxonomy:Taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy",
+      "kind": "namespace",
+      "location": {
+        "end_col": 19,
+        "end_line": 4,
+        "file_path": "taxonomy.php",
+        "start_col": 0,
+        "start_line": 4
+      },
+      "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:add",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 19,
+        "file_path": "taxonomy.php",
+        "start_col": 0,
+        "start_line": 17
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "($value > 0)",
+          "location": {
+            "end_col": 5,
+            "end_line": 27,
+            "file_path": "taxonomy.php",
+            "start_col": 4,
+            "start_line": 23
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "$i < $value",
+          "location": {
+            "end_col": 5,
+            "end_line": 32,
+            "file_path": "taxonomy.php",
+            "start_col": 4,
+            "start_line": 28
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "($i % 2 === 0)",
+          "location": {
+            "end_col": 9,
+            "end_line": 31,
+            "file_path": "taxonomy.php",
+            "start_col": 8,
+            "start_line": 29
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "($total > 100)",
+          "location": {
+            "end_col": 5,
+            "end_line": 35,
+            "file_path": "taxonomy.php",
+            "start_col": 4,
+            "start_line": 33
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "catch_clause",
+          "location": {
+            "end_col": 5,
+            "end_line": 40,
+            "file_path": "taxonomy.php",
+            "start_col": 6,
+            "start_line": 38
+          }
+        }
+      ],
+      "cyclomatic_complexity": 6,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:branchy",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 41,
+        "file_path": "taxonomy.php",
+        "start_col": 0,
+        "start_line": 21
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:use_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:use_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 79,
+        "file_path": "taxonomy.php",
+        "start_col": 0,
+        "start_line": 77
+      },
+      "name": "use_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Dog"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    }
+  },
+  "root_path": "taxonomy.php",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 3,
+    "classes": 2,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 9,
+    "total_nodes": 14
+  }
+}

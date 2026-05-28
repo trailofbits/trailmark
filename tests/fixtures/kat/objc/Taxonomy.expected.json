@@ -1,0 +1,518 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy",
+      "target": "Taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Animal",
+      "target": "Taxonomy:Animal.initWithName:"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Animal",
+      "target": "Taxonomy:Animal.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy",
+      "target": "Taxonomy:Dog"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Dog",
+      "target": "Taxonomy:Dog.initWithName:breed:"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Dog",
+      "target": "Taxonomy:Dog.bark:error:"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Dog",
+      "target": "Taxonomy:Dog.greet:"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy",
+      "target": "Taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy",
+      "target": "Taxonomy:branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy",
+      "target": "Taxonomy:use_animal"
+    }
+  ],
+  "language": "objc",
+  "nodes": {
+    "Taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 91,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "Taxonomy:Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Animal",
+      "kind": "class",
+      "location": {
+        "end_col": 4,
+        "end_line": 16,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 11
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "Taxonomy:Animal.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Animal.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 1,
+        "end_line": 30,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 28
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "NSString *"
+      }
+    },
+    "Taxonomy:Animal.initWithName:": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(self)",
+          "location": {
+            "end_col": 5,
+            "end_line": 24,
+            "file_path": "Taxonomy.m",
+            "start_col": 4,
+            "start_line": 21
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Animal.initWithName:",
+      "kind": "method",
+      "location": {
+        "end_col": 1,
+        "end_line": 26,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 19
+      },
+      "name": "initWithName:",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "NSString *"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "instancetype"
+      }
+    },
+    "Taxonomy:Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Dog",
+      "kind": "class",
+      "location": {
+        "end_col": 4,
+        "end_line": 37,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 33
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "Taxonomy:Dog.bark:error:": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(loud)",
+          "location": {
+            "end_col": 5,
+            "end_line": 55,
+            "file_path": "Taxonomy.m",
+            "start_col": 4,
+            "start_line": 50
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(error)",
+          "location": {
+            "end_col": 9,
+            "end_line": 53,
+            "file_path": "Taxonomy.m",
+            "start_col": 8,
+            "start_line": 51
+          }
+        }
+      ],
+      "cyclomatic_complexity": 3,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Dog.bark:error:",
+      "kind": "method",
+      "location": {
+        "end_col": 1,
+        "end_line": 57,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 49
+      },
+      "name": "bark:error:",
+      "parameters": [
+        {
+          "default": null,
+          "name": "loud",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "BOOL"
+          }
+        },
+        {
+          "default": null,
+          "name": "error",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "NSError **"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "NSString *"
+      }
+    },
+    "Taxonomy:Dog.greet:": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Dog.greet:",
+      "kind": "method",
+      "location": {
+        "end_col": 1,
+        "end_line": 61,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 59
+      },
+      "name": "greet:",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "NSString *"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "NSString *"
+      }
+    },
+    "Taxonomy:Dog.initWithName:breed:": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(self)",
+          "location": {
+            "end_col": 5,
+            "end_line": 45,
+            "file_path": "Taxonomy.m",
+            "start_col": 4,
+            "start_line": 42
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Dog.initWithName:breed:",
+      "kind": "method",
+      "location": {
+        "end_col": 1,
+        "end_line": 47,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 40
+      },
+      "name": "initWithName:breed:",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "NSString *"
+          }
+        },
+        {
+          "default": null,
+          "name": "breed",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "NSString *"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "instancetype"
+      }
+    },
+    "Taxonomy:add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:add",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 66,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 64
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "NSInteger"
+          }
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "NSInteger"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "NSInteger"
+      }
+    },
+    "Taxonomy:branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(value > 0)",
+          "location": {
+            "end_col": 5,
+            "end_line": 74,
+            "file_path": "Taxonomy.m",
+            "start_col": 4,
+            "start_line": 70
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(value < 0)",
+          "location": {
+            "end_col": 5,
+            "end_line": 74,
+            "file_path": "Taxonomy.m",
+            "start_col": 11,
+            "start_line": 72
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i < value",
+          "location": {
+            "end_col": 5,
+            "end_line": 79,
+            "file_path": "Taxonomy.m",
+            "start_col": 4,
+            "start_line": 75
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(i % 2 == 0)",
+          "location": {
+            "end_col": 9,
+            "end_line": 78,
+            "file_path": "Taxonomy.m",
+            "start_col": 8,
+            "start_line": 76
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(total > 100)",
+          "location": {
+            "end_col": 5,
+            "end_line": 82,
+            "file_path": "Taxonomy.m",
+            "start_col": 4,
+            "start_line": 80
+          }
+        }
+      ],
+      "cyclomatic_complexity": 6,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:branchy",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 85,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 68
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "NSInteger"
+          }
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "NSString"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "NSInteger"
+      }
+    },
+    "Taxonomy:use_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:use_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 90,
+        "file_path": "Taxonomy.m",
+        "start_col": 0,
+        "start_line": 87
+      },
+      "name": "use_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Dog"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "NSString"
+      }
+    }
+  },
+  "root_path": "Taxonomy.m",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 0,
+    "classes": 2,
+    "dependencies": [
+      "Foundation"
+    ],
+    "entrypoints": 0,
+    "functions": 8,
+    "total_nodes": 11
+  }
+}

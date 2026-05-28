@@ -1,0 +1,615 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:range"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:int"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:RuntimeError"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:fetch_async"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:counter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.__init__"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Dog"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "inherits",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.__init__"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Dog.__init__",
+      "target": "super().__init__"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Dog.__init__",
+      "target": "taxonomy:super"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.bark"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Dog.bark",
+      "target": "taxonomy:ValueError"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:use_animal"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:use_animal",
+      "target": "d.bark"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:use_animal",
+      "target": "json.dumps"
+    }
+  ],
+  "language": "python",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 86,
+        "file_path": "taxonomy.py",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": "Base class with a method and a docstring.",
+      "exception_types": [],
+      "id": "taxonomy:Animal",
+      "kind": "class",
+      "location": {
+        "end_col": 48,
+        "end_line": 64,
+        "file_path": "taxonomy.py",
+        "start_col": 0,
+        "start_line": 55
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal.__init__": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.__init__",
+      "kind": "method",
+      "location": {
+        "end_col": 24,
+        "end_line": 61,
+        "file_path": "taxonomy.py",
+        "start_col": 4,
+        "start_line": 60
+      },
+      "name": "__init__",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "str"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "None"
+      }
+    },
+    "taxonomy:Animal.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 48,
+        "end_line": 64,
+        "file_path": "taxonomy.py",
+        "start_col": 4,
+        "start_line": 63
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "str"
+      }
+    },
+    "taxonomy:Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": "Subclass exercising inheritance edge extraction.",
+      "exception_types": [],
+      "id": "taxonomy:Dog",
+      "kind": "class",
+      "location": {
+        "end_col": 35,
+        "end_line": 79,
+        "file_path": "taxonomy.py",
+        "start_col": 0,
+        "start_line": 67
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Dog.__init__": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.__init__",
+      "kind": "method",
+      "location": {
+        "end_col": 26,
+        "end_line": 74,
+        "file_path": "taxonomy.py",
+        "start_col": 4,
+        "start_line": 72
+      },
+      "name": "__init__",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "str"
+          }
+        },
+        {
+          "default": "None",
+          "name": "breed",
+          "type_ref": {
+            "generic_args": [
+              {
+                "generic_args": [],
+                "module": null,
+                "name": "str"
+              }
+            ],
+            "module": null,
+            "name": "Optional"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "None"
+      }
+    },
+    "taxonomy:Dog.bark": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "loud",
+          "location": {
+            "end_col": 40,
+            "end_line": 78,
+            "file_path": "taxonomy.py",
+            "start_col": 8,
+            "start_line": 77
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "ValueError"
+        }
+      ],
+      "id": "taxonomy:Dog.bark",
+      "kind": "method",
+      "location": {
+        "end_col": 35,
+        "end_line": 79,
+        "file_path": "taxonomy.py",
+        "start_col": 4,
+        "start_line": 76
+      },
+      "name": "bark",
+      "parameters": [
+        {
+          "default": "False",
+          "name": "loud",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "bool"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "str"
+      }
+    },
+    "taxonomy:add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": "Sum two integers.",
+      "exception_types": [],
+      "id": "taxonomy:add",
+      "kind": "function",
+      "location": {
+        "end_col": 16,
+        "end_line": 21,
+        "file_path": "taxonomy.py",
+        "start_col": 0,
+        "start_line": 19
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "value > 0",
+          "location": {
+            "end_col": 22,
+            "end_line": 30,
+            "file_path": "taxonomy.py",
+            "start_col": 4,
+            "start_line": 27
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "value < 0",
+          "location": {
+            "end_col": 22,
+            "end_line": 30,
+            "file_path": "taxonomy.py",
+            "start_col": 4,
+            "start_line": 29
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "for_statement",
+          "location": {
+            "end_col": 22,
+            "end_line": 33,
+            "file_path": "taxonomy.py",
+            "start_col": 4,
+            "start_line": 31
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i % 2 == 0",
+          "location": {
+            "end_col": 22,
+            "end_line": 33,
+            "file_path": "taxonomy.py",
+            "start_col": 8,
+            "start_line": 32
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "total > 100",
+          "location": {
+            "end_col": 19,
+            "end_line": 35,
+            "file_path": "taxonomy.py",
+            "start_col": 4,
+            "start_line": 34
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "except_clause",
+          "location": {
+            "end_col": 48,
+            "end_line": 39,
+            "file_path": "taxonomy.py",
+            "start_col": 4,
+            "start_line": 38
+          }
+        }
+      ],
+      "cyclomatic_complexity": 7,
+      "docstring": "Function with multiple branch types for complexity counting.",
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "RuntimeError"
+        }
+      ],
+      "id": "taxonomy:branchy",
+      "kind": "function",
+      "location": {
+        "end_col": 48,
+        "end_line": 39,
+        "file_path": "taxonomy.py",
+        "start_col": 0,
+        "start_line": 24
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "str"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:counter": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "True",
+          "location": {
+            "end_col": 14,
+            "end_line": 52,
+            "file_path": "taxonomy.py",
+            "start_col": 4,
+            "start_line": 50
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": "A generator function.",
+      "exception_types": [],
+      "id": "taxonomy:counter",
+      "kind": "function",
+      "location": {
+        "end_col": 14,
+        "end_line": 52,
+        "file_path": "taxonomy.py",
+        "start_col": 0,
+        "start_line": 47
+      },
+      "name": "counter",
+      "parameters": [
+        {
+          "default": "0",
+          "name": "start",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [
+          {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        ],
+        "module": null,
+        "name": "Iterator"
+      }
+    },
+    "taxonomy:fetch_async": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": "An async function \u2014 kind should be 'function', not 'method'.",
+      "exception_types": [],
+      "id": "taxonomy:fetch_async",
+      "kind": "function",
+      "location": {
+        "end_col": 14,
+        "end_line": 44,
+        "file_path": "taxonomy.py",
+        "start_col": 0,
+        "start_line": 42
+      },
+      "name": "fetch_async",
+      "parameters": [
+        {
+          "default": null,
+          "name": "url",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "str"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "str"
+      }
+    },
+    "taxonomy:use_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": "Call-edge target test: makes calls to Dog and bark().",
+      "exception_types": [],
+      "id": "taxonomy:use_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 35,
+        "end_line": 85,
+        "file_path": "taxonomy.py",
+        "start_col": 0,
+        "start_line": 82
+      },
+      "name": "use_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Dog"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "str"
+      }
+    }
+  },
+  "root_path": "taxonomy.py",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 8,
+    "classes": 2,
+    "dependencies": [
+      "json",
+      "collections",
+      "typing"
+    ],
+    "entrypoints": 0,
+    "functions": 9,
+    "total_nodes": 12
+  }
+}

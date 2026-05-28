@@ -1,0 +1,286 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.initialize"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Dog"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "inherits",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.initialize"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Dog.initialize",
+      "target": "taxonomy:super"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.bark"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Dog.bark",
+      "target": "taxonomy:raise"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.greet"
+    }
+  ],
+  "language": "ruby",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 74,
+        "file_path": "taxonomy.rb",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal",
+      "kind": "class",
+      "location": {
+        "end_col": 5,
+        "end_line": 47,
+        "file_path": "taxonomy.rb",
+        "start_col": 2,
+        "start_line": 36
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 7,
+        "end_line": 46,
+        "file_path": "taxonomy.rb",
+        "start_col": 4,
+        "start_line": 44
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal.initialize": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.initialize",
+      "kind": "method",
+      "location": {
+        "end_col": 7,
+        "end_line": 42,
+        "file_path": "taxonomy.rb",
+        "start_col": 4,
+        "start_line": 39
+      },
+      "name": "initialize",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog",
+      "kind": "class",
+      "location": {
+        "end_col": 5,
+        "end_line": 68,
+        "file_path": "taxonomy.rb",
+        "start_col": 2,
+        "start_line": 49
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Dog.bark": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "if",
+          "location": {
+            "end_col": 25,
+            "end_line": 61,
+            "file_path": "taxonomy.rb",
+            "start_col": 23,
+            "start_line": 61
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.bark",
+      "kind": "method",
+      "location": {
+        "end_col": 7,
+        "end_line": 63,
+        "file_path": "taxonomy.rb",
+        "start_col": 4,
+        "start_line": 60
+      },
+      "name": "bark",
+      "parameters": [
+        {
+          "default": "false",
+          "name": "loud",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Dog.greet": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.greet",
+      "kind": "method",
+      "location": {
+        "end_col": 7,
+        "end_line": 67,
+        "file_path": "taxonomy.rb",
+        "start_col": 4,
+        "start_line": 65
+      },
+      "name": "greet",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Dog.initialize": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.initialize",
+      "kind": "method",
+      "location": {
+        "end_col": 7,
+        "end_line": 58,
+        "file_path": "taxonomy.rb",
+        "start_col": 4,
+        "start_line": 54
+      },
+      "name": "initialize",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": null
+        },
+        {
+          "default": "nil",
+          "name": "breed",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": "Comprehensive Ruby feature taxonomy fixture.",
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 3,
+        "end_line": 73,
+        "file_path": "taxonomy.rb",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.rb",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 2,
+    "classes": 2,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 5,
+    "total_nodes": 9
+  }
+}

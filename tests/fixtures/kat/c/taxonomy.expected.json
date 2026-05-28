@@ -1,0 +1,594 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Dog"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:strtol"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:animal_init"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:animal_init",
+      "target": "taxonomy:strncpy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:animal_init",
+      "target": "taxonomy:strncpy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:animal_describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:animal_describe",
+      "target": "taxonomy:snprintf"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:dog_init"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:dog_init",
+      "target": "taxonomy:animal_init"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:dog_init",
+      "target": "taxonomy:strncpy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:dog_init",
+      "target": "taxonomy:strncpy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:dog_bark"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:dog_bark",
+      "target": "taxonomy:snprintf"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:use_animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:use_animal",
+      "target": "taxonomy:dog_bark"
+    }
+  ],
+  "language": "c",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 74,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 13,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 10
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 18,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 15
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:add",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 22,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 20
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:animal_describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:animal_describe",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 55,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 53
+      },
+      "name": "animal_describe",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "struct Animal"
+          }
+        },
+        {
+          "default": null,
+          "name": "out",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "char"
+          }
+        },
+        {
+          "default": null,
+          "name": "out_len",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "size_t"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "void"
+      }
+    },
+    "taxonomy:animal_init": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:animal_init",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 51,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 47
+      },
+      "name": "animal_init",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "struct Animal"
+          }
+        },
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "char"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "void"
+      }
+    },
+    "taxonomy:branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(value > 0)",
+          "location": {
+            "end_col": 5,
+            "end_line": 30,
+            "file_path": "taxonomy.c",
+            "start_col": 4,
+            "start_line": 26
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(value < 0)",
+          "location": {
+            "end_col": 5,
+            "end_line": 30,
+            "file_path": "taxonomy.c",
+            "start_col": 11,
+            "start_line": 28
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i < value",
+          "location": {
+            "end_col": 5,
+            "end_line": 35,
+            "file_path": "taxonomy.c",
+            "start_col": 4,
+            "start_line": 31
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(i % 2 == 0)",
+          "location": {
+            "end_col": 9,
+            "end_line": 34,
+            "file_path": "taxonomy.c",
+            "start_col": 8,
+            "start_line": 32
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(total > 100)",
+          "location": {
+            "end_col": 5,
+            "end_line": 38,
+            "file_path": "taxonomy.c",
+            "start_col": 4,
+            "start_line": 36
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(end == mode)",
+          "location": {
+            "end_col": 5,
+            "end_line": 43,
+            "file_path": "taxonomy.c",
+            "start_col": 4,
+            "start_line": 41
+          }
+        }
+      ],
+      "cyclomatic_complexity": 7,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:branchy",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 45,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 24
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "char"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:dog_bark": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(loud)",
+          "location": {
+            "end_col": 5,
+            "end_line": 66,
+            "file_path": "taxonomy.c",
+            "start_col": 4,
+            "start_line": 64
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:dog_bark",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 69,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 63
+      },
+      "name": "dog_bark",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "struct Dog"
+          }
+        },
+        {
+          "default": null,
+          "name": "loud",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "out",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "char"
+          }
+        },
+        {
+          "default": null,
+          "name": "out_len",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "size_t"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:dog_init": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:dog_init",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 61,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 57
+      },
+      "name": "dog_init",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "struct Dog"
+          }
+        },
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "char"
+          }
+        },
+        {
+          "default": null,
+          "name": "breed",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "char"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "void"
+      }
+    },
+    "taxonomy:use_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:use_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 73,
+        "file_path": "taxonomy.c",
+        "start_col": 0,
+        "start_line": 71
+      },
+      "name": "use_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "struct Dog"
+          }
+        },
+        {
+          "default": null,
+          "name": "out",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "char"
+          }
+        },
+        {
+          "default": null,
+          "name": "out_len",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "size_t"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    }
+  },
+  "root_path": "taxonomy.c",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 9,
+    "classes": 0,
+    "dependencies": [
+      "stdio.h",
+      "stdlib.h",
+      "string.h"
+    ],
+    "entrypoints": 0,
+    "functions": 7,
+    "total_nodes": 10
+  }
+}

@@ -1,0 +1,3 @@
+  taxonomy:branchy  complexity=7  <FIXTURE_DIR>/taxonomy.py:24
+  taxonomy:counter  complexity=2  <FIXTURE_DIR>/taxonomy.py:47
+  taxonomy:Dog.bark  complexity=2  <FIXTURE_DIR>/taxonomy.py:76

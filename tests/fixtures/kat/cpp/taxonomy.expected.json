@@ -1,0 +1,594 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Pair"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Greeter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Greeter",
+      "target": "taxonomy:Greeter.Greeter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:stoi"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:runtime_error"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Dog"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "inherits",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "inherits",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Greeter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.Dog"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.bark"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Dog.bark",
+      "target": "taxonomy:runtime_error"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.greet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:use_animal"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:use_animal",
+      "target": "d.bark"
+    }
+  ],
+  "language": "cpp",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 87,
+        "file_path": "taxonomy.cpp",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal",
+      "kind": "class",
+      "location": {
+        "end_col": 1,
+        "end_line": 60,
+        "file_path": "taxonomy.cpp",
+        "start_col": 0,
+        "start_line": 48
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal.Animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.Animal",
+      "kind": "method",
+      "location": {
+        "end_col": 32,
+        "end_line": 55,
+        "file_path": "taxonomy.cpp",
+        "start_col": 4,
+        "start_line": 55
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 59,
+        "file_path": "taxonomy.cpp",
+        "start_col": 4,
+        "start_line": 57
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "std::string"
+      }
+    },
+    "taxonomy:Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog",
+      "kind": "class",
+      "location": {
+        "end_col": 1,
+        "end_line": 82,
+        "file_path": "taxonomy.cpp",
+        "start_col": 0,
+        "start_line": 62
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Dog.Dog": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.Dog",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 70,
+        "file_path": "taxonomy.cpp",
+        "start_col": 4,
+        "start_line": 67
+      },
+      "name": "Dog",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "std::string"
+          }
+        },
+        {
+          "default": null,
+          "name": "breed",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "std::string"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Dog.bark": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(loud)",
+          "location": {
+            "end_col": 9,
+            "end_line": 75,
+            "file_path": "taxonomy.cpp",
+            "start_col": 8,
+            "start_line": 73
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "std::runtime_error"
+        }
+      ],
+      "id": "taxonomy:Dog.bark",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 77,
+        "file_path": "taxonomy.cpp",
+        "start_col": 4,
+        "start_line": 72
+      },
+      "name": "bark",
+      "parameters": [
+        {
+          "default": null,
+          "name": "loud",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "bool"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "std::string"
+      }
+    },
+    "taxonomy:Dog.greet": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.greet",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 81,
+        "file_path": "taxonomy.cpp",
+        "start_col": 4,
+        "start_line": 79
+      },
+      "name": "greet",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "std::string"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "std::string"
+      }
+    },
+    "taxonomy:Greeter": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Greeter",
+      "kind": "class",
+      "location": {
+        "end_col": 1,
+        "end_line": 20,
+        "file_path": "taxonomy.cpp",
+        "start_col": 0,
+        "start_line": 16
+      },
+      "name": "Greeter",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Greeter.Greeter": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Greeter.Greeter",
+      "kind": "method",
+      "location": {
+        "end_col": 33,
+        "end_line": 18,
+        "file_path": "taxonomy.cpp",
+        "start_col": 4,
+        "start_line": 18
+      },
+      "name": "Greeter",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Pair": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Pair",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 14,
+        "file_path": "taxonomy.cpp",
+        "start_col": 0,
+        "start_line": 11
+      },
+      "name": "Pair",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:add",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 24,
+        "file_path": "taxonomy.cpp",
+        "start_col": 0,
+        "start_line": 22
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(value > 0)",
+          "location": {
+            "end_col": 5,
+            "end_line": 32,
+            "file_path": "taxonomy.cpp",
+            "start_col": 4,
+            "start_line": 28
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(value < 0)",
+          "location": {
+            "end_col": 5,
+            "end_line": 32,
+            "file_path": "taxonomy.cpp",
+            "start_col": 11,
+            "start_line": 30
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i < value",
+          "location": {
+            "end_col": 5,
+            "end_line": 37,
+            "file_path": "taxonomy.cpp",
+            "start_col": 4,
+            "start_line": 33
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(i % 2 == 0)",
+          "location": {
+            "end_col": 9,
+            "end_line": 36,
+            "file_path": "taxonomy.cpp",
+            "start_col": 8,
+            "start_line": 34
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(total > 100)",
+          "location": {
+            "end_col": 5,
+            "end_line": 40,
+            "file_path": "taxonomy.cpp",
+            "start_col": 4,
+            "start_line": 38
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "catch_clause",
+          "location": {
+            "end_col": 5,
+            "end_line": 45,
+            "file_path": "taxonomy.cpp",
+            "start_col": 6,
+            "start_line": 43
+          }
+        }
+      ],
+      "cyclomatic_complexity": 7,
+      "docstring": null,
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "std::runtime_error"
+        }
+      ],
+      "id": "taxonomy:branchy",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 46,
+        "file_path": "taxonomy.cpp",
+        "start_col": 0,
+        "start_line": 26
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "std::string"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:use_animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:use_animal",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 86,
+        "file_path": "taxonomy.cpp",
+        "start_col": 0,
+        "start_line": 84
+      },
+      "name": "use_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Dog"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "std::string"
+      }
+    }
+  },
+  "root_path": "taxonomy.cpp",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 4,
+    "classes": 3,
+    "dependencies": [
+      "stdexcept",
+      "string"
+    ],
+    "entrypoints": 0,
+    "functions": 9,
+    "total_nodes": 14
+  }
+}

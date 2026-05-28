@@ -1,0 +1,552 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:IGreeter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:IGreeter",
+      "target": "taxonomy:IGreeter.greet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.constructor"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.describe"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Animal.describe",
+      "target": "abi.encodePacked"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Dog"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "inherits",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Animal"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "inherits",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:IGreeter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.constructor"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.branchy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.bark"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Dog.bark",
+      "target": "abi.encodePacked"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.greet"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Dog.greet",
+      "target": "abi.encodePacked"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.useAnimal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Dog.useAnimal",
+      "target": "taxonomy:bark"
+    }
+  ],
+  "language": "solidity",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 76,
+        "file_path": "taxonomy.sol",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal",
+      "kind": "contract",
+      "location": {
+        "end_col": 1,
+        "end_line": 22,
+        "file_path": "taxonomy.sol",
+        "start_col": 0,
+        "start_line": 10
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal.constructor": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.constructor",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 17,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 14
+      },
+      "name": "constructor",
+      "parameters": [
+        {
+          "default": null,
+          "name": "_name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Animal.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 21,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 19
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    },
+    "taxonomy:Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog",
+      "kind": "contract",
+      "location": {
+        "end_col": 1,
+        "end_line": 75,
+        "file_path": "taxonomy.sol",
+        "start_col": 0,
+        "start_line": 24
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Dog.add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.add",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 40,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 38
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "uint256"
+          }
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "uint256"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "uint256"
+      }
+    },
+    "taxonomy:Dog.bark": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "loud",
+          "location": {
+            "end_col": 9,
+            "end_line": 63,
+            "file_path": "taxonomy.sol",
+            "start_col": 8,
+            "start_line": 61
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.bark",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 66,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 60
+      },
+      "name": "bark",
+      "parameters": [
+        {
+          "default": null,
+          "name": "loud",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "bool"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    },
+    "taxonomy:Dog.branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "value > 100",
+          "location": {
+            "end_col": 9,
+            "end_line": 48,
+            "file_path": "taxonomy.sol",
+            "start_col": 8,
+            "start_line": 44
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "value > 0",
+          "location": {
+            "end_col": 9,
+            "end_line": 48,
+            "file_path": "taxonomy.sol",
+            "start_col": 15,
+            "start_line": 46
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i < value;",
+          "location": {
+            "end_col": 9,
+            "end_line": 53,
+            "file_path": "taxonomy.sol",
+            "start_col": 8,
+            "start_line": 49
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i % 2 == 0",
+          "location": {
+            "end_col": 13,
+            "end_line": 52,
+            "file_path": "taxonomy.sol",
+            "start_col": 12,
+            "start_line": 50
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "total > 100",
+          "location": {
+            "end_col": 9,
+            "end_line": 56,
+            "file_path": "taxonomy.sol",
+            "start_col": 8,
+            "start_line": 54
+          }
+        }
+      ],
+      "cyclomatic_complexity": 6,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.branchy",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 58,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 42
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "uint256"
+          }
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "uint256"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "uint256"
+      }
+    },
+    "taxonomy:Dog.constructor": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.constructor",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 36,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 33
+      },
+      "name": "constructor",
+      "parameters": [
+        {
+          "default": null,
+          "name": "_name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        },
+        {
+          "default": null,
+          "name": "_breed",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Dog.greet": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.greet",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 70,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 68
+      },
+      "name": "greet",
+      "parameters": [
+        {
+          "default": null,
+          "name": "other",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    },
+    "taxonomy:Dog.useAnimal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.useAnimal",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 74,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 72
+      },
+      "name": "useAnimal",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    },
+    "taxonomy:IGreeter": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:IGreeter",
+      "kind": "interface",
+      "location": {
+        "end_col": 1,
+        "end_line": 8,
+        "file_path": "taxonomy.sol",
+        "start_col": 0,
+        "start_line": 6
+      },
+      "name": "IGreeter",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:IGreeter.greet": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:IGreeter.greet",
+      "kind": "method",
+      "location": {
+        "end_col": 77,
+        "end_line": 7,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 7
+      },
+      "name": "greet",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    }
+  },
+  "root_path": "taxonomy.sol",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 4,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 9,
+    "total_nodes": 13
+  }
+}

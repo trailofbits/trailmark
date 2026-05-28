@@ -1,0 +1,44 @@
+#! Comprehensive Miden assembly feature taxonomy fixture.
+#! Covers procedures, conditionals, loops, and inter-proc calls.
+
+use.std::math::u64
+
+const.CONSTANT=42
+
+#! Adds two field elements on the stack.
+pub proc add
+    add
+end
+
+#! Exercises if/else, while, and repeat.
+pub proc branchy
+    push.0
+    if.true
+        push.1
+        add
+    else
+        push.2
+        add
+    end
+    while.true
+        dup
+        push.0
+        neq
+        drop
+    end
+    repeat.3
+        dup
+    end
+end
+
+#! Calls into another procedure.
+proc call_add
+    push.1
+    push.2
+    exec.add
+end
+
+pub proc use_animal
+    exec.call_add
+    exec.branchy
+end

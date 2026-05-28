@@ -1,0 +1,278 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy",
+      "target": "Taxonomy:Taxonomy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy",
+      "target": "Taxonomy:Taxonomy.add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy",
+      "target": "Taxonomy:Taxonomy.branchy"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "Taxonomy:Taxonomy.branchy",
+      "target": "Integer.parseInt"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy",
+      "target": "Taxonomy:Taxonomy.useAnimal"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "Taxonomy:Taxonomy.useAnimal",
+      "target": "d.bark"
+    }
+  ],
+  "language": "java",
+  "nodes": {
+    "Taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 84,
+        "file_path": "Taxonomy.java",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "Taxonomy:Taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy",
+      "kind": "class",
+      "location": {
+        "end_col": 1,
+        "end_line": 83,
+        "file_path": "Taxonomy.java",
+        "start_col": 0,
+        "start_line": 7
+      },
+      "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "Taxonomy:Taxonomy.add": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.add",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 21,
+        "file_path": "Taxonomy.java",
+        "start_col": 4,
+        "start_line": 19
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "Taxonomy:Taxonomy.branchy": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(value > 0)",
+          "location": {
+            "end_col": 9,
+            "end_line": 29,
+            "file_path": "Taxonomy.java",
+            "start_col": 8,
+            "start_line": 25
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(value < 0)",
+          "location": {
+            "end_col": 9,
+            "end_line": 29,
+            "file_path": "Taxonomy.java",
+            "start_col": 15,
+            "start_line": 27
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "i < value",
+          "location": {
+            "end_col": 9,
+            "end_line": 34,
+            "file_path": "Taxonomy.java",
+            "start_col": 8,
+            "start_line": 30
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(i % 2 == 0)",
+          "location": {
+            "end_col": 13,
+            "end_line": 33,
+            "file_path": "Taxonomy.java",
+            "start_col": 12,
+            "start_line": 31
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "(total > 100)",
+          "location": {
+            "end_col": 9,
+            "end_line": 37,
+            "file_path": "Taxonomy.java",
+            "start_col": 8,
+            "start_line": 35
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "catch_clause",
+          "location": {
+            "end_col": 9,
+            "end_line": 42,
+            "file_path": "Taxonomy.java",
+            "start_col": 10,
+            "start_line": 40
+          }
+        }
+      ],
+      "cyclomatic_complexity": 7,
+      "docstring": null,
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "RuntimeException"
+        }
+      ],
+      "id": "Taxonomy:Taxonomy.branchy",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 43,
+        "file_path": "Taxonomy.java",
+        "start_col": 4,
+        "start_line": 23
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "String"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "Taxonomy:Taxonomy.useAnimal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.useAnimal",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 82,
+        "file_path": "Taxonomy.java",
+        "start_col": 4,
+        "start_line": 80
+      },
+      "name": "useAnimal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Dog"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "String"
+      }
+    }
+  },
+  "root_path": "Taxonomy.java",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 2,
+    "classes": 1,
+    "dependencies": [
+      "java"
+    ],
+    "entrypoints": 0,
+    "functions": 3,
+    "total_nodes": 5
+  }
+}

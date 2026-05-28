@@ -1,0 +1,2 @@
+No entrypoints detected.
+Hint: declare entrypoints manually in .trailmark/entrypoints.toml
