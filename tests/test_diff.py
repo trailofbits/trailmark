@@ -486,6 +486,172 @@ class TestFormatDiff:
         assert out == out.rstrip()
         assert not out.endswith("\n")
 
+    def test_full_output_exact_match(self) -> None:
+        """Golden output covering every section, with exact string equality.
+
+        Locks in every literal label, separator, and blank line so that even
+        whitespace-only or label-character mutations are detected.
+        """
+        diff = {
+            "summary_delta": {
+                "nodes": {"before": 10, "after": 12, "delta": 2},
+                "edges": {"before": 5, "after": 3, "delta": -2},
+                "entrypoints": {"before": 0, "after": 1, "delta": 1},
+            },
+            "nodes": {
+                "added": [{"id": "mod:f", "kind": "function", "file": "f.py"}],
+                "removed": [{"id": "mod:g", "kind": "function", "file": "g.py"}],
+                "modified": [
+                    {
+                        "id": "mod:h",
+                        "changes": {
+                            "cyclomatic_complexity": {"before": 3, "after": 7},
+                            "parameters": {"before": 1, "after": 2},
+                        },
+                    },
+                ],
+            },
+            "edges": {
+                "added": [
+                    {"source": "mod:a", "target": "mod:b", "kind": "calls"},
+                    {"source": "mod:a", "target": "mod:c", "kind": "calls"},
+                ],
+                "removed": [{"source": "mod:x", "target": "mod:y", "kind": "calls"}],
+            },
+            "entrypoints": {
+                "added": [
+                    {
+                        "id": "mod:in",
+                        "kind": "http",
+                        "trust_level": "untrusted",
+                        "asset_value": "high",
+                    },
+                ],
+                "removed": [
+                    {
+                        "id": "mod:out",
+                        "kind": "cli",
+                        "trust_level": "trusted",
+                        "asset_value": "low",
+                    },
+                ],
+                "modified": [
+                    {
+                        "id": "mod:m",
+                        "before": {"trust_level": "trusted", "asset_value": "low"},
+                        "after": {"trust_level": "untrusted", "asset_value": "high"},
+                    },
+                ],
+            },
+        }
+        expected = (
+            "Summary:\n"
+            "  nodes: 10 -> 12 (+2)\n"
+            "  edges: 5 -> 3 (-2)\n"
+            "  entrypoints: 0 -> 1 (+1)\n"
+            "\n"
+            "Added nodes (1):\n"
+            "  + mod:f  (function, f.py)\n"
+            "\n"
+            "Removed nodes (1):\n"
+            "  - mod:g  (function, g.py)\n"
+            "\n"
+            "Modified nodes (1):\n"
+            "  ~ mod:h  (cyclomatic_complexity, parameters)\n"
+            "      complexity: 3 -> 7\n"
+            "\n"
+            "Attack surface:\n"
+            "  + entrypoint mod:in  (http, trust=untrusted, asset=high)\n"
+            "  - entrypoint mod:out  (cli, trust=trusted, asset=low)\n"
+            "  ~ entrypoint mod:m\n"
+            "      trust: trusted -> untrusted\n"
+            "      asset: low -> high\n"
+            "\n"
+            "Edges: +2  -1"
+        )
+        assert format_diff(diff) == expected
+
+    def test_added_nodes_truncation_message_exact(self) -> None:
+        """Verify the truncation suffix line text."""
+        diff = {
+            "summary_delta": {},
+            "nodes": {
+                "added": [
+                    {"id": f"mod:n{i}", "kind": "function", "file": "x.py"}
+                    for i in range(25)
+                ],
+                "removed": [],
+                "modified": [],
+            },
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert "  ... and 5 more" in out
+        assert "  ... and 5 more\n" in out + "\n"
+
+    def test_removed_nodes_truncation_message(self) -> None:
+        diff = {
+            "summary_delta": {},
+            "nodes": {
+                "added": [],
+                "removed": [
+                    {"id": f"mod:n{i}", "kind": "class", "file": "x.py"}
+                    for i in range(23)
+                ],
+                "modified": [],
+            },
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {"added": [], "removed": [], "modified": []},
+        }
+        out = format_diff(diff)
+        assert "Removed nodes (23):" in out
+        assert "  ... and 3 more" in out
+
+    def test_entrypoints_with_only_modified_renders_attack_surface(self) -> None:
+        """Attack surface header appears even when only modified entrypoints exist."""
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {
+                "added": [],
+                "removed": [],
+                "modified": [
+                    {
+                        "id": "mod:ep",
+                        "before": {"trust_level": "low", "asset_value": "low"},
+                        "after": {"trust_level": "low", "asset_value": "low"},
+                    },
+                ],
+            },
+        }
+        out = format_diff(diff)
+        assert out.startswith("Attack surface:\n")
+        assert "  ~ entrypoint mod:ep" in out
+
+    def test_modified_entrypoint_only_asset_change(self) -> None:
+        """When trust is unchanged, the trust line is omitted; the asset line is shown."""
+        diff = {
+            "summary_delta": {},
+            "nodes": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "entrypoints": {
+                "added": [],
+                "removed": [],
+                "modified": [
+                    {
+                        "id": "mod:ep",
+                        "before": {"trust_level": "trusted", "asset_value": "low"},
+                        "after": {"trust_level": "trusted", "asset_value": "critical"},
+                    },
+                ],
+            },
+        }
+        out = format_diff(diff)
+        assert "      asset: low -> critical" in out
+        assert "trust:" not in out
+
 
 class TestGitWorktree:
     def test_worktree_materializes_a_ref(self, tmp_path: Path) -> None:
