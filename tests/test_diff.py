@@ -577,8 +577,7 @@ class TestFormatDiff:
             "summary_delta": {},
             "nodes": {
                 "added": [
-                    {"id": f"mod:n{i}", "kind": "function", "file": "x.py"}
-                    for i in range(25)
+                    {"id": f"mod:n{i}", "kind": "function", "file": "x.py"} for i in range(25)
                 ],
                 "removed": [],
                 "modified": [],
@@ -596,8 +595,7 @@ class TestFormatDiff:
             "nodes": {
                 "added": [],
                 "removed": [
-                    {"id": f"mod:n{i}", "kind": "class", "file": "x.py"}
-                    for i in range(23)
+                    {"id": f"mod:n{i}", "kind": "class", "file": "x.py"} for i in range(23)
                 ],
                 "modified": [],
             },
