@@ -72,7 +72,7 @@ def _namespace_id(root: Node) -> str:
                 for part in named_children(child)
                 if part.type == "namespace"
             ]
-            return "".join(parts)
+            return ".".join(parts)
     return ""
 
 

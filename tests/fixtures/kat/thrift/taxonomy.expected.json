@@ -3,32 +3,32 @@
     {
       "confidence": "certain",
       "kind": "imports",
-      "source": "exampleauth",
+      "source": "example.auth",
       "target": "common.thrift"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "exampleauth",
-      "target": "exampleauth:LoginRequest"
+      "source": "example.auth",
+      "target": "example.auth:LoginRequest"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "exampleauth:LoginRequest",
-      "target": "exampleauth:LoginRequest.token"
+      "source": "example.auth:LoginRequest",
+      "target": "example.auth:LoginRequest.token"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "exampleauth",
-      "target": "exampleauth:AuthService"
+      "source": "example.auth",
+      "target": "example.auth:AuthService"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "exampleauth:AuthService",
-      "target": "exampleauth:AuthService.login"
+      "source": "example.auth:AuthService",
+      "target": "example.auth:AuthService.login"
     },
     {
       "attributes": {
@@ -36,18 +36,18 @@
       },
       "confidence": "certain",
       "kind": "type_uses",
-      "source": "exampleauth:AuthService.login",
-      "target": "exampleauth:LoginRequest"
+      "source": "example.auth:AuthService.login",
+      "target": "example.auth:LoginRequest"
     }
   ],
   "language": "thrift",
   "nodes": {
-    "exampleauth": {
+    "example.auth": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "exampleauth",
+      "id": "example.auth",
       "kind": "module",
       "location": {
         "end_col": 0,
@@ -56,16 +56,16 @@
         "start_col": 0,
         "start_line": 1
       },
-      "name": "exampleauth",
+      "name": "example.auth",
       "parameters": [],
       "return_type": null
     },
-    "exampleauth:AuthService": {
+    "example.auth:AuthService": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "exampleauth:AuthService",
+      "id": "example.auth:AuthService",
       "kind": "interface",
       "location": {
         "end_col": 1,
@@ -78,7 +78,7 @@
       "parameters": [],
       "return_type": null
     },
-    "exampleauth:AuthService.login": {
+    "example.auth:AuthService.login": {
       "attributes": {
         "schema_role": "service_function"
       },
@@ -86,7 +86,7 @@
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "exampleauth:AuthService.login",
+      "id": "example.auth:AuthService.login",
       "kind": "method",
       "location": {
         "end_col": 33,
@@ -113,12 +113,12 @@
         "name": "bool"
       }
     },
-    "exampleauth:LoginRequest": {
+    "example.auth:LoginRequest": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "exampleauth:LoginRequest",
+      "id": "example.auth:LoginRequest",
       "kind": "struct",
       "location": {
         "end_col": 1,
@@ -131,7 +131,7 @@
       "parameters": [],
       "return_type": null
     },
-    "exampleauth:LoginRequest.token": {
+    "example.auth:LoginRequest.token": {
       "attributes": {
         "schema_role": "field"
       },
@@ -139,7 +139,7 @@
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "exampleauth:LoginRequest.token",
+      "id": "example.auth:LoginRequest.token",
       "kind": "method",
       "location": {
         "end_col": 17,

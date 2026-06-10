@@ -143,7 +143,7 @@ class TestNewLanguageEntrypoints:
             "example.auth:Auth.Login",
         }
         assert {ep["node_id"] for ep in thrift.attack_surface()} == {
-            "exampleauth:Auth.login",
+            "example.auth:Auth.login",
         }
         assert {ep["node_id"] for ep in graphql.attack_surface()} == {
             "schema:Query.user",
