@@ -231,6 +231,7 @@ class TestDiagramSubparser:
         assert action.required is True
         assert action.dest == "diagram_type"
         assert "-T" in action.option_strings
+        assert action.choices is not None
         assert "call-graph" in action.choices
 
     def test_language_default_python(
@@ -249,6 +250,7 @@ class TestDiagramSubparser:
     def test_direction_default_tb(self, subparsers_map: dict[str, argparse.ArgumentParser]) -> None:
         action = _option(subparsers_map["diagram"], "--direction")
         assert action.default == "TB"
+        assert action.choices is not None
         assert set(action.choices) == {"TB", "LR"}
 
 
