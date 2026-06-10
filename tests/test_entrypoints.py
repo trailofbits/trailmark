@@ -74,6 +74,82 @@ class TestMainHeuristic:
         assert engine.attack_surface() == []
 
 
+class TestNewLanguageEntrypoints:
+    def test_move_public_entry_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "m.move").write_text(
+            "module 0x1::m { public entry fun main(account: &signer) { } }\n"
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="move")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        assert "m:0x1::m:main" in ids
+
+    def test_tact_receivers_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "wallet.tact").write_text(
+            'contract Wallet { init(owner: Address) { } receive("ping") { } }\n'
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="tact")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        assert "wallet:Wallet.init" in ids
+        assert "wallet:Wallet.receive" in ids
+
+    def test_func_receivers_and_getters_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "wallet.fc").write_text(
+            "() recv_internal() impure { }\nint get_balance() method_id { return 1; }\n"
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="func")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        assert "wallet:recv_internal" in ids
+        assert "wallet:get_balance" in ids
+
+    def test_sway_abi_and_public_functions_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "wallet.sw").write_text(
+            "contract;\nabi Wallet { fn deposit(amount: u64); }\n"
+            "pub fn helper(amount: u64) -> u64 { amount }\n"
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="sway")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        assert "wallet:Wallet.deposit" in ids
+        assert "wallet:helper" in ids
+
+    def test_rego_policy_rules_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "policy.rego").write_text(
+            'package example.auth\nallow if { true }\ndeny[msg] if { msg := "no" }\n'
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="rego")
+        ids = {ep["node_id"] for ep in engine.attack_surface()}
+        assert "example.auth:allow" in ids
+        assert "example.auth:deny" in ids
+
+    def test_schema_entrypoints_detect_operations_only(self, tmp_path: Path) -> None:
+        (tmp_path / "auth.proto").write_text(
+            'syntax = "proto3"; package example.auth; '
+            "service Auth { rpc Login (Request) returns (Response); } "
+            "message Request { string token = 1; } message Response { bool ok = 1; }\n"
+        )
+        (tmp_path / "auth.thrift").write_text(
+            "namespace py example.auth\n"
+            "struct Request { 1: string token }\n"
+            "service Auth { bool login(1: Request req) }\n"
+        )
+        (tmp_path / "schema.graphql").write_text(
+            "type Query { user(id: ID!): User }\ntype User { id: ID! }\n"
+        )
+
+        proto = QueryEngine.from_directory(str(tmp_path), language="proto")
+        thrift = QueryEngine.from_directory(str(tmp_path), language="thrift")
+        graphql = QueryEngine.from_directory(str(tmp_path), language="graphql")
+
+        assert {ep["node_id"] for ep in proto.attack_surface()} == {
+            "example.auth:Auth.Login",
+        }
+        assert {ep["node_id"] for ep in thrift.attack_surface()} == {
+            "exampleauth:Auth.login",
+        }
+        assert {ep["node_id"] for ep in graphql.attack_surface()} == {
+            "schema:Query.user",
+        }
+
+
 class TestPyprojectScripts:
     def test_pyproject_script_overrides_main_heuristic(self, tmp_path: Path) -> None:
         """A pyproject.toml script target beats the generic main heuristic."""

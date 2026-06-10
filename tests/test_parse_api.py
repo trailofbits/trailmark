@@ -105,6 +105,29 @@ class TestParseDirectory:
         # detect_languages should mirror that and report "javascript".
         assert detect_languages(str(tmp_path)) == ["javascript"]
 
+    def test_detect_languages_matches_new_parser_extensions(self, tmp_path: Path) -> None:
+        (tmp_path / "a.move").write_text("")
+        (tmp_path / "b.tact").write_text("")
+        (tmp_path / "c.fc").write_text("")
+        (tmp_path / "d.func").write_text("")
+        (tmp_path / "e.sw").write_text("")
+        (tmp_path / "f.rego").write_text("")
+        (tmp_path / "g.proto").write_text("")
+        (tmp_path / "h.thrift").write_text("")
+        (tmp_path / "i.graphql").write_text("")
+        (tmp_path / "j.gql").write_text("")
+
+        detected = detect_languages(str(tmp_path))
+
+        assert "move" in detected
+        assert "tact" in detected
+        assert "func" in detected
+        assert "sway" in detected
+        assert "rego" in detected
+        assert "proto" in detected
+        assert "thrift" in detected
+        assert "graphql" in detected
+
 
 class TestFileExtensionHelper:
     """Direct coverage of trailmark.parse._file_extension."""

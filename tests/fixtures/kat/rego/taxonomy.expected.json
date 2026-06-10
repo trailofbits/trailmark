@@ -1,0 +1,164 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "example.auth",
+      "target": "future.keywords.if"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth",
+      "target": "example.auth:allow"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "example.auth:allow",
+      "target": "example.auth:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth",
+      "target": "example.auth:deny"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth",
+      "target": "example.auth:helper"
+    }
+  ],
+  "language": "rego",
+  "nodes": {
+    "example.auth": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 16,
+        "file_path": "taxonomy.rego",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "example.auth",
+      "parameters": [],
+      "return_type": null
+    },
+    "example.auth:allow": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "literal",
+          "location": {
+            "end_col": 24,
+            "end_line": 6,
+            "file_path": "taxonomy.rego",
+            "start_col": 4,
+            "start_line": 6
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:allow",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 7,
+        "file_path": "taxonomy.rego",
+        "start_col": 0,
+        "start_line": 5
+      },
+      "name": "allow",
+      "parameters": [],
+      "return_type": null
+    },
+    "example.auth:deny": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "literal",
+          "location": {
+            "end_col": 15,
+            "end_line": 10,
+            "file_path": "taxonomy.rego",
+            "start_col": 4,
+            "start_line": 10
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:deny",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 11,
+        "file_path": "taxonomy.rego",
+        "start_col": 0,
+        "start_line": 9
+      },
+      "name": "deny",
+      "parameters": [],
+      "return_type": null
+    },
+    "example.auth:helper": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "literal",
+          "location": {
+            "end_col": 20,
+            "end_line": 14,
+            "file_path": "taxonomy.rego",
+            "start_col": 4,
+            "start_line": 14
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 15,
+        "file_path": "taxonomy.rego",
+        "start_col": 0,
+        "start_line": 13
+      },
+      "name": "helper",
+      "parameters": [
+        {
+          "default": null,
+          "name": "action",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.rego",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 1,
+    "classes": 0,
+    "dependencies": [
+      "future.keywords.if"
+    ],
+    "entrypoints": 0,
+    "functions": 3,
+    "proxies": 0,
+    "total_nodes": 4
+  }
+}

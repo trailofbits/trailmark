@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package example.auth;
+
+import "common.proto";
+
+service AuthService {
+  rpc Login (LoginRequest) returns (LoginResponse);
+}
+
+message LoginRequest {
+  string token = 1;
+}
+
+message LoginResponse {
+  bool ok = 1;
+}

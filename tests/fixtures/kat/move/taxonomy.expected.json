@@ -1,0 +1,128 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:0x1::taxonomy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy:0x1::taxonomy",
+      "target": "0x1::string"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:0x1::taxonomy",
+      "target": "taxonomy:0x1::taxonomy:main"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:0x1::taxonomy:main",
+      "target": "taxonomy:0x1::taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:0x1::taxonomy",
+      "target": "taxonomy:0x1::taxonomy:helper"
+    }
+  ],
+  "language": "move",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 11,
+        "file_path": "taxonomy.move",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:0x1::taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:0x1::taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 11,
+        "file_path": "taxonomy.move",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:0x1::taxonomy:helper": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:0x1::taxonomy:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 5,
+        "end_line": 9,
+        "file_path": "taxonomy.move",
+        "start_col": 4,
+        "start_line": 8
+      },
+      "name": "helper",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:0x1::taxonomy:main": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:0x1::taxonomy:main",
+      "kind": "function",
+      "location": {
+        "end_col": 5,
+        "end_line": 6,
+        "file_path": "taxonomy.move",
+        "start_col": 4,
+        "start_line": 4
+      },
+      "name": "main",
+      "parameters": [
+        {
+          "default": null,
+          "name": "account",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.move",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 1,
+    "classes": 0,
+    "dependencies": [
+      "0x1::string"
+    ],
+    "entrypoints": 0,
+    "functions": 2,
+    "proxies": 0,
+    "total_nodes": 4
+  }
+}

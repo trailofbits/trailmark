@@ -1,0 +1,325 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Query"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Query",
+      "target": "taxonomy:Query.user"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Mutation"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Mutation",
+      "target": "taxonomy:Mutation.login"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:User"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:User",
+      "target": "taxonomy:User.id"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:User",
+      "target": "taxonomy:User.name"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:LoginResult"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:LoginResult",
+      "target": "taxonomy:LoginResult.ok"
+    },
+    {
+      "attributes": {
+        "type_name": "User"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:Query.user",
+      "target": "taxonomy:User"
+    },
+    {
+      "attributes": {
+        "type_name": "LoginResult"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:Mutation.login",
+      "target": "taxonomy:LoginResult"
+    }
+  ],
+  "language": "graphql",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 22,
+        "file_path": "taxonomy.graphql",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:LoginResult": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:LoginResult",
+      "kind": "interface",
+      "location": {
+        "end_col": 1,
+        "end_line": 21,
+        "file_path": "taxonomy.graphql",
+        "start_col": 0,
+        "start_line": 19
+      },
+      "name": "LoginResult",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:LoginResult.ok": {
+      "attributes": {
+        "schema_role": "field"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:LoginResult.ok",
+      "kind": "method",
+      "location": {
+        "end_col": 14,
+        "end_line": 20,
+        "file_path": "taxonomy.graphql",
+        "start_col": 2,
+        "start_line": 20
+      },
+      "name": "ok",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Boolean"
+      }
+    },
+    "taxonomy:Mutation": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Mutation",
+      "kind": "interface",
+      "location": {
+        "end_col": 1,
+        "end_line": 12,
+        "file_path": "taxonomy.graphql",
+        "start_col": 0,
+        "start_line": 10
+      },
+      "name": "Mutation",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Mutation.login": {
+      "attributes": {
+        "schema_role": "root_operation"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Mutation.login",
+      "kind": "method",
+      "location": {
+        "end_col": 36,
+        "end_line": 11,
+        "file_path": "taxonomy.graphql",
+        "start_col": 2,
+        "start_line": 11
+      },
+      "name": "login",
+      "parameters": [
+        {
+          "default": null,
+          "name": "token",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "String"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "LoginResult"
+      }
+    },
+    "taxonomy:Query": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Query",
+      "kind": "interface",
+      "location": {
+        "end_col": 1,
+        "end_line": 8,
+        "file_path": "taxonomy.graphql",
+        "start_col": 0,
+        "start_line": 6
+      },
+      "name": "Query",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Query.user": {
+      "attributes": {
+        "schema_role": "root_operation"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Query.user",
+      "kind": "method",
+      "location": {
+        "end_col": 21,
+        "end_line": 7,
+        "file_path": "taxonomy.graphql",
+        "start_col": 2,
+        "start_line": 7
+      },
+      "name": "user",
+      "parameters": [
+        {
+          "default": null,
+          "name": "id",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "ID"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "User"
+      }
+    },
+    "taxonomy:User": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:User",
+      "kind": "interface",
+      "location": {
+        "end_col": 1,
+        "end_line": 17,
+        "file_path": "taxonomy.graphql",
+        "start_col": 0,
+        "start_line": 14
+      },
+      "name": "User",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:User.id": {
+      "attributes": {
+        "schema_role": "field"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:User.id",
+      "kind": "method",
+      "location": {
+        "end_col": 9,
+        "end_line": 15,
+        "file_path": "taxonomy.graphql",
+        "start_col": 2,
+        "start_line": 15
+      },
+      "name": "id",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "ID"
+      }
+    },
+    "taxonomy:User.name": {
+      "attributes": {
+        "schema_role": "field"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:User.name",
+      "kind": "method",
+      "location": {
+        "end_col": 14,
+        "end_line": 16,
+        "file_path": "taxonomy.graphql",
+        "start_col": 2,
+        "start_line": 16
+      },
+      "name": "name",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "String"
+      }
+    }
+  },
+  "root_path": "taxonomy.graphql",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 0,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 5,
+    "proxies": 0,
+    "total_nodes": 10
+  }
+}

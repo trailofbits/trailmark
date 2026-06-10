@@ -63,6 +63,14 @@ A language-specific parser walks the directory, parses each file into a tree-sit
 | Objective-C | `.m`, `.mm`, `.h` | C functions, classes, methods (selector-based naming) |
 | Kotlin | `.kt`, `.kts` | functions, classes, interfaces, data classes, objects, methods |
 | Dart | `.dart` | functions, classes, abstract classes, methods, constructors |
+| Move | `.move` | modules, functions, imports, direct calls |
+| Tact | `.tact` | contracts, structs, receivers, functions |
+| Func | `.fc`, `.func` | functions, includes, direct calls |
+| Sway | `.sw` | ABI interfaces, structs, impl methods, functions |
+| Rego | `.rego` | packages, imports, policy rules, rule calls |
+| Proto | `.proto` | services, RPCs, messages, fields, enums |
+| Thrift | `.thrift` | services, functions, structs, fields, enums |
+| GraphQL | `.graphql`, `.gql` | object types, root operations, fields, enums |
 
 ```mermaid
 flowchart TD

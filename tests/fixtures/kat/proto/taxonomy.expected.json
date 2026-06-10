@@ -1,0 +1,237 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "example.auth",
+      "target": "common.proto"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth",
+      "target": "example.auth:AuthService"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth:AuthService",
+      "target": "example.auth:AuthService.Login"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth",
+      "target": "example.auth:LoginRequest"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth:LoginRequest",
+      "target": "example.auth:LoginRequest.token"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth",
+      "target": "example.auth:LoginResponse"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth:LoginResponse",
+      "target": "example.auth:LoginResponse.ok"
+    },
+    {
+      "attributes": {
+        "type_name": "LoginRequest"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "example.auth:AuthService.Login",
+      "target": "example.auth:LoginRequest"
+    },
+    {
+      "attributes": {
+        "type_name": "LoginResponse"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "example.auth:AuthService.Login",
+      "target": "example.auth:LoginResponse"
+    }
+  ],
+  "language": "proto",
+  "nodes": {
+    "example.auth": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 18,
+        "file_path": "taxonomy.proto",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "example.auth",
+      "parameters": [],
+      "return_type": null
+    },
+    "example.auth:AuthService": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:AuthService",
+      "kind": "interface",
+      "location": {
+        "end_col": 1,
+        "end_line": 9,
+        "file_path": "taxonomy.proto",
+        "start_col": 0,
+        "start_line": 7
+      },
+      "name": "AuthService",
+      "parameters": [],
+      "return_type": null
+    },
+    "example.auth:AuthService.Login": {
+      "attributes": {
+        "schema_role": "rpc"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:AuthService.Login",
+      "kind": "method",
+      "location": {
+        "end_col": 51,
+        "end_line": 8,
+        "file_path": "taxonomy.proto",
+        "start_col": 2,
+        "start_line": 8
+      },
+      "name": "Login",
+      "parameters": [
+        {
+          "default": null,
+          "name": "request",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "LoginRequest"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "LoginResponse"
+      }
+    },
+    "example.auth:LoginRequest": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:LoginRequest",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 13,
+        "file_path": "taxonomy.proto",
+        "start_col": 0,
+        "start_line": 11
+      },
+      "name": "LoginRequest",
+      "parameters": [],
+      "return_type": null
+    },
+    "example.auth:LoginRequest.token": {
+      "attributes": {
+        "schema_role": "field"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:LoginRequest.token",
+      "kind": "method",
+      "location": {
+        "end_col": 19,
+        "end_line": 12,
+        "file_path": "taxonomy.proto",
+        "start_col": 2,
+        "start_line": 12
+      },
+      "name": "token",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    },
+    "example.auth:LoginResponse": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:LoginResponse",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 17,
+        "file_path": "taxonomy.proto",
+        "start_col": 0,
+        "start_line": 15
+      },
+      "name": "LoginResponse",
+      "parameters": [],
+      "return_type": null
+    },
+    "example.auth:LoginResponse.ok": {
+      "attributes": {
+        "schema_role": "field"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:LoginResponse.ok",
+      "kind": "method",
+      "location": {
+        "end_col": 14,
+        "end_line": 16,
+        "file_path": "taxonomy.proto",
+        "start_col": 2,
+        "start_line": 16
+      },
+      "name": "ok",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "bool"
+      }
+    }
+  },
+  "root_path": "taxonomy.proto",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 0,
+    "classes": 0,
+    "dependencies": [
+      "common.proto"
+    ],
+    "entrypoints": 0,
+    "functions": 3,
+    "proxies": 0,
+    "total_nodes": 7
+  }
+}

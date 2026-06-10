@@ -1,0 +1,173 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "exampleauth",
+      "target": "common.thrift"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "exampleauth",
+      "target": "exampleauth:LoginRequest"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "exampleauth:LoginRequest",
+      "target": "exampleauth:LoginRequest.token"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "exampleauth",
+      "target": "exampleauth:AuthService"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "exampleauth:AuthService",
+      "target": "exampleauth:AuthService.login"
+    },
+    {
+      "attributes": {
+        "type_name": "LoginRequest"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "exampleauth:AuthService.login",
+      "target": "exampleauth:LoginRequest"
+    }
+  ],
+  "language": "thrift",
+  "nodes": {
+    "exampleauth": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "exampleauth",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 12,
+        "file_path": "taxonomy.thrift",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "exampleauth",
+      "parameters": [],
+      "return_type": null
+    },
+    "exampleauth:AuthService": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "exampleauth:AuthService",
+      "kind": "interface",
+      "location": {
+        "end_col": 1,
+        "end_line": 11,
+        "file_path": "taxonomy.thrift",
+        "start_col": 0,
+        "start_line": 9
+      },
+      "name": "AuthService",
+      "parameters": [],
+      "return_type": null
+    },
+    "exampleauth:AuthService.login": {
+      "attributes": {
+        "schema_role": "service_function"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "exampleauth:AuthService.login",
+      "kind": "method",
+      "location": {
+        "end_col": 33,
+        "end_line": 10,
+        "file_path": "taxonomy.thrift",
+        "start_col": 2,
+        "start_line": 10
+      },
+      "name": "login",
+      "parameters": [
+        {
+          "default": null,
+          "name": "req",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "LoginRequest"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "bool"
+      }
+    },
+    "exampleauth:LoginRequest": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "exampleauth:LoginRequest",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 7,
+        "file_path": "taxonomy.thrift",
+        "start_col": 0,
+        "start_line": 5
+      },
+      "name": "LoginRequest",
+      "parameters": [],
+      "return_type": null
+    },
+    "exampleauth:LoginRequest.token": {
+      "attributes": {
+        "schema_role": "field"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "exampleauth:LoginRequest.token",
+      "kind": "method",
+      "location": {
+        "end_col": 17,
+        "end_line": 6,
+        "file_path": "taxonomy.thrift",
+        "start_col": 2,
+        "start_line": 6
+      },
+      "name": "token",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
+    }
+  },
+  "root_path": "taxonomy.thrift",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 0,
+    "classes": 0,
+    "dependencies": [
+      "common.thrift"
+    ],
+    "entrypoints": 0,
+    "functions": 2,
+    "proxies": 0,
+    "total_nodes": 5
+  }
+}

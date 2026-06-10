@@ -1,0 +1,288 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "@stdlib/deploy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Ping"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Wallet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Wallet",
+      "target": "taxonomy:Wallet.init"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Wallet.init",
+      "target": "taxonomy:Wallet.reply"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Wallet",
+      "target": "taxonomy:Wallet.receive"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Wallet.receive",
+      "target": "taxonomy:Wallet.reply"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Wallet",
+      "target": "taxonomy:Wallet.external"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Wallet.external",
+      "target": "taxonomy:Wallet.reply"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Wallet",
+      "target": "taxonomy:Wallet.bounced"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Wallet.bounced",
+      "target": "taxonomy:Wallet.reply"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Wallet",
+      "target": "taxonomy:Wallet.reply"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:top"
+    }
+  ],
+  "language": "tact",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 31,
+        "file_path": "taxonomy.tact",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Ping": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Ping",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 5,
+        "file_path": "taxonomy.tact",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "Ping",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Wallet": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Wallet",
+      "kind": "contract",
+      "location": {
+        "end_col": 1,
+        "end_line": 27,
+        "file_path": "taxonomy.tact",
+        "start_col": 0,
+        "start_line": 7
+      },
+      "name": "Wallet",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Wallet.bounced": {
+      "attributes": {
+        "tact_role": "bounced"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Wallet.bounced",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 22,
+        "file_path": "taxonomy.tact",
+        "start_col": 4,
+        "start_line": 20
+      },
+      "name": "bounced",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Wallet.external": {
+      "attributes": {
+        "tact_role": "external"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Wallet.external",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 18,
+        "file_path": "taxonomy.tact",
+        "start_col": 4,
+        "start_line": 16
+      },
+      "name": "external",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Wallet.init": {
+      "attributes": {
+        "tact_role": "init"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Wallet.init",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 10,
+        "file_path": "taxonomy.tact",
+        "start_col": 4,
+        "start_line": 8
+      },
+      "name": "init",
+      "parameters": [
+        {
+          "default": null,
+          "name": "owner",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Address"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Wallet.receive": {
+      "attributes": {
+        "tact_role": "receive"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Wallet.receive",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 14,
+        "file_path": "taxonomy.tact",
+        "start_col": 4,
+        "start_line": 12
+      },
+      "name": "receive",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Wallet.reply": {
+      "attributes": {
+        "tact_role": "reply"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Wallet.reply",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 26,
+        "file_path": "taxonomy.tact",
+        "start_col": 4,
+        "start_line": 24
+      },
+      "name": "reply",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:top": {
+      "attributes": {
+        "tact_role": "top"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:top",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 30,
+        "file_path": "taxonomy.tact",
+        "start_col": 0,
+        "start_line": 29
+      },
+      "name": "top",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.tact",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 4,
+    "classes": 0,
+    "dependencies": [
+      "@stdlib/deploy"
+    ],
+    "entrypoints": 0,
+    "functions": 6,
+    "proxies": 0,
+    "total_nodes": 9
+  }
+}

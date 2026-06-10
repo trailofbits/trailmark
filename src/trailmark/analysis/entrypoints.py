@@ -330,6 +330,22 @@ def _detect_for_unit(
         return _detect_kotlin(cache, unit, path)
     if path.endswith(".dart"):
         return _detect_dart(cache, unit, path)
+    if path.endswith(".move"):
+        return _detect_move(cache, unit, path)
+    if path.endswith(".tact"):
+        return _detect_tact(unit)
+    if path.endswith((".fc", ".func")):
+        return _detect_func(unit)
+    if path.endswith(".sw"):
+        return _detect_sway(cache, unit, path)
+    if path.endswith(".rego"):
+        return _detect_rego(unit)
+    if path.endswith(".proto"):
+        return _detect_proto(cache, unit, path)
+    if path.endswith(".thrift"):
+        return _detect_thrift(cache, unit, path)
+    if path.endswith((".graphql", ".gql")):
+        return _detect_graphql(unit)
     if path.endswith(".go"):
         return _detect_go(cache, unit, path)
     if path.endswith(".rb"):
@@ -898,6 +914,133 @@ def _detect_dart(
                 description="Dart @pragma('vm:entry-point') native callback",
                 asset_value=AssetValue.HIGH,
             )
+    return None
+
+
+def _detect_move(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    signature = cache.signature_block(path, unit.location.start_line) or ""
+    if unit.kind.value == "function" and (" entry " in signature or "public" in signature):
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Move public/entry function",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
+def _detect_tact(unit: CodeUnit) -> EntrypointTag | None:
+    tact_role = _unit_attr(unit, "tact_role") or unit.name
+    if unit.kind.value == "method" and tact_role in {"init", "receive", "external", "bounced"}:
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Tact contract receiver/initializer",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
+def _detect_func(unit: CodeUnit) -> EntrypointTag | None:
+    if unit.name in {"recv_internal", "recv_external"} or unit.name.startswith("get_"):
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Func receiver/getter entrypoint",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
+def _detect_sway(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    signature = cache.signature_block(path, unit.location.start_line) or ""
+    if unit.kind.value == "function" and "pub fn" in signature:
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Sway public function",
+            asset_value=AssetValue.HIGH,
+        )
+    if (
+        unit.kind.value == "method"
+        and re.search(r"\bfn\s+\w+\s*\(", signature)
+        and ";" in signature
+    ):
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Sway ABI method",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
+def _detect_rego(unit: CodeUnit) -> EntrypointTag | None:
+    if unit.name in {"allow", "deny", "violation"}:
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Rego policy decision rule",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
+def _detect_proto(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    del cache, path
+    if unit.kind.value == "method" and _unit_attr(unit, "schema_role") == "rpc":
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Protocol Buffers service RPC",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
+def _detect_thrift(
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
+    del cache, path
+    if unit.kind.value == "method" and _unit_attr(unit, "schema_role") == "service_function":
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Thrift service function",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
+def _detect_graphql(unit: CodeUnit) -> EntrypointTag | None:
+    if unit.kind.value == "method" and _unit_attr(unit, "schema_role") == "root_operation":
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="GraphQL root operation field",
+            asset_value=AssetValue.HIGH,
+        )
+    return None
+
+
+def _unit_attr(unit: CodeUnit, key: str) -> str | None:
+    for attr_key, attr_value in unit.attributes:
+        if attr_key == key and isinstance(attr_value, str):
+            return attr_value
     return None
 
 

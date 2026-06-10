@@ -1,0 +1,180 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Wallet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Wallet",
+      "target": "taxonomy:Wallet.deposit"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Balance"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Wallet",
+      "target": "taxonomy:Wallet.deposit"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Wallet.deposit",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:helper"
+    }
+  ],
+  "language": "sway",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 20,
+        "file_path": "taxonomy.sw",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Balance": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Balance",
+      "kind": "struct",
+      "location": {
+        "end_col": 1,
+        "end_line": 9,
+        "file_path": "taxonomy.sw",
+        "start_col": 0,
+        "start_line": 7
+      },
+      "name": "Balance",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Wallet": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Wallet",
+      "kind": "interface",
+      "location": {
+        "end_col": 1,
+        "end_line": 5,
+        "file_path": "taxonomy.sw",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "Wallet",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Wallet.deposit": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Wallet.deposit",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 14,
+        "file_path": "taxonomy.sw",
+        "start_col": 4,
+        "start_line": 12
+      },
+      "name": "deposit",
+      "parameters": [
+        {
+          "default": null,
+          "name": "amount",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u64"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:helper": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "amount > 0",
+          "location": {
+            "end_col": 39,
+            "end_line": 18,
+            "file_path": "taxonomy.sw",
+            "start_col": 4,
+            "start_line": 18
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 19,
+        "file_path": "taxonomy.sw",
+        "start_col": 0,
+        "start_line": 17
+      },
+      "name": "helper",
+      "parameters": [
+        {
+          "default": null,
+          "name": "amount",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u64"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "u64"
+      }
+    }
+  },
+  "root_path": "taxonomy.sw",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 1,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 2,
+    "proxies": 0,
+    "total_nodes": 5
+  }
+}

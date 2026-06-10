@@ -1,0 +1,171 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "stdlib.fc"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:recv_internal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:recv_internal",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:get_balance"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:helper"
+    }
+  ],
+  "language": "func",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 14,
+        "file_path": "taxonomy.fc",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:get_balance": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:get_balance",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 9,
+        "file_path": "taxonomy.fc",
+        "start_col": 0,
+        "start_line": 7
+      },
+      "name": "get_balance",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:helper": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 13,
+        "file_path": "taxonomy.fc",
+        "start_col": 0,
+        "start_line": 11
+      },
+      "name": "helper",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "()"
+      }
+    },
+    "taxonomy:recv_internal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:recv_internal",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 5,
+        "file_path": "taxonomy.fc",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "recv_internal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "my_balance",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "msg_value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        },
+        {
+          "default": null,
+          "name": "in_msg_full",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "cell"
+          }
+        },
+        {
+          "default": null,
+          "name": "in_msg_body",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "slice"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "()"
+      }
+    }
+  },
+  "root_path": "taxonomy.fc",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 1,
+    "classes": 0,
+    "dependencies": [
+      "stdlib.fc"
+    ],
+    "entrypoints": 0,
+    "functions": 3,
+    "proxies": 0,
+    "total_nodes": 4
+  }
+}
