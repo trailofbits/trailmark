@@ -24,7 +24,7 @@ FIXTURE_FILE = FIXTURE_DIR / "taxonomy.py"
 SNAPSHOT_DIR = Path(__file__).parent / "fixtures" / "kat" / "cli"
 UPDATE_ENV = "TRAILMARK_UPDATE_SNAPSHOTS"
 
-_VERSION_PATTERN = re.compile(r"\b\d+\.\d+\.\d+(?:[.\-+][\w.\-+]+)?\b")
+_VERSION_PATTERN = re.compile(r"\bv?\d+\.\d+\.\d+(?:[.\-+][\w.\-+]+)?\b")
 
 
 def _normalize(text: str) -> str:

@@ -1,7 +1,7 @@
 usage: trailmark [-h] [--version]
                  {version,analyze,diff,entrypoints,augment,diagram} ...
 
-Parse source code into queryable graphs (v0.3.1)
+Parse source code into queryable graphs (<VERSION>)
 
 positional arguments:
   {version,analyze,diff,entrypoints,augment,diagram}
