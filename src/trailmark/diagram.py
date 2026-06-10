@@ -462,12 +462,15 @@ def _warn_if_large(nodes: dict[str, Any]) -> None:
 # ── CLI entry point ──────────────────────────────────────────────
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    """Parse command-line arguments."""
-    p = argparse.ArgumentParser(description="Generate Mermaid diagrams from Trailmark graphs.")
-    p.add_argument("--target", "-t", required=True, help="Directory to analyze")
-    p.add_argument("--language", "-l", default="python", help="Source language")
-    p.add_argument(
+def add_diagram_arguments(parser: argparse.ArgumentParser) -> None:
+    """Register the diagram CLI options on a parser or subparser.
+
+    Shared by the standalone ``trailmark.diagram`` entry point and the
+    ``trailmark diagram`` subcommand so both expose an identical interface.
+    """
+    parser.add_argument("--target", "-t", required=True, help="Directory to analyze")
+    parser.add_argument("--language", "-l", default="python", help="Source language")
+    parser.add_argument(
         "--type",
         "-T",
         required=True,
@@ -475,45 +478,53 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest="diagram_type",
         help="Diagram type",
     )
-    p.add_argument("--focus", "-f", default=None, help="Focus node name")
-    p.add_argument("--depth", "-d", type=int, default=2, help="BFS depth")
-    p.add_argument(
+    parser.add_argument("--focus", "-f", default=None, help="Focus node name")
+    parser.add_argument("--depth", "-d", type=int, default=2, help="BFS depth")
+    parser.add_argument(
         "--direction",
         default="TB",
         choices=("TB", "LR"),
         help="Layout direction",
     )
-    p.add_argument(
+    parser.add_argument(
         "--threshold",
         type=int,
         default=10,
         help="Complexity threshold",
     )
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command-line arguments."""
+    p = argparse.ArgumentParser(description="Generate Mermaid diagrams from Trailmark graphs.")
+    add_diagram_arguments(p)
     return p.parse_args(argv)
+
+
+def render_diagram(engine: QueryEngine, args: argparse.Namespace) -> str:
+    """Dispatch to the emitter for ``args.diagram_type`` and return Mermaid text.
+
+    ``args.diagram_type`` is constrained to ``_DIAGRAM_TYPES`` by argparse, so
+    the final branch handles ``containment`` without a fallback path.
+    """
+    if args.diagram_type == "call-graph":
+        return emit_call_graph(engine, args.focus, args.depth, args.direction)
+    if args.diagram_type == "complexity":
+        return emit_complexity(engine, args.threshold, args.direction)
+    if args.diagram_type == "data-flow":
+        return emit_data_flow(engine, args.focus, args.depth, args.direction)
+    if args.diagram_type == "class-hierarchy":
+        return emit_class_hierarchy(engine, args.direction)
+    if args.diagram_type == "module-deps":
+        return emit_module_deps(engine, args.direction)
+    return emit_containment(engine, args.direction)
 
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point: parse args, build graph, emit diagram."""
     args = parse_args(argv)
     engine = build_engine(args.target, args.language)
-
-    if args.diagram_type == "call-graph":
-        result = emit_call_graph(engine, args.focus, args.depth, args.direction)
-    elif args.diagram_type == "complexity":
-        result = emit_complexity(engine, args.threshold, args.direction)
-    elif args.diagram_type == "data-flow":
-        result = emit_data_flow(engine, args.focus, args.depth, args.direction)
-    elif args.diagram_type == "class-hierarchy":
-        result = emit_class_hierarchy(engine, args.direction)
-    elif args.diagram_type == "module-deps":
-        result = emit_module_deps(engine, args.direction)
-    elif args.diagram_type == "containment":
-        result = emit_containment(engine, args.direction)
-    else:
-        print(f"Unknown type: {args.diagram_type}", file=sys.stderr)
-        return 1
-
-    print(result)
+    print(render_diagram(engine, args))
     return 0
 
 

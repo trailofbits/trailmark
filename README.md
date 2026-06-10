@@ -297,6 +297,13 @@ trailmark entrypoints --json path/to/project
 trailmark diff before/ after/
 trailmark diff --repo . main HEAD          # compare git refs
 trailmark diff --json before/ after/        # machine-readable output
+
+# Generate a Mermaid diagram from the code graph. --type is required; the
+# choices are call-graph, class-hierarchy, module-deps, containment,
+# complexity, and data-flow. Use --focus to scope large graphs.
+trailmark diagram --target path/to/project --type call-graph
+trailmark diagram -t path/to/project -T call-graph -f parse_file --depth 3
+trailmark diagram -t path/to/project -T complexity --threshold 5 --direction LR
 ```
 
 ### Entrypoint detection

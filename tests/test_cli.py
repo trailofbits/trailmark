@@ -518,3 +518,61 @@ class TestAnalyzeCommand:
         assert "complexity=" in output
         with pytest.raises(json.JSONDecodeError):
             json.loads(output)
+
+
+class TestDiagramCommand:
+    """Exercise the `trailmark diagram` subcommand end-to-end."""
+
+    def _write_call_chain(self, tmp_path: Path) -> None:
+        sample = tmp_path / "app.py"
+        sample.write_text(
+            "def helper():\n    return 1\n\ndef main():\n    return helper()\n",
+        )
+
+    def test_call_graph_emits_flowchart(self, tmp_path: Path) -> None:
+        self._write_call_chain(tmp_path)
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["trailmark", "diagram", "-t", str(tmp_path), "-T", "call-graph"],
+            ),
+            patch("sys.stdout", new_callable=StringIO) as mock_out,
+        ):
+            main()
+        output = mock_out.getvalue()
+        assert output.startswith("flowchart TB")
+        assert "helper" in output
+
+    def test_direction_flag_changes_header(self, tmp_path: Path) -> None:
+        self._write_call_chain(tmp_path)
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "trailmark",
+                    "diagram",
+                    "-t",
+                    str(tmp_path),
+                    "-T",
+                    "call-graph",
+                    "--direction",
+                    "LR",
+                ],
+            ),
+            patch("sys.stdout", new_callable=StringIO) as mock_out,
+        ):
+            main()
+        assert mock_out.getvalue().startswith("flowchart LR")
+
+    def test_missing_type_exits(self, tmp_path: Path) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["trailmark", "diagram", "-t", str(tmp_path)],
+            ),
+            pytest.raises(SystemExit),
+        ):
+            main()

@@ -63,6 +63,7 @@ class TestTopLevelParser:
             "augment",
             "entrypoints",
             "diff",
+            "diagram",
             "version",
         }
 
@@ -215,6 +216,42 @@ class TestAugmentSubparser:
         assert action.default is False
 
 
+class TestDiagramSubparser:
+    def test_target_required_with_short_flag(
+        self, subparsers_map: dict[str, argparse.ArgumentParser]
+    ) -> None:
+        action = _option(subparsers_map["diagram"], "--target")
+        assert action.required is True
+        assert "-t" in action.option_strings
+
+    def test_type_required_with_choices(
+        self, subparsers_map: dict[str, argparse.ArgumentParser]
+    ) -> None:
+        action = _option(subparsers_map["diagram"], "--type")
+        assert action.required is True
+        assert action.dest == "diagram_type"
+        assert "-T" in action.option_strings
+        assert "call-graph" in action.choices
+
+    def test_language_default_python(
+        self, subparsers_map: dict[str, argparse.ArgumentParser]
+    ) -> None:
+        action = _option(subparsers_map["diagram"], "--language")
+        assert action.default == "python"
+
+    def test_depth_type_int_default_two(
+        self, subparsers_map: dict[str, argparse.ArgumentParser]
+    ) -> None:
+        action = _option(subparsers_map["diagram"], "--depth")
+        assert action.type is int
+        assert action.default == 2
+
+    def test_direction_default_tb(self, subparsers_map: dict[str, argparse.ArgumentParser]) -> None:
+        action = _option(subparsers_map["diagram"], "--direction")
+        assert action.default == "TB"
+        assert set(action.choices) == {"TB", "LR"}
+
+
 class TestParseBehavior:
     """End-to-end parse smoke tests that assert argparse produced the
     right Namespace fields for a representative command line."""
@@ -247,6 +284,19 @@ class TestParseBehavior:
     def test_augment_repeatable_sarif(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["augment", "p", "--sarif", "a.sarif", "--sarif", "b.sarif"])
         assert args.sarif == ["a.sarif", "b.sarif"]
+
+    def test_diagram_target_and_type(self, parser: argparse.ArgumentParser) -> None:
+        args = parser.parse_args(["diagram", "-t", "src/", "-T", "call-graph"])
+        assert args.command == "diagram"
+        assert args.target == "src/"
+        assert args.diagram_type == "call-graph"
+        assert args.language == "python"
+        assert args.direction == "TB"
+        assert args.depth == 2
+
+    def test_diagram_requires_type(self, parser: argparse.ArgumentParser) -> None:
+        with pytest.raises(SystemExit):
+            parser.parse_args(["diagram", "-t", "src/"])
 
 
 class TestVersionSubcommandExecution:

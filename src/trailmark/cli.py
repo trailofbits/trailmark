@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from trailmark import __version__
+from trailmark.diagram import add_diagram_arguments, build_engine, render_diagram
 from trailmark.query.api import QueryEngine
 
 _VERSION_STRING = f"trailmark {__version__}"
@@ -136,6 +137,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output full augmented graph as JSON",
     )
 
+    diagram = subparsers.add_parser(
+        "diagram",
+        help="Generate a Mermaid diagram from the code graph",
+    )
+    add_diagram_arguments(diagram)
+
     return parser
 
 
@@ -158,6 +165,8 @@ def main() -> None:
         _run_entrypoints(args)
     elif args.command == "diff":
         _run_diff(args)
+    elif args.command == "diagram":
+        _run_diagram(args)
 
 
 def _run_analyze(args: argparse.Namespace) -> None:
@@ -219,6 +228,12 @@ def _run_augment(args: argparse.Namespace) -> None:
 
     if args.json:
         print(engine.to_json())
+
+
+def _run_diagram(args: argparse.Namespace) -> None:
+    """Execute the diagram subcommand."""
+    engine = build_engine(args.target, args.language)
+    print(render_diagram(engine, args))
 
 
 def _print_augment_result(
