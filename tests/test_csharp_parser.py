@@ -257,6 +257,95 @@ class TestCSharpGenericTypes:
         assert len(get_items.return_type.generic_args) == 1
 
 
+FILE_SCOPED_NAMESPACE_CODE = """\
+using System;
+
+namespace Animals;
+
+/// <summary>Defines animal behavior.</summary>
+public interface IAnimal
+{
+    string Speak();
+}
+
+/// <summary>A dog that implements IAnimal.</summary>
+public class Dog : IAnimal
+{
+    public string Speak()
+    {
+        return "woof";
+    }
+}
+"""
+
+
+def _parse_file_scoped_namespace() -> tuple[str, CodeGraph]:
+    parser = CSharpParser()
+    with tempfile.NamedTemporaryFile(
+        suffix=".cs",
+        mode="w",
+        delete=False,
+    ) as f:
+        f.write(FILE_SCOPED_NAMESPACE_CODE)
+        f.flush()
+        graph = parser.parse_file(f.name)
+    os.unlink(f.name)
+    return f.name, graph
+
+
+def _contains_count(graph: CodeGraph, source_id: str, target_id: str) -> int:
+    return sum(
+        1
+        for e in graph.edges
+        if e.kind == EdgeKind.CONTAINS and e.source_id == source_id and e.target_id == target_id
+    )
+
+
+class TestCSharpFileScopedNamespace:
+    def test_finds_namespace(self) -> None:
+        _, graph = _parse_file_scoped_namespace()
+        namespaces = [n for n in graph.nodes.values() if n.kind == NodeKind.NAMESPACE]
+        names = {n.name for n in namespaces}
+        assert "Animals" in names
+
+    def test_module_contains_namespace(self) -> None:
+        path, graph = _parse_file_scoped_namespace()
+        module = next(n for n in graph.nodes.values() if n.kind == NodeKind.MODULE)
+        namespace = next(n for n in graph.nodes.values() if n.kind == NodeKind.NAMESPACE)
+        assert namespace.id == f"{module.id}:Animals"
+        assert namespace.location.file_path == path
+        assert _contains_count(graph, module.id, namespace.id) == 1
+
+    def test_class_attributed_to_namespace(self) -> None:
+        path, graph = _parse_file_scoped_namespace()
+        module = next(n for n in graph.nodes.values() if n.kind == NodeKind.MODULE)
+        namespace = next(n for n in graph.nodes.values() if n.kind == NodeKind.NAMESPACE)
+        dog = next(n for n in graph.nodes.values() if n.name == "Dog")
+        assert dog.id == f"{module.id}:Dog"
+        assert dog.location.file_path == path
+        assert _contains_count(graph, namespace.id, dog.id) == 1
+        assert _contains_count(graph, module.id, dog.id) == 0
+
+    def test_interface_attributed_to_namespace(self) -> None:
+        _, graph = _parse_file_scoped_namespace()
+        module = next(n for n in graph.nodes.values() if n.kind == NodeKind.MODULE)
+        namespace = next(n for n in graph.nodes.values() if n.kind == NodeKind.NAMESPACE)
+        animal = next(n for n in graph.nodes.values() if n.name == "IAnimal")
+        assert animal.id == f"{module.id}:IAnimal"
+        assert _contains_count(graph, namespace.id, animal.id) == 1
+        assert _contains_count(graph, module.id, animal.id) == 0
+
+    def test_using_before_namespace_still_imported(self) -> None:
+        _, graph = _parse_file_scoped_namespace()
+        assert "System" in graph.dependencies
+
+    def test_method_still_found(self) -> None:
+        _, graph = _parse_file_scoped_namespace()
+        methods = [n for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
+        names = {m.name for m in methods}
+        assert "Speak" in names
+
+
 class TestCSharpParseDirectory:
     def test_parses_multiple_files(self) -> None:
         parser = CSharpParser()
