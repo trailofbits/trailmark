@@ -91,10 +91,23 @@ def _visit_module(
     module_id: str,
     graph: CodeGraph,
 ) -> None:
-    """Walk the top-level of a module, extracting nodes and edges."""
+    """Walk the top-level of a module, extracting nodes and edges.
+
+    A file-scoped namespace declaration (``namespace X;``, C# 10+) has no
+    ``body`` field: every top-level declaration after it, to the end of
+    the compilation unit, belongs to that namespace. Track it while
+    walking and route subsequent children through ``_visit_ns_child``,
+    mirroring what ``_extract_namespace`` does with a braced body.
+    """
     add_module_node(root, file_path, module_id, graph)
+    ns_id = None
     for child in root.children:
-        _visit_top_level(child, file_path, module_id, graph)
+        if child.type == "file_scoped_namespace_declaration":
+            ns_id = _create_namespace_unit(child, file_path, module_id, graph)
+        elif ns_id is not None:
+            _visit_ns_child(child, file_path, module_id, ns_id, graph)
+        else:
+            _visit_top_level(child, file_path, module_id, graph)
 
 
 def _visit_top_level(
@@ -120,16 +133,16 @@ def _visit_top_level(
         _extract_import(child, graph)
 
 
-def _extract_namespace(
+def _create_namespace_unit(
     node: Node,
     file_path: str,
     module_id: str,
     graph: CodeGraph,
-) -> None:
-    """Extract a namespace declaration and its children."""
+) -> str | None:
+    """Create a NAMESPACE CodeUnit and its CONTAINS edge; return its id."""
     name_node = node.child_by_field_name("name")
     if name_node is None:
-        return
+        return None
     ns_name = node_text(name_node)
     ns_id = f"{module_id}:{ns_name}"
     location = make_location(node, file_path)
@@ -142,7 +155,19 @@ def _extract_namespace(
     )
     graph.nodes[ns_id] = ns_unit
     add_contains_edge(graph, module_id, ns_id)
+    return ns_id
 
+
+def _extract_namespace(
+    node: Node,
+    file_path: str,
+    module_id: str,
+    graph: CodeGraph,
+) -> None:
+    """Extract a block-scoped namespace declaration and its children."""
+    ns_id = _create_namespace_unit(node, file_path, module_id, graph)
+    if ns_id is None:
+        return
     body = node.child_by_field_name("body")
     if body is None:
         return
