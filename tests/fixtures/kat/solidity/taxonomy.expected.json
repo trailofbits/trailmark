@@ -206,6 +206,9 @@
       "return_type": null
     },
     "taxonomy:Animal.constructor": {
+      "attributes": {
+        "solidity_container_kind": "contract"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -234,6 +237,11 @@
       "return_type": null
     },
     "taxonomy:Animal.describe": {
+      "attributes": {
+        "solidity_container_kind": "contract",
+        "solidity_mutability": "view",
+        "solidity_visibility": "public"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -274,6 +282,11 @@
       "return_type": null
     },
     "taxonomy:Dog.add": {
+      "attributes": {
+        "solidity_container_kind": "contract",
+        "solidity_mutability": "pure",
+        "solidity_visibility": "public"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -315,6 +328,10 @@
       }
     },
     "taxonomy:Dog.bark": {
+      "attributes": {
+        "solidity_container_kind": "contract",
+        "solidity_visibility": "public"
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -359,6 +376,11 @@
       }
     },
     "taxonomy:Dog.branchy": {
+      "attributes": {
+        "solidity_container_kind": "contract",
+        "solidity_mutability": "pure",
+        "solidity_visibility": "external"
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -456,6 +478,9 @@
       }
     },
     "taxonomy:Dog.constructor": {
+      "attributes": {
+        "solidity_container_kind": "contract"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -493,6 +518,12 @@
       "return_type": null
     },
     "taxonomy:Dog.greet": {
+      "attributes": {
+        "solidity_container_kind": "contract",
+        "solidity_mutability": "view",
+        "solidity_override": "true",
+        "solidity_visibility": "external"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -525,6 +556,10 @@
       }
     },
     "taxonomy:Dog.useAnimal": {
+      "attributes": {
+        "solidity_container_kind": "contract",
+        "solidity_visibility": "external"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -565,6 +600,11 @@
       "return_type": null
     },
     "taxonomy:IGreeter.greet": {
+      "attributes": {
+        "solidity_container_kind": "interface",
+        "solidity_mutability": "view",
+        "solidity_visibility": "external"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,

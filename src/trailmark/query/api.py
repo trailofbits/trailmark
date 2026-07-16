@@ -196,16 +196,20 @@ class QueryEngine:
 
     def attack_surface(self) -> list[dict[str, Any]]:
         """List all entrypoints with their trust levels."""
-        return [
-            {
+        result: list[dict[str, Any]] = []
+        for node_id, tag in self._store.all_entrypoints():
+            item: dict[str, Any] = {
                 "node_id": node_id,
                 "trust_level": tag.trust_level.value,
                 "kind": tag.kind.value,
                 "asset_value": tag.asset_value.value,
                 "description": tag.description,
             }
-            for node_id, tag in self._store.all_entrypoints()
-        ]
+            unit = self._store._graph.nodes.get(node_id)  # noqa: SLF001
+            if unit is not None and unit.attributes:
+                item["attributes"] = dict(unit.attributes)
+            result.append(item)
+        return result
 
     def complexity_hotspots(
         self,

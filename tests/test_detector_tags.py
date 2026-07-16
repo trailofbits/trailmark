@@ -189,6 +189,39 @@ class TestSolidityDetectorTags:
         assert ep["asset_value"] == "high"
         assert ep["description"] == "Solidity external/public function"
 
+    def test_interface_methods_are_not_entrypoints(self, tmp_path: Path) -> None:
+        (tmp_path / "I.sol").write_text(
+            "interface I { function inspect() external view returns (uint); }\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="solidity")
+        assert engine.attack_surface() == []
+
+    def test_mutability_is_preserved_on_entrypoint_node(self, tmp_path: Path) -> None:
+        (tmp_path / "C.sol").write_text(
+            "contract C { function inspect() external view returns (uint) { return 1; } }\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="solidity")
+        entrypoint = _by_name(tmp_path, "solidity", ".inspect")
+        assert entrypoint["kind"] == "api"
+        assert entrypoint["attributes"] == {
+            "solidity_container_kind": "contract",
+            "solidity_mutability": "view",
+            "solidity_visibility": "external",
+        }
+        unit = engine._store._graph.nodes["C:C.inspect"]  # noqa: SLF001
+        assert ("solidity_visibility", "external") in unit.attributes
+        assert ("solidity_mutability", "view") in unit.attributes
+
+    def test_derived_override_suppresses_base_entrypoint(self, tmp_path: Path) -> None:
+        (tmp_path / "C.sol").write_text(
+            "contract Base { function act(uint x) public virtual {} }\n"
+            "contract Derived is Base { function act(uint x) public override {} }\n",
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="solidity")
+        ids = {entry["node_id"] for entry in engine.attack_surface()}
+        assert "C:Derived.act" in ids
+        assert "C:Base.act" not in ids
+
 
 class TestNextJsDetectorTags:
     @pytest.mark.parametrize("verb", ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])

@@ -24,6 +24,10 @@ class NodeKind(Enum):
     CONTRACT = "contract"
     LIBRARY = "library"
     TEMPLATE = "template"
+    SCHEMA = "schema"
+    TABLE = "table"
+    VIEW = "view"
+    PROCEDURE = "procedure"
     PROXY = "proxy"
 
 

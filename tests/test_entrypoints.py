@@ -501,14 +501,7 @@ class TestSolidity:
         self,
         tmp_path: Path,
     ) -> None:
-        """Guard against regressions once the Solidity parser exposes special fns.
-
-        Today the Solidity parser does not emit ``receive()`` / ``fallback()``
-        as separate function nodes, so the detector has nothing to tag. When
-        the parser is updated to emit them, this test should start passing
-        without any detector changes — the _SOL_SPECIAL regex already handles
-        the signature shape.
-        """
+        """Receive and fallback functions are concrete external entrypoints."""
         (tmp_path / "Wallet.sol").write_text(
             "// SPDX-License-Identifier: MIT\n"
             "pragma solidity ^0.8.0;\n"
@@ -519,9 +512,8 @@ class TestSolidity:
         )
         engine = QueryEngine.from_directory(str(tmp_path), language="solidity")
         ids = {ep["node_id"] for ep in engine.attack_surface()}
-        # Current expectation: parser does not emit these yet.
-        assert not any("receive" in nid for nid in ids)
-        assert not any("fallback" in nid for nid in ids)
+        assert "Wallet:Wallet.receive" in ids
+        assert "Wallet:Wallet.fallback" in ids
 
 
 class TestJavaScriptFrameworks:

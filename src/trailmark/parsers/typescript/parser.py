@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -835,11 +836,9 @@ def _add_call_edges(
 ) -> None:
     """Add CALLS edges from collected call information."""
     for call_name, call_node in calls:
-        target_id = _resolve_call_target(
-            call_name,
-            module_id,
-            class_id,
-        )
+        target_id = _resolve_concrete_receiver(call_name, call_node, module_id)
+        if target_id is None:
+            target_id = _resolve_call_target(call_name, module_id, class_id)
         confidence = _call_confidence(call_name)
         graph.edges.append(
             CodeEdge(
@@ -850,6 +849,41 @@ def _add_call_edges(
                 location=make_location(call_node, file_path),
             )
         )
+
+
+def _resolve_concrete_receiver(call_name: str, call_node: Node, module_id: str) -> str | None:
+    """Resolve ``receiver.method()`` when receiver is assigned ``new Class``.
+
+    This deliberately handles only direct construction/assignment in the
+    enclosing function. Manifest tables and arbitrary dynamic dispatch remain
+    unresolved rather than being guessed.
+    """
+    if call_name.count(".") != 1:
+        return None
+    receiver, method = call_name.split(".", 1)
+    if receiver == "this":
+        return None
+    scope = call_node.parent
+    while scope is not None and scope.type not in {
+        "function_declaration",
+        "function_expression",
+        "arrow_function",
+        "method_definition",
+    }:
+        scope = scope.parent
+    if scope is None:
+        return None
+    prefix_length = max(0, call_node.start_byte - scope.start_byte)
+    prefix = node_text(scope).encode()[:prefix_length].decode("utf-8", errors="ignore")
+    pattern = re.compile(
+        rf"\b{re.escape(receiver)}\b(?:\s*:\s*[^=;]+)?\s*=\s*new\s+"
+        r"(?P<class>[A-Za-z_$][\w$]*)\s*\(",
+    )
+    matches = list(pattern.finditer(prefix))
+    if not matches:
+        return None
+    concrete_class = matches[-1].group("class")
+    return f"{module_id}:{concrete_class}.{method}"
 
 
 def _call_confidence(call_name: str) -> EdgeConfidence:

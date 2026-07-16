@@ -1,0 +1,144 @@
+"""Load explicit cross-language and external links from repository configuration."""
+
+from __future__ import annotations
+
+import re
+import tomllib
+from pathlib import Path
+from typing import Any, NoReturn, cast
+
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
+from trailmark.models.graph import CodeGraph
+from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin, SourceLocation
+
+LINKS_FILE = Path(".trailmark/links.toml")
+
+
+def apply_repository_links(graph: CodeGraph, root_path: str) -> None:
+    """Add links declared in ``.trailmark/links.toml`` below ``root_path``.
+
+    Invalid configuration is rejected rather than silently weakening the
+    resulting graph. Unresolved endpoints are accepted only when the entry
+    explicitly sets ``external = true``.
+    """
+    config_path = Path(root_path).resolve() / LINKS_FILE
+    if not config_path.is_file():
+        return
+    try:
+        data = tomllib.loads(config_path.read_text())
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        msg = f"Invalid {LINKS_FILE}: {exc}"
+        raise ValueError(msg) from exc
+
+    entries = data.get("link", [])
+    if not isinstance(entries, list):
+        msg = f"Invalid {LINKS_FILE}: 'link' must be an array of tables"
+        raise ValueError(msg)
+    for index, raw in enumerate(entries, start=1):
+        _apply_link(graph, raw, index, config_path)
+
+
+def _apply_link(graph: CodeGraph, raw: object, index: int, config_path: Path) -> None:
+    if not isinstance(raw, dict):
+        _invalid(index, "entry must be a table")
+    entry = cast("dict[str, Any]", raw)
+    source_ref = _required_string(entry, "source", index)
+    target_ref = _required_string(entry, "target", index)
+    external = entry.get("external", False)
+    if not isinstance(external, bool):
+        _invalid(index, "'external' must be a boolean")
+
+    source_id = _resolve_endpoint(graph, source_ref, external, index, config_path)
+    target_id = _resolve_endpoint(graph, target_ref, external, index, config_path)
+    kind = _edge_kind(entry.get("kind", "calls"), index)
+    confidence = _edge_confidence(entry.get("confidence", "inferred"), index)
+    description = entry.get("description")
+    if description is not None and not isinstance(description, str):
+        _invalid(index, "'description' must be a string")
+
+    attributes = (("configured_by", str(LINKS_FILE)),)
+    if description:
+        attributes += (("description", description),)
+    edge = CodeEdge(
+        source_id=source_id,
+        target_id=target_id,
+        kind=kind,
+        confidence=confidence,
+        attributes=attributes,
+    )
+    if edge not in graph.edges:
+        graph.edges.append(edge)
+
+
+def _required_string(entry: dict[str, Any], key: str, index: int) -> str:
+    value = entry.get(key)
+    if not isinstance(value, str) or not value.strip():
+        _invalid(index, f"'{key}' must be a non-empty string")
+    return value.strip()
+
+
+def _resolve_endpoint(
+    graph: CodeGraph,
+    reference: str,
+    external: bool,
+    index: int,
+    config_path: Path,
+) -> str:
+    if reference in graph.nodes:
+        return reference
+    matches = [
+        node_id
+        for node_id, unit in graph.nodes.items()
+        if unit.name == reference
+        or node_id.endswith(f":{reference}")
+        or node_id.endswith(f".{reference}")
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        _invalid(index, f"endpoint {reference!r} is ambiguous: {', '.join(sorted(matches))}")
+    if not external:
+        _invalid(index, f"endpoint {reference!r} does not exist (set external = true to proxy it)")
+    return _add_external_proxy(graph, reference, config_path)
+
+
+def _add_external_proxy(graph: CodeGraph, reference: str, config_path: Path) -> str:
+    escaped = re.sub(r"[^0-9A-Za-z_.@$:-]+", "_", reference.strip()) or "unknown"
+    node_id = f"proxy.external:{escaped}"
+    graph.nodes.setdefault(
+        node_id,
+        CodeUnit(
+            id=node_id,
+            name=reference,
+            kind=NodeKind.PROXY,
+            location=SourceLocation(str(config_path), 0, 0),
+            origin=NodeOrigin.PROXY,
+            attributes=(("raw_symbol", reference), ("proxy_kind", "external")),
+        ),
+    )
+    return node_id
+
+
+def _edge_kind(value: object, index: int) -> EdgeKind:
+    if not isinstance(value, str):
+        _invalid(index, "'kind' must be a string")
+    try:
+        return EdgeKind(value)
+    except ValueError:
+        choices = ", ".join(item.value for item in EdgeKind)
+        _invalid(index, f"invalid kind {value!r}; expected one of: {choices}")
+
+
+def _edge_confidence(value: object, index: int) -> EdgeConfidence:
+    if not isinstance(value, str):
+        _invalid(index, "'confidence' must be a string")
+    try:
+        return EdgeConfidence(value)
+    except ValueError:
+        choices = ", ".join(item.value for item in EdgeConfidence)
+        _invalid(index, f"invalid confidence {value!r}; expected one of: {choices}")
+
+
+def _invalid(index: int, detail: str) -> NoReturn:
+    msg = f"Invalid {LINKS_FILE} [[link]] #{index}: {detail}"
+    raise ValueError(msg)

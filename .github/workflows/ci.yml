@@ -68,3 +68,19 @@ jobs:
       - run: uv sync --all-groups
 
       - run: uv run pytest -q tests/
+
+  package:
+    name: Package Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1  # v8.3.1
+
+      - run: uv build
+      - run: uv venv /tmp/trailmark-wheel && uv pip install --python /tmp/trailmark-wheel dist/*.whl
+      - run: /tmp/trailmark-wheel/bin/python tests/package_smoke.py tests/fixtures/kat
+      - run: uv venv /tmp/trailmark-sdist && uv pip install --python /tmp/trailmark-sdist dist/*.tar.gz
+      - run: /tmp/trailmark-sdist/bin/python tests/package_smoke.py tests/fixtures/kat

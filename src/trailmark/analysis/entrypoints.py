@@ -56,6 +56,7 @@ from trailmark.models.annotations import (
     EntrypointTag,
     TrustLevel,
 )
+from trailmark.models.edges import EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit
 
@@ -93,12 +94,6 @@ _RS_ASYNC_MAIN_ATTR = re.compile(r"^\s*#\[\s*\w+::main\s*\]\s*$")
 # Rust FFI export: #[no_mangle] or `pub extern "C" fn`
 _RS_NO_MANGLE = re.compile(r"^\s*#\[\s*no_mangle\s*\]\s*$")
 _RS_EXTERN_C_FN = re.compile(r"\bpub\s+extern\s+\"C\"\s+fn\b")
-
-# Solidity function visibility — scan the signature line itself.
-_SOL_VISIBILITY = re.compile(
-    r"\bfunction\s+\w+\s*\([^)]*\)\s*(?:[\w\s]*?\b)?(external|public)\b",
-)
-_SOL_SPECIAL = re.compile(r"^\s*(fallback|receive)\s*\(\s*\)")
 
 # JS/TS — NestJS method decorators: @Get(), @Post(), @Put(), @Delete(), @Patch(),
 # @Options(), @Head(), @All(). Capital first letter distinguishes from free
@@ -290,6 +285,7 @@ def _detect_framework_entrypoints(graph: CodeGraph) -> dict[str, EntrypointTag]:
         tag = _detect_for_unit(cache, unit, path)
         if tag is not None:
             result[node_id] = tag
+    _suppress_overridden_solidity_entrypoints(graph, result)
     return result
 
 
@@ -431,17 +427,18 @@ def _detect_solidity(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    signature = cache.signature_block(path, unit.location.start_line)
-    if signature is None:
+    del cache, path
+    attributes = dict(unit.attributes)
+    if attributes.get("solidity_container_kind") == "interface":
         return None
-    if _SOL_SPECIAL.search(signature):
+    if unit.name in {"fallback", "receive"}:
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
             description="Solidity fallback/receive",
             asset_value=AssetValue.HIGH,
         )
-    if _SOL_VISIBILITY.search(signature):
+    if attributes.get("solidity_visibility") in {"external", "public"}:
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
@@ -449,6 +446,49 @@ def _detect_solidity(
             asset_value=AssetValue.HIGH,
         )
     return None
+
+
+def _suppress_overridden_solidity_entrypoints(
+    graph: CodeGraph,
+    detected: dict[str, EntrypointTag],
+) -> None:
+    """Remove base implementations shadowed by a derived Solidity contract."""
+    containers: dict[str, str] = {}
+    for edge in graph.edges:
+        if edge.kind == EdgeKind.CONTAINS and edge.target_id in graph.nodes:
+            unit = graph.nodes[edge.target_id]
+            if unit.kind.value == "method" and unit.location.file_path.endswith(".sol"):
+                containers[edge.target_id] = edge.source_id
+
+    methods: dict[tuple[str, tuple[str, ...]], dict[str, str]] = {}
+    for method_id, contract_id in containers.items():
+        unit = graph.nodes[method_id]
+        signature = (
+            unit.name,
+            tuple(p.type_ref.name if p.type_ref else "" for p in unit.parameters),
+        )
+        methods.setdefault(signature, {})[contract_id] = method_id
+
+    bases: dict[str, set[str]] = {}
+    for edge in graph.edges:
+        if edge.kind == EdgeKind.INHERITS:
+            bases.setdefault(edge.source_id, set()).add(edge.target_id)
+
+    for by_contract in methods.values():
+        for derived, method_id in by_contract.items():
+            if method_id not in detected:
+                continue
+            stack = list(bases.get(derived, ()))
+            visited: set[str] = set()
+            while stack:
+                base = stack.pop()
+                if base in visited:
+                    continue
+                visited.add(base)
+                base_method = by_contract.get(base)
+                if base_method is not None:
+                    detected.pop(base_method, None)
+                stack.extend(bases.get(base, ()))
 
 
 def _detect_js_ts(

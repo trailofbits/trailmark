@@ -50,6 +50,7 @@ _FUNCTION_TYPES = frozenset(
         "function_definition",
         "constructor_definition",
         "modifier_definition",
+        "fallback_receive_definition",
     }
 )
 
@@ -188,7 +189,14 @@ def _visit_contract_body(
         return
     for child in body.children:
         if child.type in _FUNCTION_TYPES:
-            _extract_function(child, file_path, module_id, contract_id, graph)
+            _extract_function(
+                child,
+                file_path,
+                module_id,
+                contract_id,
+                graph,
+                container_kind=graph.nodes[contract_id].kind,
+            )
         elif child.type == "struct_declaration":
             _extract_struct(child, file_path, module_id, graph)
         elif child.type == "enum_declaration":
@@ -245,6 +253,8 @@ def _extract_function(
     module_id: str,
     contract_id: str | None,
     graph: CodeGraph,
+    *,
+    container_kind: NodeKind | None = None,
 ) -> None:
     """Extract a function, constructor, or modifier definition."""
     func_name = _get_function_name(node)
@@ -279,6 +289,7 @@ def _extract_function(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,
+        attributes=_function_attributes(node, container_kind),
     )
     graph.nodes[func_id] = unit
     add_contains_edge(graph, owner, func_id)
@@ -290,10 +301,32 @@ def _get_function_name(node: Node) -> str:
     """Extract the function name from a definition node."""
     if node.type == "constructor_definition":
         return "constructor"
+    if node.type == "fallback_receive_definition":
+        for child in node.children:
+            if child.type in {"fallback", "receive"}:
+                return child.type
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return ""
     return node_text(name_node)
+
+
+def _function_attributes(
+    node: Node,
+    container_kind: NodeKind | None,
+) -> tuple[tuple[str, str], ...]:
+    """Record Solidity semantics needed by entrypoint consumers."""
+    attributes: list[tuple[str, str]] = []
+    for child in node.children:
+        if child.type == "visibility":
+            attributes.append(("solidity_visibility", node_text(child)))
+        elif child.type == "state_mutability":
+            attributes.append(("solidity_mutability", node_text(child)))
+        elif child.type == "override_specifier":
+            attributes.append(("solidity_override", "true"))
+    if container_kind is not None:
+        attributes.append(("solidity_container_kind", container_kind.value))
+    return tuple(attributes)
 
 
 def _collect_func_body(

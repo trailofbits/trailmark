@@ -71,6 +71,7 @@ A language-specific parser walks the directory, parses each file into a tree-sit
 | Proto | `.proto` | services, RPCs, messages, fields, enums |
 | Thrift | `.thrift` | services, functions, structs, fields, enums |
 | GraphQL | `.graphql`, `.gql` | object types, root operations, fields, enums |
+| SQL | `.sql` | schemas, tables, views, functions, procedures |
 
 ```mermaid
 flowchart TD
@@ -117,7 +118,7 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | `paths_between(src, dst)` | All simple call paths between two nodes |
 | `connect_subgraphs(source, target)` | Paths connecting two named subgraphs |
 | `entrypoint_paths_to(name)` | Paths from any detected entrypoint to the target |
-| `attack_surface()` | Entrypoints tagged with trust level and asset value |
+| `attack_surface()` | Entrypoints tagged with trust level, asset value, and parser attributes when present |
 | `complexity_hotspots(n)` | Functions with cyclomatic complexity &ge; n |
 | `functions_that_raise(exc)` | Functions whose parser-detected exception list includes `exc` |
 | `generic_parameters(name)` | Generic type parameters declared by a node |
@@ -261,6 +262,14 @@ uv sync --all-groups
 
 Requires Python &ge; 3.12.
 
+Trailmark uses `tree-sitter-language-pack` for most grammars. Current releases
+use the platform certificate store for grammar downloads. In TLS-inspected or
+offline environments, pre-populate the package cache with
+`python -c "import tree_sitter_language_pack as p; p.download_all()"` on a
+matching platform, then copy the resulting `tree-sitter-language-pack` cache
+directory to the target machine. `HTTPS_PROXY` is also honored. The SQL grammar
+ships as the `tree-sitter-sql` wheel dependency and does not use that cache.
+
 ## Usage
 
 ```bash
@@ -392,6 +401,52 @@ Later entries override earlier ones when two rules tag the same node, so place b
 
 See [docs/entrypoint-patterns.md](docs/entrypoint-patterns.md) for the full reference, including frameworks not yet implemented (Express / Koa / Fastify, Laravel, Cobra, axum, warp, clap, and others) with grep-ready patterns contributors can use to add new detectors.
 
+Solidity detection uses parser metadata rather than signature regexes. Interface
+declarations are excluded and a derived override suppresses the matching base
+implementation. Concrete `public` and `external` functions remain entrypoints,
+including `view` and `pure` functions; their `solidity_visibility` and
+`solidity_mutability` attributes are returned by `attack_surface()` so callers
+can distinguish read-only exposure. `attack_surface()` includes parser-specific
+entrypoint attributes when they are attached to the underlying graph node.
+
+### Cross-language and external links
+
+Polyglot parsing merges language graphs, but many RPC, FFI, subprocess, and
+host/contract relationships are not visible in source syntax. Declare these
+deterministically in `.trailmark/links.toml`:
+
+```toml
+[[link]]
+source = "backend:submit"
+target = "contract:Verifier.verify"
+kind = "calls"                 # defaults to calls
+confidence = "certain"         # defaults to inferred
+description = "JSON-RPC eth_call"
+
+[[link]]
+source = "backend:notify"
+target = "payments-webhook"
+external = true                # required when either endpoint is unresolved
+```
+
+References may be exact node IDs or unique names/suffixes. Ambiguous references,
+unknown internal endpoints, invalid enum values, and malformed TOML raise
+`ValueError`. Setting `external = true` explicitly permits unresolved endpoints
+and creates proxy nodes. This file is a stable public configuration interface.
+
+### Analysis limitations
+
+- `entrypoint_paths_to()` reports call-graph reachability, not attacker-controlled
+  data flow. Use preanalysis taint results as a coarse separate signal; Trailmark
+  does not yet perform interprocedural taint analysis.
+- TypeScript resolves direct calls and straightforward receivers assigned with
+  `new ConcreteClass()`. Interface dispatch through manifests, computed property
+  names, dependency-injection containers, and other dynamic mechanisms remains
+  best-effort.
+- SQL support is PostgreSQL-oriented and extracts schemas, tables, views,
+  functions, procedures, and routine/view dependencies. It is not a complete
+  SQL dialect validator or query-semantic analyzer.
+
 ### Programmatic API
 
 ```python
@@ -455,6 +510,9 @@ engine.subgraph_names()
 engine.augment_sarif("results.sarif")
 engine.augment_weaudit("findings.json")
 ```
+
+`NodeKind.SCHEMA`, `TABLE`, `VIEW`, and `PROCEDURE` are additive in v0.5.0;
+consumers that exhaustively match enum values should add cases for them.
 
 ## Development
 

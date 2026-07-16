@@ -1,0 +1,159 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:audit"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:audit",
+      "target": "taxonomy:audit.events"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:audit",
+      "target": "taxonomy:audit.recent_events"
+    },
+    {
+      "attributes": {
+        "relationship": "sql_dependency"
+      },
+      "confidence": "certain",
+      "kind": "corresponds_to",
+      "source": "taxonomy:audit.recent_events",
+      "target": "taxonomy:audit.events"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:audit",
+      "target": "taxonomy:audit.event_count"
+    },
+    {
+      "attributes": {
+        "relationship": "sql_dependency"
+      },
+      "confidence": "certain",
+      "kind": "corresponds_to",
+      "source": "taxonomy:audit.event_count",
+      "target": "taxonomy:audit.events"
+    }
+  ],
+  "language": "sql",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 6,
+        "file_path": "taxonomy.sql",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:audit": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:audit",
+      "kind": "schema",
+      "location": {
+        "end_col": 19,
+        "end_line": 1,
+        "file_path": "taxonomy.sql",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "audit",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:audit.event_count": {
+      "attributes": {
+        "sql_schema": "audit"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:audit.event_count",
+      "kind": "function",
+      "location": {
+        "end_col": 42,
+        "end_line": 5,
+        "file_path": "taxonomy.sql",
+        "start_col": 0,
+        "start_line": 4
+      },
+      "name": "event_count",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:audit.events": {
+      "attributes": {
+        "sql_schema": "audit"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:audit.events",
+      "kind": "table",
+      "location": {
+        "end_col": 51,
+        "end_line": 2,
+        "file_path": "taxonomy.sql",
+        "start_col": 0,
+        "start_line": 2
+      },
+      "name": "events",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:audit.recent_events": {
+      "attributes": {
+        "sql_schema": "audit"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:audit.recent_events",
+      "kind": "view",
+      "location": {
+        "end_col": 62,
+        "end_line": 3,
+        "file_path": "taxonomy.sql",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "recent_events",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.sql",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 0,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 1,
+    "proxies": 0,
+    "total_nodes": 5
+  }
+}

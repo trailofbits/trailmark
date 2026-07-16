@@ -2,7 +2,7 @@
 
 ## Setup
 
-Requires Python >= 3.13 and [uv](https://docs.astral.sh/uv/).
+Requires Python >= 3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync --all-groups

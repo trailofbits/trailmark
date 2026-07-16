@@ -6,6 +6,7 @@ import importlib
 import os
 from pathlib import Path
 
+from trailmark.analysis.links import apply_repository_links
 from trailmark.analysis.proxies import ensure_proxy_nodes
 from trailmark.models.graph import CodeGraph
 from trailmark.parsers._common import should_skip_dir
@@ -41,6 +42,7 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "proto": ("trailmark.parsers.proto", "ProtoParser"),
     "thrift": ("trailmark.parsers.thrift", "ThriftParser"),
     "graphql": ("trailmark.parsers.graphql", "GraphQLParser"),
+    "sql": ("trailmark.parsers.sql", "SQLParser"),
 }
 
 # Extensions used for language auto-detection. Keep these aligned with each
@@ -79,6 +81,7 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "proto": (".proto",),
     "thrift": (".thrift",),
     "graphql": (".graphql", ".gql"),
+    "sql": (".sql",),
 }
 
 _SUPPORTED_LANGUAGES = tuple(_PARSER_MAP.keys())
@@ -197,7 +200,9 @@ def _parse_and_merge(path: str, languages: list[str]) -> CodeGraph:
     """Parse ``path`` with each language parser and merge into one graph."""
     if len(languages) == 1:
         # Preserves pre-polyglot behavior exactly for the common case.
-        return _get_parser(languages[0]).parse_directory(path)
+        graph = _get_parser(languages[0]).parse_directory(path)
+        apply_repository_links(graph, path)
+        return ensure_proxy_nodes(graph)
 
     merged = CodeGraph(language="polyglot", root_path=str(Path(path).resolve()))
     for lang in languages:
@@ -205,6 +210,7 @@ def _parse_and_merge(path: str, languages: list[str]) -> CodeGraph:
         merged.merge(sub)
     # merge() doesn't touch `language`; preserve the polyglot marker.
     merged.language = "polyglot"
+    apply_repository_links(merged, path)
     return ensure_proxy_nodes(merged)
 
 
