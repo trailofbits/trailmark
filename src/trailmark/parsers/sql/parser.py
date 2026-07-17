@@ -112,6 +112,8 @@ def _extract_declaration(
         schema_id = f"{module_id}:{schema}"
         if schema_id in graph.nodes:
             container_id = schema_id
+    else:
+        unit_id = _disambiguate_sql_id(graph, unit_id, kind)
 
     parameters = (
         _routine_parameters(node) if kind in {NodeKind.FUNCTION, NodeKind.PROCEDURE} else ()
@@ -189,7 +191,7 @@ def _add_dependencies(
             continue
         if not _is_relation_reference(child):
             continue
-        target_id = _sql_id(module_id, *reference)
+        target_id = _sql_reference_id(graph, module_id, *reference)
         if target_id == source_id or target_id in seen:
             continue
         seen.add(target_id)
@@ -222,6 +224,23 @@ def _sql_id(module_id: str, schema: str | None, name: str) -> str:
     return f"{module_id}:{qualified}"
 
 
+def _disambiguate_sql_id(graph: CodeGraph, unit_id: str, kind: NodeKind) -> str:
+    existing = graph.nodes.get(unit_id)
+    if existing is None or existing.kind is kind:
+        return unit_id
+    return f"{unit_id}#{kind.value}"
+
+
+def _sql_reference_id(graph: CodeGraph, module_id: str, schema: str | None, name: str) -> str:
+    unit_id = _sql_id(module_id, schema, name)
+    if graph.nodes.get(unit_id, None) is not None:
+        for kind in (NodeKind.TABLE, NodeKind.VIEW):
+            disambiguated = f"{unit_id}#{kind.value}"
+            if disambiguated in graph.nodes:
+                return disambiguated
+    return unit_id
+
+
 def _extract_procedures(
     source: bytes,
     file_path: str,
@@ -230,7 +249,8 @@ def _extract_procedures(
 ) -> None:
     """Recover PostgreSQL procedures unsupported by the permissive grammar."""
     text = source.decode("utf-8", errors="replace")
-    matches = list(_PROCEDURE.finditer(text))
+    scan_text = _mask_sql_comments(text)
+    matches = list(_PROCEDURE.finditer(scan_text))
     for match_index, match in enumerate(matches):
         schema = match.group("schema")
         name = match.group("name")
@@ -252,13 +272,15 @@ def _extract_procedures(
         next_procedure = (
             matches[match_index + 1].start() if match_index + 1 < len(matches) else len(text)
         )
-        next_declaration = _NEXT_CREATE.search(text, match.end())
+        next_declaration = _NEXT_CREATE.search(scan_text, match.end())
         end = min(
             next_procedure,
             next_declaration.start() if next_declaration is not None else len(text),
         )
-        for reference in _RELATION_REFERENCE.finditer(text, match.end(), end):
-            target_id = _sql_id(module_id, reference.group("schema"), reference.group("name"))
+        for reference in _RELATION_REFERENCE.finditer(scan_text, match.end(), end):
+            target_id = _sql_reference_id(
+                graph, module_id, reference.group("schema"), reference.group("name")
+            )
             graph.edges.append(
                 CodeEdge(
                     source_id=unit_id,
@@ -268,6 +290,60 @@ def _extract_procedures(
                     attributes=(("relationship", "sql_dependency"),),
                 )
             )
+
+
+def _mask_sql_comments(text: str) -> str:
+    chars = list(text)
+    index = 0
+    dollar_quote: str | None = None
+    while index < len(chars):
+        if dollar_quote is not None:
+            index, dollar_quote = _advance_dollar_quote(text, index, dollar_quote)
+        elif _starts_line_comment(text, index):
+            index = _mask_until_line_end(chars, index)
+        elif text.startswith("/*", index):
+            index = _mask_block_comment(chars, index)
+        else:
+            dollar_quote = _dollar_quote_tag(text, index)
+            index += len(dollar_quote) if dollar_quote else 1
+    return "".join(chars)
+
+
+def _advance_dollar_quote(text: str, index: int, tag: str) -> tuple[int, str | None]:
+    if text.startswith(tag, index):
+        return index + len(tag), None
+    return index + 1, tag
+
+
+def _starts_line_comment(text: str, index: int) -> bool:
+    return text.startswith("--", index)
+
+
+def _mask_until_line_end(chars: list[str], index: int) -> int:
+    while index < len(chars) and chars[index] != "\n":
+        chars[index] = " "
+        index += 1
+    return index
+
+
+def _mask_block_comment(chars: list[str], index: int) -> int:
+    chars[index] = " "
+    chars[index + 1] = " "
+    index += 2
+    while index < len(chars):
+        if index + 1 < len(chars) and chars[index] == "*" and chars[index + 1] == "/":
+            chars[index] = " "
+            chars[index + 1] = " "
+            return index + 2
+        if chars[index] != "\n":
+            chars[index] = " "
+        index += 1
+    return index
+
+
+def _dollar_quote_tag(text: str, index: int) -> str | None:
+    match = re.match(r"\$[A-Za-z_][A-Za-z_0-9]*\$|\$\$", text[index:])
+    return match.group(0) if match else None
 
 
 def _materialize_sql_dependency_targets(graph: CodeGraph, file_path: str) -> None:

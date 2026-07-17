@@ -97,3 +97,65 @@ def test_sql_function_invocation_is_not_relation_dependency(tmp_path: Path) -> N
     assert "functions:app.events" in dependencies
     assert "functions:count" not in dependencies
     assert "functions:count" not in graph.nodes
+
+
+def test_commented_out_procedure_is_not_recovered(tmp_path: Path) -> None:
+    source = tmp_path / "comments.sql"
+    source.write_text("-- CREATE PROCEDURE app.disabled() LANGUAGE SQL AS $$ SELECT 1 $$;\n")
+    graph = parse_file(str(source), "sql")
+
+    assert "comments:app.disabled" not in graph.nodes
+
+
+def test_commented_out_relation_is_not_dependency(tmp_path: Path) -> None:
+    source = tmp_path / "comments.sql"
+    source.write_text(
+        "CREATE TABLE app.events (id bigint);\n"
+        "CREATE PROCEDURE app.refresh() LANGUAGE SQL\n"
+        "-- FROM app.ignored\n"
+        "AS $$ SELECT id FROM app.events $$;\n",
+    )
+    graph = parse_file(str(source), "sql")
+
+    dependencies = {edge.target_id for edge in graph.edges if edge.kind == EdgeKind.CORRESPONDS_TO}
+    assert "comments:app.events" in dependencies
+    assert "comments:app.ignored" not in dependencies
+
+
+def test_dollar_quoted_body_dependency_is_extracted_despite_comment_markers(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "body.sql"
+    source.write_text(
+        "CREATE TABLE app.events (id bigint);\n"
+        "CREATE PROCEDURE app.refresh() LANGUAGE SQL AS $$\n"
+        "SELECT id FROM app.events; -- body comment marker remains inside body\n"
+        "$$;\n",
+    )
+    graph = parse_file(str(source), "sql")
+
+    assert any(
+        edge.source_id == "body:app.refresh"
+        and edge.target_id == "body:app.events"
+        and edge.kind == EdgeKind.CORRESPONDS_TO
+        for edge in graph.edges
+    )
+
+
+def test_schema_and_unqualified_table_same_name_have_distinct_nodes(tmp_path: Path) -> None:
+    source = tmp_path / "collision.sql"
+    source.write_text(
+        "CREATE SCHEMA foo;\n"
+        "CREATE TABLE foo (id bigint);\n"
+        "CREATE VIEW visible AS SELECT id FROM foo;\n",
+    )
+    graph = parse_file(str(source), "sql")
+
+    assert graph.nodes["collision:foo"].kind == NodeKind.SCHEMA
+    assert graph.nodes["collision:foo#table"].kind == NodeKind.TABLE
+    assert any(
+        edge.source_id == "collision:visible"
+        and edge.target_id == "collision:foo#table"
+        and edge.kind == EdgeKind.CORRESPONDS_TO
+        for edge in graph.edges
+    )

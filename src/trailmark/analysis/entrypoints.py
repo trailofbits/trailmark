@@ -45,6 +45,7 @@ WordPress, Rails, Cobra, axum, warp, clap, etc.).
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import tomllib
 from pathlib import Path
@@ -58,7 +59,7 @@ from trailmark.models.annotations import (
 )
 from trailmark.models.edges import EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit
+from trailmark.models.nodes import CodeUnit, NodeKind
 
 OVERRIDE_FILE = ".trailmark/entrypoints.toml"
 
@@ -285,7 +286,7 @@ def _detect_framework_entrypoints(graph: CodeGraph) -> dict[str, EntrypointTag]:
         tag = _detect_for_unit(cache, unit, path)
         if tag is not None:
             result[node_id] = tag
-    _suppress_overridden_solidity_entrypoints(graph, result)
+    _annotate_overridden_solidity_entrypoints(graph, result)
     return result
 
 
@@ -448,16 +449,16 @@ def _detect_solidity(
     return None
 
 
-def _suppress_overridden_solidity_entrypoints(
+def _annotate_overridden_solidity_entrypoints(
     graph: CodeGraph,
     detected: dict[str, EntrypointTag],
 ) -> None:
-    """Remove base implementations shadowed by a derived Solidity contract."""
+    """Annotate base implementations shadowed by a derived Solidity contract."""
     containers: dict[str, str] = {}
     for edge in graph.edges:
         if edge.kind == EdgeKind.CONTAINS and edge.target_id in graph.nodes:
             unit = graph.nodes[edge.target_id]
-            if unit.kind.value == "method" and unit.location.file_path.endswith(".sol"):
+            if unit.kind is NodeKind.METHOD and unit.location.file_path.endswith(".sol"):
                 containers[edge.target_id] = edge.source_id
 
     methods: dict[tuple[str, tuple[str, ...]], dict[str, str]] = {}
@@ -487,8 +488,21 @@ def _suppress_overridden_solidity_entrypoints(
                 visited.add(base)
                 base_method = by_contract.get(base)
                 if base_method is not None:
-                    detected.pop(base_method, None)
+                    _append_overridden_by(graph, base_method, method_id)
                 stack.extend(bases.get(base, ()))
+
+
+def _append_overridden_by(graph: CodeGraph, base_method: str, derived_method: str) -> None:
+    unit = graph.nodes.get(base_method)
+    if unit is None:
+        return
+    attributes = dict(unit.attributes)
+    current = attributes.get("solidity_overridden_by")
+    current_text = current if isinstance(current, str) else ""
+    existing = {item.strip() for item in current_text.split(",") if item.strip()}
+    existing.add(derived_method)
+    attributes["solidity_overridden_by"] = ",".join(sorted(existing))
+    graph.nodes[base_method] = dataclasses.replace(unit, attributes=tuple(attributes.items()))
 
 
 def _detect_js_ts(

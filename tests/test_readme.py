@@ -204,6 +204,14 @@ class TestQueryEngineAPI:
         assert params["kind"].default is None
 
 
+class TestConfigurationDocs:
+    def test_links_toml_uses_per_endpoint_external_flags(self, readme_text: str) -> None:
+        """README documents per-endpoint external link flags, not entry-level external."""
+        assert "target_external = true" in readme_text
+        assert "source_external = true" in readme_text
+        assert re.search(r"(?<!source_)(?<!target_)external = true", readme_text) is None
+
+
 class TestCLIDefaults:
     def test_analyze_language_default_is_python(self) -> None:
         """README: default language is Python."""

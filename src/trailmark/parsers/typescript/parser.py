@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -47,6 +46,9 @@ _THROW_TYPES = frozenset({"throw_statement"})
 _FUNCTION_DECL_TYPES = frozenset({"function_declaration", "generator_function_declaration"})
 
 _FUNCTION_EXPR_TYPES = frozenset({"arrow_function", "function", "function_expression"})
+_FUNCTION_SCOPE_TYPES = (
+    _FUNCTION_DECL_TYPES | _FUNCTION_EXPR_TYPES | frozenset({"method_definition"})
+)
 
 _EXTENSIONS = (".ts", ".tsx")
 
@@ -863,27 +865,68 @@ def _resolve_concrete_receiver(call_name: str, call_node: Node, module_id: str) 
     receiver, method = call_name.split(".", 1)
     if receiver == "this":
         return None
-    scope = call_node.parent
-    while scope is not None and scope.type not in {
-        "function_declaration",
-        "function_expression",
-        "arrow_function",
-        "method_definition",
-    }:
-        scope = scope.parent
+    scope = _nearest_function_scope(call_node)
     if scope is None:
         return None
-    prefix_length = max(0, call_node.start_byte - scope.start_byte)
-    prefix = node_text(scope).encode()[:prefix_length].decode("utf-8", errors="ignore")
-    pattern = re.compile(
-        rf"\b{re.escape(receiver)}\b(?:\s*:\s*[^=;]+)?\s*=\s*new\s+"
-        r"(?P<class>[A-Za-z_$][\w$]*)\s*\(",
-    )
-    matches = list(pattern.finditer(prefix))
-    if not matches:
+    concrete_class = _latest_receiver_assignment(scope, call_node, receiver)
+    if concrete_class is None:
         return None
-    concrete_class = matches[-1].group("class")
     return f"{module_id}:{concrete_class}.{method}"
+
+
+def _nearest_function_scope(node: Node) -> Node | None:
+    current = node.parent
+    while current is not None and current.type not in _FUNCTION_SCOPE_TYPES:
+        current = current.parent
+    return current
+
+
+def _latest_receiver_assignment(scope: Node, call_node: Node, receiver: str) -> str | None:
+    latest: tuple[int, str] | None = None
+    for node in _walk_nodes(scope):
+        if node.start_byte >= call_node.start_byte:
+            continue
+        if _nearest_function_scope(node) != scope:
+            continue
+        concrete_class = _receiver_assignment_class(node, receiver)
+        if concrete_class is not None:
+            latest = (node.start_byte, concrete_class)
+    return latest[1] if latest is not None else None
+
+
+def _receiver_assignment_class(node: Node, receiver: str) -> str | None:
+    if node.type == "variable_declarator":
+        assigned = node.child_by_field_name("name")
+        value = node.child_by_field_name("value")
+    elif node.type == "assignment_expression":
+        assigned = node.child_by_field_name("left")
+        value = node.child_by_field_name("right")
+    else:
+        return None
+    if assigned is None or value is None:
+        return None
+    if assigned.type != "identifier" or node_text(assigned) != receiver:
+        return None
+    return _new_expression_class(value)
+
+
+def _new_expression_class(node: Node) -> str | None:
+    if node.type != "new_expression":
+        return None
+    for child in node.named_children:
+        if child.type == "identifier":
+            return node_text(child)
+    return None
+
+
+def _walk_nodes(root: Node) -> list[Node]:
+    result: list[Node] = []
+    stack = list(reversed(root.named_children))
+    while stack:
+        node = stack.pop()
+        result.append(node)
+        stack.extend(reversed(node.named_children))
+    return result
 
 
 def _call_confidence(call_name: str) -> EdgeConfidence:

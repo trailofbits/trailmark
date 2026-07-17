@@ -199,7 +199,7 @@ def _resolve_directory_languages(path: str, spec: str) -> list[str]:
 def _parse_and_merge(path: str, languages: list[str]) -> CodeGraph:
     """Parse ``path`` with each language parser and merge into one graph."""
     if len(languages) == 1:
-        # Preserves pre-polyglot behavior exactly for the common case.
+        # Single-language directory parses also apply repository links and proxies.
         graph = _get_parser(languages[0]).parse_directory(path)
         apply_repository_links(graph, path)
         return ensure_proxy_nodes(graph)

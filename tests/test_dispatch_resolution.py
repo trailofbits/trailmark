@@ -36,3 +36,28 @@ def test_dynamic_property_dispatch_remains_unresolved(tmp_path: Path) -> None:
         edge.source_id == "dynamic:entry" and "HandlerImpl" in edge.target_id
         for edge in graph.edges
     )
+
+
+def test_nested_arrow_assignment_does_not_resolve_outer_call(tmp_path: Path) -> None:
+    source = tmp_path / "handler.ts"
+    source.write_text(
+        "interface Handler { process(): void }\n"
+        "class HandlerImpl implements Handler { process(): void {} }\n"
+        "class OtherImpl implements Handler { process(): void {} }\n"
+        "function entry(): void {\n"
+        "  let handler: Handler = new HandlerImpl();\n"
+        "  const replace = () => { handler = new OtherImpl(); };\n"
+        "  handler.process();\n"
+        "}\n",
+    )
+    graph = parse_file(str(source), "typescript")
+
+    edge = next(
+        edge
+        for edge in graph.edges
+        if edge.source_id == "handler:entry"
+        and edge.kind == EdgeKind.CALLS
+        and edge.target_id.endswith(".process")
+    )
+    assert edge.target_id == "handler:HandlerImpl.process"
+    assert edge.confidence == EdgeConfidence.INFERRED

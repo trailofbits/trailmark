@@ -205,9 +205,10 @@ classDiagram
 
 Unresolved calls are materialized as proxy nodes such as
 `proxy.unresolved:<raw-symbol>` so traversal results can show where source
-analysis lost resolution instead of silently dropping that edge. Binary
-analysis support imports external JSON call graphs; Trailmark does not
-disassemble executables itself.
+analysis lost resolution instead of silently dropping that edge. Directory
+parses, including single-language parses, also apply repository links and
+materialize `TYPE_USES` edges. Binary analysis support imports external JSON
+call graphs; Trailmark does not disassemble executables itself.
 
 ### Example Graph
 
@@ -402,11 +403,13 @@ Later entries override earlier ones when two rules tag the same node, so place b
 See [docs/entrypoint-patterns.md](docs/entrypoint-patterns.md) for the full reference, including frameworks not yet implemented (Express / Koa / Fastify, Laravel, Cobra, axum, warp, clap, and others) with grep-ready patterns contributors can use to add new detectors.
 
 Solidity detection uses parser metadata rather than signature regexes. Interface
-declarations are excluded and a derived override suppresses the matching base
-implementation. Concrete `public` and `external` functions remain entrypoints,
-including `view` and `pure` functions; their `solidity_visibility` and
-`solidity_mutability` attributes are returned by `attack_surface()` so callers
-can distinguish read-only exposure. `attack_surface()` includes parser-specific
+declarations are excluded, and derived overrides annotate matching base
+implementations with `solidity_overridden_by` instead of removing the base
+entrypoint. Concrete `public` and `external` functions remain entrypoints,
+including `view` and `pure` functions; their `solidity_visibility`,
+`solidity_mutability`, and override attributes are returned by
+`attack_surface()` so callers can distinguish read-only exposure and filter
+overridden base implementations. `attack_surface()` includes parser-specific
 entrypoint attributes when they are attached to the underlying graph node.
 
 ### Cross-language and external links
@@ -426,13 +429,14 @@ description = "JSON-RPC eth_call"
 [[link]]
 source = "backend:notify"
 target = "payments-webhook"
-external = true                # required when either endpoint is unresolved
+target_external = true         # required because target is unresolved
 ```
 
 References may be exact node IDs or unique names/suffixes. Ambiguous references,
 unknown internal endpoints, invalid enum values, and malformed TOML raise
-`ValueError`. Setting `external = true` explicitly permits unresolved endpoints
-and creates proxy nodes. This file is a stable public configuration interface.
+`ValueError`. Setting `source_external = true` or `target_external = true`
+explicitly permits that unresolved endpoint and creates a proxy node. This file
+is a stable public configuration interface.
 
 ### Analysis limitations
 

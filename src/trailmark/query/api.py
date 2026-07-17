@@ -205,7 +205,7 @@ class QueryEngine:
                 "asset_value": tag.asset_value.value,
                 "description": tag.description,
             }
-            unit = self._store._graph.nodes.get(node_id)  # noqa: SLF001
+            unit = self._store.unit(node_id)
             if unit is not None and unit.attributes:
                 item["attributes"] = dict(unit.attributes)
             result.append(item)

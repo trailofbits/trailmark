@@ -208,11 +208,12 @@ class TestSolidityDetectorTags:
             "solidity_mutability": "view",
             "solidity_visibility": "external",
         }
-        unit = engine._store._graph.nodes["C:C.inspect"]  # noqa: SLF001
+        unit = engine._store.unit("C:C.inspect")
+        assert unit is not None
         assert ("solidity_visibility", "external") in unit.attributes
         assert ("solidity_mutability", "view") in unit.attributes
 
-    def test_derived_override_suppresses_base_entrypoint(self, tmp_path: Path) -> None:
+    def test_derived_override_annotates_base_entrypoint(self, tmp_path: Path) -> None:
         (tmp_path / "C.sol").write_text(
             "contract Base { function act(uint x) public virtual {} }\n"
             "contract Derived is Base { function act(uint x) public override {} }\n",
@@ -220,7 +221,10 @@ class TestSolidityDetectorTags:
         engine = QueryEngine.from_directory(str(tmp_path), language="solidity")
         ids = {entry["node_id"] for entry in engine.attack_surface()}
         assert "C:Derived.act" in ids
-        assert "C:Base.act" not in ids
+        assert "C:Base.act" in ids
+        base = engine._store.unit("C:Base.act")
+        assert base is not None
+        assert ("solidity_overridden_by", "C:Derived.act") in base.attributes
 
 
 class TestNextJsDetectorTags:

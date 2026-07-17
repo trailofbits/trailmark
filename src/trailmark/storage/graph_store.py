@@ -96,6 +96,10 @@ class GraphStore:
     def _node(self, node_id: str) -> CodeUnit | None:
         return self._graph.nodes.get(node_id)
 
+    def unit(self, node_id: str) -> CodeUnit | None:
+        """Return the graph unit for ``node_id`` if it exists."""
+        return self._node(node_id)
+
     def callers_of(self, node_id: str) -> list[CodeUnit]:
         """Return all nodes that call the given node."""
         target_idx = self._idx(node_id)

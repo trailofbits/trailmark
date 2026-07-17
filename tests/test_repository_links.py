@@ -41,22 +41,46 @@ def test_external_link_requires_opt_in_and_creates_proxy(tmp_path: Path) -> None
     _write_sources(tmp_path)
     config = tmp_path / ".trailmark" / "links.toml"
     config.write_text('[[link]]\nsource = "caller:invoke"\ntarget = "rpc:transfer"\n')
-    with pytest.raises(ValueError, match="external = true"):
+    with pytest.raises(ValueError, match="target_external = true"):
         parse_directory(str(tmp_path), "python")
 
     config.write_text(
-        '[[link]]\nsource = "caller:invoke"\ntarget = "rpc:transfer"\nexternal = true\n',
+        '[[link]]\nsource = "caller:invoke"\ntarget = "rpc:transfer"\ntarget_external = true\n',
     )
     graph = parse_directory(str(tmp_path), "python")
     proxy = graph.nodes["proxy.external:rpc:transfer"]
     assert proxy.origin == NodeOrigin.PROXY
+    assert "caller:invoke" in graph.nodes
+
+
+def test_per_endpoint_external_keeps_unflagged_endpoint_strict(tmp_path: Path) -> None:
+    _write_sources(tmp_path)
+    (tmp_path / ".trailmark" / "links.toml").write_text(
+        '[[link]]\nsource = "caller:typo"\ntarget = "rpc:transfer"\ntarget_external = true\n',
+    )
+
+    with pytest.raises(ValueError, match="source_external = true"):
+        parse_directory(str(tmp_path), "python")
+
+
+def test_source_external_creates_proxy_for_source_only(tmp_path: Path) -> None:
+    _write_sources(tmp_path)
+    (tmp_path / ".trailmark" / "links.toml").write_text(
+        '[[link]]\nsource = "queue:job"\ntarget = "caller:invoke"\nsource_external = true\n',
+    )
+
+    graph = parse_directory(str(tmp_path), "python")
+    assert graph.nodes["proxy.external:queue:job"].origin == NodeOrigin.PROXY
+    assert "proxy.external:caller:invoke" not in graph.nodes
 
 
 @pytest.mark.parametrize(
     "body,match",
     [
         ("link = {}\n", "'link' must be an array"),
+        ("metadata = {}\n", "unknown top-level key"),
         ('[[link]]\nsource = "invoke"\n', "'target' must be"),
+        ('[[link]]\nsource = "invoke"\ntarget = "execute"\ndescripton = "typo"\n', "unknown key"),
         ('[[link]]\nsource = "invoke"\ntarget = "execute"\nkind = "invalid"\n', "invalid kind"),
     ],
 )

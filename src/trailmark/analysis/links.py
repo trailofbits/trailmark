@@ -18,8 +18,8 @@ def apply_repository_links(graph: CodeGraph, root_path: str) -> None:
     """Add links declared in ``.trailmark/links.toml`` below ``root_path``.
 
     Invalid configuration is rejected rather than silently weakening the
-    resulting graph. Unresolved endpoints are accepted only when the entry
-    explicitly sets ``external = true``.
+    resulting graph. Unresolved endpoints are accepted only when explicitly
+    marked with ``source_external`` or ``target_external``.
     """
     config_path = Path(root_path).resolve() / LINKS_FILE
     if not config_path.is_file():
@@ -30,6 +30,7 @@ def apply_repository_links(graph: CodeGraph, root_path: str) -> None:
         msg = f"Invalid {LINKS_FILE}: {exc}"
         raise ValueError(msg) from exc
 
+    _validate_top_level(data)
     entries = data.get("link", [])
     if not isinstance(entries, list):
         msg = f"Invalid {LINKS_FILE}: 'link' must be an array of tables"
@@ -42,14 +43,18 @@ def _apply_link(graph: CodeGraph, raw: object, index: int, config_path: Path) ->
     if not isinstance(raw, dict):
         _invalid(index, "entry must be a table")
     entry = cast("dict[str, Any]", raw)
+    _validate_link_keys(entry, index)
     source_ref = _required_string(entry, "source", index)
     target_ref = _required_string(entry, "target", index)
-    external = entry.get("external", False)
-    if not isinstance(external, bool):
-        _invalid(index, "'external' must be a boolean")
+    source_external = _optional_bool(entry, "source_external", index)
+    target_external = _optional_bool(entry, "target_external", index)
 
-    source_id = _resolve_endpoint(graph, source_ref, external, index, config_path)
-    target_id = _resolve_endpoint(graph, target_ref, external, index, config_path)
+    source_id = _resolve_endpoint(
+        graph, source_ref, source_external, "source_external", index, config_path
+    )
+    target_id = _resolve_endpoint(
+        graph, target_ref, target_external, "target_external", index, config_path
+    )
     kind = _edge_kind(entry.get("kind", "calls"), index)
     confidence = _edge_confidence(entry.get("confidence", "inferred"), index)
     description = entry.get("description")
@@ -70,6 +75,27 @@ def _apply_link(graph: CodeGraph, raw: object, index: int, config_path: Path) ->
         graph.edges.append(edge)
 
 
+def _validate_top_level(data: dict[str, object]) -> None:
+    unknown = sorted(key for key in data if key != "link")
+    if unknown:
+        _invalid(0, f"unknown top-level key {unknown[0]!r}; only 'link' is valid")
+
+
+def _validate_link_keys(entry: dict[str, Any], index: int) -> None:
+    allowed = {
+        "source",
+        "target",
+        "kind",
+        "confidence",
+        "description",
+        "source_external",
+        "target_external",
+    }
+    unknown = sorted(key for key in entry if key not in allowed)
+    if unknown:
+        _invalid(index, f"unknown key {unknown[0]!r}")
+
+
 def _required_string(entry: dict[str, Any], key: str, index: int) -> str:
     value = entry.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -77,10 +103,18 @@ def _required_string(entry: dict[str, Any], key: str, index: int) -> str:
     return value.strip()
 
 
+def _optional_bool(entry: dict[str, Any], key: str, index: int) -> bool:
+    value = entry.get(key, False)
+    if not isinstance(value, bool):
+        _invalid(index, f"'{key}' must be a boolean")
+    return value
+
+
 def _resolve_endpoint(
     graph: CodeGraph,
     reference: str,
     external: bool,
+    flag_name: str,
     index: int,
     config_path: Path,
 ) -> str:
@@ -98,7 +132,10 @@ def _resolve_endpoint(
     if len(matches) > 1:
         _invalid(index, f"endpoint {reference!r} is ambiguous: {', '.join(sorted(matches))}")
     if not external:
-        _invalid(index, f"endpoint {reference!r} does not exist (set external = true to proxy it)")
+        _invalid(
+            index,
+            f"endpoint {reference!r} does not exist (set {flag_name} = true to proxy it)",
+        )
     return _add_external_proxy(graph, reference, config_path)
 
 
