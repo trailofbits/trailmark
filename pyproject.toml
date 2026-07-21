@@ -13,7 +13,7 @@ authors = [
     { name = "Trail of Bits, Inc.", email = "opensource@trailofbits.com" },
 ]
 dependencies = [
-    "tree-sitter~=0.25.0",
+    "tree-sitter>=0.25,<0.27",
     "tree-sitter-language-pack>=1.9,<2.0",
     "tree-sitter-sql>=0.3.11,<0.4",
     "rustworkx>=0.17,<1.0",
