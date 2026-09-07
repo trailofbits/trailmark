@@ -13,3 +13,4 @@
 mutants/
 src/trailmark/tree_sitter_custom/**/*.so
 src/trailmark/tree_sitter_custom/**/*.pyd
+result
