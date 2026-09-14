@@ -7,7 +7,7 @@ import tempfile
 
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import NodeKind
+from trailmark.models.nodes import NodeKind, SourceLocation
 from trailmark.parsers.rust.parser import RustParser
 
 SAMPLE_CODE = """\
@@ -86,7 +86,7 @@ fn greet(name: &str) -> String {
 VERUS_CODE = """\
 fn host() -> u64 { 1 }
 
-#[inline]
+#[tokio::main]
 fn attributed() -> u64 { host() }
 
 verus! {
@@ -293,10 +293,27 @@ class TestRustParserVerus:
         }
 
         assert set(functions) == {"host", "attributed", "verified", "model", "lemma"}
-        assert functions["host"].location.start_line == 1
-        assert functions["attributed"].location.start_line == 4
-        assert functions["verified"].location.start_line == 7
-        assert functions["verified"].location.end_line == 13
+        assert functions["host"].location == SourceLocation(
+            file_path=graph.root_path,
+            start_line=1,
+            end_line=1,
+            start_col=0,
+            end_col=22,
+        )
+        assert functions["attributed"].location == SourceLocation(
+            file_path=graph.root_path,
+            start_line=4,
+            end_line=4,
+            start_col=0,
+            end_col=33,
+        )
+        assert functions["verified"].location == SourceLocation(
+            file_path=graph.root_path,
+            start_line=7,
+            end_line=13,
+            start_col=4,
+            end_col=5,
+        )
 
     def test_extracts_verus_signature_metadata(self) -> None:
         _, graph = _parse_verus_sample()
