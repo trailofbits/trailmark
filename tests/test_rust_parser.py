@@ -83,6 +83,29 @@ fn greet(name: &str) -> String {
 }
 """
 
+VERUS_CODE = """\
+fn host() -> u64 { 1 }
+
+#[inline]
+fn attributed() -> u64 { host() }
+
+verus! {
+    pub fn verified(x: u64) -> u64
+        requires x > 0,
+        ensures result > x,
+    {
+        host();
+        x + 1
+    }
+
+    pub open spec fn model(x: int) -> int { x + 1 }
+
+    proof fn lemma() {
+        assert(true);
+    }
+}
+"""
+
 
 def _parse_sample() -> tuple[RustParser, CodeGraph]:
     parser = RustParser()
@@ -92,6 +115,20 @@ def _parse_sample() -> tuple[RustParser, CodeGraph]:
         delete=False,
     ) as f:
         f.write(SAMPLE_CODE)
+        f.flush()
+        graph = parser.parse_file(f.name)
+    os.unlink(f.name)
+    return parser, graph
+
+
+def _parse_verus_sample() -> tuple[RustParser, CodeGraph]:
+    parser = RustParser()
+    with tempfile.NamedTemporaryFile(
+        suffix=".rs",
+        mode="w",
+        delete=False,
+    ) as f:
+        f.write(VERUS_CODE)
         f.flush()
         graph = parser.parse_file(f.name)
     os.unlink(f.name)
@@ -246,6 +283,65 @@ class TestRustParserDependencies:
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "std" in graph.dependencies
+
+
+class TestRustParserVerus:
+    def test_extracts_plain_attributed_and_verus_functions(self) -> None:
+        _, graph = _parse_verus_sample()
+        functions = {
+            node.name: node for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION
+        }
+
+        assert set(functions) == {"host", "attributed", "verified", "model", "lemma"}
+        assert functions["host"].location.start_line == 1
+        assert functions["attributed"].location.start_line == 4
+        assert functions["verified"].location.start_line == 7
+        assert functions["verified"].location.end_line == 13
+
+    def test_extracts_verus_signature_metadata(self) -> None:
+        _, graph = _parse_verus_sample()
+        verified = next(node for node in graph.nodes.values() if node.name == "verified")
+
+        assert [param.name for param in verified.parameters] == ["x"]
+        assert verified.parameters[0].type_ref is not None
+        assert verified.parameters[0].type_ref.name == "u64"
+        assert verified.return_type is not None
+        assert verified.return_type.name == "u64"
+
+    def test_resolves_call_from_verus_function_to_host_function(self) -> None:
+        _, graph = _parse_verus_sample()
+        verified = next(node for node in graph.nodes.values() if node.name == "verified")
+        host = next(node for node in graph.nodes.values() if node.name == "host")
+
+        assert any(
+            edge.kind == EdgeKind.CALLS
+            and edge.source_id == verified.id
+            and edge.target_id == host.id
+            for edge in graph.edges
+        )
+
+    def test_loads_verus_grammar_only_when_needed(self) -> None:
+        parser, _ = _parse_sample()
+        assert parser._verus_parser is None
+
+        parser, _ = _parse_verus_sample()
+        assert parser._verus_parser is not None
+
+    def test_parses_multiple_verus_ranges_and_ignores_other_macros(self) -> None:
+        source = """\
+verus! { spec fn first() -> bool { true } }
+opaque! { fn hidden() {} }
+verus! { proof fn second() {} }
+"""
+        with tempfile.NamedTemporaryFile(suffix=".rs", mode="w", delete=False) as f:
+            f.write(source)
+            f.flush()
+            graph = RustParser().parse_file(f.name)
+        os.unlink(f.name)
+
+        names = {node.name for node in graph.nodes.values()}
+        assert {"first", "second"} <= names
+        assert "hidden" not in names
 
 
 class TestRustParseDirectory:

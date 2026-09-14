@@ -130,6 +130,10 @@ class TestSupportedLanguages:
         extensions = _extract_extensions_for_language(readme_text, "JavaScript")
         assert set(extensions) == set(JS_EXTENSIONS)
 
+    def test_verus_support_is_documented(self, readme_text: str) -> None:
+        """README should advertise the Rust parser's Verus support."""
+        assert "`verus!` blocks" in readme_text
+
 
 class TestQueryEngineAPI:
     EXPECTED_METHODS = (

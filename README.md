@@ -52,7 +52,7 @@ A language-specific parser walks the directory, parses each file into a tree-sit
 | C# | `.cs` | methods, classes, interfaces, structs, enums, namespaces |
 | Java | `.java` | methods, classes, interfaces, enums |
 | Go | `.go` | functions, methods, structs, interfaces |
-| Rust | `.rs` | functions, structs, traits, enums, impl blocks |
+| Rust | `.rs` | functions, structs, traits, enums, impl blocks, `verus!` blocks |
 | Solidity | `.sol` | contracts, interfaces, libraries, functions, modifiers, structs, enums |
 | Cairo | `.cairo` | functions, traits, structs, enums, impl blocks, StarkNet contracts |
 | Circom | `.circom` | templates, functions, signals, components |

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tree_sitter import Node, Parser
+from tree_sitter import Language, Node, Parser, Range, Tree
 from tree_sitter_language_pack import get_language
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
@@ -64,6 +64,7 @@ class RustParser:
 
     def __init__(self) -> None:
         self._parser = Parser(get_language("rust"))
+        self._verus_parser: Parser | None = None
 
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Rust file into a CodeGraph."""
@@ -72,7 +73,20 @@ class RustParser:
         graph = CodeGraph(language="rust", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
+        verus_ranges = _find_verus_ranges(tree.root_node)
+        if verus_ranges:
+            verus_tree = self._parse_verus_ranges(source, verus_ranges)
+            _visit_verus_tree(verus_tree.root_node, file_path, module_id, graph)
         return graph
+
+    def _parse_verus_ranges(self, source: bytes, ranges: list[Range]) -> Tree:
+        """Parse ``verus!`` invocations with the Verus grammar."""
+        if self._verus_parser is None:
+            from trailmark.tree_sitter_custom.verus import language as verus_language
+
+            self._verus_parser = Parser(Language(verus_language()))
+        self._verus_parser.included_ranges = ranges
+        return self._verus_parser.parse(source)
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
         """Parse all .rs files under dir_path into a merged graph."""
@@ -94,6 +108,44 @@ def _visit_module(
     add_module_node(root, file_path, module_id, graph)
     for child in root.children:
         _visit_top_level_node(child, file_path, module_id, graph)
+
+
+def _find_verus_ranges(root: Node) -> list[Range]:
+    """Return whole-file ranges for each ``verus!`` macro invocation."""
+    ranges: list[Range] = []
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        if node.type == "macro_invocation":
+            macro = node.child_by_field_name("macro")
+            if macro is not None and node_text(macro) == "verus":
+                ranges.append(
+                    Range(
+                        start_point=node.start_point,
+                        end_point=node.end_point,
+                        start_byte=node.start_byte,
+                        end_byte=node.end_byte,
+                    )
+                )
+                continue
+        stack.extend(reversed(node.named_children))
+    return ranges
+
+
+def _visit_verus_tree(
+    root: Node,
+    file_path: str,
+    module_id: str,
+    graph: CodeGraph,
+) -> None:
+    """Extract declarations from the Verus grammar's wrapper nodes."""
+    stack = list(reversed(root.named_children))
+    while stack:
+        node = stack.pop()
+        if node.type in {"verus_block", "declaration_with_attrs"}:
+            stack.extend(reversed(node.named_children))
+        else:
+            _visit_top_level_node(node, file_path, module_id, graph)
 
 
 def _visit_top_level_node(
@@ -171,7 +223,7 @@ def _extract_trait(
     body = node.child_by_field_name("body")
     if body is None:
         return
-    for child in body.children:
+    for child in _declarations_in(body):
         if child.type == "function_item":
             _extract_function(
                 child,
@@ -227,7 +279,7 @@ def _extract_impl(
     body = node.child_by_field_name("body")
     if body is None:
         return
-    for child in body.children:
+    for child in _declarations_in(body):
         if child.type == "function_item":
             _extract_function(
                 child,
@@ -236,6 +288,19 @@ def _extract_impl(
                 type_id,
                 graph,
             )
+
+
+def _declarations_in(node: Node) -> list[Node]:
+    """Unwrap declarations emitted by either Rust grammar."""
+    declarations: list[Node] = []
+    for child in node.named_children:
+        if child.type == "declaration_with_attrs":
+            declarations.extend(
+                nested for nested in child.named_children if nested.type != "attribute_item"
+            )
+        else:
+            declarations.append(child)
+    return declarations
 
 
 def _extract_impl_type_name(node: Node) -> str:
