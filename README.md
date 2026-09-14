@@ -219,8 +219,8 @@ class Auth:
     def verify(self, token: str) -> bool:
         return self._check_sig(token)
 
-    def _check_sig(self, token: str) -> bool:
-        ...
+    def _check_sig(self, token: str) -> bool: ...
+
 
 def handle_request(req: Request) -> Response:
     auth = Auth()
