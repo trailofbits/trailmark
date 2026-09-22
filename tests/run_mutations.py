@@ -82,16 +82,26 @@ def main() -> int:
         env.pop("ACTIVE_GREMLIN", None)
         env["PYTEST_GREMLINS_SOURCES_FILE"] = str(directory / "sources.json")
         env["GREMLIN_ROOTDIR"] = str(Path.cwd())
-        control = subprocess.run(  # noqa: S603
-            [sys.executable, str(directory / "gremlin_bootstrap.py"), *args.tests],
-            env=env,
-            check=False,
-            timeout=180,
-        )
-        if control.returncode:
-            raise pytest.UsageError(
-                "Instrumented baseline failed; mutation results would be invalid"
+        session = plugin._get_session()
+        if session is None:
+            raise pytest.UsageError("Missing mutation session for baseline validation")
+        tests = list(session.test_node_ids)
+        orders = {
+            tuple(prioritize_tests(path, tests) if args.test_order == "component" else tests)
+            for path in instrumented_asts
+        }
+        for index, order in enumerate(sorted(orders), 1):
+            print(f"Checking instrumented baseline order {index}/{len(orders)}", flush=True)
+            control = subprocess.run(  # noqa: S603
+                [sys.executable, str(directory / "gremlin_bootstrap.py"), *order],
+                env=env,
+                check=False,
+                timeout=180,
             )
+            if control.returncode:
+                raise pytest.UsageError(
+                    "Instrumented baseline failed; mutation results would be invalid"
+                )
         return directory
 
     with (

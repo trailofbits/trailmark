@@ -579,8 +579,9 @@ selected test suite: component unit tests run first, followed by the remaining
 tests, stopping at the first failure. Shared-helper mutants retain tests from
 every language. Tests stay in their existing files; `tests/mutation_order.py`
 defines the ordering, and unknown components retain collection order. The runner
-skips the redundant coverage pre-scan, checks clean and instrumented baselines,
-and preserves package metadata and exact parameter IDs when loading mutated code.
+skips the redundant coverage pre-scan, checks the clean baseline and each distinct
+instrumented test ordering, and preserves package metadata and exact parameter
+IDs when loading mutated code.
 These compatibility measures address upstream runner and selection issues;
 their control tests must pass before upgrading the plugin.
 Snapshot updates (`TRAILMARK_UPDATE_SNAPSHOTS=1`) are disabled during CI and mutation

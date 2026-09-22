@@ -86,3 +86,26 @@ def test_weak(tmp_path, value):
         and "test_integration.py::test_integration" in r["selected_tests"]
         for r in results
     )
+
+
+def test_runner_rejects_order_dependent_baseline(tmp_path: Path) -> None:
+    (tmp_path / "target.py").write_text("def checked(value):\n    return value > 0\n")
+    (tmp_path / "state.py").write_text("ready = False\n")
+    (tmp_path / "test_a_setup.py").write_text(
+        "import state\ndef test_initialize():\n    state.ready = True\n"
+    )
+    (tmp_path / "test_target.py").write_text(
+        "import state\nfrom target import checked\n"
+        "def test_checked():\n    assert state.ready\n    assert checked(1)\n"
+    )
+    runner = Path(__file__).with_name("run_mutations.py")
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, str(runner), "--targets=target.py", "."],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "Instrumented baseline failed" in result.stdout + result.stderr
+    assert not (tmp_path / "coverage/gremlins/run.json").exists()
