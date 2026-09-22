@@ -1,0 +1,304 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_calls",
+      "target": "verus_calls:host"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_calls",
+      "target": "verus_calls:model"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_calls",
+      "target": "verus_calls:lemma"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "verus_calls:lemma",
+      "target": "verus_calls:host"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "verus_calls:lemma",
+      "target": "verus_calls:host"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_calls",
+      "target": "verus_calls:checked"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "verus_calls:checked",
+      "target": "verus_calls:model"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "verus_calls:checked",
+      "target": "verus_calls:lemma"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_calls",
+      "target": "verus_calls.inner"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_calls.inner",
+      "target": "verus_calls.inner:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_calls.inner",
+      "target": "verus_calls.inner:checked"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "verus_calls.inner:checked",
+      "target": "verus_calls.inner:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_calls",
+      "target": "verus_calls:last"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "verus_calls:last",
+      "target": "verus_calls:checked"
+    }
+  ],
+  "language": "rust",
+  "nodes": {
+    "verus_calls": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_calls",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 18,
+        "file_path": "verus_calls.rs",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "verus_calls",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_calls.inner": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_calls.inner",
+      "kind": "module",
+      "location": {
+        "end_col": 1,
+        "end_line": 16,
+        "file_path": "verus_calls.rs",
+        "start_col": 0,
+        "start_line": 13
+      },
+      "name": "verus_calls.inner",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_calls.inner:checked": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_calls.inner:checked",
+      "kind": "function",
+      "location": {
+        "end_col": 43,
+        "end_line": 15,
+        "file_path": "verus_calls.rs",
+        "start_col": 13,
+        "start_line": 15
+      },
+      "name": "checked",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_calls.inner:helper": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_calls.inner:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 18,
+        "end_line": 14,
+        "file_path": "verus_calls.rs",
+        "start_col": 4,
+        "start_line": 14
+      },
+      "name": "helper",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_calls:checked": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "model(x)",
+          "location": {
+            "end_col": 32,
+            "end_line": 9,
+            "file_path": "verus_calls.rs",
+            "start_col": 8,
+            "start_line": 9
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_calls:checked",
+      "kind": "function",
+      "location": {
+        "end_col": 5,
+        "end_line": 11,
+        "file_path": "verus_calls.rs",
+        "start_col": 4,
+        "start_line": 5
+      },
+      "name": "checked",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u64"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "u64"
+      }
+    },
+    "verus_calls:host": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_calls:host",
+      "kind": "function",
+      "location": {
+        "end_col": 12,
+        "end_line": 1,
+        "file_path": "verus_calls.rs",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "host",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_calls:last": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_calls:last",
+      "kind": "function",
+      "location": {
+        "end_col": 34,
+        "end_line": 17,
+        "file_path": "verus_calls.rs",
+        "start_col": 9,
+        "start_line": 17
+      },
+      "name": "last",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_calls:lemma": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_calls:lemma",
+      "kind": "function",
+      "location": {
+        "end_col": 40,
+        "end_line": 4,
+        "file_path": "verus_calls.rs",
+        "start_col": 4,
+        "start_line": 4
+      },
+      "name": "lemma",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_calls:model": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_calls:model",
+      "kind": "function",
+      "location": {
+        "end_col": 43,
+        "end_line": 3,
+        "file_path": "verus_calls.rs",
+        "start_col": 4,
+        "start_line": 3
+      },
+      "name": "model",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u64"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "bool"
+      }
+    }
+  },
+  "root_path": "verus_calls.rs",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 6,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 7,
+    "proxies": 0,
+    "total_nodes": 9
+  }
+}

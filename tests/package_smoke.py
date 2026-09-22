@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 
 import tree_sitter_sql
 
+from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory, supported_languages
 from trailmark.parsers.rust.parser import RustParser
 
@@ -28,10 +29,13 @@ verus! {
         path.write_text(source)
         graph = RustParser().parse_file(str(path))
 
-    names = {node.name for node in graph.nodes.values()}
-    if not {"host", "verified"} <= names:
+    names = set(graph.nodes)
+    if names != {"verified", "verified:host", "verified:verified"}:
         msg = "installed Rust parser did not extract functions from a verus! block"
         raise RuntimeError(msg)
+    calls = [(e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS]
+    if calls != [("verified:verified", "verified:host")] or len(graph.edges) != 3:
+        raise RuntimeError("installed Verus parser did not produce the expected call graph")
 
 
 def main() -> None:
@@ -60,6 +64,11 @@ def main() -> None:
     if not any(str(path).endswith("tree_sitter_custom/verus/LICENSE") for path in trailmark_files):
         msg = "trailmark distribution does not include the vendored Verus grammar license"
         raise RuntimeError(msg)
+    binaries = [str(p) for p in trailmark_files if str(p).endswith((".so", ".pyd", ".dylib"))]
+    if binaries:
+        raise RuntimeError(
+            f"distribution unexpectedly includes native grammar binaries: {binaries}"
+        )
     _check_installed_verus_parser()
 
 

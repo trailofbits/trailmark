@@ -46,6 +46,8 @@ PARSER_FIXTURES: list[tuple[str, str]] = [
     ("rego", "taxonomy"),
     ("ruby", "taxonomy"),
     ("rust", "taxonomy"),
+    ("rust", "verus_calls"),
+    ("rust", "verus_declarations"),
     ("solidity", "taxonomy"),
     ("swift", "taxonomy"),
     ("sway", "taxonomy"),

@@ -20,12 +20,11 @@ Reference for implementing framework-aware entrypoint detectors in Trailmark. Ea
 
 ```python
 from flask import Flask
-
 app = Flask(__name__)
 
-
 @app.route("/login", methods=["POST"])
-def login(): ...
+def login():
+    ...
 ```
 
 - **Scope:** function
@@ -40,12 +39,11 @@ def login(): ...
 
 ```python
 from fastapi import FastAPI
-
 app = FastAPI()
 
-
 @app.post("/auth")
-async def auth(body: AuthRequest): ...
+async def auth(body: AuthRequest):
+    ...
 ```
 
 - **Scope:** function
@@ -60,11 +58,12 @@ Functions in `views.py` + class-based views subclassing `View`/`TemplateView`/`L
 
 ```python
 # views.py
-def profile(request): ...
-
+def profile(request):
+    ...
 
 class LoginView(APIView):
-    def post(self, request): ...
+    def post(self, request):
+        ...
 ```
 
 - **Scope:** function or class method (`get`/`post`/`put`/`delete`/`patch` inside a view class)
@@ -79,12 +78,11 @@ class LoginView(APIView):
 
 ```python
 from aiohttp import web
-
 routes = web.RouteTableDef()
 
-
 @routes.get("/status")
-async def status(request): ...
+async def status(request):
+    ...
 ```
 
 - **Scope:** function
@@ -99,7 +97,6 @@ async def status(request): ...
 
 ```python
 from starlette.routing import Route
-
 routes = [Route("/", homepage), Route("/user/{id}", user_detail)]
 ```
 
@@ -115,12 +112,11 @@ routes = [Route("/", homepage), Route("/user/{id}", user_detail)]
 
 ```python
 from celery import Celery
-
 app = Celery()
 
-
 @app.task
-def send_email(to, body): ...
+def send_email(to, body):
+    ...
 ```
 
 - **Scope:** function
@@ -133,7 +129,8 @@ def send_email(to, body): ...
 Function named per the handler string (e.g., `lambda_handler` by convention, or whatever the deployment manifest specifies in `Runtime.handler`). Signature is `def handler(event, context)`.
 
 ```python
-def lambda_handler(event, context): ...
+def lambda_handler(event, context):
+    ...
 ```
 
 - **Scope:** function
@@ -148,8 +145,6 @@ def lambda_handler(event, context): ...
 
 ```python
 import click
-
-
 @click.command()
 @click.argument("name")
 def greet(name):
@@ -167,7 +162,8 @@ Class inheriting from `<Service>Servicer` (generated from `.proto`). Methods cor
 
 ```python
 class GreeterServicer(greeter_pb2_grpc.GreeterServicer):
-    def SayHello(self, request, context): ...
+    def SayHello(self, request, context):
+        ...
 ```
 
 - **Scope:** class method

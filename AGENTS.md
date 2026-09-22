@@ -74,19 +74,13 @@ uv run pytest -q tests/
 ## Mutation Testing
 
 ```bash
-uv run mutmut run
-uv run mutmut results
+uv run python -m tests.run_mutations --workers=4
+uv run python -m tests.mutation_gate
 ```
 
-### macOS Fork Safety
-
-mutmut uses `fork()` which segfaults with rustworkx on macOS. Set:
-
-```bash
-export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-```
-
-This is not needed on Linux/CI (Ubuntu).
+The runner uses real pytest subprocesses and validates clean and instrumented
+baselines. Use it rather than invoking the pinned plugin directly.
+Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
 
 ## Adding Features
 

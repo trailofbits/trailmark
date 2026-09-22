@@ -1,0 +1,404 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations",
+      "target": "verus_declarations:Store"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations",
+      "target": "verus_declarations:Choice"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations",
+      "target": "verus_declarations:Check"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations:Check",
+      "target": "verus_declarations:Check.valid"
+    },
+    {
+      "confidence": "certain",
+      "kind": "implements",
+      "source": "verus_declarations:Store",
+      "target": "verus_declarations:Check"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations:Store",
+      "target": "verus_declarations:Store.valid"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations:Store",
+      "target": "verus_declarations:Store.get"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations",
+      "target": "verus_declarations:token"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations",
+      "target": "verus_declarations:pair"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations",
+      "target": "verus_declarations:identity"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "verus_declarations",
+      "target": "verus_declarations:values"
+    },
+    {
+      "attributes": {
+        "raw_target": "Vec::new"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "verus_declarations:values",
+      "target": "proxy.unresolved:Vec::new"
+    }
+  ],
+  "language": "rust",
+  "nodes": {
+    "proxy.unresolved:Vec::new": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "Vec::new"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:Vec::new",
+      "kind": "proxy",
+      "location": {
+        "end_col": 40,
+        "end_line": 22,
+        "file_path": "verus_declarations.rs",
+        "start_col": 30,
+        "start_line": 22
+      },
+      "name": "Vec::new",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_declarations": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_declarations",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 24,
+        "file_path": "verus_declarations.rs",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "verus_declarations",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_declarations:Check": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": "Provides a default method.",
+      "exception_types": [],
+      "id": "verus_declarations:Check",
+      "kind": "trait",
+      "location": {
+        "end_col": 5,
+        "end_line": 11,
+        "file_path": "verus_declarations.rs",
+        "start_col": 4,
+        "start_line": 9
+      },
+      "name": "Check",
+      "parameters": [],
+      "return_type": null
+    },
+    "verus_declarations:Check.valid": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_declarations:Check.valid",
+      "kind": "method",
+      "location": {
+        "end_col": 40,
+        "end_line": 10,
+        "file_path": "verus_declarations.rs",
+        "start_col": 8,
+        "start_line": 10
+      },
+      "name": "valid",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "bool"
+      }
+    },
+    "verus_declarations:Choice": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": "Optional value.",
+      "exception_types": [],
+      "id": "verus_declarations:Choice",
+      "kind": "enum",
+      "location": {
+        "end_col": 36,
+        "end_line": 7,
+        "file_path": "verus_declarations.rs",
+        "start_col": 4,
+        "start_line": 7
+      },
+      "name": "Choice",
+      "parameters": [],
+      "return_type": null,
+      "type_parameters": [
+        {
+          "constraints": [],
+          "default": null,
+          "name": "T",
+          "variance": null
+        }
+      ]
+    },
+    "verus_declarations:Store": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": "Generic storage.",
+      "exception_types": [],
+      "id": "verus_declarations:Store",
+      "kind": "struct",
+      "location": {
+        "end_col": 36,
+        "end_line": 5,
+        "file_path": "verus_declarations.rs",
+        "start_col": 4,
+        "start_line": 5
+      },
+      "name": "Store",
+      "parameters": [],
+      "return_type": null,
+      "type_parameters": [
+        {
+          "constraints": [],
+          "default": null,
+          "name": "T",
+          "variance": null
+        }
+      ]
+    },
+    "verus_declarations:Store.get": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": "Retains the reference type.",
+      "exception_types": [],
+      "id": "verus_declarations:Store.get",
+      "kind": "method",
+      "location": {
+        "end_col": 48,
+        "end_line": 17,
+        "file_path": "verus_declarations.rs",
+        "start_col": 8,
+        "start_line": 17
+      },
+      "name": "get",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "&T"
+      }
+    },
+    "verus_declarations:Store.valid": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_declarations:Store.valid",
+      "kind": "method",
+      "location": {
+        "end_col": 40,
+        "end_line": 13,
+        "file_path": "verus_declarations.rs",
+        "start_col": 8,
+        "start_line": 13
+      },
+      "name": "valid",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "bool"
+      }
+    },
+    "verus_declarations:identity": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_declarations:identity",
+      "kind": "function",
+      "location": {
+        "end_col": 59,
+        "end_line": 21,
+        "file_path": "verus_declarations.rs",
+        "start_col": 4,
+        "start_line": 21
+      },
+      "name": "identity",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "T"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "T"
+      },
+      "type_parameters": [
+        {
+          "constraints": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "Copy"
+            }
+          ],
+          "default": null,
+          "name": "T",
+          "variance": null
+        }
+      ]
+    },
+    "verus_declarations:pair": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_declarations:pair",
+      "kind": "function",
+      "location": {
+        "end_col": 48,
+        "end_line": 20,
+        "file_path": "verus_declarations.rs",
+        "start_col": 4,
+        "start_line": 20
+      },
+      "name": "pair",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u64"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "(u64, bool)"
+      }
+    },
+    "verus_declarations:token": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_declarations:token",
+      "kind": "function",
+      "location": {
+        "end_col": 68,
+        "end_line": 19,
+        "file_path": "verus_declarations.rs",
+        "start_col": 4,
+        "start_line": 19
+      },
+      "name": "token",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u64"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "u64"
+      }
+    },
+    "verus_declarations:values": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "verus_declarations:values",
+      "kind": "function",
+      "location": {
+        "end_col": 42,
+        "end_line": 22,
+        "file_path": "verus_declarations.rs",
+        "start_col": 4,
+        "start_line": 22
+      },
+      "name": "values",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Vec<u64>"
+      }
+    }
+  },
+  "root_path": "verus_declarations.rs",
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 1,
+    "classes": 0,
+    "dependencies": [
+      "std"
+    ],
+    "entrypoints": 0,
+    "functions": 7,
+    "proxies": 1,
+    "total_nodes": 12
+  }
+}

@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  mutmut:
+  gremlins:
     name: Mutation Testing
     runs-on: ubuntu-latest
     steps:
@@ -28,11 +28,24 @@ jobs:
         with:
           python-version: "3.13"
 
-      - run: uv sync --all-groups
+      - run: uv sync --locked --all-groups
 
       - name: Run mutation testing
-        run: uv run mutmut run
+        run: uv run python -m tests.run_mutations --workers=4
 
-      - name: Show results
+      - name: Enforce reviewed Rust and Verus baseline
+        run: uv run python -m tests.mutation_gate
+
+      - name: Record revision
         if: always()
-        run: uv run mutmut results
+        run: |
+          mkdir -p coverage/gremlins
+          git rev-parse HEAD > coverage/gremlins/revision.txt
+
+      - name: Upload mutation reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: mutation-report-${{ github.sha }}
+          path: coverage/gremlins/
+          if-no-files-found: error

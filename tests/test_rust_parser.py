@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind, SourceLocation
 from trailmark.parsers.rust.parser import RustParser
+from trailmark.tree_sitter_custom import verus as verus_mod
 
 SAMPLE_CODE = """\
 use std::collections::HashMap;
@@ -337,13 +343,130 @@ class TestRustParserVerus:
             for edge in graph.edges
         )
 
-    def test_loads_verus_grammar_only_when_needed(self) -> None:
-        parser, _ = _parse_sample()
-        assert parser._verus_parser is None
+    def test_plain_rust_does_not_compile_verus_grammar(self, tmp_path: Path) -> None:
+        with (
+            patch.object(verus_mod, "_binding_path", return_value=tmp_path / "unbuilt.so"),
+            patch.object(subprocess, "run") as compiler,
+        ):
+            _, graph = _parse_sample()
 
-        parser, _ = _parse_verus_sample()
-        assert parser._verus_parser is not None
+        compiler.assert_not_called()
+        assert any(node.name == "abs" for node in graph.nodes.values())
 
+    @pytest.mark.parametrize(
+        ("signature", "expected"),
+        [
+            ("u64", "u64"),
+            ("(r: u64)", "u64"),
+            ("(tracked r: Token)", "Token"),
+            ("tracked Token", "Token"),
+            ("(r: Option<u64>)", "Option<u64>"),
+            ("(r: (u64, bool))", "(u64, bool)"),
+            ("(u64, bool)", "(u64, bool)"),
+            ("(r: &u64 /* comment */)", "&u64"),
+        ],
+    )
+    def test_extracts_verus_return_type(
+        self, tmp_path: Path, signature: str, expected: str
+    ) -> None:
+        path = tmp_path / "returns.rs"
+        path.write_text(f"verus! {{ fn verified() -> {signature} {{ todo!() }} }}")
+
+        graph = RustParser().parse_file(str(path))
+
+        assert graph.nodes["returns:verified"].return_type is not None
+        assert graph.nodes["returns:verified"].return_type.name == expected
+
+    @pytest.mark.parametrize(
+        "declaration",
+        [
+            "fn documented() {}",
+            "struct documented {}",
+            "enum documented { A }",
+            "trait documented {}",
+        ],
+    )
+    @pytest.mark.parametrize(
+        "prefix",
+        [
+            "/// First line.\n/// Second line.\n",
+            "/// First line.\n/// Second line.\n#[test_attr]\n",
+            "/// First line.\n#[test_attr]\n/// Second line.\n",
+        ],
+    )
+    def test_preserves_verus_docstrings(
+        self, tmp_path: Path, declaration: str, prefix: str
+    ) -> None:
+        path = tmp_path / "docs.rs"
+        path.write_text(f"verus! {{\n{prefix}{declaration}\nfn undocumented() {{}}\n}}")
+
+        graph = RustParser().parse_file(str(path))
+
+        assert graph.nodes["docs:documented"].docstring == "First line.\nSecond line."
+        assert graph.nodes["docs:undocumented"].docstring is None
+
+    def test_extracts_methods_from_nested_verus_blocks(self, tmp_path: Path) -> None:
+        path = tmp_path / "nested.rs"
+        path.write_text("""\
+verus! {
+    struct X {}
+    impl X {
+        verus! {
+            /// Nested method.
+            #[inline]
+            fn method() { helper(); }
+        }
+    }
+    trait T {
+        verus! { fn default_method() { helper(); } }
+    }
+    fn helper() {}
+}
+""")
+
+        graph = RustParser().parse_file(str(path))
+
+        assert graph.nodes["nested:X.method"].kind == NodeKind.METHOD
+        assert graph.nodes["nested:X.method"].docstring == "Nested method."
+        assert graph.nodes["nested:T.default_method"].kind == NodeKind.METHOD
+        for owner, method in [("X", "method"), ("T", "default_method")]:
+            assert any(
+                edge.kind == EdgeKind.CONTAINS
+                and edge.source_id == f"nested:{owner}"
+                and edge.target_id == f"nested:{owner}.{method}"
+                for edge in graph.edges
+            )
+            assert any(
+                edge.kind == EdgeKind.CALLS
+                and edge.source_id == f"nested:{owner}.{method}"
+                and edge.target_id == "nested:helper"
+                for edge in graph.edges
+            )
+
+    @pytest.mark.parametrize("separator", ["", " ", "\n", " /* comment */ "])
+    def test_accepts_whitespace_before_macro_bang(self, tmp_path: Path, separator: str) -> None:
+        path = tmp_path / "spaced.rs"
+        path.write_text(f"verus{separator}! {{ proof fn verified() {{}} }}")
+
+        graph = RustParser().parse_file(str(path))
+
+        assert "spaced:verified" in graph.nodes
+
+    def test_ignores_unsupported_delimiters_between_verus_blocks(self, tmp_path: Path) -> None:
+        path = tmp_path / "delimiters.rs"
+        path.write_text("""\
+verus! { spec fn first() -> bool { true } }
+verus!(fn paren() {});
+verus![fn bracket() {}];
+verus! { proof fn last() {} }
+""")
+
+        graph = RustParser().parse_file(str(path))
+
+        functions = {node.name for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION}
+        assert functions == {"first", "last"}
+
+    @pytest.mark.timeout(5)
     def test_parses_multiple_verus_ranges_and_ignores_other_macros(self) -> None:
         source = """\
 verus! { spec fn first() -> bool { true } }
@@ -362,6 +485,54 @@ verus! { proof fn second() {} }
 
 
 class TestRustParseDirectory:
+    @pytest.mark.parametrize(
+        "error",
+        [
+            FileNotFoundError("cc is unavailable"),
+            PermissionError("read-only installation"),
+            subprocess.CalledProcessError(1, ["cc"]),
+        ],
+    )
+    def test_preserves_rust_graph_when_verus_build_fails(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture, error: Exception
+    ) -> None:
+        (tmp_path / "a.rs").write_text("fn host() {}\nverus! { proof fn first() {} }")
+        (tmp_path / "b.rs").write_text("fn caller() { host(); }\nverus! { proof fn second() {} }")
+        (tmp_path / "c.rs").write_text("fn plain() {}")
+        with (
+            patch.object(verus_mod, "_binding_path", return_value=tmp_path / "unbuilt.so"),
+            patch.object(subprocess, "run", side_effect=error) as compiler,
+        ):
+            graph = RustParser().parse_directory(str(tmp_path))
+
+        compiler.assert_called_once()
+        assert {node.name for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION} == {
+            "host",
+            "caller",
+            "plain",
+        }
+        assert any(
+            edge.kind == EdgeKind.CALLS
+            and edge.source_id == "b:caller"
+            and edge.target_id == "a:host"
+            for edge in graph.edges
+        )
+        assert "skipping verus! blocks" in caplog.text
+
+    @pytest.mark.parametrize(
+        "error", [ImportError("invalid binding"), ValueError("unsupported ABI")]
+    )
+    def test_preserves_rust_graph_when_verus_load_fails(
+        self, tmp_path: Path, error: Exception
+    ) -> None:
+        path = tmp_path / "load.rs"
+        path.write_text("fn host() {}\nverus! { proof fn verified() {} }")
+        with patch.object(verus_mod, "language", side_effect=error):
+            graph = RustParser().parse_file(str(path))
+
+        assert "load:host" in graph.nodes
+        assert "load:verified" not in graph.nodes
+
     def test_parses_multiple_files(self) -> None:
         parser = RustParser()
         code_a = "fn from_a() {}\n"

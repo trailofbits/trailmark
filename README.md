@@ -73,6 +73,18 @@ A language-specific parser walks the directory, parses each file into a tree-sit
 | GraphQL | `.graphql`, `.gql` | object types, root operations, fields, enums |
 | SQL | `.sql` | schemas, tables, views, functions, procedures |
 
+The Rust parser extracts ordinary, `spec`, and `proof` functions with bodies
+from `verus! { ... }` blocks. The Verus grammar currently supports only
+brace-delimited blocks; `verus!(...)` and `verus![...]` are skipped with a warning.
+Inline modules retain qualified IDs (for example, `file.inner:function`), and
+methods retain their impl or trait owner. Each block is parsed independently;
+syntax errors produce a warning with the file and block location.
+
+Trailmark does not expand arbitrary macros. Literal Verus invocations inside
+opaque macros or function bodies are skipped with a warning. Uninvoked
+`macro_rules!` definitions are not expanded. Function signatures without bodies
+and calls in `requires`/`ensures` clauses are not extracted.
+
 ```mermaid
 flowchart TD
     subgraph "Per-File Parsing"
@@ -219,8 +231,8 @@ class Auth:
     def verify(self, token: str) -> bool:
         return self._check_sig(token)
 
-    def _check_sig(self, token: str) -> bool: ...
-
+    def _check_sig(self, token: str) -> bool:
+        ...
 
 def handle_request(req: Request) -> Response:
     auth = Auth()
@@ -270,6 +282,16 @@ offline environments, pre-populate the package cache with
 matching platform, then copy the resulting `tree-sitter-language-pack` cache
 directory to the target machine. `HTTPS_PROXY` is also honored. The SQL grammar
 ships as the `tree-sitter-sql` wheel dependency and does not use that cache.
+
+The bundled Circom, Miden Assembly, and Verus grammars compile on first use.
+This requires a C compiler (`cc`), Python development headers, and write access
+to their installed grammar directories. Rust files without Verus blocks do not
+trigger compilation. If the Verus grammar cannot be built or loaded, Trailmark
+logs a warning, skips Verus blocks, and continues parsing ordinary Rust.
+The Verus binding cache includes the compiled source contents, Python ABI,
+platform, and compiler options. Changed inputs select a new binding; completed
+builds are published atomically. Compiler failures include the exit status and
+stderr in the warning.
 
 ## Usage
 
@@ -534,9 +556,27 @@ uv tool install ty && ty check
 # Tests
 uv run pytest -q tests/
 
-# Mutation testing (on macOS, set this env var to avoid rustworkx fork segfaults)
-OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES uv run mutmut run
+# Mutation testing with pytest-gremlins
+uv run python -m tests.run_mutations --workers=4
+uv run python -m tests.mutation_gate
 ```
+
+Mutation reports are written to `coverage/gremlins/`. CI runs the full source
+campaign and gates new and changed functions in the three Rust/Verus files named
+in `tests/mutation_baseline.json`. Unchanged legacy functions are identified by
+source hashes and enter the gate automatically when edited.
+The gate rejects unreviewed survivors, missing tests/results, errors, and timeouts.
+Exceptions require a reason and a fingerprint of the function and mutation;
+changing that function requires reviewing its exceptions again.
+
+The runner pins pytest-gremlins 1.9.0 and uses real pytest subprocesses for every
+mutant, including fixtures and parametrized tests. It runs every selected test,
+checks clean and instrumented baselines, and preserves package metadata when
+loading mutated code. These compatibility measures address upstream runner and
+selection issues; their control tests must pass before upgrading the plugin.
+Snapshot updates (`TRAILMARK_UPDATE_SNAPSHOTS=1`) are disabled during CI and mutation
+runs. To focus a local campaign, pass `--targets` with comma-separated source
+paths, followed by the relevant test files.
 
 ## License
 

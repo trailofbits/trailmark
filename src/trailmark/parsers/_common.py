@@ -165,6 +165,8 @@ def collect_body_info(
     branches: list[BranchInfo],
     exception_types: list[TypeRef],
     calls: list[tuple[str, Node]],
+    *,
+    skip_types: frozenset[str] = frozenset(),
 ) -> None:
     """Collect branches, exceptions, and calls from a function body.
 
@@ -174,6 +176,8 @@ def collect_body_info(
     stack: list[Node] = list(reversed(body.children))
     while stack:
         node = stack.pop()
+        if node.type in skip_types:
+            continue
         if node.type in branch_types:
             condition = _extract_condition_text(node)
             branches.append(
@@ -293,10 +297,15 @@ def add_contains_edge(
     )
 
 
-def extract_type_parameters(node: Node) -> tuple[TypeParameter, ...]:
+def extract_type_parameters(
+    node: Node, *, field_name: str | None = None
+) -> tuple[TypeParameter, ...]:
     """Best-effort extraction of generic parameter declarations."""
-    text = node_text(node)
-    raw = _generic_parameter_block(text)
+    if field_name is None:
+        raw = _generic_parameter_block(node_text(node))
+    else:
+        parameters = node.child_by_field_name(field_name)
+        raw = node_text(parameters)[1:-1] if parameters is not None else None
     if raw is None:
         return ()
     params = [_parse_type_parameter(part) for part in _split_top_level(raw)]
