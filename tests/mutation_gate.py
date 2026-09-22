@@ -15,7 +15,7 @@ from typing import Any
 from pytest_gremlins.instrumentation.gremlin import Gremlin
 from pytest_gremlins.instrumentation.transformer import transform_source
 
-from tests.run_mutations import VERSION
+from tests.run_mutations import RUNNER, VERSION
 
 
 class _RemoveSwitches(ast.NodeTransformer):
@@ -86,7 +86,7 @@ def check(
 ) -> list[str]:
     if run["pytest_gremlins"] != VERSION or baseline["pytest_gremlins"] != VERSION:
         raise ValueError("Mutation version does not match the reviewed baseline")
-    if run["runner"] != "trailmark-full-pytest-v1":
+    if run["runner"] != RUNNER:
         raise ValueError("Report lacks validated pytest execution")
     results = report["results"]
     if not results or len(results) != report["summary"]["total"]:

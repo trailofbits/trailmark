@@ -80,6 +80,17 @@ class TestInstallation:
             )
 
 
+class TestDevelopment:
+    def test_mutation_workflow_scope_and_test_order_are_documented(self, readme_text: str) -> None:
+        assert "tests.run_mutations --reviewed --workers=4" in readme_text
+        assert "tests.run_mutations --workers=4" in readme_text
+        assert "tests.mutation_gate" in readme_text
+        assert "weekly" in readme_text and "manual trigger" in readme_text
+        assert "component unit tests run first" in readme_text
+        assert "Shared-helper mutants retain tests from" in readme_text
+        assert "`--workers=4` already enables parallel" in readme_text
+
+
 class TestPackageMetadata:
     def test_dunder_version_matches_pyproject(
         self,

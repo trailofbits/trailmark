@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -30,7 +33,12 @@ jobs:
 
       - run: uv sync --locked --all-groups
 
-      - name: Run mutation testing
+      - name: Run reviewed mutation scope
+        if: github.event_name == 'pull_request'
+        run: uv run --locked python -m tests.run_mutations --reviewed --workers=4
+
+      - name: Run full mutation campaign
+        if: github.event_name != 'pull_request'
         run: uv run python -m tests.run_mutations --workers=4
 
       - name: Enforce reviewed Rust and Verus baseline

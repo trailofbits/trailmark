@@ -557,26 +557,36 @@ uv tool install ty && ty check
 uv run pytest -q tests/
 
 # Mutation testing with pytest-gremlins
-uv run python -m tests.run_mutations --workers=4
+uv run python -m tests.run_mutations --reviewed --workers=4
 uv run python -m tests.mutation_gate
+
+# Full repository mutation campaign
+uv run python -m tests.run_mutations --workers=4
 ```
 
-Mutation reports are written to `coverage/gremlins/`. CI runs the full source
-campaign and gates new and changed functions in the three Rust/Verus files named
-in `tests/mutation_baseline.json`. Unchanged legacy functions are identified by
-source hashes and enter the gate automatically when edited.
+Mutation reports are written to `coverage/gremlins/`. Pull requests mutate the
+three Rust/Verus files named in `tests/mutation_baseline.json` and gate new and
+changed functions there. Full repository campaigns run on pushes to main, weekly,
+and through the mutation workflow's manual trigger. Unchanged legacy functions
+are identified by source hashes and enter the gate automatically when edited.
 The gate rejects unreviewed survivors, missing tests/results, errors, and timeouts.
 Exceptions require a reason and a fingerprint of the function and mutation;
 changing that function requires reviewing its exceptions again.
 
 The runner pins pytest-gremlins 1.9.0 and uses real pytest subprocesses for every
-mutant, including fixtures and parametrized tests. It runs every selected test,
-checks clean and instrumented baselines, and preserves package metadata when
-loading mutated code. These compatibility measures address upstream runner and
-selection issues; their control tests must pass before upgrading the plugin.
+mutant, including fixtures and parametrized tests. Each mutant retains the full
+selected test suite: component unit tests run first, followed by the remaining
+tests, stopping at the first failure. Shared-helper mutants retain tests from
+every language. Tests stay in their existing files; `tests/mutation_order.py`
+defines the ordering, and unknown components retain collection order. The runner
+skips the redundant coverage pre-scan, checks clean and instrumented baselines,
+and preserves package metadata and exact parameter IDs when loading mutated code.
+These compatibility measures address upstream runner and selection issues;
+their control tests must pass before upgrading the plugin.
 Snapshot updates (`TRAILMARK_UPDATE_SNAPSHOTS=1`) are disabled during CI and mutation
 runs. To focus a local campaign, pass `--targets` with comma-separated source
-paths, followed by the relevant test files.
+paths, followed by the relevant test files. `--workers=4` already enables parallel
+execution. Use `--test-order=collection` to compare against pytest's original order.
 
 ## License
 

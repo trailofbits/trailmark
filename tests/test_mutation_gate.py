@@ -11,7 +11,7 @@ import pytest
 from pytest_gremlins.instrumentation.transformer import transform_source
 
 from tests.mutation_gate import check, describe
-from tests.run_mutations import VERSION
+from tests.run_mutations import RUNNER, VERSION
 
 pytestmark = pytest.mark.mutation_infrastructure
 
@@ -37,7 +37,7 @@ def campaign(tmp_path: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, 
     report = {"results": results, "summary": {"total": len(results), "zapped": len(results)}}
     run = {
         "pytest_gremlins": VERSION,
-        "runner": "trailmark-full-pytest-v1",
+        "runner": RUNNER,
         "sources": {"target.py": hashlib.sha256(source.encode()).hexdigest()},
     }
     baseline = {"pytest_gremlins": VERSION, "scope": {"target.py": "*"}, "exceptions": []}

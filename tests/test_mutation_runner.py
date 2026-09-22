@@ -23,12 +23,13 @@ def test_runner_executes_fixtures_parameters_and_package_mutations(tmp_path: Pat
         'RESOURCE = Path(__file__).with_name("value.txt").read_text()\n'
         "def checked(value):\n    return value > 0\n"
         "def ignored(value):\n    return value > 0\n"
+        "def delegated(value):\n    return value > 0\n"
     )
     (tmp_path / "test_toy.py").write_text("""\
 import pytest
 from toy import checked, ignored, RESOURCE, VALUE
 
-@pytest.mark.parametrize(("value", "answer"), [(0, False), (1, True)])
+@pytest.mark.parametrize(("value", "answer"), [(0, False), (1, True)], ids=["ZERO", "ONE"])
 def test_strong(tmp_path, value, answer):
     assert tmp_path.is_dir()
     assert RESOURCE == "known resource" and VALUE == 7
@@ -39,6 +40,13 @@ def test_weak(tmp_path, value):
     assert tmp_path.is_dir()
     ignored(value)
 """)
+    (tmp_path / "test_integration.py").write_text(
+        "from toy import delegated\n"
+        "def test_integration(tmp_path):\n"
+        "    assert tmp_path.is_dir()\n"
+        "    assert delegated(0) is False\n"
+        "    assert delegated(1) is True\n"
+    )
     env = {
         k: v
         for k, v in os.environ.items()
@@ -46,7 +54,14 @@ def test_weak(tmp_path, value):
     }
     runner = Path(__file__).with_name("run_mutations.py")
     result = subprocess.run(  # noqa: S603
-        [sys.executable, str(runner), "--targets=toy/__init__.py", "--workers=2", "test_toy.py"],
+        [
+            sys.executable,
+            str(runner),
+            "--targets=toy/__init__.py",
+            "--workers=2",
+            "test_toy.py",
+            "test_integration.py",
+        ],
         cwd=tmp_path,
         env=env,
         capture_output=True,
@@ -58,7 +73,16 @@ def test_weak(tmp_path, value):
     results = report["results"]
     strong = [r for r in results if r["line_number"] == 5]
     weak = [r for r in results if r["line_number"] == 7]
+    delegated = [r for r in results if r["line_number"] == 9]
     assert len(strong) >= 4 and len(weak) == len(strong)
+    assert len(delegated) == len(strong)
     assert {r["status"] for r in strong} == {"zapped"}
+    assert {r["status"] for r in delegated} == {"zapped"}
     assert {r["status"] for r in weak} == {"survived"}
-    assert all(len(r["selected_tests"]) == 4 for r in results)
+    assert all(len(r["selected_tests"]) == 5 for r in results)
+    assert all(
+        "test_toy.py::test_strong[ZERO]" in r["selected_tests"]
+        and "test_toy.py::test_strong[ONE]" in r["selected_tests"]
+        and "test_integration.py::test_integration" in r["selected_tests"]
+        for r in results
+    )
