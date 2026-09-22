@@ -10,3 +10,8 @@ This product bundles the following third-party components:
   Copyright 2024 Decurity
   Licensed under the MIT License
   https://github.com/nicedrop/tree-sitter-circom
+
+- tree-sitter-verus grammar (src/trailmark/tree_sitter_custom/verus/)
+  Copyright (c) 2017 Maxim Sokolov
+  Licensed under the MIT License
+  https://github.com/secure-foundations/tree-sitter-verus

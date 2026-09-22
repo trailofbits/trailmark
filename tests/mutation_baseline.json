@@ -1,0 +1,203 @@
+{
+  "pytest_gremlins": "1.9.0",
+  "scope": {
+    "src/trailmark/parsers/rust/parser.py": "*",
+    "src/trailmark/tree_sitter_custom/verus/__init__.py": "*",
+    "src/trailmark/parsers/_common.py": "*"
+  },
+  "exceptions": [
+    {
+      "fingerprint": "679278a01c5279106a0ada8affa169bee6ff83d03df4dd56cae3a6e077ebc6f1",
+      "function": "_verus_token_trees",
+      "line": 210,
+      "mutated": "index == -1",
+      "operator": "boundary",
+      "original": "index == 0",
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "reason": "Equivalent for the supported Rust AST: at index zero the previous child (via Python negative indexing) is the final token_tree, never ::. At positive indices the predecessor guard decides qualification, so removing the index-zero shortcut changes no invocation."
+    },
+    {
+      "fingerprint": "e4ac42459a6ea3923a8c8f32b3a72beef441b7e1a67e8af72ea6519649a320d2",
+      "function": "_verus_token_trees",
+      "line": 210,
+      "mutated": "index == 1",
+      "operator": "boundary",
+      "original": "index == 0",
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "reason": "Equivalent for the supported Rust AST: token trees start with a delimiter, so a name at index one cannot have :: before it. Qualified names in raw token trees have index at least two. Native macro_invocation nodes place a bare name at zero and end with a token_tree."
+    },
+    {
+      "fingerprint": "0c2ac2b1452dc0eda09348b21e4cfcbed20997404d318c45f4f4feedd1cadfe1",
+      "function": "<module>",
+      "line": 19,
+      "mutated": "sysconfig.get_config_var('EXT_SUFFIX') and '.so'",
+      "operator": "boolean",
+      "original": "sysconfig.get_config_var('EXT_SUFFIX') or '.so'",
+      "path": "src/trailmark/tree_sitter_custom/verus/__init__.py",
+      "reason": "Equivalent on supported CPython builds where EXT_SUFFIX is nonempty: .so remains a loadable extension suffix. The cache independently fingerprints SOABI and platform, so using the shorter suffix does not reuse another ABI binding. This does not waive cache-key or loader failures."
+    }
+  ],
+  "legacy_policy": "These functions match the pre-PR base f7e19d3. Their existing mutation outcomes are reported but not gated until their AST changes. New functions and changed functions in the three scoped files are gated automatically.",
+  "unchanged_legacy_functions": [
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "RustParser.language",
+      "source_hash": "48d72949f4c606a724ffa5ff699b71a595f715f2bcf8f42ece767ca3d9bb04f7"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "RustParser.parse_directory",
+      "source_hash": "6f971f4a61dc5db06be977fdc8847a3431c8ac22b6f84844827145e005849a04"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "_extract_impl_type_name",
+      "source_hash": "f4abbbd562fbe321ee71474c042445fd0664494ed7470b08f280f86d2ac139fa"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "_add_implements_edge",
+      "source_hash": "d1d03e56b66a7c07d00d98aa2e2f6b2fc68a540b663d7eeab2e63af037ee1347"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "_extract_parameters",
+      "source_hash": "d58bd6fb5bcf281f9f85976db6000f06c7dd82db5fb8893b98476037476dbde5"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "_extract_single_param",
+      "source_hash": "0e99a559d18b93746e5e2c52b61727f2be835345f439dc318648b8f5b067d3bd"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "_add_call_edges",
+      "source_hash": "5aef26d7e0501fd76630edeb1bc37192489b8eea4b6e48db090012d456674615"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "_call_confidence",
+      "source_hash": "82ae4a62e90ef08d11cdbc82efefb5420b86751c9e2d8fdac2217fb9a3a41b3e"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "_resolve_call_target",
+      "source_hash": "8930304396ee5495b777360a00d0232a73da152822a8883b7c8f9f0d6b82aea2"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "_extract_import",
+      "source_hash": "f7197052777e668acff114ed6f7a02753bf87c1a780f26729d90b853cf69cd06"
+    },
+    {
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "function": "_first_path_segment",
+      "source_hash": "ba4a3c33320f67d3f0c23854eab12f4ad84640322ee1fd9a6a7297aedbcb1662"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "node_text",
+      "source_hash": "f5ea5e350c45a4f5d005d1534f5e3ced85349643c57fcbb1185d6ea478121a73"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "make_location",
+      "source_hash": "e90329c06c6985f624b83fc8cc138c198f38a1b8e78dea8c27fa972559218eb9"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "module_id_from_path",
+      "source_hash": "4f5c6df1685a6cd5a71b3793c48cc636249ff28f7c37eb94fa04027020f3b10a"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_absolute_lexical_path",
+      "source_hash": "96065a8c94fd8d8b4ff46c178c8c29cf611d6c3913038ff79bc1fce5a0986c12"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_escape_module_path_part",
+      "source_hash": "c9a6abd8cf0101ce5bc0fb92392a3c2fa8376d334ec98ac5b50fa1d2696bc3e3"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "should_skip_dir",
+      "source_hash": "27b9b004077983f75648ce244735f18e5ab2891ec2bb00a4677ac9fad4a0d0d9"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "walk_source_files",
+      "source_hash": "bd4ba132492a39fa594d165bc9068dfe5c59cd8455bad55b35a7d22d528561d4"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "parse_directory",
+      "source_hash": "73b54f58d6059d9561f560994406564e35ffd9717f839f0148c9b10d73bc9507"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_extract_condition_text",
+      "source_hash": "a9661c3098598ee597280e17ae5d988d8059965c5ed215543ddbef214b5ce210"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_collect_throw_type",
+      "source_hash": "779e8b16db5aa24c8f03ed2de877953e54b32fe4b2019fc7688b45c574d0cacf"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "extract_call_name",
+      "source_hash": "0cd8723524850d3710e1c285be8768a817c0511bcd7c064507784a2db0c61804"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "compute_complexity",
+      "source_hash": "c17efa1bfebe5725346ffeb65df9734b8844bc636ee1d78414fe28b672b2cadb"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "add_module_node",
+      "source_hash": "642bb80adfdf174feebe5edff350ea4bec4d920c9840a59c524c8ce7f2f8d568"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "add_contains_edge",
+      "source_hash": "3cb6c87f5007ba8f860cc76f4c1f2782ecf5af0c89c3413d2592f81f6cc6e467"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_generic_parameter_block",
+      "source_hash": "9472bf1ec4092909432c527c01885846c63000c982bb163ee6c483ee5ab566f0"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_block_from_match",
+      "source_hash": "bb1e41e799177ea6561ce15c15600a50e263d195ca8a7881d3ba2f0e8822e94f"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_delimited_block_at",
+      "source_hash": "331e198ac94d78e6508193457fad84ee8ffbc4c851e60eeabfcffd04787521c6"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_split_top_level",
+      "source_hash": "a7f443d7f2ab5632ab6bf04f5b04fb63d77ce515cd3d5a332333d085c7125f0b"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_parse_type_parameter",
+      "source_hash": "9329a09e0ced15ac561c77033fe050603dab7ba82eccdf272d1063f815dd9bcf"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "first_child_by_type",
+      "source_hash": "60ab3ffb3f730ae001ca59cabda2e0aa4d41e99724551b7c2a81452057b2d810"
+    },
+    {
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "_link_cross_file_calls",
+      "source_hash": "1bfaed39523cd79b4973e6de070ea16c623e55d2807a0f4b87fa6b5c31f136e7"
+    }
+  ]
+}

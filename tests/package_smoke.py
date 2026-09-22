@@ -5,10 +5,37 @@ from __future__ import annotations
 import sys
 from importlib.metadata import files
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import tree_sitter_sql
 
+from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory, supported_languages
+from trailmark.parsers.rust.parser import RustParser
+
+
+def _check_installed_verus_parser() -> None:
+    """Exercise the vendored grammar from the installed distribution."""
+    source = """\
+fn host() {}
+verus! {
+    proof fn verified() {
+        host();
+    }
+}
+"""
+    with TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "verified.rs"
+        path.write_text(source)
+        graph = RustParser().parse_file(str(path))
+
+    names = set(graph.nodes)
+    if names != {"verified", "verified:host", "verified:verified"}:
+        msg = "installed Rust parser did not extract functions from a verus! block"
+        raise RuntimeError(msg)
+    calls = [(e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS]
+    if calls != [("verified:verified", "verified:host")] or len(graph.edges) != 3:
+        raise RuntimeError("installed Verus parser did not produce the expected call graph")
 
 
 def main() -> None:
@@ -33,6 +60,16 @@ def main() -> None:
     if not any("license" in str(path).lower() for path in sql_files):
         msg = "tree-sitter-sql distribution does not include its license metadata"
         raise RuntimeError(msg)
+    trailmark_files = files("trailmark") or ()
+    if not any(str(path).endswith("tree_sitter_custom/verus/LICENSE") for path in trailmark_files):
+        msg = "trailmark distribution does not include the vendored Verus grammar license"
+        raise RuntimeError(msg)
+    binaries = [str(p) for p in trailmark_files if str(p).endswith((".so", ".pyd", ".dylib"))]
+    if binaries:
+        raise RuntimeError(
+            f"distribution unexpectedly includes native grammar binaries: {binaries}"
+        )
+    _check_installed_verus_parser()
 
 
 if __name__ == "__main__":

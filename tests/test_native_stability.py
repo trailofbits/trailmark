@@ -30,6 +30,7 @@ import pytest
             + "}\n",
         ),
     ],
+    ids=["go", "rust", "typescript", "solidity"],
 )
 def test_large_file_parses_in_subprocess(
     tmp_path: Path,

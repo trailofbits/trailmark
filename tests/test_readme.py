@@ -26,8 +26,7 @@ from trailmark.query.api import QueryEngine
 def _find_repo_root() -> Path:
     """Locate the repo root by walking up until we find README.md + pyproject.toml.
 
-    Necessary because mutmut copies the source tree into a `mutants/` subdir
-    without the non-Python files, so `parent.parent` resolves to the wrong place.
+    Supports running documentation checks from isolated source checkouts.
     """
     for candidate in Path(__file__).resolve().parents:
         if (candidate / "README.md").exists() and (candidate / "pyproject.toml").exists():
@@ -52,6 +51,12 @@ def pyproject_data() -> dict[str, object]:
 
 
 class TestInstallation:
+    def test_bundled_grammar_build_requirements_are_documented(self, readme_text: str) -> None:
+        assert "C compiler (`cc`)" in readme_text
+        assert "Python development headers" in readme_text
+        assert "write access" in readme_text
+        assert "continues parsing ordinary Rust" in readme_text
+
     def test_python_version_matches_pyproject(
         self,
         readme_text: str,
@@ -73,6 +78,17 @@ class TestInstallation:
             assert v == expected, (
                 f"README claims Python >= {v} but pyproject.toml requires {expected}"
             )
+
+
+class TestDevelopment:
+    def test_mutation_workflow_scope_and_test_order_are_documented(self, readme_text: str) -> None:
+        assert "tests.run_mutations --reviewed --workers=4" in readme_text
+        assert "tests.run_mutations --workers=4" in readme_text
+        assert "tests.mutation_gate" in readme_text
+        assert "weekly" in readme_text and "manual trigger" in readme_text
+        assert "component unit tests run first" in readme_text
+        assert "Shared-helper mutants retain tests from" in readme_text
+        assert "`--workers=4` already enables parallel" in readme_text
 
 
 class TestPackageMetadata:
@@ -129,6 +145,15 @@ class TestSupportedLanguages:
         """README's JavaScript extension list should match the parser."""
         extensions = _extract_extensions_for_language(readme_text, "JavaScript")
         assert set(extensions) == set(JS_EXTENSIONS)
+
+    def test_verus_support_is_documented(self, readme_text: str) -> None:
+        """README should advertise the Rust parser's Verus support."""
+        assert "`verus!` blocks" in readme_text
+        assert "brace-delimited blocks" in readme_text
+        assert "file.inner:function" in readme_text
+        assert "opaque macros or function bodies" in readme_text
+        assert "syntax errors produce a warning" in readme_text
+        assert "compiled source contents, Python ABI" in readme_text
 
 
 class TestQueryEngineAPI:
