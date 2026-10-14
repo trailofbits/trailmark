@@ -81,7 +81,7 @@ uv run python -m tests.mutation_gate
 The runner uses real pytest subprocesses and validates clean and instrumented
 baselines. It orders component unit tests first and retains all selected tests
 as fallback. Use it rather than invoking the pinned plugin directly. Omit
-`--reviewed` for a full repository campaign; CI runs that after merges, weekly,
+`--reviewed` for a full repository campaign; CI runs that after merges
 and on manual dispatch. `--workers` already enables parallel execution.
 Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
 

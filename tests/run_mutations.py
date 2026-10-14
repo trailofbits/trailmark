@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
 from unittest.mock import patch
@@ -31,7 +32,7 @@ VERSION = "1.9.0"
 RUNNER = "trailmark-full-pytest-v2"
 
 
-def main() -> int:
+def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     scope = parser.add_mutually_exclusive_group()
     scope.add_argument("--targets", default="src/trailmark")
@@ -53,67 +54,79 @@ def main() -> int:
         args.targets = ",".join(json.loads(baseline_path.read_text())["scope"])
         if not args.targets:
             parser.error("The reviewed mutation scope is empty")
-    report_dir = Path("coverage/gremlins")
-    report_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("run.json", "gremlins.json"):
-        (report_dir / name).unlink(missing_ok=True)
-    baseline = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "pytest", "-q", *args.tests], check=False
-    )
-    if baseline.returncode:
-        return baseline.returncode
+    return args
+
+
+def _source_hashes(targets: str) -> dict[str, str]:
     source_paths = []
-    for target in args.targets.split(","):
+    for target in targets.split(","):
         path = Path(target)
         source_paths.extend(path.rglob("*.py") if path.is_dir() else [path])
-    hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_paths}
-    bootstrap = Path(__file__).with_name("mutation_bootstrap.py").read_text()
-    write_sources = plugin._write_instrumented_sources
+    return {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_paths}
 
-    def select_tests(gremlin: Gremlin, session: plugin.GremlinSession) -> list[str]:
-        tests = list(session.test_node_ids)
-        if args.test_order == "collection":
-            return tests
-        return prioritize_tests(str(gremlin.file_path), tests)
+
+def _check_instrumented_orders(
+    directory: Path, instrumented_asts: dict[str, ast.Module], test_order: str
+) -> None:
+    env = os.environ.copy()
+    env.pop("ACTIVE_GREMLIN", None)
+    env["PYTEST_GREMLINS_SOURCES_FILE"] = str(directory / "sources.json")
+    env["GREMLIN_ROOTDIR"] = str(Path.cwd())
+    session = plugin._get_session()
+    if session is None:
+        raise pytest.UsageError("Missing mutation session for baseline validation")
+    tests = list(session.test_node_ids)
+    orders = {
+        tuple(prioritize_tests(path, tests) if test_order == "component" else tests)
+        for path in instrumented_asts
+    }
+    for index, order in enumerate(sorted(orders), 1):
+        print(f"Checking instrumented baseline order {index}/{len(orders)}", flush=True)
+        control = subprocess.run(  # noqa: S603
+            [sys.executable, str(directory / "gremlin_bootstrap.py"), *order],
+            env=env,
+            check=False,
+            timeout=180,
+        )
+        if control.returncode:
+            raise pytest.UsageError(
+                "Instrumented baseline failed; mutation results would be invalid"
+            )
+
+
+def _instrumented_writer(test_order: str) -> Callable[[dict[str, ast.Module], Path], Path]:
+    write_sources = plugin._write_instrumented_sources
 
     def write_and_check(instrumented_asts: dict[str, ast.Module], rootdir: Path) -> Path:
         directory = write_sources(instrumented_asts, rootdir)
-        env = os.environ.copy()
-        env.pop("ACTIVE_GREMLIN", None)
-        env["PYTEST_GREMLINS_SOURCES_FILE"] = str(directory / "sources.json")
-        env["GREMLIN_ROOTDIR"] = str(Path.cwd())
-        session = plugin._get_session()
-        if session is None:
-            raise pytest.UsageError("Missing mutation session for baseline validation")
-        tests = list(session.test_node_ids)
-        orders = {
-            tuple(prioritize_tests(path, tests) if args.test_order == "component" else tests)
-            for path in instrumented_asts
-        }
-        for index, order in enumerate(sorted(orders), 1):
-            print(f"Checking instrumented baseline order {index}/{len(orders)}", flush=True)
-            control = subprocess.run(  # noqa: S603
-                [sys.executable, str(directory / "gremlin_bootstrap.py"), *order],
-                env=env,
-                check=False,
-                timeout=180,
-            )
-            if control.returncode:
-                raise pytest.UsageError(
-                    "Instrumented baseline failed; mutation results would be invalid"
-                )
+        _check_instrumented_orders(directory, instrumented_asts, test_order)
         return directory
+
+    return write_and_check
+
+
+def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
+    bootstrap = Path(__file__).with_name("mutation_bootstrap.py").read_text()
+
+    def select_tests(gremlin: Gremlin, session: plugin.GremlinSession) -> list[str]:
+        tests = list(session.test_node_ids)
+        return (
+            tests
+            if args.test_order == "collection"
+            else prioritize_tests(str(gremlin.file_path), tests)
+        )
 
     with (
         patch.object(plugin, "_get_bootstrap_script", return_value=bootstrap),
         patch.object(plugin, "_get_lightweight_runner_script", return_value=bootstrap),
-        patch.object(plugin, "_write_instrumented_sources", side_effect=write_and_check),
+        patch.object(
+            plugin, "_write_instrumented_sources", side_effect=_instrumented_writer(args.test_order)
+        ),
         patch.object(plugin, "_make_node_ids_relative", side_effect=relative_node_ids),
         patch.object(plugin, "_select_tests_for_gremlin_prioritized", side_effect=select_tests),
-        # Selection retains every test, so the plugin's coverage pre-scan is redundant.
         patch.object(plugin, "_collect_coverage"),
     ):
-        result = pytest.main(
+        return pytest.main(
             [
                 "-q",
                 *args.tests,
@@ -129,6 +142,20 @@ def main() -> int:
             ]
         )
 
+
+def main() -> int:
+    args = _arguments()
+    report_dir = Path("coverage/gremlins")
+    report_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("run.json", "gremlins.json"):
+        (report_dir / name).unlink(missing_ok=True)
+    baseline = subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "pytest", "-q", *args.tests], check=False
+    )
+    if baseline.returncode:
+        return baseline.returncode
+    hashes = _source_hashes(args.targets)
+    result = _run_campaign(args, report_dir)
     if result == 0:
         (report_dir / "run.json").write_text(
             json.dumps(

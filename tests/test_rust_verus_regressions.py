@@ -11,6 +11,7 @@ import pytest
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.nodes import NodeKind, SourceLocation, TypeParameter, TypeRef
 from trailmark.parsers.rust.parser import RustParser
+from trailmark.query.api import QueryEngine
 from trailmark.tree_sitter_custom import verus
 
 
@@ -131,7 +132,8 @@ def test_valid_block_without_functions_is_not_an_error(
     assert caplog.records == []
 
 
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(5, func_only=True)
+@pytest.mark.usefixtures("compiled_verus")
 def test_opaque_macros_are_diagnosed_without_expanding_them(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -459,11 +461,376 @@ def test_raw_macro_definitions_stay_opaque_in_different_positions(
     assert caplog.records == []
 
 
-def test_qualified_macro_text_is_not_mistaken_for_bare_verus(
+def test_qualified_verus_inside_opaque_macro_is_diagnosed(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     path = tmp_path / "qualified.rs"
     path.write_text("opaque! { custom::verus! { fn hidden() {} } }\nfn visible() {}")
     graph = RustParser().parse_file(str(path))
     assert set(graph.nodes) == {"qualified", "qualified:visible"}
+    assert len(caplog.records) == 1
+    assert "inside an opaque macro" in caplog.text
+
+
+@pytest.mark.parametrize("wrapper", [False, True])
+def test_local_helpers_retain_calls_without_polluting_outer_metadata(
+    tmp_path: Path, wrapper: bool
+) -> None:
+    path = tmp_path / "helpers.rs"
+    source = """\
+fn dangerous() {}
+fn outer() {
+    fn inner() { if true { dangerous(); } }
+    inner();
+}
+fn other() { fn inner() {} inner(); }
+"""
+    path.write_text(f"verus! {{ {source} }}" if wrapper else source)
+    graph = RustParser().parse_file(str(path))
+    assert set(graph.nodes) == {
+        "helpers",
+        "helpers:dangerous",
+        "helpers:outer",
+        "helpers:outer.inner",
+        "helpers:other",
+        "helpers:other.inner",
+    }
+    assert Counter(
+        (e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS
+    ) == Counter(
+        [
+            ("helpers:outer", "helpers:outer.inner"),
+            ("helpers:outer.inner", "helpers:dangerous"),
+            ("helpers:other", "helpers:other.inner"),
+        ]
+    )
+    assert graph.nodes["helpers:outer.inner"].kind == NodeKind.FUNCTION
+    assert graph.nodes["helpers:outer"].cyclomatic_complexity == 1
+    assert graph.nodes["helpers:outer.inner"].cyclomatic_complexity == 2
+    assert {node["id"] for node in QueryEngine.from_graph(graph).reachable_from("outer")} == {
+        "helpers:outer.inner",
+        "helpers:dangerous",
+    }
+
+
+@pytest.mark.parametrize("wrapper", [False, True])
+def test_relative_imports_resolve_forward_declarations_and_keep_local_shadowing(
+    tmp_path: Path, wrapper: bool
+) -> None:
+    path = tmp_path / "imports.rs"
+    source = """\
+mod tests {
+    use super::*;
+    fn test() { parent(); helper(); }
+    fn helper() {}
+    mod nested {
+        use super::super::{parent as alias};
+        fn test() { alias(); super::super::parent(); }
+    }
+}
+fn parent() {}
+fn helper() {}
+"""
+    path.write_text(f"verus! {{ {source} }}" if wrapper else source)
+    graph = RustParser().parse_file(str(path))
+    assert Counter(
+        (e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS
+    ) == Counter(
+        [
+            ("imports.tests:test", "imports:parent"),
+            ("imports.tests:test", "imports.tests:helper"),
+            ("imports.tests.nested:test", "imports:parent"),
+            ("imports.tests.nested:test", "imports:parent"),
+        ]
+    )
+
+
+@pytest.mark.parametrize("prefix", ["vstd::prelude::", "custom::", ""])
+def test_qualified_verus_blocks_preserve_original_coordinates(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, prefix: str
+) -> None:
+    path = tmp_path / "paths.rs"
+    source = f"/* π */ {prefix}verus! {{ fn verified() {{ host(); }} }}\nfn host() {{}}"
+    path.write_text(source)
+    graph = RustParser().parse_file(str(path))
+    assert set(graph.nodes) == {"paths", "paths:verified", "paths:host"}
     assert caplog.records == []
+    call = next(e for e in graph.edges if e.kind == EdgeKind.CALLS)
+    assert (call.source_id, call.target_id) == ("paths:verified", "paths:host")
+    assert call.location is not None
+    assert call.location.start_col == source.encode().index(b"host();")
+
+
+@pytest.mark.parametrize("delimiters", [("(", ")"), ("[", "]")])
+def test_unsupported_expression_macros_remain_opaque_without_syntax_errors(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, delimiters: tuple[str, str]
+) -> None:
+    path = tmp_path / "expression.rs"
+    path.write_text(
+        "verus! { fn visible() { let x = "
+        f"verus!{delimiters[0]}hidden(){delimiters[1]}; host(); }} }}"
+        "\nfn host() {}"
+    )
+    graph = RustParser().parse_file(str(path))
+    assert set(graph.nodes) == {"expression", "expression:visible", "expression:host"}
+    assert [(e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS] == [
+        ("expression:visible", "expression:host")
+    ]
+    assert len(caplog.records) == 1
+    assert "unsupported Verus delimiter" in caplog.text
+
+
+def test_method_local_helpers_and_imports_have_lexical_owners(tmp_path: Path) -> None:
+    path = tmp_path / "owners.rs"
+    path.write_text("""\
+fn helper() {}
+struct S;
+impl S {
+    fn method() {
+        use crate::helper as alias;
+        fn first() { second(); alias(); }
+        fn second() { first(); }
+        first();
+    }
+}
+mod a {
+    use self::nested::helper;
+    fn f() { helper(); }
+    mod nested { fn helper() {} }
+}
+""")
+    graph = RustParser().parse_file(str(path))
+    assert graph.nodes["owners:S.method"].kind == NodeKind.METHOD
+    assert graph.nodes["owners:S.method.first"].kind == NodeKind.FUNCTION
+    assert Counter(
+        (e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS
+    ) == Counter(
+        [
+            ("owners:S.method", "owners:S.method.first"),
+            ("owners:S.method.first", "owners:S.method.second"),
+            ("owners:S.method.first", "owners:helper"),
+            ("owners:S.method.second", "owners:S.method.first"),
+            ("owners.a:f", "owners.a.nested:helper"),
+        ]
+    )
+
+
+def test_ambiguous_and_unavailable_imports_do_not_invent_targets(tmp_path: Path) -> None:
+    path = tmp_path / "unresolved.rs"
+    path.write_text("""\
+mod a { fn f() {} }
+mod b { fn f() {} }
+mod test { use super::a::*; use super::b::*; fn caller() { f(); unknown(); } }
+use super::super::*;
+""")
+    graph = RustParser().parse_file(str(path))
+    assert [(e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS] == [
+        ("unresolved.test:caller", "unresolved.test:f"),
+        ("unresolved.test:caller", "unresolved.test:unknown"),
+    ]
+
+
+@pytest.mark.parametrize("wrapper", [False, True])
+def test_block_local_helpers_resolve_only_within_their_lexical_block(
+    tmp_path: Path, wrapper: bool
+) -> None:
+    path = tmp_path / "blocks.rs"
+    source = """\
+fn helper() {}
+fn one() {}
+fn two() {}
+fn outer() {
+    { fn helper() { one(); } helper(); }
+    { fn helper() { two(); } helper(); }
+    helper();
+}
+"""
+    path.write_text(f"verus! {{ {source} }}" if wrapper else source)
+    graph = RustParser().parse_file(str(path))
+    outer_calls = [
+        e for e in graph.edges if e.kind == EdgeKind.CALLS and e.source_id == "blocks:outer"
+    ]
+    assert [
+        (e.location.start_line, graph.nodes[e.target_id].location.start_line)
+        for e in outer_calls
+        if e.location is not None
+    ] == [(5, 5), (6, 6), (7, 1)]
+    local_helpers = [
+        n for n in graph.nodes.values() if n.name == "helper" and n.id != "blocks:helper"
+    ]
+    assert len(local_helpers) == 2
+    assert {n.kind for n in local_helpers} == {NodeKind.FUNCTION}
+    assert {
+        graph.nodes[e.source_id].location.start_line: e.target_id
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and e.source_id != "blocks:outer"
+    } == {
+        5: "blocks:one",
+        6: "blocks:two",
+    }
+
+
+def test_block_local_import_does_not_shadow_outside_its_block(tmp_path: Path) -> None:
+    path = tmp_path / "block_imports.rs"
+    path.write_text("""\
+fn helper() {}
+mod other { fn helper() {} }
+fn outer() {
+    { use crate::other::helper; helper(); }
+    helper();
+}
+""")
+    graph = RustParser().parse_file(str(path))
+    assert [
+        (e.location.start_line, e.target_id)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and e.location is not None
+    ] == [
+        (4, "block_imports.other:helper"),
+        (5, "block_imports:helper"),
+    ]
+
+
+def test_inner_block_shadows_even_a_later_outer_helper(tmp_path: Path) -> None:
+    path = tmp_path / "shadow.rs"
+    path.write_text("""\
+fn outer() {
+    { fn helper() {} helper(); }
+    fn helper() {}
+    helper();
+}
+""")
+    graph = RustParser().parse_file(str(path))
+    assert [
+        (e.location.start_line, graph.nodes[e.target_id].location.start_line)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and e.location is not None
+    ] == [
+        (2, 2),
+        (4, 3),
+    ]
+
+
+def test_empty_absolute_import_preserves_other_declarations(tmp_path: Path) -> None:
+    path = tmp_path / "empty_import.rs"
+    path.write_text("use ::{}; fn visible() {}")
+    graph = RustParser().parse_file(str(path))
+    assert set(graph.nodes) == {"empty_import", "empty_import:visible"}
+
+
+def test_local_impl_methods_are_not_invented_as_helper_functions(tmp_path: Path) -> None:
+    path = tmp_path / "items.rs"
+    path.write_text("fn outer() { struct S; impl S { fn method() {} } fn helper() {} helper(); }")
+    graph = RustParser().parse_file(str(path))
+    assert set(graph.nodes) == {"items", "items:outer", "items:outer.helper"}
+
+
+def test_inner_block_import_shadows_an_outer_import(tmp_path: Path) -> None:
+    path = tmp_path / "import_shadow.rs"
+    path.write_text("""\
+mod a { fn helper() {} }
+mod b { fn helper() {} }
+fn outer() {
+    use crate::a::helper;
+    { use crate::b::helper; helper(); }
+    helper();
+}
+""")
+    graph = RustParser().parse_file(str(path))
+    assert [
+        (e.location.start_line, e.target_id)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and e.location is not None
+    ] == [
+        (5, "import_shadow.b:helper"),
+        (6, "import_shadow.a:helper"),
+    ]
+
+
+def test_impl_owner_defined_elsewhere_does_not_break_local_call_resolution(tmp_path: Path) -> None:
+    path = tmp_path / "external_owner.rs"
+    path.write_text("impl S { fn method() { fn helper() {} helper(); } }")
+    graph = RustParser().parse_file(str(path))
+    assert set(graph.nodes) == {
+        "external_owner",
+        "external_owner:S.method",
+        "external_owner:S.method.helper",
+    }
+    assert [(e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS] == [
+        ("external_owner:S.method", "external_owner:S.method.helper")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("filename", "source", "caller", "unresolved"),
+    [
+        (
+            "bounds",
+            "use super::bounds::helper as alias; fn helper() {} fn caller() { alias(); }",
+            "bounds:caller",
+            "bounds:alias",
+        ),
+        (
+            "None",
+            "fn helper() {} mod tests { use super::super::*; fn caller() { helper(); } }",
+            "None.tests:caller",
+            "None.tests:helper",
+        ),
+    ],
+)
+def test_invalid_parent_imports_never_wrap_around_to_real_nodes(
+    tmp_path: Path, filename: str, source: str, caller: str, unresolved: str
+) -> None:
+    path = tmp_path / f"{filename}.rs"
+    path.write_text(source)
+    graph = RustParser().parse_file(str(path))
+    assert [(e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS] == [
+        (caller, unresolved)
+    ]
+
+
+def test_call_immediately_after_a_block_uses_the_outer_binding(tmp_path: Path) -> None:
+    path = tmp_path / "adjacent.rs"
+    path.write_text("fn helper() {} fn outer() { { fn helper() {} }helper(); }")
+    graph = RustParser().parse_file(str(path))
+    assert [(e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS] == [
+        ("adjacent:outer", "adjacent:helper")
+    ]
+
+
+@pytest.mark.parametrize("branch", ["if", "while"])
+def test_masking_keeps_original_macro_names_in_branch_conditions(
+    tmp_path: Path, branch: str
+) -> None:
+    path = tmp_path / "condition.rs"
+    condition = "verus!(true) || vskip!(false)"
+    path.write_text(f"verus! {{ fn checked() {{ {branch} {condition} {{}} }} }}")
+    graph = RustParser().parse_file(str(path))
+    assert [b.condition for b in graph.nodes["condition:checked"].branches] == [condition]
+    assert graph.nodes["condition:checked"].cyclomatic_complexity == 2
+    assert [e for e in graph.edges if e.kind == EdgeKind.CALLS] == []
+
+
+def test_masking_preserves_branches_without_condition_fields(tmp_path: Path) -> None:
+    path = tmp_path / "for_condition.rs"
+    path.write_text("verus! { fn checked() { for x in 0..1 { if verus!(true) {} } } }")
+    graph = RustParser().parse_file(str(path))
+    assert [b.condition for b in graph.nodes["for_condition:checked"].branches] == [
+        "for_expression",
+        "verus!(true)",
+    ]
+    assert graph.nodes["for_condition:checked"].cyclomatic_complexity == 3
+
+
+@pytest.mark.parametrize(
+    "path_name", ["vstd::prelude::verus", "vstd::prelude:: /* comment */ verus"]
+)
+def test_qualified_function_local_verus_is_diagnosed(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, path_name: str
+) -> None:
+    path = tmp_path / "local_path.rs"
+    path.write_text(f"fn outer() {{ {path_name}! {{ fn hidden() {{}} }} }}")
+    graph = RustParser().parse_file(str(path))
+    assert set(graph.nodes) == {"local_path", "local_path:outer"}
+    assert len(caplog.records) == 1
+    assert "inside a function body" in caplog.text

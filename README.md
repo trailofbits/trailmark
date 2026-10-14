@@ -79,6 +79,12 @@ brace-delimited blocks; `verus!(...)` and `verus![...]` are skipped with a warni
 Inline modules retain qualified IDs (for example, `file.inner:function`), and
 methods retain their impl or trait owner. Each block is parsed independently;
 syntax errors produce a warning with the file and block location.
+Qualified invocations such as `vstd::prelude::verus!` are supported too.
+Local helper functions retain their enclosing function in their IDs (for example,
+`file:outer.inner`). Calls to these helpers and relative imports such as
+`use super::*` resolve to declarations present in the file.
+Repeated local names in different blocks receive a byte-offset suffix to keep
+their nodes distinct, and calls respect block scope.
 
 Trailmark does not expand arbitrary macros. Literal Verus invocations inside
 opaque macros or function bodies are skipped with a warning. Uninvoked
@@ -565,8 +571,8 @@ uv run python -m tests.run_mutations --workers=4
 ```
 
 Mutation reports are written to `coverage/gremlins/`. Pull requests mutate the
-three Rust/Verus files named in `tests/mutation_baseline.json` and gate new and
-changed functions there. Full repository campaigns run on pushes to main, weekly,
+Rust/Verus files named in `tests/mutation_baseline.json` and gate new and
+changed functions there. Full repository campaigns run on pushes to main
 and through the mutation workflow's manual trigger. Unchanged legacy functions
 are identified by source hashes and enter the gate automatically when edited.
 The gate rejects unreviewed survivors, missing tests/results, errors, and timeouts.

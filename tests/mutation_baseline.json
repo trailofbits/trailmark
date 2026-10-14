@@ -3,41 +3,48 @@
   "scope": {
     "src/trailmark/parsers/rust/parser.py": "*",
     "src/trailmark/tree_sitter_custom/verus/__init__.py": "*",
-    "src/trailmark/parsers/_common.py": "*"
+    "src/trailmark/parsers/_common.py": "*",
+    "src/trailmark/parsers/rust/_scopes.py": "*",
+    "src/trailmark/tree_sitter_custom/_native.py": "*",
+    "src/trailmark/tree_sitter_custom/circom/__init__.py": "*",
+    "src/trailmark/tree_sitter_custom/masm/__init__.py": "*"
   },
   "exceptions": [
     {
-      "fingerprint": "679278a01c5279106a0ada8affa169bee6ff83d03df4dd56cae3a6e077ebc6f1",
-      "function": "_verus_token_trees",
-      "line": 210,
-      "mutated": "index == -1",
-      "operator": "boundary",
-      "original": "index == 0",
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "reason": "Equivalent for the supported Rust AST: at index zero the previous child (via Python negative indexing) is the final token_tree, never ::. At positive indices the predecessor guard decides qualification, so removing the index-zero shortcut changes no invocation."
-    },
-    {
-      "fingerprint": "e4ac42459a6ea3923a8c8f32b3a72beef441b7e1a67e8af72ea6519649a320d2",
-      "function": "_verus_token_trees",
-      "line": 210,
-      "mutated": "index == 1",
-      "operator": "boundary",
-      "original": "index == 0",
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "reason": "Equivalent for the supported Rust AST: token trees start with a delimiter, so a name at index one cannot have :: before it. Qualified names in raw token trees have index at least two. Native macro_invocation nodes place a bare name at zero and end with a token_tree."
-    },
-    {
-      "fingerprint": "0c2ac2b1452dc0eda09348b21e4cfcbed20997404d318c45f4f4feedd1cadfe1",
+      "fingerprint": "c9bd262da0ebce6dff0f0da4a84eb2d592bc49297a88a9283bc39f5031dee292",
       "function": "<module>",
-      "line": 19,
-      "mutated": "sysconfig.get_config_var('EXT_SUFFIX') and '.so'",
+      "line": 78,
+      "mutated": "False",
       "operator": "boolean",
-      "original": "sysconfig.get_config_var('EXT_SUFFIX') or '.so'",
-      "path": "src/trailmark/tree_sitter_custom/verus/__init__.py",
-      "reason": "Equivalent on supported CPython builds where EXT_SUFFIX is nonempty: .so remains a loadable extension suffix. The cache independently fingerprints SOABI and platform, so using the shorter suffix does not reuse another ABI binding. This does not waive cache-key or loader failures."
+      "original": "True",
+      "path": "src/trailmark/parsers/rust/_scopes.py",
+      "source_hash": "5fb76cf51cad0ea993df810cabe8208572311f79b6b5afda1bc9c2f8166d598c",
+      "reason": "Equivalent in the parser workflow: this private per-parse context is initialized once, read only, and never returned or assigned to. Changing dataclass field immutability leaves all graph construction and resolution results identical. NativeGrammar configuration immutability is separately tested and is not exempted."
+    },
+    {
+      "fingerprint": "4d331456cfd656a1715473a544dc9eb6da9ca261d7f299be379160ac98bd743e",
+      "function": "_visible",
+      "line": 99,
+      "mutated": "parent.start_point < position < parent.end_point",
+      "operator": "comparison",
+      "original": "parent.start_point <= position < parent.end_point",
+      "path": "src/trailmark/parsers/rust/_scopes.py",
+      "source_hash": "2fe5d79d8db55d6b0a44f3511191753ec656279fa57d894c2a0f28da00c7895e",
+      "reason": "Equivalent for parser-produced call locations: a call starts at an expression token, never at the enclosing block opening-brace token. Equality with block.start_point cannot occur. The upper boundary is observably different for a call adjacent to the closing brace and has a regression test."
+    },
+    {
+      "fingerprint": "3ec46df19dd4d079dffb3bb331f6cb230617b09ea17338857fd0eb5773e509e4",
+      "function": "_bare_target",
+      "line": 144,
+      "mutated": "return",
+      "operator": "return",
+      "original": "return f'{scope}:{name}'",
+      "path": "src/trailmark/parsers/rust/_scopes.py",
+      "source_hash": "1055434e3af5b1cd01223bf445780fc40795e1d4451ee4d37b4473f535ef356e",
+      "reason": "Equivalent: this branch only runs when the existing unqualified edge already targets the module declaration. Returning None stops the lookup and preserves that same edge. Returning its target causes replace() to construct an equal immutable CodeEdge, so serialized graph data and binding precedence are identical."
     }
   ],
-  "legacy_policy": "These functions match the pre-PR base f7e19d3. Their existing mutation outcomes are reported but not gated until their AST changes. New functions and changed functions in the three scoped files are gated automatically.",
+  "legacy_policy": "These functions match the pre-PR base f7e19d3. Their existing mutation outcomes are reported but not gated until their AST changes. New functions and changed functions in the scoped files are gated automatically.",
   "unchanged_legacy_functions": [
     {
       "path": "src/trailmark/parsers/rust/parser.py",

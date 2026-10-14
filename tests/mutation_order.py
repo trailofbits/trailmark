@@ -11,7 +11,11 @@ def prioritize_tests(source: str, node_ids: list[str]) -> list[str]:
     parts = path.parts
     if "tree_sitter_custom" in parts:
         language = parts[parts.index("tree_sitter_custom") + 1]
-        preferred = [f"test_{language}_grammar.py", f"test_{language}_parser.py"]
+        preferred = [
+            "test_native_grammar.py",
+            f"test_{language}_grammar.py",
+            f"test_{language}_parser.py",
+        ]
     elif "parsers" in parts and path.name == "parser.py":
         language = path.parent.name
         preferred = [f"test_{language}_parser.py", f"test_{language}_verus_regressions.py"]

@@ -54,7 +54,3 @@ select = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["mutation_infrastructure: validate the runner once in its clean baseline"]
-
-[tool.pytest-gremlins]
-paths = ["src/trailmark"]
-report = ["console", "json", "html"]

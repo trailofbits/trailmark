@@ -85,7 +85,7 @@ class TestDevelopment:
         assert "tests.run_mutations --reviewed --workers=4" in readme_text
         assert "tests.run_mutations --workers=4" in readme_text
         assert "tests.mutation_gate" in readme_text
-        assert "weekly" in readme_text and "manual trigger" in readme_text
+        assert "pushes to main" in readme_text and "manual trigger" in readme_text
         assert "component unit tests run first" in readme_text
         assert "Shared-helper mutants retain tests from" in readme_text
         assert "`--workers=4` already enables parallel" in readme_text
@@ -151,6 +151,9 @@ class TestSupportedLanguages:
         assert "`verus!` blocks" in readme_text
         assert "brace-delimited blocks" in readme_text
         assert "file.inner:function" in readme_text
+        assert "vstd::prelude::verus!" in readme_text
+        assert "file:outer.inner" in readme_text
+        assert "use super::*" in readme_text
         assert "opaque macros or function bodies" in readme_text
         assert "syntax errors produce a warning" in readme_text
         assert "compiled source contents, Python ABI" in readme_text

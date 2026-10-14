@@ -5,13 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  schedule:
-    - cron: "0 5 * * 1"
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: mutation-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -39,10 +37,10 @@ jobs:
 
       - name: Run full mutation campaign
         if: github.event_name != 'pull_request'
-        run: uv run python -m tests.run_mutations --workers=4
+        run: uv run --locked python -m tests.run_mutations --workers=4
 
       - name: Enforce reviewed Rust and Verus baseline
-        run: uv run python -m tests.mutation_gate
+        run: uv run --locked python -m tests.mutation_gate
 
       - name: Record revision
         if: always()

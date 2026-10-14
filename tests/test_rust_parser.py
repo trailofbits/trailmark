@@ -345,7 +345,9 @@ class TestRustParserVerus:
 
     def test_plain_rust_does_not_compile_verus_grammar(self, tmp_path: Path) -> None:
         with (
-            patch.object(verus_mod, "_binding_path", return_value=tmp_path / "unbuilt.so"),
+            patch.object(
+                type(verus_mod._GRAMMAR), "binding_path", return_value=tmp_path / "unbuilt.so"
+            ),
             patch.object(subprocess, "run") as compiler,
         ):
             _, graph = _parse_sample()
@@ -466,7 +468,8 @@ verus! { proof fn last() {} }
         functions = {node.name for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION}
         assert functions == {"first", "last"}
 
-    @pytest.mark.timeout(5)
+    @pytest.mark.timeout(5, func_only=True)
+    @pytest.mark.usefixtures("compiled_verus")
     def test_parses_multiple_verus_ranges_and_ignores_other_macros(self) -> None:
         source = """\
 verus! { spec fn first() -> bool { true } }
@@ -500,7 +503,9 @@ class TestRustParseDirectory:
         (tmp_path / "b.rs").write_text("fn caller() { host(); }\nverus! { proof fn second() {} }")
         (tmp_path / "c.rs").write_text("fn plain() {}")
         with (
-            patch.object(verus_mod, "_binding_path", return_value=tmp_path / "unbuilt.so"),
+            patch.object(
+                type(verus_mod._GRAMMAR), "binding_path", return_value=tmp_path / "unbuilt.so"
+            ),
             patch.object(subprocess, "run", side_effect=error) as compiler,
         ):
             graph = RustParser().parse_directory(str(tmp_path))
