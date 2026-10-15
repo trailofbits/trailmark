@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import subprocess
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
@@ -251,7 +251,7 @@ def format_diff(diff: dict[str, Any]) -> str:
 
 
 @contextmanager
-def git_worktree(repo: Path, ref: str) -> Iterator[Path]:
+def git_worktree(repo: Path, ref: str) -> Generator[Path, None, None]:
     """Materialize ``ref`` from ``repo`` as a temporary worktree.
 
     Uses ``git worktree add`` which is non-destructive to the primary

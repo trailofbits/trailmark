@@ -10,7 +10,6 @@ rename is caught mechanically.
 from __future__ import annotations
 
 import argparse
-from typing import cast
 
 import pytest
 
@@ -26,7 +25,7 @@ def parser() -> argparse.ArgumentParser:
 def subparsers_map(parser: argparse.ArgumentParser) -> dict[str, argparse.ArgumentParser]:
     for action in parser._actions:  # noqa: SLF001
         if isinstance(action, argparse._SubParsersAction):  # noqa: SLF001
-            return cast("dict[str, argparse.ArgumentParser]", dict(action.choices))
+            return dict(action.choices)
     raise AssertionError("No subparsers action on the CLI parser")
 
 
