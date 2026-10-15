@@ -61,7 +61,7 @@ def _lexical_scopes(source: str) -> Iterator[str]:
 class _Resolution:
     graph: CodeGraph
     imports: dict[str, list[tuple[str, str, Node]]]
-    locals: dict[str, list[str]]
+    locals: dict[tuple[str, str], list[str]]
     declarations: dict[str, Node]
     root: str
 
@@ -89,15 +89,20 @@ def _block_start(node: Node) -> int:
 def _resolve_edge(edge: CodeEdge, context: _Resolution) -> CodeEdge:
     if edge.kind not in {EdgeKind.CALLS, EdgeKind.IMPLEMENTS}:
         return edge
-    module = edge.source_id.partition(":")[0]
-    prefix = f"{module}:"
+    prefix = f"{edge.source_id.partition(':')[0]}:"
     if edge.target_id.startswith(prefix):
         name = edge.target_id.removeprefix(prefix)
         target = _bare_target(edge.source_id, name, context, edge.location)
+    elif "." in edge.target_id:
+        target = _receiver_target(edge, context)
     else:
-        path = tuple(edge.target_id.replace("::", ".").split("."))
+        path = tuple(edge.target_id.split("::"))
         target = _path_target(path, edge.source_id, context, edge.location)
-    return replace(edge, target_id=target) if target else edge
+    if target is None:
+        return edge
+    if edge.kind == EdgeKind.CALLS and context.graph.nodes[target].kind == NodeKind.MODULE:
+        return edge
+    return replace(edge, target_id=target)
 
 
 def _member_target(
@@ -105,9 +110,8 @@ def _member_target(
 ) -> str | None:
     candidates = [
         node_id
-        for node_id in context.locals.get(scope, [])
-        if _binding_name(node_id, context) == name
-        and _visible(context.declarations[node_id], location)
+        for node_id in context.locals.get((scope, name), [])
+        if _visible(context.declarations[node_id], location)
     ]
     # An inner block shadows a declaration with the same name in an outer block.
     return (
@@ -117,9 +121,20 @@ def _member_target(
     )
 
 
-def _binding_name(node_id: str, context: _Resolution) -> str:
-    name = context.declarations[node_id].child_by_field_name("name")
-    return node_text(name) if name is not None else context.graph.nodes[node_id].name
+def _binding_name(node_id: str, graph: CodeGraph, declarations: dict[str, Node]) -> str:
+    name = declarations[node_id].child_by_field_name("name")
+    return node_text(name) if name is not None else graph.nodes[node_id].name
+
+
+def _receiver_target(edge: CodeEdge, context: _Resolution) -> str | None:
+    # A unit struct can be a value receiver. Other receivers require type inference.
+    receiver, _, name = edge.target_id.partition(".")
+    owner = _bare_target(edge.source_id, receiver, context, edge.location)
+    if owner is None:
+        return None
+    if context.graph.nodes[owner].kind not in {NodeKind.STRUCT, NodeKind.ENUM}:
+        return None
+    return _member_target(owner, name, context, edge.location)
 
 
 def _bare_target(
@@ -129,14 +144,20 @@ def _bare_target(
     location: SourceLocation | None,
 ) -> str | None:
     for scope in _lexical_scopes(source):
+        owner = context.graph.nodes.get(scope)
+        if owner is None or owner.kind not in {
+            NodeKind.FUNCTION,
+            NodeKind.METHOD,
+            NodeKind.MODULE,
+        }:
+            continue
         candidate = _member_target(scope, name, context, location)
         if candidate:
             return candidate
         candidate = _import_target(scope, name, context, location)
         if candidate:
             return candidate
-        owner = context.graph.nodes.get(scope)
-        if owner is not None and owner.kind == NodeKind.MODULE:
+        if owner.kind == NodeKind.MODULE:
             break
     return None
 
@@ -208,13 +229,15 @@ def _path_target(
     return target
 
 
-def _scope_members(graph: CodeGraph) -> dict[str, list[str]]:
-    owners: dict[str, list[str]] = {}
+def _scope_members(
+    graph: CodeGraph, declarations: dict[str, Node]
+) -> dict[tuple[str, str], list[str]]:
+    members: dict[tuple[str, str], list[str]] = {}
     for edge in graph.edges:
-        owner = graph.nodes.get(edge.source_id)
-        if edge.kind == EdgeKind.CONTAINS and owner is not None:
-            owners.setdefault(edge.source_id, []).append(edge.target_id)
-    return owners
+        if edge.kind == EdgeKind.CONTAINS and edge.source_id in graph.nodes:
+            name = _binding_name(edge.target_id, graph, declarations)
+            members.setdefault((edge.source_id, name), []).append(edge.target_id)
+    return members
 
 
 def _local_impl_owners(context: _Resolution) -> dict[str, str]:
@@ -246,7 +269,7 @@ def _resolve_impl_owners(context: _Resolution) -> _Resolution:
         else edge
         for edge in context.graph.edges
     ]
-    return replace(context, locals=_scope_members(context.graph))
+    return replace(context, locals=_scope_members(context.graph, context.declarations))
 
 
 def resolve_calls(
@@ -254,7 +277,7 @@ def resolve_calls(
 ) -> None:
     """Link lexical helpers and imports only when a declaration exists in this file."""
     imports: dict[str, list[tuple[str, str, Node]]] = {}
-    context = _Resolution(graph, {}, _scope_members(graph), functions, root)
+    context = _Resolution(graph, {}, _scope_members(graph, functions), functions, root)
     for scope, node in uses:
         argument = node.child_by_field_name("argument")
         if argument is None:

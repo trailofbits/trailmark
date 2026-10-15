@@ -155,6 +155,9 @@ class TestSupportedLanguages:
         assert "file:outer.inner" in readme_text
         assert "file:outer.Guard.drop" in readme_text
         assert "file:outer.local.helper" in readme_text
+        assert "Bare calls search function and module" in readme_text
+        assert "`Type::method`" in readme_text
+        assert "including `self.method()`, remain unresolved" in readme_text
         assert "ordinary Rust as well as" in readme_text
         assert "removed and added" in readme_text
         assert "use super::*" in readme_text

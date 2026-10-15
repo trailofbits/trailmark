@@ -297,3 +297,101 @@ fn second() { struct Guard; impl Drop for Guard { fn drop(&mut self) { second_ef
         ("guards:first.Guard.drop", "guards:first_effect"),
         ("guards:second.Guard.drop", "guards:second_effect"),
     ]
+
+
+@pytest.mark.parametrize("wrapper", [False, True])
+@pytest.mark.parametrize(
+    ("source", "caller", "target"),
+    [
+        (
+            "struct HostStream { fd: usize } impl HostStream {"
+            "fn write_all(&mut self, buffer: &[u8]) { write_all(self.fd, buffer); } }"
+            "fn write_all(fd: usize, buffer: &[u8]) {}",
+            "HostStream.write_all",
+            "resolution:write_all",
+        ),
+        (
+            "struct Guard; impl Drop for Guard { fn drop(&mut self) {} }"
+            "impl Guard { fn release(g: Self) { drop(g); } }",
+            "Guard.release",
+            "resolution:drop",
+        ),
+        (
+            "struct M; impl M { fn try_lock(&self) -> bool { true }"
+            "fn lock_internal(&self, try_lock: impl FnOnce() -> bool) -> bool { try_lock() } }",
+            "M.lock_internal",
+            "resolution:try_lock",
+        ),
+        (
+            "fn dangerous() {} fn helper() { dangerous(); } struct S;"
+            "impl S { fn helper(&self) {} fn run(&self) { self.helper(); } }",
+            "S.run",
+            "self.helper",
+        ),
+        (
+            "fn dangerous() {} mod config { pub fn load() { super::dangerous(); } }"
+            "struct Cfg; impl Cfg { fn load(&self) {} }"
+            "fn run(config: Cfg) { config.load(); }",
+            "run",
+            "config.load",
+        ),
+        (
+            "struct LitStr; impl LitStr { fn value(&self) -> u8 { 0 }"
+            "fn parse_with(&self) { self.value(); } } mod value { pub fn unrelated() {} }",
+            "LitStr.parse_with",
+            "self.value",
+        ),
+        (
+            "impl u32 { fn helper() {} fn run() { helper(); } } fn helper() {}",
+            "u32.run",
+            "resolution:helper",
+        ),
+    ],
+)
+def test_bare_calls_and_receivers_do_not_capture_associated_items(
+    tmp_path: Path, wrapper: bool, source: str, caller: str, target: str
+) -> None:
+    path = tmp_path / "resolution.rs"
+    path.write_text(f"verus! {{ {source} }}" if wrapper else source)
+    graph = RustParser().parse_file(str(path))
+    calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
+    assert [edge.target_id for edge in calls if edge.source_id == f"resolution:{caller}"] == [
+        target
+    ]
+    assert all(
+        graph.nodes[edge.target_id].kind != NodeKind.MODULE
+        for edge in calls
+        if edge.target_id in graph.nodes
+    )
+
+
+def test_associated_paths_and_unit_struct_receivers_still_resolve(tmp_path: Path) -> None:
+    path = tmp_path / "associated.rs"
+    path.write_text("""\
+struct S;
+enum E { Value }
+impl S { fn helper() {} }
+impl E { fn helper() {} }
+mod helper { pub fn unrelated() {} }
+fn run() { S::helper(); E::helper(); S.helper(); helper(); }
+""")
+    graph = RustParser().parse_file(str(path))
+    assert [edge.target_id for edge in graph.edges if edge.kind == EdgeKind.CALLS] == [
+        "associated:S.helper",
+        "associated:E.helper",
+        "associated:S.helper",
+        "associated:helper",
+    ]
+
+
+@pytest.mark.timeout(5, func_only=True)
+def test_large_rust_file_resolves_calls_without_scanning_every_declaration(tmp_path: Path) -> None:
+    path = tmp_path / "large.rs"
+    count = 8000
+    path.write_text("\n".join(f"fn f{i}() {{ f{(i + 1) % count}(); }}" for i in range(count)))
+    graph = RustParser().parse_file(str(path))
+    calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
+    assert len(calls) == count
+    assert {(edge.source_id, edge.target_id) for edge in calls} == {
+        (f"large:f{i}", f"large:f{(i + 1) % count}") for i in range(count)
+    }

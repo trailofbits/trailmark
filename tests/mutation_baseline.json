@@ -11,8 +11,8 @@
   },
   "exceptions": [
     {
-      "fingerprint": "9afc4a83223ca0f2c1967f7b58e68afce224efd4ffb1650fec13ba62a143fcc9",
-      "source_hash": "96fd0419359f42d1fdfdebacd556f7f1d5cfa5685a1e06ab9a441d17e52cabe0",
+      "fingerprint": "ac90945c6fb2b00a1611f021c4ba45ed0b3a534e3d65423645b3f0734872f603",
+      "source_hash": "6e1bf06a3e7769ee9efff2f3571b9cd120dd88bdc2a627919e9fbd1549c0ef8f",
       "path": "src/trailmark/parsers/rust/_scopes.py",
       "function": "<module>",
       "line": 60,

@@ -88,7 +88,10 @@ their nodes distinct, and calls respect block scope.
 Local structs, enums, traits, and inline modules retain the enclosing function
 too: for example, `file:outer.Guard.drop` and `file:outer.local.helper`.
 Their bodies have separate calls and complexity. Explicit calls to known local
-types and modules resolve within the file; implicit destructor calls and receiver
+types and modules resolve within the file. Bare calls search function and module
+scopes; associated items use paths such as `Type::method`. Dotted calls resolve
+only when the receiver names a known struct or enum. Other value receivers,
+including `self.method()`, remain unresolved. Implicit destructor calls and receiver
 type inference are not modeled. These rules apply to ordinary Rust as well as
 Verus blocks. Editing code before a declaration with an offset suffix changes
 its ID, so `trailmark diff` can report that declaration as removed and added.
