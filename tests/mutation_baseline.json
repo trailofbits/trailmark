@@ -11,15 +11,15 @@
   },
   "exceptions": [
     {
-      "fingerprint": "c9bd262da0ebce6dff0f0da4a84eb2d592bc49297a88a9283bc39f5031dee292",
+      "fingerprint": "9afc4a83223ca0f2c1967f7b58e68afce224efd4ffb1650fec13ba62a143fcc9",
+      "source_hash": "96fd0419359f42d1fdfdebacd556f7f1d5cfa5685a1e06ab9a441d17e52cabe0",
+      "path": "src/trailmark/parsers/rust/_scopes.py",
       "function": "<module>",
-      "line": 78,
-      "mutated": "False",
+      "line": 60,
       "operator": "boolean",
       "original": "True",
-      "path": "src/trailmark/parsers/rust/_scopes.py",
-      "source_hash": "5fb76cf51cad0ea993df810cabe8208572311f79b6b5afda1bc9c2f8166d598c",
-      "reason": "Equivalent in the parser workflow: this private per-parse context is initialized once, read only, and never returned or assigned to. Changing dataclass field immutability leaves all graph construction and resolution results identical. NativeGrammar configuration immutability is separately tested and is not exempted."
+      "mutated": "False",
+      "reason": "Equivalent in the parser workflow: each private resolution context is constructed with its field values, read only, and never returned to callers. dataclasses.replace creates new context objects rather than assigning fields. Changing dataclass field immutability leaves graph construction and resolution results identical. NativeGrammar configuration immutability is separately tested and is not exempted."
     },
     {
       "fingerprint": "4d331456cfd656a1715473a544dc9eb6da9ca261d7f299be379160ac98bd743e",
@@ -31,17 +31,6 @@
       "path": "src/trailmark/parsers/rust/_scopes.py",
       "source_hash": "2fe5d79d8db55d6b0a44f3511191753ec656279fa57d894c2a0f28da00c7895e",
       "reason": "Equivalent for parser-produced call locations: a call starts at an expression token, never at the enclosing block opening-brace token. Equality with block.start_point cannot occur. The upper boundary is observably different for a call adjacent to the closing brace and has a regression test."
-    },
-    {
-      "fingerprint": "3ec46df19dd4d079dffb3bb331f6cb230617b09ea17338857fd0eb5773e509e4",
-      "function": "_bare_target",
-      "line": 144,
-      "mutated": "return",
-      "operator": "return",
-      "original": "return f'{scope}:{name}'",
-      "path": "src/trailmark/parsers/rust/_scopes.py",
-      "source_hash": "1055434e3af5b1cd01223bf445780fc40795e1d4451ee4d37b4473f535ef356e",
-      "reason": "Equivalent: this branch only runs when the existing unqualified edge already targets the module declaration. Returning None stops the lookup and preserves that same edge. Returning its target causes replace() to construct an equal immutable CodeEdge, so serialized graph data and binding precedence are identical."
     }
   ],
   "legacy_policy": "These functions match the pre-PR base f7e19d3. Their existing mutation outcomes are reported but not gated until their AST changes. New functions and changed functions in the scoped files are gated automatically.",
@@ -63,11 +52,6 @@
     },
     {
       "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "_add_implements_edge",
-      "source_hash": "d1d03e56b66a7c07d00d98aa2e2f6b2fc68a540b663d7eeab2e63af037ee1347"
-    },
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
       "function": "_extract_parameters",
       "source_hash": "d58bd6fb5bcf281f9f85976db6000f06c7dd82db5fb8893b98476037476dbde5"
     },
@@ -78,18 +62,8 @@
     },
     {
       "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "_add_call_edges",
-      "source_hash": "5aef26d7e0501fd76630edeb1bc37192489b8eea4b6e48db090012d456674615"
-    },
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
       "function": "_call_confidence",
       "source_hash": "82ae4a62e90ef08d11cdbc82efefb5420b86751c9e2d8fdac2217fb9a3a41b3e"
-    },
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "_resolve_call_target",
-      "source_hash": "8930304396ee5495b777360a00d0232a73da152822a8883b7c8f9f0d6b82aea2"
     },
     {
       "path": "src/trailmark/parsers/rust/parser.py",

@@ -16,9 +16,13 @@ def prioritize_tests(source: str, node_ids: list[str]) -> list[str]:
             f"test_{language}_grammar.py",
             f"test_{language}_parser.py",
         ]
-    elif "parsers" in parts and path.name == "parser.py":
+    elif "parsers" in parts and path.name in {"parser.py", "_scopes.py"}:
         language = path.parent.name
-        preferred = [f"test_{language}_parser.py", f"test_{language}_verus_regressions.py"]
+        preferred = [
+            f"test_{language}_local_items.py",
+            f"test_{language}_parser.py",
+            f"test_{language}_verus_regressions.py",
+        ]
     elif path.name == "_common.py":
         preferred = ["test_common_parser.py"]
     elif "models" in parts:

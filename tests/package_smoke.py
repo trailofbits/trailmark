@@ -38,8 +38,7 @@ verus! {
         raise RuntimeError("installed Verus parser did not produce the expected call graph")
 
 
-def main() -> None:
-    fixture_root = Path(sys.argv[1]).resolve()
+def _check_parser_fixtures(fixture_root: Path) -> None:
     missing: list[str] = []
     for language in supported_languages():
         fixture = fixture_root / language
@@ -53,6 +52,9 @@ def main() -> None:
     if missing:
         msg = f"missing installed-package fixtures: {', '.join(missing)}"
         raise RuntimeError(msg)
+
+
+def _check_distribution_metadata() -> None:
     if not callable(tree_sitter_sql.language):
         msg = "tree-sitter-sql grammar binding is unavailable"
         raise RuntimeError(msg)
@@ -69,6 +71,11 @@ def main() -> None:
         raise RuntimeError(
             f"distribution unexpectedly includes native grammar binaries: {binaries}"
         )
+
+
+def main() -> None:
+    _check_parser_fixtures(Path(sys.argv[1]).resolve())
+    _check_distribution_metadata()
     _check_installed_verus_parser()
 
 

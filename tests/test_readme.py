@@ -153,6 +153,10 @@ class TestSupportedLanguages:
         assert "file.inner:function" in readme_text
         assert "vstd::prelude::verus!" in readme_text
         assert "file:outer.inner" in readme_text
+        assert "file:outer.Guard.drop" in readme_text
+        assert "file:outer.local.helper" in readme_text
+        assert "ordinary Rust as well as" in readme_text
+        assert "removed and added" in readme_text
         assert "use super::*" in readme_text
         assert "opaque macros or function bodies" in readme_text
         assert "syntax errors produce a warning" in readme_text

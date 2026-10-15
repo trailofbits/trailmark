@@ -17,6 +17,7 @@ pytestmark = pytest.mark.mutation_infrastructure
     [
         ("tree_sitter_custom/verus/__init__.py", "test_verus_grammar.py"),
         ("parsers/rust/parser.py", "test_rust_parser.py"),
+        ("parsers/rust/_scopes.py", "test_rust_local_items.py"),
         ("parsers/python/parser.py", "test_python_parser.py"),
         ("parsers/_common.py", "test_common_parser.py"),
         ("models/nodes.py", "test_models.py"),

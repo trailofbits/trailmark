@@ -85,6 +85,13 @@ Local helper functions retain their enclosing function in their IDs (for example
 `use super::*` resolve to declarations present in the file.
 Repeated local names in different blocks receive a byte-offset suffix to keep
 their nodes distinct, and calls respect block scope.
+Local structs, enums, traits, and inline modules retain the enclosing function
+too: for example, `file:outer.Guard.drop` and `file:outer.local.helper`.
+Their bodies have separate calls and complexity. Explicit calls to known local
+types and modules resolve within the file; implicit destructor calls and receiver
+type inference are not modeled. These rules apply to ordinary Rust as well as
+Verus blocks. Editing code before a declaration with an offset suffix changes
+its ID, so `trailmark diff` can report that declaration as removed and added.
 
 Trailmark does not expand arbitrary macros. Literal Verus invocations inside
 opaque macros or function bodies are skipped with a warning. Uninvoked

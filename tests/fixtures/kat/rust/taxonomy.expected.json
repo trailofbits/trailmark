@@ -106,13 +106,10 @@
       "target": "taxonomy:Dog.new"
     },
     {
-      "attributes": {
-        "raw_target": "Animal::new"
-      },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.new",
-      "target": "proxy.unresolved:Animal::new"
+      "target": "taxonomy:Animal.new"
     },
     {
       "attributes": {
@@ -186,29 +183,6 @@
   ],
   "language": "rust",
   "nodes": {
-    "proxy.unresolved:Animal::new": {
-      "attributes": {
-        "proxy_kind": "unresolved",
-        "raw_symbol": "Animal::new"
-      },
-      "branches": [],
-      "cyclomatic_complexity": null,
-      "docstring": null,
-      "exception_types": [],
-      "id": "proxy.unresolved:Animal::new",
-      "kind": "proxy",
-      "location": {
-        "end_col": 40,
-        "end_line": 72,
-        "file_path": "taxonomy.rs",
-        "start_col": 23,
-        "start_line": 72
-      },
-      "name": "Animal::new",
-      "origin": "proxy",
-      "parameters": [],
-      "return_type": null
-    },
     "proxy.unresolved:String::from": {
       "attributes": {
         "proxy_kind": "unresolved",
@@ -831,7 +805,7 @@
     ],
     "entrypoints": 0,
     "functions": 9,
-    "proxies": 6,
-    "total_nodes": 20
+    "proxies": 5,
+    "total_nodes": 19
   }
 }

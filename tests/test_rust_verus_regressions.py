@@ -718,11 +718,22 @@ def test_empty_absolute_import_preserves_other_declarations(tmp_path: Path) -> N
     assert set(graph.nodes) == {"empty_import", "empty_import:visible"}
 
 
-def test_local_impl_methods_are_not_invented_as_helper_functions(tmp_path: Path) -> None:
+def test_local_impl_methods_retain_their_type_owner(tmp_path: Path) -> None:
     path = tmp_path / "items.rs"
     path.write_text("fn outer() { struct S; impl S { fn method() {} } fn helper() {} helper(); }")
     graph = RustParser().parse_file(str(path))
-    assert set(graph.nodes) == {"items", "items:outer", "items:outer.helper"}
+    assert set(graph.nodes) == {
+        "items",
+        "items:outer",
+        "items:outer.helper",
+        "items:outer.S",
+        "items:outer.S.method",
+    }
+    assert graph.nodes["items:outer.S"].kind == NodeKind.STRUCT
+    assert graph.nodes["items:outer.S.method"].kind == NodeKind.METHOD
+    assert ("items:outer.S", "items:outer.S.method", EdgeKind.CONTAINS) in {
+        (edge.source_id, edge.target_id, edge.kind) for edge in graph.edges
+    }
 
 
 def test_inner_block_import_shadows_an_outer_import(tmp_path: Path) -> None:
