@@ -36,7 +36,7 @@
       inherit (nixpkgs) lib;
       systems = [
         "aarch64-darwin"
-        # in theory others are supported, not tested so
+        "x86_64-linux"
       ];
       forAllSystems = lib.genAttrs systems;
 
@@ -98,12 +98,10 @@
 
           trailmarkOverlay = final: prev: {
             trailmark = prev.trailmark.overrideAttrs (old: {
-              postInstall =
-                (old.postInstall or "")
-                + ''
-                  cp ${tree-sitter-circom}/_binding.* "$out/${final.python.sitePackages}/trailmark/tree_sitter_custom/circom/"
-                  cp ${tree-sitter-masm}/_binding.* "$out/${final.python.sitePackages}/trailmark/tree_sitter_custom/masm/"
-                '';
+              postInstall = (old.postInstall or "") + ''
+                cp ${tree-sitter-circom}/_binding.* "$out/${final.python.sitePackages}/trailmark/tree_sitter_custom/circom/"
+                cp ${tree-sitter-masm}/_binding.* "$out/${final.python.sitePackages}/trailmark/tree_sitter_custom/masm/"
+              '';
             });
           };
         in
@@ -127,7 +125,43 @@
           python = pkgs.python3;
           tree-sitter-circom = treeSitterCustomGrammar pkgs python "circom";
           tree-sitter-masm = treeSitterCustomGrammar pkgs python "masm";
-          env = pythonSets.${system}.mkVirtualEnv "trailmark-env" workspace.deps.default;
+          parserBundles = {
+            x86_64-linux = {
+              platform = "linux-x86_64";
+              sha256 = "4ad211e4a265be2106909ef9db4ccdc706e557436a446fbc10afbf23d668a2a5";
+            };
+            aarch64-darwin = {
+              platform = "macos-arm64";
+              sha256 = "9931ad24c0714c6ebe73554f8ad981928902d3d4ea0b2bcd6365078591f47705";
+            };
+          };
+          bundle = parserBundles.${system};
+          version = pythonSets.${system}.tree-sitter-language-pack.version;
+          parserArchive = pkgs.fetchurl {
+            url = "https://github.com/xberg-io/tree-sitter-language-pack/releases/download/v${version}/parsers-${bundle.platform}.tar.zst";
+            inherit (bundle) sha256;
+          };
+          parserLibraries =
+            pkgs.runCommand "trailmark-parsers-${version}"
+              {
+                nativeBuildInputs = [
+                  pkgs.zstd
+                ]
+                ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.autoPatchelfHook ];
+                buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+              }
+              ''
+                mkdir -p "$out"
+                tar --zstd -xf ${parserArchive} -C "$out"
+              '';
+          env =
+            (pythonSets.${system}.mkVirtualEnv "trailmark-env" workspace.deps.default).overrideAttrs
+              (old: {
+                # Configure both the CLI and Python library without patching dependencies.
+                postInstall = (old.postInstall or "") + ''
+                  echo 'import os; os.environ.setdefault("TREE_SITTER_LANGUAGE_PACK_LIBS_DIR", "${parserLibraries}")' > "$out/${python.sitePackages}/trailmark-parsers.pth"
+                '';
+              });
         in
         {
           inherit tree-sitter-circom tree-sitter-masm;
@@ -144,16 +178,20 @@
         in
         {
           inherit trailmark;
-          trailmark-self = pkgs.runCommand "trailmark-self-check" {
-            nativeBuildInputs = [ trailmark ];
-          } ''
-            export HOME=$(mktemp -d)
-            trailmark analyze ${self} --summary | tee "$out"
-            grep -q "Nodes: " "$out"
-            trailmark analyze ${self} > /dev/null
-            trailmark entrypoints ${self} > /dev/null
-            python -c "from trailmark.query.api import QueryEngine; engine = QueryEngine.from_directory('${self}/src', language='auto'); assert engine.summary()['total_nodes'] > 0"
-          '';
+          trailmark-self =
+            pkgs.runCommand "trailmark-self-check"
+              {
+                nativeBuildInputs = [ trailmark ];
+              }
+              ''
+                export HOME=$(mktemp -d)
+                trailmark analyze ${self} --summary | tee "$out"
+                grep -q "Nodes: " "$out"
+                trailmark analyze ${self} > /dev/null
+                trailmark entrypoints ${self} > /dev/null
+                python -c "from trailmark.query.api import QueryEngine; engine = QueryEngine.from_directory('${self}/src', language='auto'); assert engine.summary()['total_nodes'] > 0"
+                python -c "from trailmark.query.api import QueryEngine; assert all(QueryEngine.from_directory('${self}/tests/fixtures/kat/' + lang, language=lang).summary()['total_nodes'] > 0 for lang in ('circom', 'masm', 'sql'))"
+              '';
         }
       );
 
@@ -172,15 +210,12 @@
         }
       );
 
-      apps = forAllSystems (
-        system:
-        rec {
-          trailmark = {
-            type = "app";
-            program = "${self.packages.${system}.trailmark}/bin/trailmark";
-          };
-          default = trailmark;
-        }
-      );
+      apps = forAllSystems (system: rec {
+        trailmark = {
+          type = "app";
+          program = "${self.packages.${system}.trailmark}/bin/trailmark";
+        };
+        default = trailmark;
+      });
     };
 }
