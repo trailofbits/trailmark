@@ -1,6 +1,16 @@
 version: 2
 updates:
-  - package-ecosystem: pip
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      all:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly

@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "0.25.3"
+GENERATOR_VERSION = "0.27.1"
 GENERATOR_ABI = "15"
 GRAMMAR_PATH = Path("src/trailmark/tree_sitter_custom/verus")
 GENERATED_FILES = (

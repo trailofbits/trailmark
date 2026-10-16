@@ -291,9 +291,10 @@ uv sync --all-groups
 
 Requires Python &ge; 3.12.
 
-Trailmark uses `tree-sitter-language-pack` for most grammars. Current releases
-use the platform certificate store for grammar downloads. In TLS-inspected or
-offline environments, pre-populate the package cache with
+Trailmark requires `tree-sitter-language-pack` 1.22.1 or newer for most grammars.
+Root-owned grammar caches are supported when they are not group- or other-writable.
+Current releases use the platform certificate store for grammar downloads. In
+TLS-inspected or offline environments, pre-populate the package cache with
 `python -c "import tree_sitter_language_pack as p; p.download_all()"` on a
 matching platform, then copy the resulting `tree-sitter-language-pack` cache
 directory to the target machine. `HTTPS_PROXY` is also honored. The SQL grammar
@@ -310,7 +311,7 @@ builds are published atomically. Compiler failures include the exit status and
 stderr in the warning.
 
 Git checkouts keep the Verus grammar definition and generate its C parser during
-builds with Tree-sitter CLI 0.25.3. Before `uv sync` or `uv build` in a checkout,
+builds with Tree-sitter CLI 0.27.1. Before `uv sync` or `uv build` in a checkout,
 run `npm ci` with npm install scripts enabled; Node.js is needed for generation.
 The generated parser and headers are gitignored. Wheels and source distributions
 include these generated sources, so installing published packages needs neither
@@ -577,7 +578,7 @@ uv run ruff check --fix
 uv run ruff format
 
 # Type check
-uv tool install ty && ty check
+uv run --locked ty check
 
 # Tests
 uv run pytest -q tests/

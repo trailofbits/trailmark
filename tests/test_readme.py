@@ -51,6 +51,18 @@ def pyproject_data() -> dict[str, object]:
 
 
 class TestInstallation:
+    def test_read_only_grammar_cache_support_is_documented(
+        self,
+        readme_text: str,
+        pyproject_data: dict[str, object],
+    ) -> None:
+        project = cast("dict[str, object]", pyproject_data["project"])
+        dependencies = cast("list[str]", project["dependencies"])
+        assert "tree-sitter-language-pack>=1.22.1,<2.0" in dependencies
+        assert "`tree-sitter-language-pack` 1.22.1 or newer" in readme_text
+        assert "Root-owned grammar caches are supported" in readme_text
+        assert "not group- or other-writable" in readme_text
+
     def test_bundled_grammar_build_requirements_are_documented(self, readme_text: str) -> None:
         assert "C compiler (`cc`)" in readme_text
         assert "Python development headers" in readme_text
@@ -107,7 +119,8 @@ class TestPackageMetadata:
 
 class TestUsageSection:
     @pytest.fixture(scope="class")
-    def cli_subcommands(self) -> set[str]:
+    @classmethod
+    def cli_subcommands(cls) -> set[str]:
         subparsers_action = _find_subparsers_action(build_parser())
         return set(subparsers_action.choices.keys())
 
@@ -164,7 +177,7 @@ class TestSupportedLanguages:
         assert "opaque macros or function bodies" in readme_text
         assert "syntax errors produce a warning" in readme_text
         assert "compiled source contents, Python ABI" in readme_text
-        assert "Tree-sitter CLI 0.25.3" in readme_text
+        assert "Tree-sitter CLI 0.27.1" in readme_text
         assert "run `npm ci` with npm install scripts enabled" in readme_text
         assert "generated parser and headers are gitignored" in readme_text
         assert "installing published packages needs neither" in readme_text

@@ -55,11 +55,11 @@
           assets = {
             x86_64-linux = {
               platform = "linux-x64";
-              sha256 = "ad69bfbd54f9ebba1387bf0e7c2683896a5968f2f78768380af70f0c4dd8ceab";
+              sha256 = "d01042f94ba3d6827ddc9788e235f75d8366431be42bdf90ade534d960c98b7d";
             };
             aarch64-darwin = {
               platform = "macos-arm64";
-              sha256 = "b914b20b5e6e706e571600476cf27c3bfe57aa3e431ccc944ec52b6c47766e9f";
+              sha256 = "46cb97d9a2c52c94e22d9a76c2f1116156b8b61f98360e2a9cce05fcb197cd4d";
             };
           };
           asset = assets.${pkgs.stdenv.hostPlatform.system};
@@ -203,15 +203,16 @@
                 buildInputs = [ pkgs.stdenv.cc.cc.lib ];
               }
               ''
-                mkdir -p "$out"
-                tar --zstd -xf ${parserArchive} -C "$out"
+                cache="$out/tree-sitter-language-pack/v${version}/libs"
+                mkdir -p "$cache"
+                tar --zstd -xf ${parserArchive} -C "$cache"
               '';
           env =
             (pythonSets.${system}.mkVirtualEnv "trailmark-env" workspace.deps.default).overrideAttrs
               (old: {
                 # Configure both the CLI and Python library without patching dependencies.
                 postInstall = (old.postInstall or "") + ''
-                  echo 'import os; os.environ.setdefault("TREE_SITTER_LANGUAGE_PACK_LIBS_DIR", "${parserLibraries}")' > "$out/${python.sitePackages}/trailmark-parsers.pth"
+                  echo 'import os; os.environ.setdefault("TREE_SITTER_LANGUAGE_PACK_CACHE_DIR", "${parserLibraries}")' > "$out/${python.sitePackages}/trailmark-parsers.pth"
                 '';
               });
         in

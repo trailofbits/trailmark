@@ -68,7 +68,7 @@ npm ci
 uv sync --all-groups
 uv run ruff check hatch_build.py src/ tests/
 uv run ruff format --check hatch_build.py src/ tests/
-uv tool install ty && ty check
+uv run --locked ty check
 uv run pytest -q tests/
 ```
 
