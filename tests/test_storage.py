@@ -66,6 +66,42 @@ def _build_contains_bridge_graph() -> tuple[CodeGraph, GraphStore]:
     return graph, GraphStore(graph)
 
 
+class TestGraphStoreStateAccess:
+    def test_access_neighbors_validate_endpoints_and_keep_calls_separate(self) -> None:
+        nodes = {name: _make_node(name, name) for name in ("f", "g", "x", "y")}
+        graph = CodeGraph(
+            nodes=nodes,
+            edges=[
+                CodeEdge("f", "x", EdgeKind.READS),
+                CodeEdge("f", "x", EdgeKind.READS),
+                CodeEdge("f", "x", EdgeKind.WRITES),
+                CodeEdge("g", "x", EdgeKind.WRITES),
+                CodeEdge("f", "y", EdgeKind.READS),
+                CodeEdge("f", "g", EdgeKind.CALLS),
+                CodeEdge("f", "missing", EdgeKind.WRITES),
+                CodeEdge("missing", "x", EdgeKind.READS),
+            ],
+        )
+        store = GraphStore(graph)
+        assert [n.id for n in store.state_read_by("f")] == ["x", "y"]
+        assert [n.id for n in store.state_written_by("f")] == ["x"]
+        assert [n.id for n in store.readers_of("x")] == ["f"]
+        assert [n.id for n in store.writers_of("x")] == ["f", "g"]
+        assert store.readers_of("y") == [nodes["f"]]
+        assert store.writers_of("y") == []
+        assert store.state_read_by("x") == []
+        assert store.state_written_by("x") == []
+        for query in (
+            store.state_read_by,
+            store.state_written_by,
+            store.readers_of,
+            store.writers_of,
+        ):
+            assert query("missing") == []
+        assert store.callees_of("f") == [nodes["g"]]
+        assert store.reachable_from("f") == {"g"}
+
+
 class TestGraphStoreCallers:
     def test_callers_of_b(self) -> None:
         _, store = _build_graph()

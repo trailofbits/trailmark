@@ -126,6 +126,37 @@ class GraphStore:
             reverse=False,
         )
 
+    def state_read_by(self, node_id: str) -> list[CodeUnit]:
+        """Return distinct state nodes directly read by a unit."""
+        return self._access_neighbors(node_id, EdgeKind.READS, reverse=False)
+
+    def state_written_by(self, node_id: str) -> list[CodeUnit]:
+        """Return distinct state nodes directly written by a unit."""
+        return self._access_neighbors(node_id, EdgeKind.WRITES, reverse=False)
+
+    def readers_of(self, node_id: str) -> list[CodeUnit]:
+        """Return distinct units that directly read a state node."""
+        return self._access_neighbors(node_id, EdgeKind.READS, reverse=True)
+
+    def writers_of(self, node_id: str) -> list[CodeUnit]:
+        """Return distinct units that directly write a state node."""
+        return self._access_neighbors(node_id, EdgeKind.WRITES, reverse=True)
+
+    def _access_neighbors(
+        self,
+        node_id: str,
+        kind: EdgeKind,
+        *,
+        reverse: bool,
+    ) -> list[CodeUnit]:
+        idx = self._idx(node_id)
+        if idx is None:
+            return []
+        neighbors: list[str] = (
+            self._digraph.predecessors(idx) if reverse else self._digraph.successors(idx)
+        )
+        return self._filter_by_edge_kind(sorted(set(neighbors)), node_id, kind, reverse=reverse)
+
     def _filter_by_edge_kind(
         self,
         neighbor_ids: list[str],

@@ -183,10 +183,32 @@ class TestSupportedLanguages:
         assert "installing published packages needs neither" in readme_text
 
 
+class TestPersistentState:
+    def test_solidity_state_example(self, readme_text: str, tmp_path: Path) -> None:
+        assert "state_variable" in readme_text
+        assert "An absent edge is not proof" in readme_text
+        assert "storage aliases" in readme_text
+        assert "Other\nlanguage parsers do not yet emit state-access edges" in readme_text
+        (tmp_path / "token.sol").write_text(
+            "contract Token { mapping(address => uint) balances;"
+            "function transfer(address to, uint amount) public { balances[to] += amount; } }"
+        )
+        engine = QueryEngine.from_directory(str(tmp_path), language="solidity")
+        for query in (engine.state_read_by, engine.state_written_by):
+            assert [node["id"] for node in query("Token.transfer")] == ["token:Token.balances"]
+        for query in (engine.readers_of, engine.writers_of):
+            assert [node["id"] for node in query("Token.balances")] == ["token:Token.transfer"]
+        assert engine.callees_of("Token.transfer") == []
+
+
 class TestQueryEngineAPI:
     EXPECTED_METHODS = (
         "callers_of",
         "callees_of",
+        "state_read_by",
+        "state_written_by",
+        "readers_of",
+        "writers_of",
         "ancestors_of",
         "reachable_from",
         "paths_between",

@@ -77,6 +77,31 @@ def _build_engine() -> QueryEngine:
     return QueryEngine.from_graph(graph)
 
 
+class TestQueryEngineStateAccess:
+    def test_state_queries_resolve_names_and_return_serializable_units(self) -> None:
+        function = _make_node("mod:C.update", "update")
+        state = _make_node("mod:C.balance", "balance", kind=NodeKind.STATE_VARIABLE)
+        engine = QueryEngine.from_graph(
+            CodeGraph(
+                nodes={function.id: function, state.id: state},
+                edges=[
+                    CodeEdge(function.id, state.id, k) for k in (EdgeKind.READS, EdgeKind.WRITES)
+                ],
+            )
+        )
+        for query in (engine.state_read_by, engine.state_written_by):
+            assert [node["id"] for node in query("update")] == [state.id]
+            assert query("C.update") == query(function.id)
+            assert query("missing") == []
+            assert json.loads(json.dumps(query("update")))[0]["kind"] == "state_variable"
+        for query in (engine.readers_of, engine.writers_of):
+            assert [node["id"] for node in query("balance")] == [function.id]
+            assert query("C.balance") == query(state.id)
+            assert query("missing") == []
+        assert engine.readers_of("update") == []
+        assert engine.state_written_by("balance") == []
+
+
 class TestQueryEngineCallers:
     def test_callers_of(self) -> None:
         engine = _build_engine()

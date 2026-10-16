@@ -22,7 +22,45 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.name"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.species"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
       "target": "taxonomy:Animal.constructor"
+    },
+    {
+      "confidence": "certain",
+      "kind": "writes",
+      "location": {
+        "end_col": 12,
+        "end_line": 15,
+        "file_path": "taxonomy.sol",
+        "start_col": 8,
+        "start_line": 15
+      },
+      "source": "taxonomy:Animal.constructor",
+      "target": "taxonomy:Animal.name"
+    },
+    {
+      "confidence": "certain",
+      "kind": "writes",
+      "location": {
+        "end_col": 15,
+        "end_line": 16,
+        "file_path": "taxonomy.sol",
+        "start_col": 8,
+        "start_line": 16
+      },
+      "source": "taxonomy:Animal.constructor",
+      "target": "taxonomy:Animal.species"
     },
     {
       "confidence": "certain",
@@ -38,6 +76,32 @@
       "kind": "calls",
       "source": "taxonomy:Animal.describe",
       "target": "proxy.unresolved:abi.encodePacked"
+    },
+    {
+      "confidence": "certain",
+      "kind": "reads",
+      "location": {
+        "end_col": 43,
+        "end_line": 20,
+        "file_path": "taxonomy.sol",
+        "start_col": 39,
+        "start_line": 20
+      },
+      "source": "taxonomy:Animal.describe",
+      "target": "taxonomy:Animal.name"
+    },
+    {
+      "confidence": "certain",
+      "kind": "reads",
+      "location": {
+        "end_col": 61,
+        "end_line": 20,
+        "file_path": "taxonomy.sol",
+        "start_col": 54,
+        "start_line": 20
+      },
+      "source": "taxonomy:Animal.describe",
+      "target": "taxonomy:Animal.species"
     },
     {
       "confidence": "certain",
@@ -61,7 +125,26 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.breed"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
       "target": "taxonomy:Dog.constructor"
+    },
+    {
+      "confidence": "certain",
+      "kind": "writes",
+      "location": {
+        "end_col": 13,
+        "end_line": 35,
+        "file_path": "taxonomy.sol",
+        "start_col": 8,
+        "start_line": 35
+      },
+      "source": "taxonomy:Dog.constructor",
+      "target": "taxonomy:Dog.breed"
     },
     {
       "confidence": "certain",
@@ -262,6 +345,48 @@
         "module": null,
         "name": "string"
       }
+    },
+    "taxonomy:Animal.name": {
+      "attributes": {
+        "declared_type": "string"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.name",
+      "kind": "state_variable",
+      "location": {
+        "end_col": 23,
+        "end_line": 11,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 11
+      },
+      "name": "name",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Animal.species": {
+      "attributes": {
+        "declared_type": "string"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.species",
+      "kind": "state_variable",
+      "location": {
+        "end_col": 26,
+        "end_line": 12,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 12
+      },
+      "name": "species",
+      "parameters": [],
+      "return_type": null
     },
     "taxonomy:Dog": {
       "branches": [],
@@ -477,6 +602,27 @@
         "name": "uint256"
       }
     },
+    "taxonomy:Dog.breed": {
+      "attributes": {
+        "declared_type": "string"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.breed",
+      "kind": "state_variable",
+      "location": {
+        "end_col": 24,
+        "end_line": 27,
+        "file_path": "taxonomy.sol",
+        "start_col": 4,
+        "start_line": 27
+      },
+      "name": "breed",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy:Dog.constructor": {
       "attributes": {
         "solidity_container_kind": "contract"
@@ -646,6 +792,6 @@
     "entrypoints": 0,
     "functions": 9,
     "proxies": 2,
-    "total_nodes": 15
+    "total_nodes": 18
   }
 }

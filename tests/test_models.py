@@ -158,6 +158,25 @@ class TestCodeUnit:
 
 
 class TestCodeEdge:
+    def test_state_access_edges_merge_with_locations(self) -> None:
+        state = CodeUnit(
+            id="token:Token.balance",
+            name="balance",
+            kind=NodeKind.STATE_VARIABLE,
+            location=_make_location(),
+            attributes=(("declared_type", "uint256"),),
+        )
+        accesses = [
+            CodeEdge("token:Token.transfer", state.id, kind, location=_make_location())
+            for kind in (EdgeKind.READS, EdgeKind.WRITES)
+        ]
+        graph = CodeGraph()
+        graph.merge(CodeGraph(nodes={state.id: state}, edges=accesses))
+        assert graph.nodes[state.id] == state
+        assert graph.nodes[state.id].kind.value == "state_variable"
+        assert [edge.kind.value for edge in graph.edges] == ["reads", "writes"]
+        assert all(edge.location == _make_location() for edge in graph.edges)
+
     def test_call_edge(self) -> None:
         edge = CodeEdge(
             source_id="mod:a",
