@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.sdist]
 only-include = [
-    "src", "tests", "README.md", "LICENSE", "NOTICE", "pyproject.toml",
+    "src", "tests", "README.md", "CHANGELOG.md", "LICENSE", "NOTICE", "pyproject.toml",
     "hatch_build.py", "package.json", "package-lock.json",
 ]
 
@@ -16,7 +16,7 @@ reinstall-package = ["trailmark"]
 
 [project]
 name = "trailmark"
-version = "0.5.0"
+version = "0.6.0"
 description = "Parse source code into a queryable graph of functions, classes, calls, and semantic annotations"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -36,6 +36,7 @@ dependencies = [
 Homepage = "https://github.com/trailofbits/trailmark"
 Repository = "https://github.com/trailofbits/trailmark"
 Issues = "https://github.com/trailofbits/trailmark/issues"
+Changelog = "https://github.com/trailofbits/trailmark/blob/main/CHANGELOG.md"
 
 [project.scripts]
 trailmark = "trailmark.cli:main"
