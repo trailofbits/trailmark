@@ -22,6 +22,7 @@ class NodeKind(Enum):
     ENUM = "enum"
     NAMESPACE = "namespace"
     CONTRACT = "contract"
+    STATE_VARIABLE = "state_variable"
     LIBRARY = "library"
     TEMPLATE = "template"
     SCHEMA = "schema"

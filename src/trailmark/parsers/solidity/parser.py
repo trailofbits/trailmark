@@ -26,6 +26,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers.solidity._state import add_state_access_edges, extract_state_variables
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -187,6 +188,7 @@ def _visit_contract_body(
     body = node.child_by_field_name("body")
     if body is None:
         return
+    states = extract_state_variables(body, file_path, contract_id, graph)
     for child in body.children:
         if child.type in _FUNCTION_TYPES:
             _extract_function(
@@ -196,6 +198,7 @@ def _visit_contract_body(
                 contract_id,
                 graph,
                 container_kind=graph.nodes[contract_id].kind,
+                state_variables=states,
             )
         elif child.type == "struct_declaration":
             _extract_struct(child, file_path, module_id, graph)
@@ -255,6 +258,7 @@ def _extract_function(
     graph: CodeGraph,
     *,
     container_kind: NodeKind | None = None,
+    state_variables: dict[str, CodeUnit] | None = None,
 ) -> None:
     """Extract a function, constructor, or modifier definition."""
     func_name = _get_function_name(node)
@@ -295,6 +299,8 @@ def _extract_function(
     add_contains_edge(graph, owner, func_id)
 
     _add_call_edges(calls, func_id, module_id, contract_id, file_path, graph)
+    if state_variables:
+        add_state_access_edges(node, func_id, file_path, state_variables, graph)
 
 
 def _get_function_name(node: Node) -> str:

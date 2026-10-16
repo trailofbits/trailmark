@@ -89,6 +89,34 @@ class QueryEngine:
             return []
         return [_unit_to_dict(u) for u in self._store.callees_of(node_id)]
 
+    def state_read_by(self, name: str) -> list[dict[str, Any]]:
+        """Find persistent state directly read by the named unit."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        return [_unit_to_dict(u) for u in self._store.state_read_by(node_id)]
+
+    def state_written_by(self, name: str) -> list[dict[str, Any]]:
+        """Find persistent state directly written by the named unit."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        return [_unit_to_dict(u) for u in self._store.state_written_by(node_id)]
+
+    def readers_of(self, name: str) -> list[dict[str, Any]]:
+        """Find units that directly read the named state node."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        return [_unit_to_dict(u) for u in self._store.readers_of(node_id)]
+
+    def writers_of(self, name: str) -> list[dict[str, Any]]:
+        """Find units that directly write the named state node."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        return [_unit_to_dict(u) for u in self._store.writers_of(node_id)]
+
     def ancestors_of(self, name: str) -> list[dict[str, Any]]:
         """Find every function/method that can transitively reach ``name``.
 
@@ -433,6 +461,8 @@ def _edge_to_dict(edge: CodeEdge) -> dict[str, Any]:
     }
     if edge.attributes:
         result["attributes"] = _attributes_to_dict(edge.attributes)
+    if edge.kind in {EdgeKind.READS, EdgeKind.WRITES} and edge.location is not None:
+        result["location"] = asdict(edge.location)
     return result
 
 

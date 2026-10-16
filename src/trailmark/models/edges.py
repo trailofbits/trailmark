@@ -12,6 +12,8 @@ class EdgeKind(Enum):
     """The kind of relationship between two code units."""
 
     CALLS = "calls"
+    READS = "reads"
+    WRITES = "writes"
     INHERITS = "inherits"
     CONTAINS = "contains"
     IMPORTS = "imports"

@@ -35,7 +35,7 @@ flowchart TD
 A language-specific parser walks the directory, parses each file into a tree-sitter AST, and extracts:
 
 - **Nodes** &mdash; functions, methods, classes, structs, interfaces, traits, enums, modules, namespaces
-- **Edges** &mdash; calls, inheritance, implementation, containment, imports
+- **Edges** &mdash; calls, inheritance, implementation, containment, imports, persistent-state reads/writes (Solidity)
 - **Metadata** &mdash; type annotations, cyclomatic complexity, branches, docstrings, exception types
 
 ### Supported Languages
@@ -53,7 +53,7 @@ A language-specific parser walks the directory, parses each file into a tree-sit
 | Java | `.java` | methods, classes, interfaces, enums |
 | Go | `.go` | functions, methods, structs, interfaces |
 | Rust | `.rs` | functions, structs, traits, enums, impl blocks, `verus!` blocks |
-| Solidity | `.sol` | contracts, interfaces, libraries, functions, modifiers, structs, enums |
+| Solidity | `.sol` | contracts, interfaces, libraries, functions, modifiers, structs, enums, persistent-state reads/writes |
 | Cairo | `.cairo` | functions, traits, structs, enums, impl blocks, StarkNet contracts |
 | Circom | `.circom` | templates, functions, signals, components |
 | Haskell | `.hs` | functions, data types, type classes, instances |
@@ -141,6 +141,10 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | --- | --- |
 | `callers_of(name)` | Direct callers of the named target |
 | `callees_of(name)` | Direct callees of the named source |
+| `state_read_by(name)` | Persistent-state declarations directly read by the named unit |
+| `state_written_by(name)` | Persistent-state declarations directly written by the named unit |
+| `readers_of(name)` | Units that directly read the named state declaration |
+| `writers_of(name)` | Units that directly write the named state declaration |
 | `ancestors_of(name)` | Every function that can transitively reach the target (upward slice) |
 | `reachable_from(name)` | Every function transitively reachable from the source |
 | `paths_between(src, dst)` | All simple call paths between two nodes |
@@ -223,11 +227,11 @@ classDiagram
     CodeGraph "1" *-- "*" EntrypointTag
 ```
 
-**Node kinds:** `function`, `method`, `class`, `module`, `struct`, `interface`, `trait`, `enum`, `namespace`, `contract`, `library`, `template`, `proxy`
+**Node kinds:** `function`, `method`, `class`, `module`, `struct`, `interface`, `trait`, `enum`, `namespace`, `contract`, `state_variable`, `library`, `template`, `proxy`
 
 **Node origins:** `source`, `proxy`, `binary`, `synthetic`
 
-**Edge kinds:** `calls`, `inherits`, `implements`, `contains`, `imports`, `resolves_to`, `type_uses`, `specializes`, `corresponds_to`
+**Edge kinds:** `calls`, `reads`, `writes`, `inherits`, `implements`, `contains`, `imports`, `resolves_to`, `type_uses`, `specializes`, `corresponds_to`
 
 **Edge confidence:** `certain`, `inferred`, `uncertain`
 
@@ -237,6 +241,42 @@ analysis lost resolution instead of silently dropping that edge. Directory
 parses, including single-language parses, also apply repository links and
 materialize `TYPE_USES` edges. Binary analysis support imports external JSON
 call graphs; Trailmark does not disassemble executables itself.
+
+### Persistent State (Solidity)
+
+The Solidity parser emits `state_variable` nodes for persistent storage declared
+in a contract, with IDs such as `token:Token.balances`, a `declared_type`
+attribute, and a `contains` edge from the owner. Constants, immutables, and
+transient variables are excluded. Functions, constructors, and modifiers have
+direct `reads` and `writes` edges to those declarations, with a source location
+for each occurrence. Repeated accesses remain separate edges in JSON; the four
+state query methods return distinct nodes, ordered by ID, and `[]` for missing
+names.
+
+Assignments and `delete` produce writes; compound assignments and increments
+produce both reads and writes. Struct members, mapping entries, and array
+elements roll up to their owning state declaration. Index expressions are read
+separately. Direct state-array `.push()` and `.pop()` calls produce both kinds
+of edge. Parameters, named returns, and local variables respect lexical scope
+and shadow state names. For example:
+
+```python
+engine = QueryEngine.from_directory("./contracts", language="solidity")
+engine.state_read_by("Token.transfer")
+engine.state_written_by("Token.transfer")
+engine.readers_of("Token.balances")
+engine.writers_of("Token.balances")
+```
+
+This is syntax-based, declaration-level dependency information, not an EVM
+storage-slot or mapping-key analysis. The first implementation resolves only
+state declared in the same contract. It does not follow inherited state,
+storage aliases, library effects, assembly, delegatecalls, or external calls.
+Declaration initializers and compiler-generated public getters are not modeled.
+Modifier bodies own their accesses; their effects are not propagated to the
+functions using them. State edges do not change the default call traversals.
+An absent edge is not proof that a function cannot access storage. Other
+language parsers do not yet emit state-access edges.
 
 ### Example Graph
 
