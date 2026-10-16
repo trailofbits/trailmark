@@ -45,18 +45,24 @@ def build_parser() -> argparse.ArgumentParser:
         default="python",
         help="Source language (default: python)",
     )
-    analyze.add_argument(
+    output = analyze.add_mutually_exclusive_group()
+    output.add_argument(
         "--summary",
         "-s",
         action="store_true",
         help="Print summary instead of full graph",
     )
-    analyze.add_argument(
+    output.add_argument(
         "--complexity",
         "-c",
         type=int,
         default=0,
         help="Show functions with complexity >= threshold",
+    )
+    output.add_argument(
+        "--resolution",
+        action="store_true",
+        help="Report extracted call-resolution counts and unresolved callee groups as JSON",
     )
 
     diff_cmd = subparsers.add_parser(
@@ -176,7 +182,9 @@ def _run_analyze(args: argparse.Namespace) -> None:
         language=args.language,
     )
 
-    if args.summary:
+    if args.resolution:
+        print(json.dumps(engine.call_resolution(), indent=2))
+    elif args.summary:
         _print_summary(engine)
     elif args.complexity > 0:
         _print_complexity(engine, args.complexity)

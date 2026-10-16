@@ -183,10 +183,28 @@ class TestSupportedLanguages:
         assert "installing published packages needs neither" in readme_text
 
 
+class TestCallResolutionDocs:
+    def test_documented_diagnostics_distinguish_sites_from_targets(
+        self, readme_text: str, tmp_path: Path
+    ) -> None:
+        assert "--resolution" in readme_text
+        assert "receiver types" in readme_text
+        assert "outside its counts" in readme_text
+        assert "Zero unresolved calls is not proof" in readme_text
+        (tmp_path / "app.rs").write_text("fn handle() { value.unwrap(); value.unwrap(); }")
+        engine = QueryEngine.from_directory(str(tmp_path), language="rust")
+        report = engine.call_resolution()
+        assert report["unresolved_call_sites"] == 2
+        assert report["unresolved_targets"] == 1
+        assert len(engine.unresolved_calls("handle")) == 2
+
+
 class TestQueryEngineAPI:
     EXPECTED_METHODS = (
         "callers_of",
         "callees_of",
+        "unresolved_calls",
+        "call_resolution",
         "ancestors_of",
         "reachable_from",
         "paths_between",
