@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from trailmark.models.annotations import Annotation, AnnotationKind, EntrypointTag
-from trailmark.models.edges import CodeEdge
-from trailmark.models.nodes import CodeUnit
+from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.nodes import CodeUnit, NodeKind
 
 
 @dataclass
@@ -25,6 +25,20 @@ class CodeGraph:
     dependencies: list[str] = field(default_factory=list)
     language: str = ""
     root_path: str = ""
+
+    def unresolved_calls(self) -> list[CodeEdge]:
+        """Return calls with missing targets or explicit unresolved proxies."""
+        result: list[CodeEdge] = []
+        for edge in self.edges:
+            if edge.kind != EdgeKind.CALLS:
+                continue
+            target = self.nodes.get(edge.target_id)
+            if target is None or (
+                target.kind == NodeKind.PROXY
+                and dict(target.attributes).get("proxy_kind") == "unresolved"
+            ):
+                result.append(edge)
+        return result
 
     def add_annotation(
         self,

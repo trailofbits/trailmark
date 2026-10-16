@@ -284,6 +284,58 @@ class QueryEngine:
             "entrypoints": len(graph.entrypoints),
         }
 
+    def unresolved_calls(self, name: str | None = None) -> list[dict[str, Any]]:
+        """Report unresolved call sites, including raw targets and source spans.
+
+        ``name`` restricts the report to one caller. A missing caller returns
+        ``[]``; omitting it reports every unresolved call in the graph.
+        """
+        node_id = self._store.find_node_id(name) if name is not None else None
+        if name is not None and node_id is None:
+            return []
+        result: list[dict[str, Any]] = []
+        for edge in self._store.unresolved_calls(node_id):
+            target = self._store.unit(edge.target_id)
+            attributes = dict(target.attributes) if target is not None else {}
+            raw_target = str(
+                dict(edge.attributes).get(
+                    "raw_target", attributes.get("raw_symbol", edge.target_id)
+                )
+            )
+            row = _edge_to_dict(edge)
+            row["raw_target"] = raw_target
+            row["callee"] = raw_target.rsplit(".", 1)[-1].rsplit(":", 1)[-1].strip()
+            row["location"] = asdict(edge.location) if edge.location is not None else None
+            result.append(row)
+        return result
+
+    def call_resolution(self) -> dict[str, Any]:
+        """Count graph call sites and group unresolved targets by callee label.
+
+        These counts describe extracted edges, not completeness of the source
+        program: opaque macros and implicit calls may contribute no edges.
+        """
+        calls = self._store.call_edges()
+        unresolved = self.unresolved_calls()
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for row in unresolved:
+            grouped.setdefault(row["callee"], []).append(row)
+        return {
+            "call_sites": len(calls),
+            "resolved_call_sites": len(calls) - len(unresolved),
+            "unresolved_call_sites": len(unresolved),
+            "unresolved_targets": len({row["target"] for row in unresolved}),
+            "affected_callers": len({row["source"] for row in unresolved}),
+            "unresolved_by_callee": [
+                {
+                    "callee": callee,
+                    "call_sites": len(grouped[callee]),
+                    "targets": len({row["target"] for row in grouped[callee]}),
+                }
+                for callee in sorted(grouped, key=lambda name: (-len(grouped[name]), name))
+            ],
+        }
+
     def preanalysis(self) -> dict[str, Any]:
         """Run all pre-analysis passes and return a summary.
 

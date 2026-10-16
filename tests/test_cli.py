@@ -13,6 +13,39 @@ import pytest
 from trailmark.cli import main
 
 
+class TestResolutionReport:
+    def test_cli_reports_call_resolution_as_json(self, tmp_path: Path) -> None:
+        (tmp_path / "app.rs").write_text(
+            "fn caller() { value.unwrap(); value.unwrap(); other.expect(0); }"
+        )
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["trailmark", "analyze", str(tmp_path), "--language", "rust", "--resolution"],
+            ),
+            patch("sys.stdout", new_callable=StringIO) as output,
+        ):
+            main()
+        report = json.loads(output.getvalue())
+        assert report["call_sites"] == report["unresolved_call_sites"] == 3
+        assert report["resolved_call_sites"] == 0
+        assert report["unresolved_targets"] == 2
+        assert report["unresolved_by_callee"] == [
+            {"callee": "unwrap", "call_sites": 2, "targets": 1},
+            {"callee": "expect", "call_sites": 1, "targets": 1},
+        ]
+
+    @pytest.mark.parametrize("other_flag", ["--summary", "--complexity=1"])
+    def test_resolution_report_rejects_conflicting_output_flags(self, other_flag: str) -> None:
+        with (
+            patch.object(sys, "argv", ["trailmark", "analyze", ".", "--resolution", other_flag]),
+            pytest.raises(SystemExit) as exc,
+        ):
+            main()
+        assert exc.value.code == 2
+
+
 class TestMainNoArgs:
     def test_no_command_prints_help_and_exits(self) -> None:
         with patch.object(sys, "argv", ["trailmark"]):

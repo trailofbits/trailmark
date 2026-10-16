@@ -100,6 +100,28 @@ class GraphStore:
         """Return the graph unit for ``node_id`` if it exists."""
         return self._node(node_id)
 
+    def call_edges(self) -> list[CodeEdge]:
+        """Return calls with endpoints present in the indexed graph."""
+        return [
+            edge
+            for edge in self._graph.edges
+            if edge.kind == EdgeKind.CALLS
+            and edge.source_id in self._id_to_idx
+            and edge.target_id in self._id_to_idx
+        ]
+
+    def unresolved_calls(self, node_id: str | None = None) -> list[CodeEdge]:
+        """Return unresolved call sites, optionally restricted to one caller."""
+        if node_id is not None and self._idx(node_id) is None:
+            return []
+        return [
+            edge
+            for edge in self._graph.unresolved_calls()
+            if edge.source_id in self._id_to_idx
+            and edge.target_id in self._id_to_idx
+            and (node_id is None or edge.source_id == node_id)
+        ]
+
     def callers_of(self, node_id: str) -> list[CodeUnit]:
         """Return all nodes that call the given node."""
         target_idx = self._idx(node_id)

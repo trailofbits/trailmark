@@ -100,6 +100,8 @@ Trailmark does not expand arbitrary macros. Literal Verus invocations inside
 opaque macros or function bodies are skipped with a warning. Uninvoked
 `macro_rules!` definitions are not expanded. Function signatures without bodies
 and calls in `requires`/`ensures` clauses are not extracted.
+See [call-resolution diagnostics](#call-resolution-diagnostics) for inspecting
+unresolved Rust calls and the limits of reachability through them.
 
 ```mermaid
 flowchart TD
@@ -165,6 +167,8 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | `subgraph_edges(name)` | Return induced edges inside a named subgraph |
 | `subgraph_names()` | List every named subgraph currently on the graph |
 | `summary()` | Node counts, edge counts, dependencies |
+| `unresolved_calls(name=None)` | Unresolved call sites, optionally restricted to one caller, with raw expressions and locations |
+| `call_resolution()` | Extracted call-site counts and unresolved calls grouped by callee label |
 | `to_json()` | Full graph export |
 
 ### Data Model
@@ -274,6 +278,66 @@ graph TD
     class HR,P,D fn
     class A,AV,CS cls
 ```
+
+### Call-Resolution Diagnostics
+
+```bash
+trailmark analyze --language rust --resolution path/to/project
+```
+
+The JSON report distinguishes `call_sites`, `resolved_call_sites`,
+`unresolved_call_sites`, `unresolved_targets` (distinct proxy IDs), and
+`affected_callers`. `unresolved_by_callee` groups calls by their final syntactic
+name, such as `unwrap` or `expect`, and sorts groups by descending call-site
+count, then name. These labels do not identify a particular trait implementation.
+Repeated calls to the same proxy count as separate sites. Explicitly linked
+external proxies are not classified as unresolved.
+
+For detailed inspection, use the Python API:
+
+```python
+engine = QueryEngine.from_directory("./project", language="rust")
+engine.call_resolution()
+engine.unresolved_calls()         # every unresolved call site
+engine.unresolved_calls("handle") # only calls made directly by this function
+```
+
+Each row includes the caller (`source`), proxy ID (`target`), `raw_target`,
+`callee`, confidence, and the individual call's `location` (or `None` when
+unavailable). A proxy node's own location represents its first occurrence;
+use call-site locations when examining repeated calls. A missing caller returns
+`[]`. The reports also work for other supported languages.
+
+Rust resolution currently has these limits:
+
+| Pattern | Behavior |
+| --- | --- |
+| Standard methods: `.unwrap()`, `.expect()`, `.clone()`, `.len()` | Calls are retained; receiver types and dependency implementations are not inferred |
+| Iterator chains: `.iter().map(...).collect()` | Each syntactic call is retained; intermediate result types are not propagated |
+| Trait conversions: `.into()`, `.try_into()`, `TokenId::try_from()` | Trait implementations and generated methods may remain unresolved |
+| External calls: `UdpSocket::bind()`, `prost_build::Config::new()` | Dependency source and compiler resolution are not loaded automatically |
+| Generated builders: `Action::builder().timestamp(...)` | Calls are retained; arbitrary macro expansion does not generate their implementations |
+| Local value receivers: `engine.execute()`, `self.side.converse()` | Receiver types are not inferred, even from explicit parameter annotations |
+| Enum constructors: `ActionKind::Deposit(1)`, `Ok(...)`, `Err(...)` | Parenthesized constructors are retained as calls and can remain proxies; a bare variant value is not a call |
+
+Declared return types are recorded as metadata, but they do not resolve later
+calls on returned values. For example, `make() -> Result<Engine, ()>` does not
+link `make().unwrap().execute()` to `Engine.execute`. Calls to `make`, `unwrap`,
+and `execute` are recorded separately; recording them does not establish the
+receiver's type or the callee's implementation.
+
+Unresolved proxies retain the boundary where resolution stops. Reachability and
+preanalysis cannot follow a missing implementation beyond that boundary, so
+local effects may be absent from the resulting paths. Thousands of proxies
+alone do not show that the corresponding call expressions were dropped.
+Review the affected callers and supply reviewed missing call edges through
+`.trailmark/links.toml`, or import an externally produced graph with
+`augment_binary()` when appropriate.
+
+The report measures resolution of extracted calls, not overall program
+coverage. Opaque macro bodies and implicit calls may produce no edges and are
+outside its counts. Zero unresolved calls is not proof that the graph contains
+every executable path. Hiding common proxy names does not restore those paths.
 
 ## Installation
 

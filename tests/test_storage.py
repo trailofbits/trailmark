@@ -541,6 +541,40 @@ class TestGraphStoreComplexity:
         assert ids == {"a", "b"}
 
 
+class TestGraphStoreCallResolution:
+    def test_reports_validate_endpoints_and_filter_callers(self) -> None:
+        source = _make_node("f", "f")
+        other = _make_node("g", "g")
+        proxy = CodeUnit(
+            id="proxy:unknown",
+            name="unknown",
+            kind=NodeKind.PROXY,
+            location=_LOC,
+            attributes=(("proxy_kind", "unresolved"),),
+        )
+        calls = [
+            CodeEdge("f", proxy.id, EdgeKind.CALLS),
+            CodeEdge("g", proxy.id, EdgeKind.CALLS),
+            CodeEdge("f", "g", EdgeKind.CALLS),
+        ]
+        graph = CodeGraph(
+            nodes={n.id: n for n in (source, other, proxy)},
+            edges=[
+                *calls,
+                CodeEdge("missing", proxy.id, EdgeKind.CALLS),
+                CodeEdge("f", "missing", EdgeKind.CALLS),
+                CodeEdge("f", proxy.id, EdgeKind.TYPE_USES),
+            ],
+        )
+        store = GraphStore(graph)
+        assert store.call_edges() == calls
+        assert store.unresolved_calls() == calls[:2]
+        assert store.unresolved_calls("f") == calls[:1]
+        assert store.unresolved_calls("g") == calls[1:2]
+        assert store.unresolved_calls("missing") == []
+        assert store.unresolved_calls(proxy.id) == []
+
+
 class TestGraphStoreFindNode:
     def test_find_by_exact_id(self) -> None:
         _, store = _build_graph()

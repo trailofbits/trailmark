@@ -157,6 +157,31 @@ class TestCodeUnit:
         assert unit.attributes[0] == ("raw_symbol", "mod:missing")
 
 
+class TestCallResolution:
+    def test_unresolved_calls_include_missing_and_unresolved_proxy_targets(self) -> None:
+        source = _make_unit("f", "f")
+        unresolved = _make_unit("proxy:unknown", "unknown", kind=NodeKind.PROXY)
+        unresolved = CodeUnit(
+            id=unresolved.id,
+            name=unresolved.name,
+            kind=unresolved.kind,
+            location=unresolved.location,
+            attributes=(("proxy_kind", "unresolved"),),
+        )
+        external = _make_unit("proxy:external", "external", kind=NodeKind.PROXY)
+        edges = [
+            CodeEdge("f", "missing", EdgeKind.CALLS),
+            CodeEdge("f", unresolved.id, EdgeKind.CALLS),
+            CodeEdge("f", external.id, EdgeKind.CALLS),
+            CodeEdge("f", "f", EdgeKind.CALLS),
+            CodeEdge("f", "missing", EdgeKind.TYPE_USES),
+        ]
+        graph = CodeGraph(nodes={n.id: n for n in (source, unresolved, external)}, edges=edges)
+        assert graph.unresolved_calls() == edges[:2]
+        assert graph.edges == edges
+        assert CodeGraph().unresolved_calls() == []
+
+
 class TestCodeEdge:
     def test_call_edge(self) -> None:
         edge = CodeEdge(
