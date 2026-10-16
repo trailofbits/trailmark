@@ -143,8 +143,6 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | --- | --- |
 | `callers_of(name)` | Direct callers of the named target |
 | `callees_of(name)` | Direct callees of the named source |
-| `unresolved_calls(name=None)` | Unresolved call sites, optionally restricted to one caller, with raw expressions and locations |
-| `call_resolution()` | Extracted call-site counts and unresolved calls grouped by callee label |
 | `ancestors_of(name)` | Every function that can transitively reach the target (upward slice) |
 | `reachable_from(name)` | Every function transitively reachable from the source |
 | `paths_between(src, dst)` | All simple call paths between two nodes |
@@ -169,6 +167,8 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | `subgraph_edges(name)` | Return induced edges inside a named subgraph |
 | `subgraph_names()` | List every named subgraph currently on the graph |
 | `summary()` | Node counts, edge counts, dependencies |
+| `unresolved_calls(name=None)` | Unresolved call sites, optionally restricted to one caller, with raw expressions and locations |
+| `call_resolution()` | Extracted call-site counts and unresolved calls grouped by callee label |
 | `to_json()` | Full graph export |
 
 ### Data Model
@@ -242,6 +242,43 @@ parses, including single-language parses, also apply repository links and
 materialize `TYPE_USES` edges. Binary analysis support imports external JSON
 call graphs; Trailmark does not disassemble executables itself.
 
+### Example Graph
+
+Given this Python code:
+
+```python
+class Auth:
+    def verify(self, token: str) -> bool:
+        return self._check_sig(token)
+
+    def _check_sig(self, token: str) -> bool:
+        ...
+
+def handle_request(req: Request) -> Response:
+    auth = Auth()
+    if auth.verify(req.token):
+        return process(req)
+    return deny()
+```
+
+Trailmark produces a graph like:
+
+```mermaid
+graph TD
+    HR["handle_request"] -->|calls| AV["Auth.verify"]
+    HR -->|calls| P["process"]
+    HR -->|calls| D["deny"]
+    AV -->|calls| CS["Auth._check_sig"]
+    A["Auth"] -->|contains| AV
+    A -->|contains| CS
+
+    classDef fn fill:#007bff26,stroke:#007bff,color:#007bff
+    classDef cls fill:#6f42c126,stroke:#6f42c1,color:#6f42c1
+
+    class HR,P,D fn
+    class A,AV,CS cls
+```
+
 ### Call-Resolution Diagnostics
 
 ```bash
@@ -301,43 +338,6 @@ The report measures resolution of extracted calls, not overall program
 coverage. Opaque macro bodies and implicit calls may produce no edges and are
 outside its counts. Zero unresolved calls is not proof that the graph contains
 every executable path. Hiding common proxy names does not restore those paths.
-
-### Example Graph
-
-Given this Python code:
-
-```python
-class Auth:
-    def verify(self, token: str) -> bool:
-        return self._check_sig(token)
-
-    def _check_sig(self, token: str) -> bool:
-        ...
-
-def handle_request(req: Request) -> Response:
-    auth = Auth()
-    if auth.verify(req.token):
-        return process(req)
-    return deny()
-```
-
-Trailmark produces a graph like:
-
-```mermaid
-graph TD
-    HR["handle_request"] -->|calls| AV["Auth.verify"]
-    HR -->|calls| P["process"]
-    HR -->|calls| D["deny"]
-    AV -->|calls| CS["Auth._check_sig"]
-    A["Auth"] -->|contains| AV
-    A -->|contains| CS
-
-    classDef fn fill:#007bff26,stroke:#007bff,color:#007bff
-    classDef cls fill:#6f42c126,stroke:#6f42c1,color:#6f42c1
-
-    class HR,P,D fn
-    class A,AV,CS cls
-```
 
 ## Installation
 

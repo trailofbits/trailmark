@@ -77,73 +77,6 @@ def _build_engine() -> QueryEngine:
     return QueryEngine.from_graph(graph)
 
 
-class TestQueryEngineCallResolution:
-    def test_counts_call_sites_separately_from_targets_and_preserves_locations(self) -> None:
-        nodes = {name: _make_node(name, name) for name in ("mod:entry", "mod:other", "mod:helper")}
-        sites = [
-            CodeEdge("mod:entry", "a.unwrap", EdgeKind.CALLS, location=_LOC),
-            CodeEdge("mod:entry", "a.unwrap", EdgeKind.CALLS, location=_LOC),
-            CodeEdge("mod:other", "b.unwrap", EdgeKind.CALLS),
-            CodeEdge("mod:entry", "a.expect", EdgeKind.CALLS),
-            CodeEdge("mod:entry", "mod:helper", EdgeKind.CALLS),
-            CodeEdge("mod:entry", "unknown_type", EdgeKind.TYPE_USES),
-        ]
-        engine = QueryEngine.from_graph(CodeGraph(nodes=nodes, edges=sites))
-        assert engine.call_resolution() == {
-            "call_sites": 5,
-            "resolved_call_sites": 1,
-            "unresolved_call_sites": 4,
-            "unresolved_targets": 3,
-            "affected_callers": 2,
-            "unresolved_by_callee": [
-                {"callee": "unwrap", "call_sites": 3, "targets": 2},
-                {"callee": "expect", "call_sites": 1, "targets": 1},
-            ],
-        }
-        rows = engine.unresolved_calls("mod:entry")
-        assert len(rows) == 3
-        assert rows[0]["location"] == {
-            "file_path": "test.py",
-            "start_line": 1,
-            "end_line": 10,
-            "start_col": None,
-            "end_col": None,
-        }
-        assert rows[2]["location"] is None
-        assert rows[0]["raw_target"] == "a.unwrap"
-        assert rows[0]["confidence"] == "certain"
-        assert engine.unresolved_calls("missing") == []
-        assert engine.unresolved_calls("mod:helper") == []
-        assert json.loads(json.dumps(engine.call_resolution())) == engine.call_resolution()
-
-    def test_raw_targets_are_taken_from_each_edge_when_proxy_ids_collide(self) -> None:
-        source = _make_node("mod:f", "f")
-        engine = QueryEngine.from_graph(
-            CodeGraph(
-                nodes={source.id: source},
-                edges=[
-                    CodeEdge(source.id, "a-b.unwrap", EdgeKind.CALLS),
-                    CodeEdge(source.id, "a_b.unwrap", EdgeKind.CALLS),
-                ],
-            )
-        )
-        assert {row["raw_target"] for row in engine.unresolved_calls()} == {
-            "a-b.unwrap",
-            "a_b.unwrap",
-        }
-
-    def test_empty_graph_has_no_calls(self) -> None:
-        report = QueryEngine.from_graph(CodeGraph()).call_resolution()
-        assert report == {
-            "call_sites": 0,
-            "resolved_call_sites": 0,
-            "unresolved_call_sites": 0,
-            "unresolved_targets": 0,
-            "affected_callers": 0,
-            "unresolved_by_callee": [],
-        }
-
-
 class TestQueryEngineCallers:
     def test_callers_of(self) -> None:
         engine = _build_engine()
@@ -253,6 +186,73 @@ class TestQueryEngineSubgraphs:
             "binary",
             edge_kinds=("calls", "resolves_to", "corresponds_to"),
         ) == [["src", "proxy", "resolved", "bin"]]
+
+
+class TestQueryEngineCallResolution:
+    def test_counts_call_sites_separately_from_targets_and_preserves_locations(self) -> None:
+        nodes = {name: _make_node(name, name) for name in ("mod:entry", "mod:other", "mod:helper")}
+        sites = [
+            CodeEdge("mod:entry", "a.unwrap", EdgeKind.CALLS, location=_LOC),
+            CodeEdge("mod:entry", "a.unwrap", EdgeKind.CALLS, location=_LOC),
+            CodeEdge("mod:other", "b.unwrap", EdgeKind.CALLS),
+            CodeEdge("mod:entry", "a.expect", EdgeKind.CALLS),
+            CodeEdge("mod:entry", "mod:helper", EdgeKind.CALLS),
+            CodeEdge("mod:entry", "unknown_type", EdgeKind.TYPE_USES),
+        ]
+        engine = QueryEngine.from_graph(CodeGraph(nodes=nodes, edges=sites))
+        assert engine.call_resolution() == {
+            "call_sites": 5,
+            "resolved_call_sites": 1,
+            "unresolved_call_sites": 4,
+            "unresolved_targets": 3,
+            "affected_callers": 2,
+            "unresolved_by_callee": [
+                {"callee": "unwrap", "call_sites": 3, "targets": 2},
+                {"callee": "expect", "call_sites": 1, "targets": 1},
+            ],
+        }
+        rows = engine.unresolved_calls("mod:entry")
+        assert len(rows) == 3
+        assert rows[0]["location"] == {
+            "file_path": "test.py",
+            "start_line": 1,
+            "end_line": 10,
+            "start_col": None,
+            "end_col": None,
+        }
+        assert rows[2]["location"] is None
+        assert rows[0]["raw_target"] == "a.unwrap"
+        assert rows[0]["confidence"] == "certain"
+        assert engine.unresolved_calls("missing") == []
+        assert engine.unresolved_calls("mod:helper") == []
+        assert json.loads(json.dumps(engine.call_resolution())) == engine.call_resolution()
+
+    def test_raw_targets_are_taken_from_each_edge_when_proxy_ids_collide(self) -> None:
+        source = _make_node("mod:f", "f")
+        engine = QueryEngine.from_graph(
+            CodeGraph(
+                nodes={source.id: source},
+                edges=[
+                    CodeEdge(source.id, "a-b.unwrap", EdgeKind.CALLS),
+                    CodeEdge(source.id, "a_b.unwrap", EdgeKind.CALLS),
+                ],
+            )
+        )
+        assert {row["raw_target"] for row in engine.unresolved_calls()} == {
+            "a-b.unwrap",
+            "a_b.unwrap",
+        }
+
+    def test_empty_graph_has_no_calls(self) -> None:
+        report = QueryEngine.from_graph(CodeGraph()).call_resolution()
+        assert report == {
+            "call_sites": 0,
+            "resolved_call_sites": 0,
+            "unresolved_call_sites": 0,
+            "unresolved_targets": 0,
+            "affected_callers": 0,
+            "unresolved_by_callee": [],
+        }
 
 
 class TestQueryEngineTypes:
