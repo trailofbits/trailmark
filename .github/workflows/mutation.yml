@@ -29,6 +29,7 @@ jobs:
         with:
           python-version: "3.13"
 
+      - run: npm ci
       - run: uv sync --locked --all-groups
 
       - name: Run reviewed mutation scope

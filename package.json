@@ -1,0 +1,7 @@
+{
+  "name": "trailmark-build",
+  "private": true,
+  "devDependencies": {
+    "tree-sitter-cli": "0.25.3"
+  }
+}

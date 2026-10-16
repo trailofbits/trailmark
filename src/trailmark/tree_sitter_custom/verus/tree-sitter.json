@@ -1,0 +1,16 @@
+{
+  "grammars": [
+    {
+      "name": "verus",
+      "camelcase": "Verus",
+      "scope": "source.verus",
+      "path": ".",
+      "file-types": ["rs"]
+    }
+  ],
+  "metadata": {
+    "version": "0.23.2",
+    "license": "MIT",
+    "description": "Rust and Verus grammar"
+  }
+}

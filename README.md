@@ -309,6 +309,15 @@ platform, and compiler options. Changed inputs select a new binding; completed
 builds are published atomically. Compiler failures include the exit status and
 stderr in the warning.
 
+Git checkouts keep the Verus grammar definition and generate its C parser during
+builds with Tree-sitter CLI 0.25.3. Before `uv sync` or `uv build` in a checkout,
+run `npm ci` with npm install scripts enabled; Node.js is needed for generation.
+The generated parser and headers are gitignored. Wheels and source distributions
+include these generated sources, so installing published packages needs neither
+Node.js nor the Tree-sitter CLI.
+Editable `uv` installs rerun the build hook to restore missing generated files;
+unchanged inputs reuse the existing output.
+
 ## Usage
 
 ```bash
@@ -560,6 +569,7 @@ consumers that exhaustively match enum values should add cases for them.
 
 ```bash
 # Install package and dev dependencies
+npm ci
 uv sync --all-groups
 
 # Lint and format

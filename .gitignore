@@ -16,3 +16,10 @@ src/trailmark/tree_sitter_custom/**/*.pyd
 .gremlins_cache/
 coverage/gremlins/
 .coverage.*
+/node_modules/
+/src/trailmark/tree_sitter_custom/verus/src/parser.c
+/src/trailmark/tree_sitter_custom/verus/src/tree_sitter/
+/src/trailmark/tree_sitter_custom/verus/src/grammar.json
+/src/trailmark/tree_sitter_custom/verus/src/node-types.json
+/src/trailmark/tree_sitter_custom/verus/.generated.json
+/src/trailmark/tree_sitter_custom/.verus-*/

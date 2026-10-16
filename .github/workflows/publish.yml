@@ -25,6 +25,7 @@ jobs:
         with:
           python-version: "3.13"
 
+      - run: npm ci
       - run: uv build
 
       - run: uv venv /tmp/trailmark-release && uv pip install --python /tmp/trailmark-release dist/*.whl

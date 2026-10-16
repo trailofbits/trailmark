@@ -164,6 +164,10 @@ class TestSupportedLanguages:
         assert "opaque macros or function bodies" in readme_text
         assert "syntax errors produce a warning" in readme_text
         assert "compiled source contents, Python ABI" in readme_text
+        assert "Tree-sitter CLI 0.25.3" in readme_text
+        assert "run `npm ci` with npm install scripts enabled" in readme_text
+        assert "generated parser and headers are gitignored" in readme_text
+        assert "installing published packages needs neither" in readme_text
 
 
 class TestQueryEngineAPI:

@@ -2,6 +2,18 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.hooks.custom]
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "src", "tests", "README.md", "LICENSE", "NOTICE", "pyproject.toml",
+    "hatch_build.py", "package.json", "package-lock.json",
+]
+
+[tool.uv]
+# Editable installs must restore generated files even when a wheel is cached.
+reinstall-package = ["trailmark"]
+
 [project]
 name = "trailmark"
 version = "0.5.0"

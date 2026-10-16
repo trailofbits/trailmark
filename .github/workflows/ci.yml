@@ -25,13 +25,13 @@ jobs:
       - uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89  # v4.1.0
         with:
           args: check
-          src: "src/ tests/"
+          src: "hatch_build.py src/ tests/"
           version-file: uv.lock
 
       - uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89  # v4.1.0
         with:
           args: format --check
-          src: "src/ tests/"
+          src: "hatch_build.py src/ tests/"
           version-file: uv.lock
 
   type-check:
@@ -48,6 +48,7 @@ jobs:
         with:
           python-version: "3.13"
 
+      - run: npm ci
       - run: uv sync --locked --all-groups
 
       - run: uv tool install ty && ty check
@@ -69,6 +70,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - run: npm ci
       - run: uv sync --locked --all-groups
 
       - run: uv run pytest -q tests/
@@ -90,6 +92,7 @@ jobs:
         with:
           python-version: "3.13"
 
+      - run: npm ci
       - run: uv build
       - run: uv venv /tmp/trailmark-wheel && uv pip install --python /tmp/trailmark-wheel dist/*.whl
       - run: /tmp/trailmark-wheel/bin/python tests/package_smoke.py tests/fixtures/kat
