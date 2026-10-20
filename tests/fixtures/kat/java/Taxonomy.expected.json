@@ -10,6 +10,24 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "Taxonomy:Taxonomy",
+      "target": "Taxonomy:Taxonomy.Greeter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy.Greeter",
+      "target": "Taxonomy:Taxonomy.Greeter.greet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy",
+      "target": "Taxonomy:Taxonomy.Status"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy",
       "target": "Taxonomy:Taxonomy.add"
     },
     {
@@ -31,6 +49,60 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "Taxonomy:Taxonomy",
+      "target": "Taxonomy:Taxonomy.Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy.Animal",
+      "target": "Taxonomy:Taxonomy.Animal.Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy.Animal",
+      "target": "Taxonomy:Taxonomy.Animal.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy",
+      "target": "Taxonomy:Taxonomy.Dog"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "inherits",
+      "source": "Taxonomy:Taxonomy.Dog",
+      "target": "Taxonomy:Taxonomy.Animal"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "implements",
+      "source": "Taxonomy:Taxonomy.Dog",
+      "target": "Taxonomy:Taxonomy.Greeter"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy.Dog",
+      "target": "Taxonomy:Taxonomy.Dog.Dog"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy.Dog",
+      "target": "Taxonomy:Taxonomy.Dog.bark"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy.Dog",
+      "target": "Taxonomy:Taxonomy.Dog.greet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "Taxonomy:Taxonomy",
       "target": "Taxonomy:Taxonomy.useAnimal"
     },
     {
@@ -41,6 +113,15 @@
       "kind": "calls",
       "source": "Taxonomy:Taxonomy.useAnimal",
       "target": "proxy.unresolved:d.bark"
+    },
+    {
+      "attributes": {
+        "type_name": "Dog"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "Taxonomy:Taxonomy.useAnimal",
+      "target": "Taxonomy:Taxonomy.Dog"
     }
   ],
   "language": "java",
@@ -78,6 +159,279 @@
         "start_line": 7
       },
       "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "Taxonomy:Taxonomy.Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.Animal",
+      "kind": "class",
+      "location": {
+        "end_col": 5,
+        "end_line": 56,
+        "file_path": "Taxonomy.java",
+        "start_col": 4,
+        "start_line": 45
+      },
+      "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "Taxonomy:Taxonomy.Animal.Animal": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.Animal.Animal",
+      "kind": "method",
+      "location": {
+        "end_col": 9,
+        "end_line": 51,
+        "file_path": "Taxonomy.java",
+        "start_col": 8,
+        "start_line": 49
+      },
+      "name": "Animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "String"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "Taxonomy:Taxonomy.Animal.describe": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.Animal.describe",
+      "kind": "method",
+      "location": {
+        "end_col": 9,
+        "end_line": 55,
+        "file_path": "Taxonomy.java",
+        "start_col": 8,
+        "start_line": 53
+      },
+      "name": "describe",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "String"
+      }
+    },
+    "Taxonomy:Taxonomy.Dog": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.Dog",
+      "kind": "class",
+      "location": {
+        "end_col": 5,
+        "end_line": 78,
+        "file_path": "Taxonomy.java",
+        "start_col": 4,
+        "start_line": 58
+      },
+      "name": "Dog",
+      "parameters": [],
+      "return_type": null
+    },
+    "Taxonomy:Taxonomy.Dog.Dog": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.Dog.Dog",
+      "kind": "method",
+      "location": {
+        "end_col": 9,
+        "end_line": 65,
+        "file_path": "Taxonomy.java",
+        "start_col": 8,
+        "start_line": 61
+      },
+      "name": "Dog",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "String"
+          }
+        },
+        {
+          "default": null,
+          "name": "breed",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "String"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "Taxonomy:Taxonomy.Dog.bark": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "(loud)",
+          "location": {
+            "end_col": 13,
+            "end_line": 70,
+            "file_path": "Taxonomy.java",
+            "start_col": 12,
+            "start_line": 68
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "RuntimeException"
+        }
+      ],
+      "id": "Taxonomy:Taxonomy.Dog.bark",
+      "kind": "method",
+      "location": {
+        "end_col": 9,
+        "end_line": 72,
+        "file_path": "Taxonomy.java",
+        "start_col": 8,
+        "start_line": 67
+      },
+      "name": "bark",
+      "parameters": [
+        {
+          "default": null,
+          "name": "loud",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "boolean"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "String"
+      }
+    },
+    "Taxonomy:Taxonomy.Dog.greet": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.Dog.greet",
+      "kind": "method",
+      "location": {
+        "end_col": 9,
+        "end_line": 77,
+        "file_path": "Taxonomy.java",
+        "start_col": 8,
+        "start_line": 74
+      },
+      "name": "greet",
+      "parameters": [
+        {
+          "default": null,
+          "name": "other",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "String"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "String"
+      }
+    },
+    "Taxonomy:Taxonomy.Greeter": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.Greeter",
+      "kind": "interface",
+      "location": {
+        "end_col": 5,
+        "end_line": 13,
+        "file_path": "Taxonomy.java",
+        "start_col": 4,
+        "start_line": 11
+      },
+      "name": "Greeter",
+      "parameters": [],
+      "return_type": null
+    },
+    "Taxonomy:Taxonomy.Greeter.greet": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.Greeter.greet",
+      "kind": "method",
+      "location": {
+        "end_col": 34,
+        "end_line": 12,
+        "file_path": "Taxonomy.java",
+        "start_col": 8,
+        "start_line": 12
+      },
+      "name": "greet",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "String"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "String"
+      }
+    },
+    "Taxonomy:Taxonomy.Status": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "Taxonomy:Taxonomy.Status",
+      "kind": "enum",
+      "location": {
+        "end_col": 5,
+        "end_line": 17,
+        "file_path": "Taxonomy.java",
+        "start_col": 4,
+        "start_line": 15
+      },
+      "name": "Status",
       "parameters": [],
       "return_type": null
     },
@@ -319,13 +673,13 @@
   "subgraphs": {},
   "summary": {
     "call_edges": 2,
-    "classes": 1,
+    "classes": 3,
     "dependencies": [
       "java"
     ],
     "entrypoints": 0,
-    "functions": 3,
+    "functions": 9,
     "proxies": 2,
-    "total_nodes": 7
+    "total_nodes": 17
   }
 }

@@ -6,8 +6,10 @@ from pathlib import Path
 
 import pytest
 
+from trailmark.analysis.links import apply_repository_links
 from trailmark.models.edges import EdgeConfidence, EdgeKind
-from trailmark.models.nodes import NodeOrigin
+from trailmark.models.graph import CodeGraph
+from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin, SourceLocation
 from trailmark.parse import parse_directory
 from trailmark.query.api import QueryEngine
 
@@ -89,3 +91,35 @@ def test_invalid_links_are_rejected(tmp_path: Path, body: str, match: str) -> No
     (tmp_path / ".trailmark" / "links.toml").write_text(body)
     with pytest.raises(ValueError, match=match):
         parse_directory(str(tmp_path), "python,rust")
+
+
+@pytest.mark.parametrize("collision", ["source", "raw_symbol"])
+def test_external_link_proxy_collisions_preserve_graph(tmp_path: Path, collision: str) -> None:
+    _write_sources(tmp_path)
+    graph = CodeGraph(
+        nodes={
+            "caller:invoke": CodeUnit(
+                "caller:invoke", "invoke", NodeKind.FUNCTION, SourceLocation("caller.py", 1, 2)
+            )
+        }
+    )
+    if collision == "source":
+        graph.nodes["proxy.external:worker_"] = CodeUnit(
+            "proxy.external:worker_",
+            "worker_",
+            NodeKind.METHOD,
+            SourceLocation("proxy/external.py", 1, 2),
+        )
+    first = "worker?" if collision == "raw_symbol" else "first"
+    (tmp_path / ".trailmark" / "links.toml").write_text(
+        f'[[link]]\nsource = "caller:invoke"\ntarget = "{first}"\ntarget_external = true\n'
+        '[[link]]\nsource = "caller:invoke"\ntarget = "worker!"\ntarget_external = true\n'
+    )
+    before_nodes = graph.nodes.copy()
+    before_edges = graph.edges.copy()
+
+    with pytest.raises(ValueError, match="collide at node ID 'proxy.external:worker_'"):
+        apply_repository_links(graph, str(tmp_path))
+
+    assert graph.nodes == before_nodes
+    assert graph.edges == before_edges

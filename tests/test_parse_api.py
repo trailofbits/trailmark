@@ -80,6 +80,29 @@ class TestParseDirectory:
         assert "main:main" in graph.nodes
         assert "lib:check" in graph.nodes
 
+    def test_auto_detection_and_parsing_agree_on_uppercase_extensions(self, tmp_path: Path) -> None:
+        (tmp_path / "app.PY").write_text("def run():\n    pass\n")
+        (tmp_path / "lib.Rs").write_text("fn check() {}\n")
+
+        assert detect_languages(str(tmp_path)) == ["python", "rust"]
+        graph = parse_directory(str(tmp_path), language="auto")
+
+        assert "app:run" in graph.nodes
+        assert "lib:check" in graph.nodes
+
+    @pytest.mark.parametrize("spec", ["python,python", " python, ,python,", " python "])
+    def test_repeated_language_does_not_duplicate_graph(self, tmp_path: Path, spec: str) -> None:
+        (tmp_path / "app.py").write_text("def run():\n    helper()\ndef helper():\n    pass\n")
+
+        expected = parse_directory(str(tmp_path), language="python")
+
+        assert parse_directory(str(tmp_path), language=spec) == expected
+
+    @pytest.mark.parametrize("spec", ["", " ", ",,,", " , , "])
+    def test_empty_language_list_raises(self, tmp_path: Path, spec: str) -> None:
+        with pytest.raises(ValueError, match="At least one language"):
+            parse_directory(str(tmp_path), language=spec)
+
     def test_detect_languages_is_public(self, tmp_path: Path) -> None:
         (tmp_path / "a.py").write_text("x = 1\n")
         (tmp_path / "b.rs").write_text("fn x() {}\n")

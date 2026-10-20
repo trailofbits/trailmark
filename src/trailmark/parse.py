@@ -7,9 +7,16 @@ import os
 from pathlib import Path
 
 from trailmark.analysis.links import apply_repository_links
-from trailmark.analysis.proxies import ensure_proxy_nodes
+from trailmark.analysis.proxies import ensure_proxy_nodes, materialize_type_use_edges
 from trailmark.models.graph import CodeGraph
-from trailmark.parsers._common import should_skip_dir
+from trailmark.models.nodes import NodeKind
+from trailmark.parsers._common import (
+    directory_sources,
+    link_cross_file_calls,
+    link_type_relationships,
+    should_skip_dir,
+    walk_source_files,
+)
 from trailmark.parsers.base import LanguageParser
 
 _PARSER_MAP: dict[str, tuple[str, str]] = {
@@ -45,10 +52,8 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "sql": ("trailmark.parsers.sql", "SQLParser"),
 }
 
-# Extensions used for language auto-detection. Keep these aligned with each
-# parser's internal _EXTENSIONS tuple. Shared extensions (e.g., `.h` between C
-# and C++) are handled by prioritizing the more specific language — C++ is
-# tried before plain C when both report files.
+# Auto-detection uses unambiguous extensions. Explicit C/Objective-C parsers
+# also accept .h; polyglot parsing assigns each shared header one owner.
 _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "python": (".py",),
     "javascript": (".js", ".jsx", ".mjs", ".cjs"),
@@ -105,7 +110,9 @@ def parse_file(path: str, language: str | None = None) -> CodeGraph:
     """
     file_path = Path(path)
     resolved_language = _resolve_file_language(file_path, language)
-    return ensure_proxy_nodes(_get_parser(resolved_language).parse_file(str(file_path)))
+    graph = _get_parser(resolved_language).parse_file(str(file_path))
+    link_type_relationships(graph)
+    return ensure_proxy_nodes(graph)
 
 
 def parse_directory(path: str, language: str = "python") -> CodeGraph:
@@ -188,7 +195,10 @@ def _resolve_directory_languages(path: str, spec: str) -> list[str]:
             msg = f"No supported languages detected under {path}"
             raise ValueError(msg)
         return detected
-    names = [name.strip() for name in spec.split(",") if name.strip()] if "," in spec else [spec]
+    names = list(dict.fromkeys(name.strip() for name in spec.split(",") if name.strip()))
+    if not names:
+        msg = "At least one language must be specified"
+        raise ValueError(msg)
     for name in names:
         if name not in _PARSER_MAP:
             msg = f"Unsupported language: {name}"
@@ -197,6 +207,25 @@ def _resolve_directory_languages(path: str, spec: str) -> list[str]:
 
 
 def _parse_and_merge(path: str, languages: list[str]) -> CodeGraph:
+    """Assign files once and plan collision-safe module IDs before parsing."""
+    extensions = {
+        lang: _LANGUAGE_EXTENSIONS[lang] + ((".h",) if lang in {"c", "objc"} else ())
+        for lang in languages
+    }
+    all_extensions = tuple({ext for values in extensions.values() for ext in values})
+    owners: dict[str, str] = {}
+    for file_path in walk_source_files(path, all_extensions):
+        suffix = _file_extension(file_path)
+        candidates = [lang for lang in languages if suffix in extensions[lang]]
+        # Objective-C also accepts C declarations. Its visitor retains C
+        # types, so mixed headers need neither reparsing nor record merging.
+        owner = "objc" if len(candidates) > 1 and suffix == ".h" else candidates[0]
+        owners[file_path] = "csharp" if owner == "c_sharp" else owner
+    with directory_sources(path, owners, defer_proxies=True):
+        return _merge_language_graphs(path, languages)
+
+
+def _merge_language_graphs(path: str, languages: list[str]) -> CodeGraph:
     """Parse ``path`` with each language parser and merge into one graph."""
     if len(languages) == 1:
         # Single-language directory parses also apply repository links and proxies.
@@ -205,9 +234,30 @@ def _parse_and_merge(path: str, languages: list[str]) -> CodeGraph:
         return ensure_proxy_nodes(graph)
 
     merged = CodeGraph(language="polyglot", root_path=str(Path(path).resolve()))
+    node_languages: dict[str, str] = {}
     for lang in languages:
         sub = _get_parser(lang).parse_directory(path)
+        # Resolve local type uses before another language can introduce an
+        # unrelated same-named type. Calls stay raw until after graph merging.
+        materialize_type_use_edges(sub)
+        for node_id in sorted(merged.nodes.keys() & sub.nodes.keys()):
+            if merged.nodes[node_id].kind == sub.nodes[node_id].kind == NodeKind.PROXY:
+                continue
+            msg = (
+                f"Node ID collision for {node_id!r} between languages "
+                f"{node_languages[node_id]!r} and {lang!r}; "
+                "parse the languages separately or rename the colliding modules"
+            )
+            raise ValueError(msg)
         merged.merge(sub)
+        node_languages.update(dict.fromkeys(sub.nodes, lang))
+    # Headers are owned once, but C-family functions may be called from another
+    # selected C-family frontend. Link before proxy normalization, without
+    # guessing relationships to free functions in unrelated languages.
+    c_family_ids = {
+        node_id for node_id, lang in node_languages.items() if lang in {"c", "cpp", "objc"}
+    }
+    link_cross_file_calls(merged, eligible_ids=c_family_ids)
     # merge() doesn't touch `language`; preserve the polyglot marker.
     merged.language = "polyglot"
     apply_repository_links(merged, path)

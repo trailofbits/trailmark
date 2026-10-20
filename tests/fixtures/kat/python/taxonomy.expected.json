@@ -146,51 +146,6 @@
     },
     {
       "attributes": {
-        "type_name": "int"
-      },
-      "confidence": "certain",
-      "kind": "type_uses",
-      "source": "taxonomy:add",
-      "target": "proxy.unresolved:taxonomy:int"
-    },
-    {
-      "attributes": {
-        "type_name": "int"
-      },
-      "confidence": "certain",
-      "kind": "type_uses",
-      "source": "taxonomy:branchy",
-      "target": "proxy.unresolved:taxonomy:int"
-    },
-    {
-      "attributes": {
-        "type_name": "RuntimeError"
-      },
-      "confidence": "certain",
-      "kind": "type_uses",
-      "source": "taxonomy:branchy",
-      "target": "proxy.unresolved:taxonomy:RuntimeError"
-    },
-    {
-      "attributes": {
-        "type_name": "int"
-      },
-      "confidence": "certain",
-      "kind": "type_uses",
-      "source": "taxonomy:counter",
-      "target": "proxy.unresolved:taxonomy:int"
-    },
-    {
-      "attributes": {
-        "type_name": "ValueError"
-      },
-      "confidence": "certain",
-      "kind": "type_uses",
-      "source": "taxonomy:Dog.bark",
-      "target": "proxy.unresolved:taxonomy:ValueError"
-    },
-    {
-      "attributes": {
         "type_name": "Dog"
       },
       "confidence": "certain",

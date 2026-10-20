@@ -44,6 +44,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._declarations import add_callable, add_type, callable_scope
 
 _EXTENSIONS = (".kt", ".kts")
 
@@ -90,7 +91,8 @@ class KotlinParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="kotlin", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_module(tree.root_node, file_path, module_id, graph)
+        with callable_scope(graph):
+            _visit_module(tree.root_node, file_path, module_id, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -143,13 +145,14 @@ def _extract_class_like(
     class_name = node_text(name_node)
     class_id = f"{module_id}:{class_name}"
     kind = _kotlin_class_kind(node)
-    graph.nodes[class_id] = CodeUnit(
+    unit = CodeUnit(
         id=class_id,
         name=class_name,
         kind=kind,
         location=make_location(node, file_path),
         type_parameters=extract_type_parameters(node),
     )
+    add_type(graph, unit)
     add_contains_edge(graph, module_id, class_id)
 
     body = first_child_by_type(node, "class_body")
@@ -221,7 +224,7 @@ def _extract_function(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
     )
-    graph.nodes[func_id] = unit
+    func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
 
     _add_call_edges(calls, func_id, file_path, graph)

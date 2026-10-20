@@ -31,6 +31,17 @@
       "path": "src/trailmark/parsers/rust/_scopes.py",
       "source_hash": "2fe5d79d8db55d6b0a44f3511191753ec656279fa57d894c2a0f28da00c7895e",
       "reason": "Equivalent for parser-produced call locations: a call starts at an expression token, never at the enclosing block opening-brace token. Equality with block.start_point cannot occur. The upper boundary is observably different for a call adjacent to the closing brace and has a regression test."
+    },
+    {
+      "fingerprint": "e8c8d880facb65dc9af575d10a573b7a52442bad7326a9af9d0ead9e017943f0",
+      "source_hash": "91b4daf095d8f39a1e08d91c45a399f06da13eac5569e4ca0c14dc82700c0cda",
+      "path": "src/trailmark/parsers/_common.py",
+      "function": "<module>",
+      "line": 50,
+      "operator": "boolean",
+      "original": "True",
+      "mutated": "False",
+      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, installed in a private ContextVar, read only by module_id_from_path/parse_directory, and reset in finally. directory_sources yields None, never the record; no field assignments, hashing, equality checks, or serialization consume it. Frozen guards field rebinding only; nested map mutation is possible in both variants and parser consumers do neither. The independent core review checked call sites and tested the mutable-decorator variant against directory parsing. Existing semantic tests verify IDs, ownership, header linking, collision expansion, and package modules rather than asserting this private decorator implementation."
     }
   ],
   "legacy_policy": "These functions match the pre-PR base f7e19d3. Their existing mutation outcomes are reported but not gated until their AST changes. New functions and changed functions in the scoped files are gated automatically.",

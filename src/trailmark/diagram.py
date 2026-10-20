@@ -9,6 +9,8 @@ import sys
 from collections import deque
 from typing import TYPE_CHECKING, Any
 
+from trailmark.models.lookup import resolve_node_id
+
 if TYPE_CHECKING:
     from trailmark.query.api import QueryEngine
 
@@ -115,15 +117,12 @@ def _find_focus_node(
     focus: str,
 ) -> str | None:
     """Resolve a focus name to a node ID, or None."""
-    nodes = graph.get("nodes", {})
-    if focus in nodes:
-        return focus
-    for nid, node in nodes.items():
-        if node.get("name") == focus or nid.endswith(f":{focus}"):
-            return nid
-        if nid.endswith(f".{focus}"):
-            return nid
-    return None
+    return resolve_node_id(
+        graph.get("nodes", {}),
+        focus,
+        name_of=lambda node: node.get("name", ""),
+        is_proxy=lambda node: node.get("kind") == "proxy" or node.get("origin") == "proxy",
+    )
 
 
 def _require_focus_node(
@@ -357,7 +356,13 @@ def emit_data_flow(
     depth: int,
     direction: str,
 ) -> str:
-    """Emit a flowchart showing paths from entrypoints."""
+    """Show entrypoint paths of at most ``depth`` edges with actual confidence.
+
+    When parallel call sites disagree, show the weakest confidence.
+    """
+    if depth < 1:
+        msg = "depth must be at least 1 (measured in edges)"
+        raise ValueError(msg)
     surface = engine.attack_surface()
     if not surface:
         return _empty_diagram(
@@ -371,14 +376,15 @@ def emit_data_flow(
 
     all_path_nodes: dict[str, dict[str, Any]] = {}
     all_path_edges: list[tuple[str, str, str]] = []
+    confidence_by_pair = _call_confidences(graph)
 
     targets = _resolve_data_flow_targets(engine, graph, focus, ep_ids)
 
-    for ep_id in ep_ids:
+    for ep_id in sorted(ep_ids):
         for tgt_id in targets:
-            paths = engine.paths_between(ep_id, tgt_id)
+            paths = engine.paths_between(ep_id, tgt_id, max_depth=depth)
             for path in paths:
-                _collect_path(path, nodes, all_path_nodes, all_path_edges)
+                _collect_path(path, nodes, confidence_by_pair, all_path_nodes, all_path_edges)
 
     if not all_path_nodes:
         return _empty_diagram(
@@ -421,9 +427,24 @@ def _resolve_data_flow_targets(
     return [h["id"] for h in hotspots if h["id"] not in ep_ids][:10]
 
 
+def _call_confidences(graph: dict[str, Any]) -> dict[tuple[str, str], str]:
+    """Choose the weakest confidence among parallel CALLS sites per adjacency."""
+    ranks = {"certain": 0, "inferred": 1, "uncertain": 2}
+    result: dict[tuple[str, str], str] = {}
+    for edge in graph.get("edges", []):
+        if edge.get("kind") != "calls":
+            continue
+        pair = (edge["source"], edge["target"])
+        confidence = edge["confidence"]
+        if pair not in result or ranks[confidence] > ranks[result[pair]]:
+            result[pair] = confidence
+    return result
+
+
 def _collect_path(
     path: list[str],
     nodes: dict[str, dict[str, Any]],
+    confidence_by_pair: dict[tuple[str, str], str],
     out_nodes: dict[str, dict[str, Any]],
     out_edges: list[tuple[str, str, str]],
 ) -> None:
@@ -432,7 +453,8 @@ def _collect_path(
         if nid not in out_nodes and nid in nodes:
             out_nodes[nid] = nodes[nid]
     for i in range(len(path) - 1):
-        out_edges.append((path[i], path[i + 1], "certain"))
+        source, target = path[i], path[i + 1]
+        out_edges.append((source, target, confidence_by_pair[(source, target)]))
 
 
 # ── Shared rendering helpers ─────────────────────────────────────
@@ -490,7 +512,13 @@ def add_diagram_arguments(parser: argparse.ArgumentParser) -> None:
         help="Diagram type",
     )
     parser.add_argument("--focus", "-f", default=None, help="Focus node name")
-    parser.add_argument("--depth", "-d", type=int, default=2, help="BFS depth")
+    parser.add_argument(
+        "--depth",
+        "-d",
+        type=int,
+        default=None,
+        help="Maximum edge depth (default: 2 for call-graph, 20 for data-flow)",
+    )
     parser.add_argument(
         "--direction",
         default="TB",
@@ -518,12 +546,15 @@ def render_diagram(engine: QueryEngine, args: argparse.Namespace) -> str:
     ``args.diagram_type`` is constrained to ``_DIAGRAM_TYPES`` by argparse, so
     the final branch handles ``containment`` without a fallback path.
     """
+    depth = args.depth
+    if depth is None:
+        depth = 20 if args.diagram_type == "data-flow" else 2
     if args.diagram_type == "call-graph":
-        return emit_call_graph(engine, args.focus, args.depth, args.direction)
+        return emit_call_graph(engine, args.focus, depth, args.direction)
     if args.diagram_type == "complexity":
         return emit_complexity(engine, args.threshold, args.direction)
     if args.diagram_type == "data-flow":
-        return emit_data_flow(engine, args.focus, args.depth, args.direction)
+        return emit_data_flow(engine, args.focus, depth, args.direction)
     if args.diagram_type == "class-hierarchy":
         return emit_class_hierarchy(engine, args.direction)
     if args.diagram_type == "module-deps":

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from trailmark.analysis.diff import compute_diff, format_diff, git_worktree
+from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.query.api import QueryEngine
 
@@ -82,6 +83,17 @@ class TestNodeDiff:
 
 
 class TestEdgeDiff:
+    def test_pipe_characters_do_not_alias_distinct_endpoints(self) -> None:
+        before = CodeGraph(edges=[CodeEdge("a|b", "c", EdgeKind.CALLS)])
+        after = CodeGraph(edges=[CodeEdge("a", "b|c", EdgeKind.CALLS)])
+
+        edges = compute_diff(before, after)["edges"]
+
+        assert edges == {
+            "added": [{"source": "a", "target": "b|c", "kind": "calls"}],
+            "removed": [{"source": "a|b", "target": "c", "kind": "calls"}],
+        }
+
     def test_new_call_edge_detected(self, tmp_path: Path) -> None:
         before = tmp_path / "before"
         after = tmp_path / "after"

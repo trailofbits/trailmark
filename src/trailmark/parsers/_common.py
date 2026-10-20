@@ -5,7 +5,8 @@ from __future__ import annotations
 import dataclasses
 import os
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,10 +18,12 @@ from trailmark.models.nodes import (
     BranchInfo,
     CodeUnit,
     NodeKind,
+    NodeOrigin,
     SourceLocation,
     TypeParameter,
     TypeRef,
 )
+from trailmark.parsers._binding import resolve_inherited_method_calls
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -44,37 +47,79 @@ def make_location(node: Node, file_path: str) -> SourceLocation:
     )
 
 
-_DIRECTORY_PARSE_ROOT: ContextVar[Path | None] = ContextVar(
-    "_DIRECTORY_PARSE_ROOT",
-    default=None,
+@dataclasses.dataclass(frozen=True)
+class _DirectorySources:
+    root: Path
+    owners: dict[Path, str]
+    module_ids: dict[Path, str]
+    defer_proxies: bool
+
+
+_DIRECTORY_SOURCES: ContextVar[_DirectorySources | None] = ContextVar(
+    "_DIRECTORY_SOURCES", default=None
 )
 
 
-def module_id_from_path(file_path: str) -> str:
-    """Derive a module ID from a file path.
+def _relative_module_id(path: Path, root: Path) -> str:
+    relative = path.relative_to(root)
+    if relative.stem == "__init__":
+        module_path = relative.parent
+        if module_path == Path("."):
+            return _escape_module_path_part(root.name)
+    else:
+        module_path = relative.with_suffix("")
+    return ".".join(_escape_module_path_part(part) for part in module_path.parts)
 
-    Single-file parsing preserves the historical filename-stem ID. Directory
-    parsing uses a root-relative dotted path so same-named files in different
-    directories do not overwrite each other when their graphs are merged.
+
+@contextmanager
+def directory_sources(
+    dir_path: str, owners: dict[str, str], *, defer_proxies: bool = False
+) -> Generator[None]:
+    """Plan source ownership and module identities before any graph is merged.
+
+    Unique module IDs retain their historical form. Colliding stems use the
+    full root-relative filename, including its escaped extension. Planning all
+    selected languages together makes identities independent of parser order.
     """
-    p = Path(file_path)
-    root = _DIRECTORY_PARSE_ROOT.get()
-    if root is not None:
-        try:
-            rel_path = _absolute_lexical_path(p).relative_to(root)
-        except ValueError:
-            pass
-        else:
-            if rel_path.stem == "__init__":
-                module_path = rel_path.parent
-                if module_path == Path("."):
-                    return _escape_module_path_part(root.name)
-            else:
-                module_path = rel_path.with_suffix("")
-            return ".".join(_escape_module_path_part(part) for part in module_path.parts)
+    root = _absolute_lexical_path(Path(dir_path))
+    absolute_owners = {_absolute_lexical_path(Path(path)): lang for path, lang in owners.items()}
+    module_ids = {path: _relative_module_id(path, root) for path in absolute_owners}
+    # An expanded name can itself meet an unexpanded stem (a.py vs a.py.py).
+    # Expand the whole collision group until all relative filenames are unique.
+    # Each collision pass expands at least one previously unexpanded path.
+    # All full relative filenames are unique, so at most N passes are needed.
+    for _ in range(len(module_ids) + 1):
+        groups: dict[str, list[Path]] = {}
+        for path, module_id in module_ids.items():
+            groups.setdefault(module_id, []).append(path)
+        collisions = [paths for paths in groups.values() if len(paths) > 1]
+        if not collisions:
+            break
+        for paths in collisions:
+            for path in paths:
+                module_ids[path] = ".".join(
+                    _escape_module_path_part(part) for part in path.relative_to(root).parts
+                )
+    else:
+        raise ValueError("Unable to assign distinct source module IDs")
+    token = _DIRECTORY_SOURCES.set(
+        _DirectorySources(root, absolute_owners, module_ids, defer_proxies)
+    )
+    try:
+        yield
+    finally:
+        _DIRECTORY_SOURCES.reset(token)
 
-    stem = p.stem if p.stem != "__init__" else p.parent.name
-    return stem
+
+def module_id_from_path(file_path: str) -> str:
+    """Return a planned directory identity or a single file's historical stem."""
+    path = Path(file_path)
+    sources = _DIRECTORY_SOURCES.get()
+    if sources is not None:
+        module_id = sources.module_ids.get(_absolute_lexical_path(path))
+        if module_id is not None:
+            return module_id
+    return path.stem if path.stem != "__init__" else path.parent.name
 
 
 def _absolute_lexical_path(path: Path) -> Path:
@@ -117,16 +162,16 @@ def walk_source_files(
     dir_path: str,
     extensions: tuple[str, ...],
 ) -> Iterator[str]:
-    """Yield absolute paths matching the given extensions under dir_path.
+    """Yield source paths with case-insensitive extensions under dir_path.
 
     Skips common non-source directories (VCS, caches, vendored deps)
-    and does not follow symlinks.
+    and does not traverse directory symlinks.
     """
     for root, dirs, files in os.walk(dir_path, followlinks=False):
         dirs[:] = [d for d in dirs if not should_skip_dir(d)]
         dirs.sort()
         for fname in sorted(files):
-            if any(fname.endswith(ext) for ext in extensions):
+            if fname.lower().endswith(extensions):
                 yield os.path.join(root, fname)
 
 
@@ -144,16 +189,22 @@ def parse_directory(
         dir_path: Directory to walk.
         extensions: File extensions to include.
     """
+    sources = _DIRECTORY_SOURCES.get()
+    if sources is None or sources.root != _absolute_lexical_path(Path(dir_path)):
+        owners = dict.fromkeys(walk_source_files(dir_path, extensions), language)
+        with directory_sources(dir_path, owners):
+            return parse_directory(parse_file_fn, language, dir_path, extensions)
+
     merged = CodeGraph(language=language, root_path=dir_path)
-    token = _DIRECTORY_PARSE_ROOT.set(_absolute_lexical_path(Path(dir_path)))
-    try:
-        for fpath in walk_source_files(dir_path, extensions):
-            file_graph = parse_file_fn(fpath)
-            merged.merge(file_graph)
-    finally:
-        _DIRECTORY_PARSE_ROOT.reset(token)
-    _link_cross_file_calls(merged)
-    return ensure_proxy_nodes(merged)
+    for fpath in walk_source_files(dir_path, extensions):
+        if sources.owners.get(_absolute_lexical_path(Path(fpath))) != language:
+            continue
+        file_graph = parse_file_fn(fpath)
+        merged.merge(file_graph)
+    link_type_relationships(merged)
+    resolve_inherited_method_calls(merged)
+    link_cross_file_calls(merged)
+    return merged if sources.defer_proxies else ensure_proxy_nodes(merged)
 
 
 def collect_body_info(
@@ -234,6 +285,7 @@ _CALL_NAME_TYPES = frozenset(
         "field_expression",
         "member_expression",
         "scoped_identifier",
+        "qualified_identifier",  # C++ namespace-qualified calls
         "selector_expression",
         "simple_identifier",  # Swift
         "navigation_expression",  # Swift dot access (e.g. self.method)
@@ -445,58 +497,92 @@ def first_child_by_type(node: Node, type_name: str) -> Node | None:
     return None
 
 
-def _link_cross_file_calls(graph: CodeGraph) -> None:
-    """Rewrite dangling call edges to point at definitions in other modules.
+def link_cross_file_calls(graph: CodeGraph, *, eligible_ids: set[str] | None = None) -> None:
+    """Infer unique free-function targets without guessing receiver semantics.
 
-    Per-file parsers resolve bare calls like ``foo()`` as
-    ``current_module:foo``.  After merging, if ``foo`` is defined in
-    another module, that edge target doesn't exist.  This pass builds a
-    name index and rewrites those edges to the actual definition site.
+    Bare calls cannot safely be assigned to an unrelated class method. Existing
+    exact targets are retained; overloaded and ambiguous names stay unresolved.
+    A unique name across files is a heuristic, so its confidence is inferred.
     """
-    defined_nodes = graph.nodes
-
     name_to_ids: dict[str, list[str]] = {}
-    for node_id, unit in defined_nodes.items():
-        if unit.kind.value in {"function", "method"}:
+    for node_id, unit in graph.nodes.items():
+        if unit.kind == NodeKind.FUNCTION and (eligible_ids is None or node_id in eligible_ids):
             name_to_ids.setdefault(unit.name, []).append(node_id)
-
     new_edges: list[CodeEdge] = []
     for edge in graph.edges:
-        if edge.kind != EdgeKind.CALLS or edge.target_id in defined_nodes:
+        if (
+            edge.kind != EdgeKind.CALLS
+            or edge.target_id in graph.nodes
+            or (eligible_ids is not None and edge.source_id not in eligible_ids)
+        ):
             new_edges.append(edge)
             continue
-
         target = edge.target_id
-        if "::" in target or "->" in target:
+        bare_name = target.rsplit(":", 1)[-1]
+        if "::" in target or "->" in target or "." in bare_name:
             new_edges.append(edge)
             continue
-
-        bare_name = target.rsplit(":", 1)[-1] if ":" in target else target
-        if "." in bare_name or "->" in bare_name:
-            new_edges.append(edge)
-            continue
-        candidates = name_to_ids.get(bare_name)
-
-        if not candidates:
-            new_edges.append(edge)
-            continue
-
+        candidates = name_to_ids.get(bare_name, [])
         if len(candidates) == 1:
-            new_edges.append(dataclasses.replace(edge, target_id=candidates[0]))
-        else:
-            # Ambiguous: prefer a single cross-file candidate when a same-file
-            # declaration is also present, but do not invent an arbitrary call
-            # target when multiple cross-file definitions share the same name.
-            src_module = edge.source_id.rsplit(":", 1)[0] if ":" in edge.source_id else ""
-            cross = [c for c in candidates if not c.startswith(src_module + ":")]
-            if len(cross) == 1:
-                new_edges.append(dataclasses.replace(edge, target_id=cross[0]))
-            else:
-                new_edges.append(
-                    dataclasses.replace(
-                        edge,
-                        confidence=EdgeConfidence.UNCERTAIN,
-                    )
-                )
+            edge = dataclasses.replace(
+                edge,
+                target_id=candidates[0],
+                confidence=(
+                    EdgeConfidence.UNCERTAIN
+                    if edge.confidence == EdgeConfidence.UNCERTAIN
+                    else EdgeConfidence.INFERRED
+                ),
+            )
+        elif candidates:
+            edge = dataclasses.replace(edge, confidence=EdgeConfidence.UNCERTAIN)
+        new_edges.append(edge)
+    graph.edges[:] = new_edges
 
-    graph.edges = new_edges
+
+def link_type_relationships(graph: CodeGraph) -> None:
+    """Link unambiguous inheritance/implementation targets within one language.
+
+    Exact local targets win. Qualified and bare type names are indexed only for
+    type declarations; ambiguous imports are left unresolved for later analysis.
+    """
+    type_kinds = {
+        NodeKind.CLASS,
+        NodeKind.STRUCT,
+        NodeKind.INTERFACE,
+        NodeKind.TRAIT,
+        NodeKind.ENUM,
+        NodeKind.CONTRACT,
+        NodeKind.LIBRARY,
+    }
+    names: dict[str, set[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind not in type_kinds or unit.origin != NodeOrigin.SOURCE:
+            continue
+        for name in (unit.name, unit.id, unit.id.replace(":", ".", 1)):
+            names.setdefault(name, set()).add(unit.id)
+    edges: list[CodeEdge] = []
+    for edge in graph.edges:
+        if edge.kind in {EdgeKind.INHERITS, EdgeKind.IMPLEMENTS}:
+            raw = edge.target_id.rsplit(":", 1)[-1]
+            # Nested types can refer to siblings in an enclosing lexical type.
+            # Walk outward before falling back to the language-wide name index.
+            local_target = None
+            module, _, qualified = edge.source_id.partition(":")
+            enclosing = qualified.split(".")[:-1]
+            if "." not in raw:
+                for depth in range(len(enclosing), 0, -1):
+                    candidate = f"{module}:{'.'.join(enclosing[:depth])}.{raw}"
+                    unit = graph.nodes.get(candidate)
+                    if unit is not None and unit.kind in type_kinds:
+                        local_target = candidate
+                        break
+            candidates = {local_target} if local_target is not None else names.get(raw, set())
+            if local_target is None and edge.target_id in graph.nodes:
+                edges.append(edge)
+                continue
+            if len(candidates) == 1:
+                edge = dataclasses.replace(
+                    edge, target_id=next(iter(candidates)), confidence=EdgeConfidence.INFERRED
+                )
+        edges.append(edge)
+    graph.edges[:] = edges

@@ -59,3 +59,21 @@ def test_schema_languages_do_not_emit_runtime_call_edges(tmp_path: Path) -> None
         path.write_text(text)
         graph = parse_file(str(path), language=language)
         assert [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS] == []
+
+
+def test_thrift_generic_parameter_types_preserve_closing_brackets(tmp_path: Path) -> None:
+    source = tmp_path / "store.thrift"
+    source.write_text(
+        "service Store { list<string> take("
+        "1: list<string> names, 2: map<string, list<i64>> groups) }\n"
+    )
+
+    graph = parse_file(str(source))
+    method = graph.nodes["store:Store.take"]
+
+    assert [p.type_ref.name for p in method.parameters if p.type_ref is not None] == [
+        "list<string>",
+        "map<string, list<i64>>",
+    ]
+    assert method.return_type is not None
+    assert method.return_type.name == "list<string>"

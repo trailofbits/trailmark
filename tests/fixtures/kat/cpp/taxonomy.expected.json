@@ -32,21 +32,21 @@
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:stoi"
+        "raw_target": "std::stoi"
       },
-      "confidence": "certain",
+      "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "proxy.unresolved:taxonomy:stoi"
+      "target": "proxy.unresolved:std::stoi"
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:runtime_error"
+        "raw_target": "std::runtime_error"
       },
-      "confidence": "certain",
+      "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "proxy.unresolved:taxonomy:runtime_error"
+      "target": "proxy.unresolved:std::runtime_error"
     },
     {
       "confidence": "certain",
@@ -58,13 +58,13 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Animal",
-      "target": "taxonomy:Animal.Animal"
+      "target": "taxonomy:Animal.Animal@54_4"
     },
     {
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Animal",
-      "target": "taxonomy:Animal.Animal"
+      "target": "taxonomy:Animal.Animal@55_4"
     },
     {
       "confidence": "certain",
@@ -104,12 +104,12 @@
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:runtime_error"
+        "raw_target": "std::runtime_error"
       },
-      "confidence": "certain",
+      "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Dog.bark",
-      "target": "proxy.unresolved:taxonomy:runtime_error"
+      "target": "proxy.unresolved:std::runtime_error"
     },
     {
       "confidence": "certain",
@@ -131,6 +131,15 @@
       "kind": "calls",
       "source": "taxonomy:use_animal",
       "target": "proxy.unresolved:d.bark"
+    },
+    {
+      "attributes": {
+        "type_name": "Dog"
+      },
+      "confidence": "certain",
+      "kind": "type_uses",
+      "source": "taxonomy:use_animal",
+      "target": "taxonomy:Dog"
     }
   ],
   "language": "cpp",
@@ -158,16 +167,16 @@
       "parameters": [],
       "return_type": null
     },
-    "proxy.unresolved:taxonomy:runtime_error": {
+    "proxy.unresolved:std::runtime_error": {
       "attributes": {
         "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:runtime_error"
+        "raw_symbol": "std::runtime_error"
       },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:runtime_error",
+      "id": "proxy.unresolved:std::runtime_error",
       "kind": "proxy",
       "location": {
         "end_col": 44,
@@ -176,21 +185,21 @@
         "start_col": 14,
         "start_line": 44
       },
-      "name": "taxonomy:runtime_error",
+      "name": "std::runtime_error",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
     },
-    "proxy.unresolved:taxonomy:stoi": {
+    "proxy.unresolved:std::stoi": {
       "attributes": {
         "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:stoi"
+        "raw_symbol": "std::stoi"
       },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:stoi",
+      "id": "proxy.unresolved:std::stoi",
       "kind": "proxy",
       "location": {
         "end_col": 30,
@@ -199,7 +208,7 @@
         "start_col": 15,
         "start_line": 42
       },
-      "name": "taxonomy:stoi",
+      "name": "std::stoi",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
@@ -240,12 +249,40 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:Animal.Animal": {
+    "taxonomy:Animal.Animal@54_4": {
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Animal.Animal",
+      "id": "taxonomy:Animal.Animal@54_4",
+      "kind": "method",
+      "location": {
+        "end_col": 77,
+        "end_line": 54,
+        "file_path": "taxonomy.cpp",
+        "start_col": 4,
+        "start_line": 54
+      },
+      "name": "Animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "std::string"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Animal.Animal@55_4": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.Animal@55_4",
       "kind": "method",
       "location": {
         "end_col": 32,
@@ -683,8 +720,8 @@
       "string"
     ],
     "entrypoints": 0,
-    "functions": 9,
+    "functions": 10,
     "proxies": 3,
-    "total_nodes": 17
+    "total_nodes": 18
   }
 }

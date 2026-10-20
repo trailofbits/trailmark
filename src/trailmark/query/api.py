@@ -62,7 +62,12 @@ class QueryEngine:
 
     @classmethod
     def from_graph(cls, graph: CodeGraph) -> QueryEngine:
-        """Create an engine from a pre-built CodeGraph."""
+        """Create an engine retaining the supplied mutable graph.
+
+        Proxy normalization updates ``graph`` in place. Complete direct node
+        and edge edits before construction, then use the engine's mutation
+        APIs so its topology indexes stay synchronized.
+        """
         store = GraphStore(ensure_proxy_nodes(graph))
         return cls(store)
 
@@ -129,7 +134,7 @@ class QueryEngine:
             return []
         ancestor_ids = self._store.ancestors_of(node_id)
         result: list[dict[str, Any]] = []
-        for aid in ancestor_ids:
+        for aid in sorted(ancestor_ids):
             unit = self._store._graph.nodes.get(aid)  # noqa: SLF001
             if unit is not None:
                 result.append(_unit_to_dict(unit))
@@ -145,7 +150,7 @@ class QueryEngine:
             return []
         reachable_ids = self._store.reachable_from(node_id)
         result: list[dict[str, Any]] = []
-        for rid in reachable_ids:
+        for rid in sorted(reachable_ids):
             unit = self._store._graph.nodes.get(rid)  # noqa: SLF001
             if unit is not None:
                 result.append(_unit_to_dict(unit))
@@ -155,13 +160,17 @@ class QueryEngine:
         self,
         src: str,
         dst: str,
+        *,
+        max_depth: int = 20,
     ) -> list[list[str]]:
-        """Find all call paths between two nodes."""
+        """Find nontrivial call paths of at most ``max_depth`` edges (positive)."""
         src_id = self._store.find_node_id(src)
         dst_id = self._store.find_node_id(dst)
-        if src_id is None or dst_id is None:
-            return []
-        return self._store.paths_between(src_id, dst_id)
+        return self._store.paths_between(
+            src_id if src_id is not None else src,
+            dst_id if dst_id is not None else dst,
+            max_depth=max_depth,
+        )
 
     def connect_subgraphs(
         self,
@@ -171,7 +180,7 @@ class QueryEngine:
         max_depth: int = 20,
         edge_kinds: tuple[str | EdgeKind, ...] = ("calls",),
     ) -> list[list[str]]:
-        """Find paths connecting nodes from one named subgraph to another."""
+        """Connect named subgraphs with at most ``max_depth`` edges (positive)."""
         kinds = _coerce_edge_kinds(edge_kinds)
         return self._store.connect_subgraphs(
             source,
@@ -189,12 +198,12 @@ class QueryEngine:
 
         Answers the canonical attack-surface question: "given this sink,
         what concrete entrypoint paths can reach it?" Returns a list of
-        id-path lists, one per reachable entrypoint.
+        nontrivial ID paths bounded by ``max_depth`` edges (positive).
         """
         node_id = self._store.find_node_id(name)
-        if node_id is None:
-            return []
-        return self._store.entrypoint_paths_to(node_id, max_depth=max_depth)
+        return self._store.entrypoint_paths_to(
+            node_id if node_id is not None else name, max_depth=max_depth
+        )
 
     def nodes_with_annotation(
         self,
@@ -308,7 +317,7 @@ class QueryEngine:
             "classes": sum(1 for n in graph.nodes.values() if n.kind.value == "class"),
             "proxies": sum(1 for n in graph.nodes.values() if n.kind.value == "proxy"),
             "call_edges": len(call_edges),
-            "dependencies": graph.dependencies,
+            "dependencies": list(graph.dependencies),
             "entrypoints": len(graph.entrypoints),
         }
 
@@ -373,13 +382,15 @@ class QueryEngine:
         """
         return run_preanalysis(self._store)
 
-    def augment_sarif(self, sarif_path: str) -> dict[str, Any]:
-        """Parse a SARIF file and augment the graph with findings."""
-        return augment_from_sarif(self._store, sarif_path)
+    def augment_sarif(self, sarif_path: str, *, replace_existing: bool = True) -> dict[str, Any]:
+        """Import SARIF findings, replacing prior SARIF imports unless disabled."""
+        return augment_from_sarif(self._store, sarif_path, replace_existing=replace_existing)
 
-    def augment_weaudit(self, weaudit_path: str) -> dict[str, Any]:
-        """Parse a weAudit file and augment the graph with findings."""
-        return augment_from_weaudit(self._store, weaudit_path)
+    def augment_weaudit(
+        self, weaudit_path: str, *, replace_existing: bool = True
+    ) -> dict[str, Any]:
+        """Import weAudit findings, replacing prior weAudit imports unless disabled."""
+        return augment_from_weaudit(self._store, weaudit_path, replace_existing=replace_existing)
 
     def augment_binary(
         self,
@@ -464,7 +475,11 @@ class QueryEngine:
         return [_type_ref_to_dict(ref) for ref in refs]
 
     def to_json(self, indent: int = 2) -> str:
-        """Serialize the full graph to JSON."""
+        """Export topology, selected node metadata, subgraphs, and summary.
+
+        Annotations, entrypoint tags, and call-site locations are omitted;
+        this export does not preserve all analysis state for persistence.
+        """
         graph = self._store._graph  # noqa: SLF001
         data = {
             "language": graph.language,

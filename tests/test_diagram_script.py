@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import json
+import sys
 from collections.abc import Callable
+from itertools import pairwise
 
 import pytest
 
-from trailmark import diagram
+from trailmark import cli, diagram
 from trailmark.models import (
     CodeEdge,
     CodeGraph,
     CodeUnit,
+    EdgeConfidence,
     EdgeKind,
     EntrypointKind,
     EntrypointTag,
     NodeKind,
+    NodeOrigin,
     SourceLocation,
     TrustLevel,
 )
@@ -321,6 +326,62 @@ class TestEmitComplexity:
 
 
 class TestEmitDataFlow:
+    def test_focus_uses_the_same_declaration_ranking_as_queries(self) -> None:
+        units = [
+            _make_node("mod:C.check", "C.check"),
+            CodeUnit(
+                id="proxy.unresolved:check",
+                name="check",
+                kind=NodeKind.PROXY,
+                location=_LOC,
+                origin=NodeOrigin.PROXY,
+            ),
+            _make_node("mod:check", "check"),
+        ]
+        engine = QueryEngine.from_graph(CodeGraph(nodes={unit.id: unit for unit in units}))
+        graph = json.loads(engine.to_json())
+        for reference in ("check", "C.check", "proxy.unresolved:check", "missing"):
+            expected = engine._store.find_node_id(reference)  # noqa: SLF001
+            assert diagram._find_focus_node(graph, reference) == expected
+        assert diagram._find_focus_node(graph, "check") == "mod:check"
+
+    @pytest.mark.parametrize("reverse_order", [False, True])
+    def test_preserves_weakest_parallel_call_confidence(self, reverse_order: bool) -> None:
+        nodes = {name: _make_node(name, name) for name in ("entry", "middle", "sink")}
+        parallel = [
+            CodeEdge("entry", "middle", EdgeKind.CALLS, EdgeConfidence.UNCERTAIN),
+            CodeEdge("entry", "middle", EdgeKind.CALLS, EdgeConfidence.CERTAIN),
+        ]
+        if reverse_order:
+            parallel.reverse()
+        graph = CodeGraph(
+            nodes=nodes,
+            edges=[
+                *parallel,
+                CodeEdge("entry", "middle", EdgeKind.CONTAINS),
+                CodeEdge("middle", "sink", EdgeKind.CALLS, EdgeConfidence.INFERRED),
+            ],
+            entrypoints={"entry": EntrypointTag(kind=EntrypointKind.API)},
+        )
+        engine = QueryEngine.from_graph(graph)
+
+        result = diagram.emit_data_flow(engine, "sink", 2, "TB")
+
+        assert "entry -..-> middle" in result
+        assert "middle -.-> sink" in result
+        assert "entry --> middle" not in result
+        assert len(graph.edges) == 4
+
+    def test_depth_bounds_the_number_of_edges(self) -> None:
+        engine = _build_call_graph_engine()
+        assert "No paths" in diagram.emit_data_flow(engine, "db_query", 1, "TB")
+        assert "mod_handler --> mod_db_query" in diagram.emit_data_flow(engine, "db_query", 2, "TB")
+
+    @pytest.mark.parametrize("depth", [0, -1])
+    def test_nonpositive_depth_rejected_even_without_entrypoints(self, depth: int) -> None:
+        with pytest.raises(ValueError, match="depth.*at least 1"):
+            diagram.emit_data_flow(_build_class_hierarchy_engine(), None, depth, "TB")
+
     def test_with_focus(self) -> None:
         engine = _build_call_graph_engine()
         result = diagram.emit_data_flow(engine, "db_query", 5, "TB")
@@ -388,7 +449,7 @@ class TestParseArgs:
         assert args.diagram_type == "call-graph"
         assert args.language == "python"
         assert args.direction == "TB"
-        assert args.depth == 2
+        assert args.depth is None
 
     def test_all_options(self) -> None:
         args = diagram.parse_args(
@@ -419,6 +480,61 @@ class TestParseArgs:
     def test_invalid_type_rejected(self) -> None:
         with pytest.raises(SystemExit):
             diagram.parse_args(["--target", "/some/dir", "--type", "invalid"])
+
+
+@pytest.mark.parametrize("subcommand", [False, True])
+@pytest.mark.parametrize(
+    ("diagram_type", "depth", "edge_count", "includes_sink"),
+    [
+        ("call-graph", None, 3, False),
+        ("call-graph", 3, 3, True),
+        ("data-flow", None, 3, True),
+        ("data-flow", None, 20, True),
+        ("data-flow", None, 21, False),
+        ("data-flow", 2, 3, False),
+        ("data-flow", 3, 3, True),
+    ],
+)
+def test_cli_depth_defaults_depend_on_diagram_type(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    subcommand: bool,
+    diagram_type: str,
+    depth: int | None,
+    edge_count: int,
+    includes_sink: bool,
+) -> None:
+    ids = ["mod:entry", *(f"mod:n{i}" for i in range(edge_count - 1)), "mod:sink"]
+    graph = CodeGraph(
+        nodes={
+            node_id: _make_node(
+                node_id, node_id.split(":")[1], complexity=13 if i == edge_count else 1
+            )
+            for i, node_id in enumerate(ids)
+        },
+        edges=[CodeEdge(src, dst, EdgeKind.CALLS) for src, dst in pairwise(ids)],
+        entrypoints={
+            ids[0]: EntrypointTag(
+                kind=EntrypointKind.USER_INPUT,
+                trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            )
+        },
+    )
+    engine = QueryEngine.from_graph(graph)
+    args = ["--target", "/unused", "--type", diagram_type]
+    if diagram_type == "call-graph":
+        args.extend(["--focus", "entry"])
+    if depth is not None:
+        args.extend(["--depth", str(depth)])
+    if subcommand:
+        monkeypatch.setattr(cli, "build_engine", lambda target, language: engine)
+        monkeypatch.setattr(sys, "argv", ["trailmark", "diagram", *args])
+        cli.main()
+    else:
+        monkeypatch.setattr(diagram, "build_engine", lambda target, language: engine)
+        assert diagram.main(args) == 0
+
+    assert ("mod_sink" in capsys.readouterr().out) is includes_sink
 
 
 # ── Large graph warning ──────────────────────────────────────────

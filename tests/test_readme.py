@@ -118,6 +118,11 @@ class TestPackageMetadata:
 
 
 class TestUsageSection:
+    def test_augment_json_output_streams_are_documented(self, readme_text: str) -> None:
+        assert "`trailmark augment --json`" in readme_text
+        assert "JSON to stdout" in readme_text
+        assert "import summaries to stderr" in readme_text
+
     @pytest.fixture(scope="class")
     @classmethod
     def cli_subcommands(cls) -> set[str]:
@@ -202,6 +207,32 @@ class TestPersistentState:
 
 
 class TestQueryEngineAPI:
+    @pytest.mark.parametrize("method", ["augment_sarif", "augment_weaudit"])
+    def test_import_replacement_contract_is_documented(self, method: str, readme_text: str) -> None:
+        parameter = inspect.signature(getattr(QueryEngine, method)).parameters["replace_existing"]
+        assert parameter.default is True
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        assert "`replace_existing=False`" in readme_text
+        assert "preserves the graph's previous state" in readme_text
+
+    def test_path_and_lookup_contracts_are_documented(self, readme_text: str) -> None:
+        assert "Path queries return distinct node-ID sequences" in readme_text
+        assert "exact node ID first" in readme_text
+        assert "before applying those tiers to" in readme_text
+        assert "`:name` suffix, then `.name` suffix" in readme_text
+        assert "maximum edge count (default 20)" in readme_text
+        assert "max_depth=20" in readme_text
+        depth = inspect.signature(QueryEngine.paths_between).parameters["max_depth"]
+        assert depth.kind is inspect.Parameter.KEYWORD_ONLY
+        assert depth.default == 20
+
+    def test_graph_ownership_and_export_limits_are_documented(self, readme_text: str) -> None:
+        assert "retains the supplied mutable graph" in readme_text
+        assert "`rebuild_index()` after direct structural edits" in readme_text
+        assert (
+            "JSON export omits annotations, entrypoint tags, and call-site locations" in readme_text
+        )
+
     EXPECTED_METHODS = (
         "callers_of",
         "callees_of",
@@ -332,6 +363,13 @@ class TestParseOnlyAPI:
     def test_readme_mentions_parse_only_api(self, readme_text: str) -> None:
         assert "from trailmark.parse import parse_directory, parse_file" in readme_text
         assert 'graph = parse_file("path/to/file.py")' in readme_text
+
+    def test_declaration_and_directory_contracts_are_documented(self, readme_text: str) -> None:
+        assert "@line_column" in readme_text
+        assert "Each physical header is parsed once" in readme_text
+        assert "Registered file-extension matching is case-insensitive" in readme_text
+        assert "pkg.__init__\\.py" in readme_text
+        assert "do not traverse directory symlinks" in readme_text
 
     def test_readme_documents_cross_file_call_resolution(self, readme_text: str) -> None:
         assert "Directory parsing resolves bare cross-file calls" in readme_text

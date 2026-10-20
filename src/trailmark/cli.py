@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 from trailmark import __version__
 from trailmark.diagram import add_diagram_arguments, build_engine, render_diagram
@@ -140,7 +140,7 @@ def build_parser() -> argparse.ArgumentParser:
     augment.add_argument(
         "--json",
         action="store_true",
-        help="Output full augmented graph as JSON",
+        help="Export graph topology and selected node metadata as JSON (omits finding details)",
     )
 
     diagram = subparsers.add_parser(
@@ -225,14 +225,15 @@ def _run_augment(args: argparse.Namespace) -> None:
         args.path,
         language=args.language,
     )
+    summary_stream = sys.stderr if args.json else sys.stdout
 
-    for sarif_path in args.sarif:
-        result = engine.augment_sarif(sarif_path)
-        _print_augment_result("SARIF", sarif_path, result)
+    for index, sarif_path in enumerate(args.sarif):
+        result = engine.augment_sarif(sarif_path, replace_existing=index == 0)
+        _print_augment_result("SARIF", sarif_path, result, file=summary_stream)
 
-    for weaudit_path in args.weaudit:
-        result = engine.augment_weaudit(weaudit_path)
-        _print_augment_result("weAudit", weaudit_path, result)
+    for index, weaudit_path in enumerate(args.weaudit):
+        result = engine.augment_weaudit(weaudit_path, replace_existing=index == 0)
+        _print_augment_result("weAudit", weaudit_path, result, file=summary_stream)
 
     if args.json:
         print(engine.to_json())
@@ -248,14 +249,16 @@ def _print_augment_result(
     label: str,
     path: str,
     result: dict[str, Any],
+    *,
+    file: TextIO | None = None,
 ) -> None:
     """Print a summary of an augmentation result."""
-    print(f"{label}: {path}")
-    print(f"  Matched: {result['matched_findings']}")
-    print(f"  Unmatched: {result['unmatched_findings']}")
+    print(f"{label}: {path}", file=file)
+    print(f"  Matched: {result['matched_findings']}", file=file)
+    print(f"  Unmatched: {result['unmatched_findings']}", file=file)
     subgraphs = result.get("subgraphs_created", [])
     if subgraphs:
-        print(f"  Subgraphs: {', '.join(str(s) for s in subgraphs)}")
+        print(f"  Subgraphs: {', '.join(str(s) for s in subgraphs)}", file=file)
 
 
 def _run_entrypoints(args: argparse.Namespace) -> None:
@@ -286,7 +289,7 @@ def _run_entrypoints(args: argparse.Namespace) -> None:
 
 def _run_diff(args: argparse.Namespace) -> None:
     """Execute the diff subcommand."""
-    from trailmark.analysis.diff import format_diff, git_worktree
+    from trailmark.analysis.diff import format_diff
 
     before_engine = _load_diff_side(args.before, args.language, args.repo)
     after_engine = _load_diff_side(args.after, args.language, args.repo)
@@ -296,7 +299,6 @@ def _run_diff(args: argparse.Namespace) -> None:
         print(json.dumps(diff, indent=2))
         return
     print(format_diff(diff))
-    _ = git_worktree  # re-export for downstream scripts importing from cli
 
 
 def _load_diff_side(

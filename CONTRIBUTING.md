@@ -2,51 +2,49 @@
 
 ## Setup
 
-Requires Python >= 3.12 and [uv](https://docs.astral.sh/uv/).
+Requires Python >= 3.12, [uv](https://docs.astral.sh/uv/), Node.js/npm,
+a C compiler (`cc`), and Python development headers. CI tests Python 3.12–3.14.
 
 ```bash
-uv sync --all-groups
+npm ci
+uv sync --locked --all-groups
 ```
+
+`npm ci` installs the pinned Tree-sitter CLI used to generate the bundled Verus
+grammar. Its install script must be enabled; if your npm configuration disables
+scripts, run `npm rebuild tree-sitter-cli --ignore-scripts=false` before syncing.
 
 ## Running Checks
 
-Run all three before submitting changes:
+Run these checks before submitting changes:
 
 ```bash
-# Lint and format
-uv run ruff check --fix src/ tests/
-uv run ruff format src/ tests/
+# Lint and check formatting
+uv run ruff check hatch_build.py src/ tests/
+uv run ruff format --check hatch_build.py src/ tests/
 
 # Type check
-uv run ty check
+uv run --locked ty check
 
 # Tests
-pytest -q
+uv run pytest -q tests/
 ```
 
 ## Mutation Testing
 
-Trailmark uses [mutmut](https://mutmut.readthedocs.io/) to verify test
-suite quality. Mutmut generates source code mutations and confirms that
-tests catch each one.
+Trailmark uses a pinned pytest-gremlins runner to verify test suite quality.
+Use the repository runner, which validates clean and instrumented baselines
+and runs component tests before retaining the remaining selected tests as fallback.
 
 ```bash
-uv run mutmut run
-uv run mutmut results
+uv run python -m tests.run_mutations --reviewed --workers=4
+uv run python -m tests.mutation_gate
 ```
 
-### macOS: Fork Safety
-
-mutmut uses `fork()` to isolate mutation runs. On macOS, this conflicts
-with the Objective-C runtime and with native extensions like rustworkx
-(a Rust/C extension). You **must** set this environment variable:
-
-```bash
-export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-```
-
-Without it, mutmut will segfault on every mutant. This is not needed on
-Linux (CI runs on Ubuntu without issue).
+Omit `--reviewed` for a full repository campaign. `--workers=4` already enables
+parallel execution. Do not invoke the plugin directly or enable
+`TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing. See
+[the README](README.md#development) for scope, reports, and gate behavior.
 
 ## Architecture
 
@@ -66,8 +64,8 @@ Trailmark has a parse layer followed by a three-layer analysis stack:
 
 ### Conventions
 
-- **No exceptions for missing nodes.** All methods return `False` or `[]`
-  when a node is not found.
+- **Missing-node queries return empty values** where practical. Factories and
+  invalid-input paths may raise `ValueError` or exit via the CLI.
 - **QueryEngine returns dicts**, GraphStore returns model objects.
 - **Helper functions** like `_unit_to_dict()`, `_edge_to_dict()`,
   `_annotation_to_dict()` live at module level alongside their class.
@@ -78,7 +76,7 @@ Trailmark has a parse layer followed by a three-layer analysis stack:
 ## Adding a New Language Parser
 
 1. Create `src/trailmark/parsers/<lang>/parser.py` implementing the
-   `BaseParser` protocol from `src/trailmark/parsers/base.py`.
+   `LanguageParser` protocol from `src/trailmark/parsers/base.py`.
 2. Register the parser in `_PARSER_MAP` and its file extensions in
    `_LANGUAGE_EXTENSIONS`, both in `src/trailmark/parse.py`.
 3. Add tests in `tests/test_<lang>_parser.py`.

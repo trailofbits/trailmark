@@ -89,7 +89,7 @@ def _visit_module(
     """Walk the top-level of a C module."""
     add_module_node(root, file_path, module_id, graph)
     for child in root.children:
-        _visit_top_level_node(child, file_path, module_id, graph)
+        visit_c_declaration(child, file_path, module_id, graph)
 
 
 _PREPROC_CONTAINER_TYPES = frozenset(
@@ -103,7 +103,7 @@ _PREPROC_CONTAINER_TYPES = frozenset(
 )
 
 
-def _visit_top_level_node(
+def visit_c_declaration(
     child: Node,
     file_path: str,
     module_id: str,
@@ -122,7 +122,7 @@ def _visit_top_level_node(
         _extract_enum(child, file_path, module_id, graph)
     elif child.type in _PREPROC_CONTAINER_TYPES:
         for nested in child.children:
-            _visit_top_level_node(nested, file_path, module_id, graph)
+            visit_c_declaration(nested, file_path, module_id, graph)
 
 
 def _extract_type_def(
@@ -173,6 +173,9 @@ def _extract_struct(
     if not struct_name:
         return
     struct_id = f"{module_id}:{struct_name}"
+    existing = graph.nodes.get(struct_id)
+    if existing is not None and node.child_by_field_name("body") is None:
+        return
     location = make_location(node, file_path)
 
     unit = CodeUnit(
@@ -182,7 +185,8 @@ def _extract_struct(
         location=location,
     )
     graph.nodes[struct_id] = unit
-    add_contains_edge(graph, module_id, struct_id)
+    if existing is None:
+        add_contains_edge(graph, module_id, struct_id)
 
 
 def _extract_enum(

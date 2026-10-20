@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any
+
+import pytest
 
 from trailmark.analysis.augment import (
     _find_overlapping_nodes,
@@ -18,6 +21,7 @@ from trailmark.models import (
     CodeGraph,
     CodeUnit,
     NodeKind,
+    NodeOrigin,
     SourceLocation,
 )
 from trailmark.query.api import QueryEngine
@@ -540,6 +544,160 @@ class TestClearAugmented:
 
 
 # ── QueryEngine integration ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize("source", ["sarif", "weaudit"])
+@pytest.mark.parametrize("replace_existing", [False, True])
+def test_multiple_finding_imports_have_explicit_replacement_policy(
+    tmp_path: Path, source: str, replace_existing: bool
+) -> None:
+    engine = QueryEngine.from_graph(_build_graph())
+    augment = getattr(engine, f"augment_{source}")
+    for label, file, line in [("first", "src/handler.py", 15), ("second", "src/db.py", 10)]:
+        data = (
+            _minimal_sarif([_sarif_result(label, label, file, line)])
+            if source == "sarif"
+            else _minimal_weaudit([_weaudit_entry(label, file, line - 1, line - 1)])
+        )
+        path = _write_json(tmp_path, label, data)
+        augment(path, replace_existing=replace_existing)
+
+    graph = json.loads(engine.to_json())
+    expected = {"mod:func_c"} if replace_existing else {"mod:func_a", "mod:module", "mod:func_c"}
+    assert {finding["id"] for finding in engine.findings()} == expected
+    severity_subgraph = "sarif:warning" if source == "sarif" else "weaudit:high"
+    assert set(graph["subgraphs"][severity_subgraph]) == expected
+
+
+@pytest.mark.parametrize("source", ["sarif", "weaudit"])
+@pytest.mark.parametrize("replace_existing", [False, True])
+@pytest.mark.parametrize("failure", ["missing", "malformed_json", "invalid_record"])
+def test_failed_finding_import_preserves_existing_graph(
+    tmp_path: Path, source: str, replace_existing: bool, failure: str
+) -> None:
+    engine = QueryEngine.from_graph(_build_graph())
+    augment = getattr(engine, f"augment_{source}")
+    original = (
+        _minimal_sarif([_sarif_result("original", "original", "src/handler.py", 15)])
+        if source == "sarif"
+        else _minimal_weaudit([_weaudit_entry("original", "src/handler.py", 14, 14)])
+    )
+    augment(_write_json(tmp_path, "original", original))
+    before = engine.to_json()
+    findings_before = engine.findings()
+    path = tmp_path / "bad"
+    if failure == "malformed_json":
+        path.write_text("{")
+    elif failure == "invalid_record":
+        # A valid record preceding the bad record must not be partially committed.
+        invalid = (
+            _minimal_sarif([_sarif_result("new", "new", "src/db.py", 10), {"level": 1}])
+            if source == "sarif"
+            else _minimal_weaudit(
+                [_weaudit_entry("new", "src/db.py", 9, 9), {"details": {"severity": 1}}]
+            )
+        )
+        path.write_text(json.dumps(invalid))
+    expected_error = {
+        "missing": FileNotFoundError,
+        "malformed_json": json.JSONDecodeError,
+        "invalid_record": ValueError,
+    }[failure]
+    with pytest.raises(expected_error):
+        augment(str(path), replace_existing=replace_existing)
+    assert engine.to_json() == before
+    assert engine.findings() == findings_before
+
+
+@pytest.mark.parametrize("source", ["sarif", "weaudit"])
+@pytest.mark.parametrize("root_kind", ["dot", "relative", "absolute"])
+@pytest.mark.parametrize("language", ["python", "auto"])
+def test_findings_match_real_parser_paths_for_analysis_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source: str, root_kind: str, language: str
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    project = tmp_path if root_kind == "dot" else tmp_path / "project"
+    (project / "src").mkdir(parents=True)
+    (project / "src" / "handler.py").write_text("def handler():\n    pass\n")
+    root = {"dot": ".", "relative": "project", "absolute": str(project)}[root_kind]
+    engine = QueryEngine.from_directory(root, language=language)
+    report = (
+        _minimal_sarif([_sarif_result("r1", "msg", "src/handler.py", 2)])
+        if source == "sarif"
+        else _minimal_weaudit([_weaudit_entry("r1", "src/handler.py", 1, 1)])
+    )
+
+    result = getattr(engine, f"augment_{source}")(_write_json(tmp_path, "report.json", report))
+
+    assert result["matched_findings"] == 1
+    assert any(node["id"].endswith(":handler") for node in engine.findings())
+
+
+@pytest.mark.parametrize("source", ["sarif", "weaudit"])
+def test_findings_attach_to_source_owners_instead_of_shared_proxies(
+    tmp_path: Path, source: str
+) -> None:
+    (tmp_path / "app.py").write_text(
+        "def bad():\n    requests.get('bad')\n\ndef main():\n    requests.get('good')\n"
+    )
+    engine = QueryEngine.from_directory(str(tmp_path))
+    report = (
+        _minimal_sarif([_sarif_result("r1", "msg", "app.py", 2)])
+        if source == "sarif"
+        else _minimal_weaudit([_weaudit_entry("r1", "app.py", 1, 1)])
+    )
+
+    getattr(engine, f"augment_{source}")(_write_json(tmp_path, "report.json", report))
+
+    assert {node["id"] for node in engine.findings()} == {"app", "app:bad"}
+
+
+@pytest.mark.parametrize("origin", [NodeOrigin.BINARY, NodeOrigin.SYNTHETIC])
+def test_overlapping_non_source_nodes_are_not_finding_owners(origin: NodeOrigin) -> None:
+    unit = CodeUnit(
+        "external", "external", NodeKind.FUNCTION, _loc("src/handler.py", 10, 30), origin=origin
+    )
+    graph = _build_graph()
+    graph.nodes[unit.id] = unit
+
+    assert _find_overlapping_nodes(graph, "src/handler.py", 15, 15) == ["mod:func_a", "mod:module"]
+
+
+@pytest.mark.parametrize(
+    ("source", "data", "context"),
+    [
+        ("sarif", [], "SARIF must be an object"),
+        ("sarif", {"runs": {}}, "SARIF.runs must be an array"),
+        ("sarif", {"runs": [None]}, "SARIF.runs[0] must be an object"),
+        ("sarif", _minimal_sarif([{"level": 1}]), "SARIF.runs[0].results[0].level"),
+        ("sarif", _minimal_sarif([{"message": []}]), "SARIF.runs[0].results[0].message"),
+        ("sarif", _minimal_sarif([{"locations": [None]}]), "SARIF.runs[0].results[0].locations[0]"),
+        ("weaudit", [], "weAudit must be an object"),
+        ("weaudit", {"treeEntries": {}}, "weAudit.treeEntries must be an array"),
+        ("weaudit", {"resolvedEntries": [None]}, "weAudit.resolvedEntries[0]"),
+        (
+            "weaudit",
+            {"treeEntries": [{"details": {"severity": 1}}]},
+            "weAudit.treeEntries[0].details.severity",
+        ),
+        (
+            "weaudit",
+            {"treeEntries": [{"locations": [{"startLine": "1"}]}]},
+            "weAudit.treeEntries[0].locations[0].startLine",
+        ),
+    ],
+)
+def test_malformed_finding_fields_raise_contextual_value_error(
+    tmp_path: Path, source: str, data: object, context: str
+) -> None:
+    engine = QueryEngine.from_graph(_build_graph())
+    path = tmp_path / "invalid.json"
+    path.write_text(json.dumps(data))
+
+    with pytest.raises(ValueError) as exc:
+        getattr(engine, f"augment_{source}")(str(path))
+
+    assert context in str(exc.value)
 
 
 class TestQueryEngineAugment:

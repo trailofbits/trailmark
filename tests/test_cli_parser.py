@@ -240,12 +240,12 @@ class TestDiagramSubparser:
         action = _option(subparsers_map["diagram"], "--language")
         assert action.default == "python"
 
-    def test_depth_type_int_default_two(
+    def test_depth_type_int_default_depends_on_diagram_type(
         self, subparsers_map: dict[str, argparse.ArgumentParser]
     ) -> None:
         action = _option(subparsers_map["diagram"], "--depth")
         assert action.type is int
-        assert action.default == 2
+        assert action.default is None
 
     def test_direction_default_tb(self, subparsers_map: dict[str, argparse.ArgumentParser]) -> None:
         action = _option(subparsers_map["diagram"], "--direction")
@@ -294,7 +294,7 @@ class TestParseBehavior:
         assert args.diagram_type == "call-graph"
         assert args.language == "python"
         assert args.direction == "TB"
-        assert args.depth == 2
+        assert args.depth is None
 
     def test_diagram_requires_type(self, parser: argparse.ArgumentParser) -> None:
         with pytest.raises(SystemExit):

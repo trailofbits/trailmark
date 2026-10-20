@@ -9,32 +9,107 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from typing import Any, cast
 from urllib.parse import unquote, urlparse
 
 from trailmark.models.annotations import Annotation, AnnotationKind
 from trailmark.models.graph import CodeGraph
+from trailmark.models.nodes import NodeOrigin
 from trailmark.storage.graph_store import GraphStore
 
 _AUGMENT_SUBGRAPH_PREFIXES = ("sarif:", "weaudit:")
 
 
+def _object(value: object, context: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{context} must be an object")
+    return cast("dict[str, Any]", value)
+
+
+def _object_list(value: object, context: str) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        raise ValueError(f"{context} must be an array of objects")
+    return [_object(item, f"{context}[{index}]") for index, item in enumerate(value)]
+
+
+def _fields(record: dict[str, Any], keys: tuple[str, ...], context: str, kind: type) -> None:
+    for key in keys:
+        if key in record and (
+            not isinstance(record[key], kind) or (kind is int and isinstance(record[key], bool))
+        ):
+            raise ValueError(
+                f"{context}.{key} must be {'a string' if kind is str else 'an integer'}"
+            )
+
+
+def _validate_sarif(value: object) -> None:
+    """Validate the fields consumed by the importer, without masking coding errors."""
+    data = _object(value, "SARIF")
+    for run_index, run in enumerate(_object_list(data.get("runs", []), "SARIF.runs")):
+        context = f"SARIF.runs[{run_index}]"
+        tool = _object(run.get("tool", {}), f"{context}.tool")
+        driver = _object(tool.get("driver", {}), f"{context}.tool.driver")
+        _fields(driver, ("name",), f"{context}.tool.driver", str)
+        for index, result in enumerate(_object_list(run.get("results", []), f"{context}.results")):
+            result_context = f"{context}.results[{index}]"
+            _fields(result, ("level", "ruleId"), result_context, str)
+            message = _object(result.get("message", {}), f"{result_context}.message")
+            _fields(message, ("text",), f"{result_context}.message", str)
+            for loc_index, loc in enumerate(
+                _object_list(result.get("locations", []), f"{result_context}.locations")
+            ):
+                loc_context = f"{result_context}.locations[{loc_index}].physicalLocation"
+                physical = _object(loc.get("physicalLocation", {}), loc_context)
+                artifact = _object(
+                    physical.get("artifactLocation", {}), f"{loc_context}.artifactLocation"
+                )
+                _fields(artifact, ("uri",), f"{loc_context}.artifactLocation", str)
+                region = _object(physical.get("region", {}), f"{loc_context}.region")
+                _fields(region, ("startLine", "endLine"), f"{loc_context}.region", int)
+
+
+def _validate_weaudit(value: object) -> None:
+    """Validate only supported weAudit fields; absent fields retain their defaults."""
+    data = _object(value, "weAudit")
+    _fields(data, ("clientRemote",), "weAudit", str)
+    for collection in ("treeEntries", "resolvedEntries"):
+        for index, entry in enumerate(
+            _object_list(data.get(collection, []), f"weAudit.{collection}")
+        ):
+            context = f"weAudit.{collection}[{index}]"
+            _fields(entry, ("author", "label"), context, str)
+            _fields(entry, ("entryType",), context, int)
+            details = _object(entry.get("details", {}), f"{context}.details")
+            _fields(details, ("severity", "type", "description"), f"{context}.details", str)
+            for loc_index, loc in enumerate(
+                _object_list(entry.get("locations", []), f"{context}.locations")
+            ):
+                loc_context = f"{context}.locations[{loc_index}]"
+                _fields(loc, ("path",), loc_context, str)
+                _fields(loc, ("startLine", "endLine"), loc_context, int)
+
+
 def augment_from_sarif(
     store: GraphStore,
     sarif_path: str,
+    *,
+    replace_existing: bool = True,
 ) -> dict[str, Any]:
     """Parse a SARIF file and augment the graph with findings.
 
     Reads SARIF 2.1.0 JSON, maps results to graph nodes by file/line
     overlap, creates annotations and subgraphs by severity and tool.
 
-    Returns a summary dict with match statistics.
+    Replaces prior SARIF findings by default. Set ``replace_existing=False``
+    to append findings and union their subgraphs. Failed imports preserve
+    existing graph state. Returns a summary dict with match statistics.
     """
-    clear_augmented(store, "sarif")
     with open(sarif_path) as f:
         sarif = json.load(f)
+    _validate_sarif(sarif)
 
-    graph = store._graph  # noqa: SLF001
+    current = store._graph  # noqa: SLF001
+    graph = CodeGraph(nodes=current.nodes, root_path=current.root_path)
     matched = 0
     unmatched = 0
     subgraph_sets: dict[str, set[str]] = {}
@@ -58,8 +133,7 @@ def augment_from_sarif(
             else:
                 unmatched += 1
 
-    for name, ids in subgraph_sets.items():
-        store.add_subgraph(name, ids)
+    _commit_augmented(store, graph, subgraph_sets, "sarif", replace_existing=replace_existing)
 
     return {
         "matched_findings": matched,
@@ -71,6 +145,8 @@ def augment_from_sarif(
 def augment_from_weaudit(
     store: GraphStore,
     weaudit_path: str,
+    *,
+    replace_existing: bool = True,
 ) -> dict[str, Any]:
     """Parse a weAudit file and augment the graph with findings.
 
@@ -78,13 +154,16 @@ def augment_from_weaudit(
     overlap (converting 0-indexed to 1-indexed lines), creates
     annotations and subgraphs by severity and entry type.
 
-    Returns a summary dict with match statistics.
+    Replaces prior weAudit findings by default. Set ``replace_existing=False``
+    to append findings and union their subgraphs. Failed imports preserve
+    existing graph state. Returns a summary dict with match statistics.
     """
-    clear_augmented(store, "weaudit")
     with open(weaudit_path) as f:
         data = json.load(f)
+    _validate_weaudit(data)
 
-    graph = store._graph  # noqa: SLF001
+    current = store._graph  # noqa: SLF001
+    graph = CodeGraph(nodes=current.nodes, root_path=current.root_path)
     matched = 0
     unmatched = 0
     subgraph_sets: dict[str, set[str]] = {}
@@ -100,14 +179,31 @@ def augment_from_weaudit(
         else:
             unmatched += 1
 
-    for name, ids in subgraph_sets.items():
-        store.add_subgraph(name, ids)
+    _commit_augmented(store, graph, subgraph_sets, "weaudit", replace_existing=replace_existing)
 
     return {
         "matched_findings": matched,
         "unmatched_findings": unmatched,
         "subgraphs_created": sorted(subgraph_sets.keys()),
     }
+
+
+def _commit_augmented(
+    store: GraphStore,
+    staged: CodeGraph,
+    subgraph_sets: dict[str, set[str]],
+    source_prefix: str,
+    *,
+    replace_existing: bool,
+) -> None:
+    """Commit a fully processed import after all input-dependent work succeeds."""
+    if replace_existing:
+        clear_augmented(store, source_prefix)
+    graph = store._graph  # noqa: SLF001
+    for node_id, anns in staged.annotations.items():
+        graph.annotations.setdefault(node_id, []).extend(anns)
+    for name, ids in subgraph_sets.items():
+        graph.subgraphs.setdefault(name, set()).update(ids)
 
 
 def clear_augmented(store: GraphStore, source_prefix: str) -> None:
@@ -138,7 +234,8 @@ def _normalize_path(uri: str, root_path: str) -> str | None:
     """Normalize a URI or file path to be relative to root_path.
 
     Handles file:// URIs, absolute paths, and relative paths.
-    Returns None if the path cannot be resolved under root_path.
+    Unsupported URI schemes or incompatible drives return None. Paths outside
+    the root retain their ``..`` components for comparison with node paths.
     """
     path = uri
     parsed = urlparse(uri)
@@ -153,7 +250,25 @@ def _normalize_path(uri: str, root_path: str) -> str | None:
         except ValueError:
             return None
 
-    return path
+    return os.path.normpath(path)
+
+
+def _normalize_node_path(path: str, root_path: str) -> str | None:
+    """Normalize parser paths, which may include a relative analysis root.
+
+    Directory walkers emit paths relative to cwd when the analysis argument is
+    relative. Programmatically built graphs may instead use root-relative
+    locations; retain those when the cwd-relative spelling is outside the root.
+    """
+    if not os.path.isabs(path):
+        absolute = os.path.abspath(path)
+        root = os.path.abspath(root_path)
+        try:
+            if os.path.commonpath((absolute, root)) == root:
+                path = absolute
+        except ValueError:
+            return None
+    return _normalize_path(path, root_path)
 
 
 def _find_overlapping_nodes(
@@ -164,14 +279,17 @@ def _find_overlapping_nodes(
 ) -> list[str]:
     """Find graph nodes whose source location overlaps the given range.
 
-    Returns node IDs sorted by span size (tightest match first).
+    Includes all overlapping SOURCE nodes, including containers, sorted by
+    span size. Proxy locations denote occurrences, not source ownership.
     """
     root = graph.root_path
     matches: list[tuple[int, str]] = []
 
     for node_id, node in graph.nodes.items():
+        if node.origin != NodeOrigin.SOURCE:
+            continue
         loc = node.location
-        node_rel = _normalize_path(loc.file_path, root)
+        node_rel = _normalize_node_path(loc.file_path, root)
         if node_rel is None or node_rel != rel_path:
             continue
         if loc.start_line <= end_line and loc.end_line >= start_line:

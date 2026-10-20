@@ -112,17 +112,17 @@ def _diff_edges(before: CodeGraph, after: CodeGraph) -> dict[str, Any]:
     added = sorted(after_set - before_set)
     removed = sorted(before_set - after_set)
     return {
-        "added": [_parse_edge_key(k) for k in added],
-        "removed": [_parse_edge_key(k) for k in removed],
+        "added": [_edge_key_to_dict(k) for k in added],
+        "removed": [_edge_key_to_dict(k) for k in removed],
     }
 
 
-def _edge_key(edge: CodeEdge) -> str:
-    return f"{edge.source_id}|{edge.target_id}|{edge.kind.value}"
+def _edge_key(edge: CodeEdge) -> tuple[str, str, str]:
+    return (edge.source_id, edge.target_id, edge.kind.value)
 
 
-def _parse_edge_key(key: str) -> dict[str, str]:
-    source, target, kind = key.split("|", 2)
+def _edge_key_to_dict(key: tuple[str, str, str]) -> dict[str, str]:
+    source, target, kind = key
     return {"source": source, "target": target, "kind": kind}
 
 

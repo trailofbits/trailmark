@@ -1,6 +1,6 @@
 """Automatic entrypoint detection.
 
-Populates ``CodeGraph.entrypoints`` so that ``attack_surface()``, taint
+Returns tags for ``CodeGraph.entrypoints`` so that ``attack_surface()``, taint
 propagation, entrypoint enumeration, and privilege-boundary crossing
 produce meaningful results.
 
@@ -242,6 +242,9 @@ def detect_entrypoints(graph: CodeGraph, root_path: str) -> dict[str, Entrypoint
 
         graph.entrypoints.update(detect_entrypoints(graph, path))
 
+    Detection may update node attributes with Solidity override metadata.
+    The returned tags are not added to ``graph.entrypoints`` by this function.
+
     Args:
         graph: The parsed code graph.
         root_path: Absolute or repository-relative path the parser walked.
@@ -270,9 +273,8 @@ def _detect_framework_entrypoints(graph: CodeGraph) -> dict[str, EntrypointTag]:
     """Scan source files for framework-specific entrypoint markers.
 
     Covers Python web/task/CLI decorators, Rust handler/FFI attributes,
-    and Solidity visibility. Designed to be additive: each node is checked
-    against every language's detectors because files of mixed languages
-    are rare but possible (embedded DSLs, templates).
+    and Solidity visibility. Dispatch uses the source extension; shared C and
+    Objective-C headers also use the node kind to select a detector.
     """
     cache = _SourceCache()
     result: dict[str, EntrypointTag] = {}
@@ -295,59 +297,60 @@ def _detect_for_unit(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    if path.endswith(".py"):
+    extension = Path(path).suffix.lower()
+    if extension == ".py":
         return _detect_python(cache, unit, path)
-    if path.endswith(".rs"):
+    if extension == ".rs":
         return _detect_rust(cache, unit, path)
-    if path.endswith(".sol"):
+    if extension == ".sol":
         return _detect_solidity(cache, unit, path)
-    if path.endswith((".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx")):
+    if extension in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
         return _detect_js_ts(cache, unit, path)
-    if path.endswith(".java"):
+    if extension == ".java":
         return _detect_java(cache, unit, path)
-    if path.endswith(".cs"):
+    if extension == ".cs":
         return _detect_csharp(cache, unit, path)
-    if path.endswith(".php"):
+    if extension == ".php":
         return _detect_php(cache, unit, path)
-    if path.endswith(".cairo"):
+    if extension == ".cairo":
         return _detect_cairo(cache, unit, path)
-    if path.endswith(".circom"):
+    if extension == ".circom":
         return _detect_circom(cache, unit, path)
-    if path.endswith(".masm"):
+    if extension == ".masm":
         return _detect_masm(cache, unit, path)
-    if path.endswith(".hs"):
+    if extension == ".hs":
         return _detect_haskell(cache, unit, path)
-    if path.endswith(".erl"):
+    if extension == ".erl":
         return _detect_erlang(cache, unit, path)
-    if path.endswith(".swift"):
+    if extension == ".swift":
         return _detect_swift(cache, unit, path)
-    if path.endswith((".m", ".mm", ".h")):
+    if extension in {".m", ".mm"} or (extension == ".h" and unit.kind == NodeKind.METHOD):
         return _detect_objc(unit)
-    if path.endswith((".kt", ".kts")):
+    if extension in {".kt", ".kts"}:
         return _detect_kotlin(cache, unit, path)
-    if path.endswith(".dart"):
+    if extension == ".dart":
         return _detect_dart(cache, unit, path)
-    if path.endswith(".move"):
+    if extension == ".move":
         return _detect_move(cache, unit, path)
-    if path.endswith(".tact"):
+    if extension == ".tact":
         return _detect_tact(unit)
-    if path.endswith((".fc", ".func")):
+    if extension in {".fc", ".func"}:
         return _detect_func(unit)
-    if path.endswith(".sw"):
+    if extension == ".sw":
         return _detect_sway(cache, unit, path)
-    if path.endswith(".rego"):
+    if extension == ".rego":
         return _detect_rego(unit)
-    if path.endswith(".proto"):
+    if extension == ".proto":
         return _detect_proto(cache, unit, path)
-    if path.endswith(".thrift"):
+    if extension == ".thrift":
         return _detect_thrift(cache, unit, path)
-    if path.endswith((".graphql", ".gql")):
+    if extension in {".graphql", ".gql"}:
         return _detect_graphql(unit)
-    if path.endswith(".go"):
+    if extension == ".go":
         return _detect_go(cache, unit, path)
-    if path.endswith(".rb"):
+    if extension == ".rb":
         return _detect_ruby(cache, unit, path)
-    if path.endswith((".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".hxx")):
+    if extension in {".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".hxx"}:
         return _detect_c_cpp(cache, unit, path)
     return None
 
@@ -458,7 +461,10 @@ def _annotate_overridden_solidity_entrypoints(
     for edge in graph.edges:
         if edge.kind == EdgeKind.CONTAINS and edge.target_id in graph.nodes:
             unit = graph.nodes[edge.target_id]
-            if unit.kind is NodeKind.METHOD and unit.location.file_path.endswith(".sol"):
+            if (
+                unit.kind is NodeKind.METHOD
+                and Path(unit.location.file_path).suffix.lower() == ".sol"
+            ):
                 containers[edge.target_id] = edge.source_id
 
     methods: dict[tuple[str, tuple[str, ...]], dict[str, str]] = {}
@@ -1099,7 +1105,7 @@ def _unit_attr(unit: CodeUnit, key: str) -> str | None:
 
 
 def _detect_objc(unit: CodeUnit) -> EntrypointTag | None:
-    """Detect Objective-C entrypoints: AppDelegate selectors and extern C.
+    """Detect Objective-C entrypoints by AppDelegate selectors.
 
     AppDelegate protocol selectors are high-value attack surface —
     ``application:openURL:options:`` handles deep-link invocations and
@@ -1356,7 +1362,8 @@ def _resolve_script_target(
     for node_id, unit in graph.nodes.items():
         if unit.name != func_name:
             continue
-        if unit.location.file_path.endswith(suffix):
+        path = unit.location.file_path.replace("\\", "/")
+        if path == suffix or path.endswith(f"/{suffix}"):
             matches.append(node_id)
     if len(matches) == 1:
         return matches[0]
@@ -1373,8 +1380,9 @@ def _load_override_file(
     rule that matches many nodes at once. Rule-based entries accept any
     combination of:
 
-    - ``file_glob``: match ``CodeUnit.location.file_path`` against a
-      shell glob supporting ``**`` (recursive) and ``*`` (single-segment).
+    - ``file_glob``: match slash-bounded source path suffixes within the
+      configuration root against a shell glob supporting ``**`` (recursive)
+      and ``*`` (single-segment).
     - ``param_type``: match functions whose parameter list includes a
       declared type with this name (exact ``TypeRef.name`` match).
     - ``name_regex``: match functions whose ``name`` satisfies the regex.
@@ -1425,7 +1433,7 @@ def _load_override_file(
     for entry in entries:
         if not isinstance(entry, dict):
             continue
-        for node_id, tag in _entry_to_matches(graph, entry):
+        for node_id, tag in _entry_to_matches(graph, entry, repo_root):
             result[node_id] = tag
     return result
 
@@ -1433,6 +1441,7 @@ def _load_override_file(
 def _entry_to_matches(
     graph: CodeGraph,
     entry: dict[str, Any],
+    repo_root: Path,
 ) -> list[tuple[str, EntrypointTag]]:
     """Produce every (node_id, tag) pair an override-file entry implies.
 
@@ -1451,7 +1460,7 @@ def _entry_to_matches(
         return [(node_id, tag)]
 
     # Rule-based entry — compile match conditions.
-    conditions = _compile_rule_conditions(entry)
+    conditions = _compile_rule_conditions(entry, repo_root)
     if conditions is None:
         # No recognized rule fields (and no `node`); nothing to do.
         return []
@@ -1488,6 +1497,7 @@ def _entry_tag(entry: dict[str, Any]) -> EntrypointTag | None:
 
 def _compile_rule_conditions(
     entry: dict[str, Any],
+    repo_root: Path,
 ) -> list[Any] | None:
     """Translate rule fields into predicates evaluated per CodeUnit.
 
@@ -1496,14 +1506,9 @@ def _compile_rule_conditions(
     conditions: list[Any] = []
     file_glob = entry.get("file_glob")
     if isinstance(file_glob, str):
-        try:
-            pattern = _glob_to_regex(file_glob)
-        except re.error:
-            return None
+        pattern = _glob_to_regex(file_glob)
         conditions.append(
-            lambda unit, p=pattern: bool(
-                p.search((unit.location.file_path or "").replace("\\", "/"))
-            ),
+            lambda unit, p=pattern: _matches_file_glob(unit.location.file_path, p, repo_root),
         )
 
     param_type = entry.get("param_type")
@@ -1527,6 +1532,22 @@ def _compile_rule_conditions(
     return conditions or None
 
 
+def _matches_file_glob(path: str, pattern: re.Pattern[str], repo_root: Path) -> bool:
+    """Match suffixes within the root, independent of checkout parent names."""
+    if not path:
+        return False
+    source_path = Path(path.replace("\\", "/"))
+    root = repo_root.resolve()
+    if not source_path.is_absolute():
+        cwd_path = source_path.resolve()
+        source_path = cwd_path if cwd_path.is_relative_to(root) else root / source_path
+    try:
+        relative = source_path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return False
+    return pattern.search(relative) is not None
+
+
 def _glob_to_regex(pattern: str) -> re.Pattern[str]:
     """Translate a shell-style glob with ``**`` support into a regex.
 
@@ -1535,10 +1556,9 @@ def _glob_to_regex(pattern: str) -> re.Pattern[str]:
     - ``?`` matches one character other than ``/``.
     - Other regex metacharacters are escaped.
 
-    Paths are matched against their string form, with both Windows and
-    POSIX separators normalized to ``/`` before comparison is done by
-    the caller of this function (``_glob_match`` below). We only emit
-    the regex here.
+    Matches start at path-segment boundaries and extend to the end of the path.
+    The caller supplies configuration-root-relative paths with Windows and
+    POSIX separators normalized to ``/``.
     """
     out: list[str] = []
     i = 0
@@ -1572,12 +1592,7 @@ def _glob_to_regex(pattern: str) -> re.Pattern[str]:
         else:
             out.append(c)
             i += 1
-    # Allow the pattern to match a suffix of the full path — users
-    # writing `public_html/**/*.php` shouldn't have to prefix the full
-    # absolute path of the project. `re.search` finds the pattern
-    # anywhere in the string, so we just anchor the end.
-    regex = "(?:^|/)" + "".join(out) + "$"
-    return re.compile(regex)
+    return re.compile(r"(?:^|/)" + "".join(out) + r"\Z")
 
 
 def _resolve_override_node(graph: CodeGraph, reference: str) -> str | None:

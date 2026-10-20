@@ -13,6 +13,96 @@ import pytest
 from trailmark.cli import main
 
 
+def _write_finding_report(report: Path, source: str, source_file: str) -> None:
+    if source == "sarif":
+        payload = {
+            "runs": [
+                {
+                    "results": [
+                        {
+                            "locations": [
+                                {
+                                    "physicalLocation": {
+                                        "artifactLocation": {"uri": source_file},
+                                        "region": {"startLine": 1},
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+        }
+    else:
+        payload = {
+            "treeEntries": [
+                {
+                    "label": "review main",
+                    "locations": [
+                        {"path": source_file, "startLine": 0, "endLine": 1},
+                    ],
+                }
+            ]
+        }
+    report.write_text(json.dumps(payload))
+
+
+@pytest.mark.parametrize("source", ["sarif", "weaudit"])
+@pytest.mark.parametrize("as_json", [False, True])
+def test_augment_output_streams(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    source: str,
+    as_json: bool,
+) -> None:
+    (tmp_path / "app.py").write_text("def main():\n    pass\n")
+    report = tmp_path / "findings.json"
+    _write_finding_report(report, source, "app.py")
+    argv = ["trailmark", "augment", str(tmp_path), f"--{source}", str(report)]
+    if as_json:
+        argv.append("--json")
+    monkeypatch.setattr(sys, "argv", argv)
+
+    main()
+
+    captured = capsys.readouterr()
+    summary = captured.err if as_json else captured.out
+    assert "Matched: 1" in summary
+    assert "Subgraphs:" in summary
+    if as_json:
+        graph = json.loads(captured.out)
+        assert "app:main" in graph["nodes"]
+        assert graph["subgraphs"]
+    else:
+        assert captured.err == ""
+
+
+@pytest.mark.parametrize("source", ["sarif", "weaudit"])
+def test_repeated_augment_flags_retain_findings_from_every_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    source: str,
+) -> None:
+    argv = ["trailmark", "augment", str(tmp_path), "--json"]
+    for name in ("first", "second"):
+        source_file = f"{name}.py"
+        (tmp_path / source_file).write_text(f"def {name}():\n    pass\n")
+        report = tmp_path / f"{name}.json"
+        _write_finding_report(report, source, source_file)
+        argv.extend([f"--{source}", str(report)])
+    monkeypatch.setattr(sys, "argv", argv)
+
+    main()
+
+    captured = capsys.readouterr()
+    graph = json.loads(captured.out)
+    members = {node_id for ids in graph["subgraphs"].values() for node_id in ids}
+    assert {"first:first", "second:second"} <= members
+    assert captured.err.count("Matched: 1") == 2
+
+
 class TestResolutionReport:
     def test_cli_reports_call_resolution_as_json(self, tmp_path: Path) -> None:
         (tmp_path / "app.rs").write_text(

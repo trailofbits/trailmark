@@ -16,6 +16,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding import resolve_inherited_method_calls
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -26,7 +27,18 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers.solidity._state import add_state_access_edges, extract_state_variables
+from trailmark.parsers._declarations import (
+    add_callable,
+    add_type,
+    callable_scope,
+    resolve_local_method_calls,
+)
+from trailmark.parsers.solidity._state import (
+    StorageTypes,
+    add_state_access_edges,
+    collect_storage_types,
+    extract_state_variables,
+)
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -72,7 +84,10 @@ class SolidityParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="solidity", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_module(tree.root_node, file_path, module_id, graph)
+        with callable_scope(graph):
+            _visit_module(tree.root_node, file_path, module_id, graph)
+        resolve_local_method_calls(graph)
+        resolve_inherited_method_calls(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -138,7 +153,7 @@ def _extract_contract(
         location=make_location(node, file_path),
         docstring=docstring,
     )
-    graph.nodes[contract_id] = unit
+    add_type(graph, unit)
     add_contains_edge(graph, module_id, contract_id)
     _extract_inheritance(node, contract_id, module_id, graph)
     _visit_contract_body(node, file_path, module_id, contract_id, graph)
@@ -189,6 +204,7 @@ def _visit_contract_body(
     if body is None:
         return
     states = extract_state_variables(body, file_path, contract_id, graph)
+    storage_types = collect_storage_types(body)
     for child in body.children:
         if child.type in _FUNCTION_TYPES:
             _extract_function(
@@ -199,11 +215,12 @@ def _visit_contract_body(
                 graph,
                 container_kind=graph.nodes[contract_id].kind,
                 state_variables=states,
+                storage_types=storage_types,
             )
         elif child.type == "struct_declaration":
-            _extract_struct(child, file_path, module_id, graph)
+            _extract_struct(child, file_path, module_id, graph, contract_id)
         elif child.type == "enum_declaration":
-            _extract_enum(child, file_path, module_id, graph)
+            _extract_enum(child, file_path, module_id, graph, contract_id)
 
 
 def _extract_struct(
@@ -211,21 +228,22 @@ def _extract_struct(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    contract_id: str | None = None,
 ) -> None:
     """Extract a struct declaration."""
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return
     struct_name = node_text(name_node)
-    struct_id = f"{module_id}:{struct_name}"
+    struct_id = f"{contract_id}.{struct_name}" if contract_id else f"{module_id}:{struct_name}"
     unit = CodeUnit(
         id=struct_id,
         name=struct_name,
         kind=NodeKind.STRUCT,
         location=make_location(node, file_path),
     )
-    graph.nodes[struct_id] = unit
-    add_contains_edge(graph, module_id, struct_id)
+    add_type(graph, unit)
+    add_contains_edge(graph, contract_id or module_id, struct_id)
 
 
 def _extract_enum(
@@ -233,21 +251,22 @@ def _extract_enum(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    contract_id: str | None = None,
 ) -> None:
     """Extract an enum declaration."""
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return
     enum_name = node_text(name_node)
-    enum_id = f"{module_id}:{enum_name}"
+    enum_id = f"{contract_id}.{enum_name}" if contract_id else f"{module_id}:{enum_name}"
     unit = CodeUnit(
         id=enum_id,
         name=enum_name,
         kind=NodeKind.ENUM,
         location=make_location(node, file_path),
     )
-    graph.nodes[enum_id] = unit
-    add_contains_edge(graph, module_id, enum_id)
+    add_type(graph, unit)
+    add_contains_edge(graph, contract_id or module_id, enum_id)
 
 
 def _extract_function(
@@ -259,6 +278,7 @@ def _extract_function(
     *,
     container_kind: NodeKind | None = None,
     state_variables: dict[str, CodeUnit] | None = None,
+    storage_types: StorageTypes | None = None,
 ) -> None:
     """Extract a function, constructor, or modifier definition."""
     func_name = _get_function_name(node)
@@ -295,12 +315,14 @@ def _extract_function(
         docstring=docstring,
         attributes=_function_attributes(node, container_kind),
     )
-    graph.nodes[func_id] = unit
+    func_id = add_callable(graph, unit)
     add_contains_edge(graph, owner, func_id)
 
-    _add_call_edges(calls, func_id, module_id, contract_id, file_path, graph)
+    _add_call_edges(calls, func_id, module_id, file_path, graph)
     if state_variables:
-        add_state_access_edges(node, func_id, file_path, state_variables, graph)
+        add_state_access_edges(
+            node, func_id, file_path, state_variables, graph, storage_types=storage_types
+        )
 
 
 def _get_function_name(node: Node) -> str:
@@ -416,13 +438,12 @@ def _add_call_edges(
     calls: list[tuple[str, Node]],
     source_id: str,
     module_id: str,
-    contract_id: str | None,
     file_path: str,
     graph: CodeGraph,
 ) -> None:
     """Add CALLS edges for all collected call expressions."""
     for call_name, call_node in calls:
-        target_id = _resolve_call_target(call_name, module_id, contract_id)
+        target_id = _resolve_call_target(call_name, module_id)
         confidence = _call_confidence(call_name)
         graph.edges.append(
             CodeEdge(
@@ -445,9 +466,8 @@ def _call_confidence(call_name: str) -> EdgeConfidence:
 def _resolve_call_target(
     call_name: str,
     module_id: str,
-    contract_id: str | None,
 ) -> str:
-    """Resolve a call name to a target node ID."""
+    """Construct an initial target; container binding follows the complete file walk."""
     if "." not in call_name:
         return f"{module_id}:{call_name}"
     return call_name

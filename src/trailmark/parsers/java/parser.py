@@ -21,11 +21,13 @@ from trailmark.parsers._common import (
     add_module_node,
     compute_complexity,
     extract_type_parameters,
+    link_type_relationships,
     make_location,
     module_id_from_path,
     node_text,
     parse_directory,
 )
+from trailmark.parsers._declarations import add_callable, add_type, callable_scope
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -72,7 +74,9 @@ class JavaParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="java", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_module(tree.root_node, file_path, module_id, graph)
+        with callable_scope(graph):
+            _visit_module(tree.root_node, file_path, module_id, graph)
+        link_type_relationships(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -123,13 +127,14 @@ def _extract_class(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    parent_id: str | None = None,
 ) -> None:
     """Extract a class, interface, or enum declaration."""
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return
     class_name = node_text(name_node)
-    class_id = f"{module_id}:{class_name}"
+    class_id = f"{parent_id}.{class_name}" if parent_id else f"{module_id}:{class_name}"
     kind = _CLASS_NODE_KINDS.get(node.type, NodeKind.CLASS)
     location = make_location(node, file_path)
 
@@ -141,8 +146,8 @@ def _extract_class(
         type_parameters=extract_type_parameters(node),
         docstring=_extract_docstring(node),
     )
-    graph.nodes[class_id] = class_unit
-    add_contains_edge(graph, module_id, class_id)
+    add_type(graph, class_unit)
+    add_contains_edge(graph, parent_id or module_id, class_id)
 
     _extract_inheritance(node, class_id, module_id, graph)
     _extract_implements(node, class_id, module_id, graph)
@@ -160,7 +165,12 @@ def _visit_class_body(
     body = node.child_by_field_name("body")
     if body is None:
         return
-    for child in body.children:
+    children = list(reversed(body.children))
+    while children:
+        child = children.pop()
+        if child.type == "enum_body_declarations":
+            children.extend(reversed(child.children))
+            continue
         if child.type in _FUNCTION_TYPES:
             _extract_function(
                 child,
@@ -169,6 +179,9 @@ def _visit_class_body(
                 class_id,
                 graph,
             )
+
+        elif child.type in _CLASS_NODE_KINDS:
+            _extract_class(child, file_path, module_id, graph, class_id)
 
 
 def _extract_inheritance(
@@ -268,7 +281,7 @@ def _extract_function(
         branches=tuple(branches),
         docstring=_extract_docstring(node),
     )
-    graph.nodes[func_id] = unit
+    func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
 
     _add_call_edges(

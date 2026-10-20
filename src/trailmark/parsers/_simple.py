@@ -145,7 +145,8 @@ def return_type_after_params(
 def clean_type_name(text: str) -> str:
     """Normalize compact type syntax into a stable TypeRef name."""
     stripped = text.strip()
-    stripped = stripped.removeprefix("bounced<").removesuffix(">")
+    if stripped.startswith("bounced<") and stripped.endswith(">"):
+        stripped = stripped[len("bounced<") : -1]
     stripped = stripped.replace("!", "")
     return re.sub(r"\s+", " ", stripped)
 
@@ -184,8 +185,18 @@ def _condition_text(node: Node) -> str:
     return node.type
 
 
-def call_expression_name(node: Node) -> str:
+def call_expression_name(node: Node, *, preserve_qualifiers: bool = False) -> str:
     """Extract a callable symbol from common call-expression shapes."""
+    if preserve_qualifiers:
+        receiver = node.child_by_field_name("object")
+        name = node.child_by_field_name("name")
+        if receiver is not None and name is not None:
+            return f"{node_text(receiver)}.{node_text(name)}"
+        for field in ("function", "func_name", "name"):
+            callable_node = node.child_by_field_name(field)
+            if callable_node is not None:
+                return node_text(callable_node).strip()
+
     function = node.child_by_field_name("function")
     if function is not None:
         return _callable_text(function)
@@ -229,13 +240,29 @@ def add_call_edges(
 ) -> None:
     """Add direct call edges with local best-effort target resolution."""
     for call_name, call_node in calls:
-        target_id = resolve_call_target(call_name, module_id, container_id)
+        confidence = EdgeConfidence.CERTAIN
+        if graph.language in {"sway", "rego", "tact"}:
+            # These grammars distinguish qualified calls from bare local calls.
+            # Other frontends, notably Func receiver syntax, have different binding rules.
+            call_name = call_expression_name(call_node, preserve_qualifiers=True)
+            if graph.language != "rego":
+                call_name = call_name.removeprefix("self.")
+            if "." in call_name or "::" in call_name:
+                # No receiver/module binding is available: retain the full symbol
+                # for proxy normalization instead of inventing a local declaration.
+                target_id = call_name
+                confidence = EdgeConfidence.UNCERTAIN
+            else:
+                local_container = container_id if container_id != module_id else None
+                target_id = resolve_call_target(call_name, module_id, local_container)
+        else:
+            target_id = resolve_call_target(call_name, module_id, container_id)
         graph.edges.append(
             CodeEdge(
                 source_id=source_id,
                 target_id=target_id,
                 kind=EdgeKind.CALLS,
-                confidence=EdgeConfidence.CERTAIN,
+                confidence=confidence,
                 location=make_location(call_node, file_path),
             )
         )

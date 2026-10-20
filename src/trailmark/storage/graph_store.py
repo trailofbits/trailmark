@@ -11,13 +11,24 @@ from trailmark.models.annotations import (
 )
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit
+from trailmark.models.lookup import resolve_node_id
+from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin
 
 _CALL_EDGE_KINDS = frozenset({EdgeKind.CALLS})
 
 
+def _validate_max_depth(max_depth: int) -> None:
+    if max_depth < 1:
+        msg = "max_depth must be at least 1 (measured in edges)"
+        raise ValueError(msg)
+
+
 class GraphStore:
-    """Indexed graph store backed by rustworkx for fast traversals."""
+    """Index a shared mutable graph with rustworkx for fast traversals.
+
+    Direct node or edge edits to the supplied graph require ``rebuild_index``.
+    Annotation and subgraph edits do not affect the topology indexes.
+    """
 
     def __init__(self, graph: CodeGraph) -> None:
         self._graph = graph
@@ -70,7 +81,10 @@ class GraphStore:
         if cached is not None:
             return cached
 
-        digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()
+        # Traversals return node paths; repeated call sites share one adjacency.
+        # Keep their individual edges in the raw graph and the full index.
+        # Projection payloads are last-site records, not aggregate evidence.
+        digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph(multigraph=False)
         id_to_idx: dict[str, int] = {}
         idx_to_id: dict[int, str] = {}
         for node_id in self._graph.nodes:
@@ -212,17 +226,22 @@ class GraphStore:
         max_depth: int = 20,
         edge_kinds: frozenset[EdgeKind] | None = None,
     ) -> list[list[str]]:
-        """Find simple paths using CALLS by default, up to max_depth."""
+        """Find nontrivial simple paths of at most ``max_depth`` edges.
+
+        CALLS is the default relation. ``max_depth`` must be positive.
+        """
+        _validate_max_depth(max_depth)
         digraph, id_to_idx, idx_to_id = self._projection_for(edge_kinds)
         src_idx = id_to_idx.get(src_id)
         dst_idx = id_to_idx.get(dst_id)
-        if src_idx is None or dst_idx is None:
+        if src_idx is None or dst_idx is None or src_idx == dst_idx:
             return []
         raw_paths: list[list[int]] = rx.digraph_all_simple_paths(
             digraph,
             src_idx,
             dst_idx,
-            cutoff=max_depth,
+            # rustworkx bounds path vertices; our public depth counts edges.
+            cutoff=max_depth + 1,
         )
         return [[idx_to_id[i] for i in path] for path in raw_paths]
 
@@ -264,7 +283,8 @@ class GraphStore:
         max_depth: int = 20,
         edge_kinds: frozenset[EdgeKind] | None = None,
     ) -> list[list[str]]:
-        """Find paths from any entrypoint to a node over CALLS by default."""
+        """Find entrypoint paths of at most ``max_depth`` edges (positive)."""
+        _validate_max_depth(max_depth)
         all_paths: list[list[str]] = []
         for ep_id in self._graph.entrypoints:
             paths = self.paths_between(
@@ -321,25 +341,22 @@ class GraphStore:
         return True
 
     def find_node(self, name: str) -> CodeUnit | None:
-        """Find a node by exact ID, name match, or qualified suffix.
+        """Find a node by exact ID, then prefer declarations over proxies.
 
-        Lookup precedence:
-        1. Exact node ID match
-        2. Exact name field match
-        3. ID ending with ``:name`` (module:function)
-        4. ID ending with ``.name`` (class.method)
+        Within declarations and then proxy fallback, try exact names, colon
+        suffixes, and dot suffixes. Ties retain insertion order. Exact IDs
+        always win, including explicit module and proxy IDs.
         """
-        if name in self._graph.nodes:
-            return self._graph.nodes[name]
-        for node_id, node in self._graph.nodes.items():
-            if node.name == name or node_id.endswith(f":{name}"):
-                return node
-            if node_id.endswith(f".{name}"):
-                return node
-        return None
+        node_id = resolve_node_id(
+            self._graph.nodes,
+            name,
+            name_of=lambda node: node.name,
+            is_proxy=lambda node: node.kind == NodeKind.PROXY or node.origin == NodeOrigin.PROXY,
+        )
+        return self._node(node_id) if node_id is not None else None
 
     def find_node_id(self, name: str) -> str | None:
-        """Find a node ID by exact ID or name substring."""
+        """Find a node ID using the lookup precedence of :meth:`find_node`."""
         node = self.find_node(name)
         return node.id if node is not None else None
 
@@ -348,12 +365,12 @@ class GraphStore:
         self._graph.subgraphs[name] = node_ids
 
     def subgraph(self, name: str) -> set[str]:
-        """Return the node IDs in a named subgraph, or empty set."""
-        return self._graph.subgraphs.get(name, set())
+        """Return a copy of the node IDs in a named subgraph, or empty set."""
+        return set(self._graph.subgraphs.get(name, ()))
 
     def all_subgraphs(self) -> dict[str, set[str]]:
-        """Return all named subgraphs."""
-        return dict(self._graph.subgraphs)
+        """Return all named subgraphs with copied membership sets."""
+        return {name: set(ids) for name, ids in self._graph.subgraphs.items()}
 
     def subgraph_edges(
         self,
@@ -379,7 +396,11 @@ class GraphStore:
         max_depth: int = 20,
         edge_kinds: frozenset[EdgeKind] | None = None,
     ) -> list[list[str]]:
-        """Find paths connecting any node in one subgraph to any node in another."""
+        """Connect named subgraphs with paths of at most ``max_depth`` edges.
+
+        ``max_depth`` must be positive. Shared nodes also yield trivial paths.
+        """
+        _validate_max_depth(max_depth)
         source_ids = self.subgraph(source)
         target_ids = self.subgraph(target)
         if not source_ids or not target_ids:

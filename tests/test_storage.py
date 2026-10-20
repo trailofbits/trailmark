@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from itertools import pairwise
+
+import pytest
+
 from trailmark.models import (
     Annotation,
     AnnotationKind,
@@ -12,6 +17,7 @@ from trailmark.models import (
     EntrypointKind,
     EntrypointTag,
     NodeKind,
+    NodeOrigin,
     SourceLocation,
     TrustLevel,
 )
@@ -195,6 +201,78 @@ class TestGraphStoreCallees:
 
 
 class TestGraphStorePaths:
+    def test_self_call_site_does_not_create_a_nontrivial_simple_self_path(self) -> None:
+        graph = CodeGraph(
+            nodes={"a": _make_node("a", "a")},
+            edges=[CodeEdge("a", "a", EdgeKind.CALLS)],
+            entrypoints={"a": EntrypointTag(kind=EntrypointKind.API)},
+            subgraphs={"shared": {"a"}},
+        )
+        store = GraphStore(graph)
+
+        assert store.paths_between("a", "a", max_depth=1) == []
+        assert store.entrypoint_paths_to("a", max_depth=1) == []
+        assert store.connect_subgraphs("shared", "shared", max_depth=1) == [["a"]]
+        assert store.call_edges() == graph.edges
+
+    @pytest.mark.parametrize("edge_count", [1, 2, 3, 20, 21])
+    def test_depth_counts_edges_at_exact_chain_boundary(self, edge_count: int) -> None:
+        ids = [f"f{i}" for i in range(edge_count + 1)]
+        graph = CodeGraph(
+            nodes={node_id: _make_node(node_id, node_id) for node_id in ids},
+            edges=[CodeEdge(src, dst, EdgeKind.CALLS) for src, dst in pairwise(ids)],
+            entrypoints={ids[0]: EntrypointTag(kind=EntrypointKind.API)},
+            subgraphs={"source": {ids[0]}, "sink": {ids[-1]}},
+        )
+        store = GraphStore(graph)
+
+        assert store.paths_between(ids[0], ids[-1], max_depth=edge_count) == [ids]
+        assert store.entrypoint_paths_to(ids[-1], max_depth=edge_count) == [ids]
+        assert store.connect_subgraphs("source", "sink", max_depth=edge_count) == [ids]
+        assert store.paths_between(ids[0], ids[-1]) == ([ids] if edge_count <= 20 else [])
+        if edge_count > 1:
+            assert store.paths_between(ids[0], ids[-1], max_depth=edge_count - 1) == []
+            assert store.entrypoint_paths_to(ids[-1], max_depth=edge_count - 1) == []
+            assert store.connect_subgraphs("source", "sink", max_depth=edge_count - 1) == []
+
+    @pytest.mark.parametrize("max_depth", [0, -1])
+    def test_nonpositive_depth_rejected_even_without_nodes(self, max_depth: int) -> None:
+        store = GraphStore(CodeGraph())
+        with pytest.raises(ValueError, match="max_depth.*at least 1"):
+            store.paths_between("missing", "missing", max_depth=max_depth)
+        with pytest.raises(ValueError, match="max_depth.*at least 1"):
+            store.entrypoint_paths_to("missing", max_depth=max_depth)
+        with pytest.raises(ValueError, match="max_depth.*at least 1"):
+            store.connect_subgraphs("missing", "missing", max_depth=max_depth)
+
+    @pytest.mark.parametrize(
+        "edge_kinds",
+        [None, frozenset({EdgeKind.CALLS, EdgeKind.TYPE_USES})],
+    )
+    def test_repeated_call_sites_do_not_duplicate_node_paths(
+        self, edge_kinds: frozenset[EdgeKind] | None
+    ) -> None:
+        nodes = {name: _make_node(name, name) for name in ("a", "b", "c")}
+        calls = [
+            CodeEdge("a", "b", EdgeKind.CALLS),
+            CodeEdge("a", "b", EdgeKind.CALLS),
+            CodeEdge("b", "c", EdgeKind.CALLS),
+            CodeEdge("b", "c", EdgeKind.CALLS),
+            CodeEdge("a", "c", EdgeKind.CALLS),
+        ]
+        graph = CodeGraph(
+            nodes=nodes,
+            edges=[*calls, CodeEdge("a", "b", EdgeKind.TYPE_USES)],
+        )
+        store = GraphStore(graph)
+
+        paths = store.paths_between("a", "c", edge_kinds=edge_kinds)
+
+        assert sorted(paths) == [["a", "b", "c"], ["a", "c"]]
+        assert store.call_edges() == calls
+        assert graph.edges == [*calls, CodeEdge("a", "b", EdgeKind.TYPE_USES)]
+        assert {node.id for node in store.callees_of("a")} == {"b", "c"}
+
     def test_paths_a_to_c(self) -> None:
         _, store = _build_graph()
         paths = store.paths_between("a", "c")
@@ -347,6 +425,17 @@ class TestGraphStoreAncestors:
 
 
 class TestGraphStoreSubgraphConnections:
+    def test_read_membership_sets_are_copies(self) -> None:
+        graph, store = _build_graph()
+        graph.subgraphs["group"] = {"a", "b"}
+
+        store.subgraph("group").clear()
+        groups = store.all_subgraphs()
+        groups["group"].add("outside")
+        groups["extra"] = {"c"}
+
+        assert graph.subgraphs == {"group": {"a", "b"}}
+
     def test_subgraph_edges_induced(self) -> None:
         nodes = {
             "a": _make_node("a", "a"),
@@ -612,6 +701,55 @@ class TestGraphStoreCallResolution:
 
 
 class TestGraphStoreFindNode:
+    @pytest.mark.parametrize("origin", [NodeOrigin.SOURCE, NodeOrigin.BINARY, NodeOrigin.SYNTHETIC])
+    @pytest.mark.parametrize("reverse_order", [False, True])
+    def test_declarations_precede_proxy_name_but_explicit_proxy_id_wins(
+        self, origin: NodeOrigin, reverse_order: bool
+    ) -> None:
+        declaration = replace(_make_node("mod:Auth.check", "check"), origin=origin)
+        proxy = replace(
+            _make_node("proxy.unresolved:Auth.check", "Auth.check"),
+            kind=NodeKind.PROXY,
+            origin=NodeOrigin.PROXY,
+        )
+        units = [proxy, declaration]
+        if reverse_order:
+            units.reverse()
+        store = GraphStore(CodeGraph(nodes={unit.id: unit for unit in units}))
+
+        assert store.find_node_id("Auth.check") == declaration.id
+        assert store.find_node_id(proxy.id) == proxy.id
+        assert GraphStore(CodeGraph(nodes={proxy.id: proxy})).find_node_id("Auth.check") == proxy.id
+
+    @pytest.mark.parametrize("reverse_order", [False, True])
+    @pytest.mark.parametrize(
+        ("lower_id", "lower_name", "higher_id", "higher_name"),
+        [
+            ("mod:target", "target", "target", "other"),
+            ("mod:target", "other", "opaque_id", "target"),
+            ("mod:Cls.target", "other", "opaque_id", "target"),
+            ("mod:Cls.target", "other", "mod:target", "other"),
+        ],
+        ids=["id-over-name", "name-over-colon", "name-over-dot", "colon-over-dot"],
+    )
+    def test_lookup_precedence_is_independent_of_insertion_order(
+        self,
+        lower_id: str,
+        lower_name: str,
+        higher_id: str,
+        higher_name: str,
+        reverse_order: bool,
+    ) -> None:
+        lower = _make_node(lower_id, lower_name)
+        higher = _make_node(higher_id, higher_name)
+        units = [lower, higher]
+        if reverse_order:
+            units.reverse()
+        store = GraphStore(CodeGraph(nodes={unit.id: unit for unit in units}))
+
+        assert store.find_node("target") == higher
+        assert store.find_node_id("target") == higher.id
+
     def test_find_by_exact_id(self) -> None:
         _, store = _build_graph()
         node = store.find_node("a")

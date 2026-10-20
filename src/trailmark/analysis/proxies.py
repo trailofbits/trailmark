@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from hashlib import sha256
 
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -11,6 +12,20 @@ from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin, SourceLocatio
 
 _PROXY_MODULE = "proxy"
 _PROXY_FILE = "<proxy>"
+_TYPE_KINDS = frozenset(
+    {
+        NodeKind.CLASS,
+        NodeKind.STRUCT,
+        NodeKind.INTERFACE,
+        NodeKind.TRAIT,
+        NodeKind.ENUM,
+        NodeKind.CONTRACT,
+        NodeKind.LIBRARY,
+        NodeKind.TEMPLATE,
+        NodeKind.TABLE,
+        NodeKind.VIEW,
+    }
+)
 
 
 def ensure_proxy_nodes(graph: CodeGraph) -> CodeGraph:
@@ -20,12 +35,13 @@ def ensure_proxy_nodes(graph: CodeGraph) -> CodeGraph:
     before building indexes while preserving existing call sites.
     """
     _materialize_unresolved_calls(graph)
-    _materialize_type_use_edges(graph)
+    materialize_type_use_edges(graph)
     return graph
 
 
 def _materialize_unresolved_calls(graph: CodeGraph) -> None:
     """Rewrite dangling call targets to proxy nodes so traversals retain them."""
+    staged = CodeGraph(nodes=graph.nodes.copy(), root_path=graph.root_path)
     new_edges: list[CodeEdge] = []
     for edge in graph.edges:
         if edge.kind != EdgeKind.CALLS or edge.target_id in graph.nodes:
@@ -33,8 +49,14 @@ def _materialize_unresolved_calls(graph: CodeGraph) -> None:
             continue
 
         proxy_id = _proxy_id("unresolved", edge.target_id)
+        existing = staged.nodes.get(proxy_id)
+        if existing is not None and not _same_proxy_identity(
+            existing, edge.target_id, "unresolved"
+        ):
+            digest = sha256(edge.target_id.encode("utf-8")).hexdigest()[:16]
+            proxy_id = f"{proxy_id}__{digest}"
         _add_proxy_node(
-            graph,
+            staged,
             proxy_id,
             edge.target_id,
             "unresolved",
@@ -48,11 +70,16 @@ def _materialize_unresolved_calls(graph: CodeGraph) -> None:
             )
         )
 
-    graph.edges = new_edges
+    graph.nodes.update(staged.nodes)
+    graph.edges[:] = new_edges
 
 
-def _materialize_type_use_edges(graph: CodeGraph) -> None:
-    """Add TYPE_USES edges for type refs that resolve to existing graph nodes."""
+def materialize_type_use_edges(graph: CodeGraph) -> None:
+    """Link type references before language-local candidate sets are merged.
+
+    This pass can run independently of unresolved-call proxy creation. Existing
+    type-use edges remain intact when normalization runs again after merging.
+    """
     existing = {
         (edge.source_id, edge.target_id, edge.kind)
         for edge in graph.edges
@@ -87,8 +114,11 @@ def _add_proxy_node(
     proxy_kind: str,
     location: SourceLocation | None,
 ) -> None:
-    """Insert a proxy node if it does not already exist."""
-    if proxy_id in graph.nodes:
+    """Insert or reuse the same proxy identity; reject namespace/escaping collisions."""
+    existing = graph.nodes.get(proxy_id)
+    if existing is not None:
+        if not _same_proxy_identity(existing, raw_symbol, proxy_kind):
+            raise ValueError(f"Proxy identities collide at node ID {proxy_id!r}: {raw_symbol!r}")
         return
 
     graph.nodes[proxy_id] = CodeUnit(
@@ -101,6 +131,17 @@ def _add_proxy_node(
             ("raw_symbol", raw_symbol),
             ("proxy_kind", proxy_kind),
         ),
+    )
+
+
+def _same_proxy_identity(node: CodeUnit, raw_symbol: str, proxy_kind: str) -> bool:
+    attributes = dict(node.attributes)
+    return (
+        node.origin == NodeOrigin.PROXY
+        and node.kind == NodeKind.PROXY
+        and node.name == raw_symbol
+        and attributes.get("raw_symbol") == raw_symbol
+        and attributes.get("proxy_kind") == proxy_kind
     )
 
 
@@ -122,6 +163,8 @@ def _escape_proxy_symbol(raw_symbol: str) -> str:
 def _type_index(graph: CodeGraph) -> dict[str, str | None]:
     index: dict[str, str | None] = {}
     for node_id, node in graph.nodes.items():
+        if node.kind not in _TYPE_KINDS:
+            continue
         for key in {node_id, node.name, node_id.rsplit(":", 1)[-1], node_id.rsplit(".", 1)[-1]}:
             existing = index.get(key)
             if existing is None and key in index:

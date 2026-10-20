@@ -27,6 +27,12 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._declarations import (
+    add_callable,
+    add_type,
+    callable_scope,
+    resolve_local_method_calls,
+)
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -70,7 +76,9 @@ class CppParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="cpp", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_module(tree.root_node, file_path, module_id, graph)
+        with callable_scope(graph):
+            _visit_module(tree.root_node, file_path, module_id, graph)
+        resolve_local_method_calls(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -199,7 +207,7 @@ def _extract_namespace(
         kind=NodeKind.NAMESPACE,
         location=location,
     )
-    graph.nodes[ns_id] = unit
+    add_type(graph, unit)
     add_contains_edge(graph, module_id, ns_id)
 
     body = node.child_by_field_name("body")
@@ -254,7 +262,7 @@ def _extract_class(
         type_parameters=extract_type_parameters(generic_node or node),
         docstring=_extract_docstring(node),
     )
-    graph.nodes[class_id] = unit
+    add_type(graph, unit)
     add_contains_edge(graph, module_id, class_id)
 
     _extract_base_classes(node, class_id, module_id, graph)
@@ -373,7 +381,7 @@ def _extract_struct(
         location=location,
         type_parameters=extract_type_parameters(generic_node or node),
     )
-    graph.nodes[struct_id] = unit
+    add_type(graph, unit)
     add_contains_edge(graph, module_id, struct_id)
 
 
@@ -397,7 +405,7 @@ def _extract_enum(
         kind=NodeKind.ENUM,
         location=location,
     )
-    graph.nodes[enum_id] = unit
+    add_type(graph, unit)
     add_contains_edge(graph, module_id, enum_id)
 
 
@@ -460,14 +468,13 @@ def _extract_function(
         branches=tuple(branches),
         docstring=docstring,
     )
-    graph.nodes[func_id] = unit
+    func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
 
     _add_call_edges(
         calls,
         func_id,
         module_id,
-        class_id,
         file_path,
         graph,
     )
@@ -477,7 +484,6 @@ def _add_call_edges(
     calls: list[tuple[str, Node]],
     func_id: str,
     module_id: str,
-    class_id: str | None,
     file_path: str,
     graph: CodeGraph,
 ) -> None:
@@ -486,7 +492,6 @@ def _add_call_edges(
         target_id = _resolve_call_target(
             call_name,
             module_id,
-            class_id,
         )
         confidence = _call_confidence(call_name)
         graph.edges.append(
@@ -510,9 +515,8 @@ def _call_confidence(call_name: str) -> EdgeConfidence:
 def _resolve_call_target(
     call_name: str,
     module_id: str,
-    class_id: str | None,
 ) -> str:
-    """Resolve a call name to a target node ID."""
+    """Construct an initial target; container binding follows the complete file walk."""
     if "::" in call_name or "." in call_name or "->" in call_name:
         return call_name
     return f"{module_id}:{call_name}"

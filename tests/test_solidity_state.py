@@ -191,3 +191,159 @@ def test_access_sites_survive_export_and_queries_deduplicate(tmp_path: Path) -> 
     exported_accesses = [e for e in exported["edges"] if e["kind"] in {"reads", "writes"}]
     assert len(exported_accesses) == 4
     assert {e["location"]["start_line"] for e in exported_accesses} == {4, 5}
+
+
+@pytest.mark.parametrize(
+    ("statement", "owner"),
+    [
+        ("lists[x].push(y);", "lists"),
+        ("lists[x].pop();", "lists"),
+        ("data.items.push(y);", "data"),
+        ("data.items.pop();", "data"),
+        ("data.blob.push();", "data"),
+        ("records[x].items.push(y);", "records"),
+        ("matrix[x].push(y);", "matrix"),
+        ("blob.push(0x01);", "blob"),
+        ("blob.pop();", "blob"),
+    ],
+)
+def test_nested_dynamic_arrays_and_bytes_mutate_the_owning_state(
+    tmp_path: Path, statement: str, owner: str
+) -> None:
+    graph = _parse(
+        tmp_path,
+        "contract C { uint x; uint y; mapping(uint=>uint[]) lists; bytes blob;"
+        "struct Data {uint[] items; bytes blob;} Data data;"
+        "mapping(uint=>Data) records; uint[][2] matrix;"
+        f"function f() public {{ {statement} }} }}",
+    )
+    expected = {(owner, "reads"), (owner, "writes")}
+    if "[x]" in statement:
+        expected.add(("x", "reads"))
+    if "(y)" in statement:
+        expected.add(("y", "reads"))
+    assert _accesses(graph) == expected
+
+
+@pytest.mark.parametrize(
+    ("statement", "owner"),
+    [
+        ("data.push(y);", "data"),
+        ("fixedItems.push(y);", "fixedItems"),
+        ("fixedBytes.pop();", "fixedBytes"),
+        ("data.scalar.push(y);", "data"),
+        ("lists.push(y);", "lists"),
+    ],
+)
+def test_push_pop_names_on_other_types_do_not_imply_storage_writes(
+    tmp_path: Path, statement: str, owner: str
+) -> None:
+    graph = _parse(
+        tmp_path,
+        "contract C {uint y; struct Data {uint scalar;} Data data;"
+        "uint[2] fixedItems; bytes32 fixedBytes; mapping(uint=>uint[]) lists;"
+        f"function f() public {{ {statement} }} }}",
+    )
+    expected = {(owner, "reads")}
+    if "(y)" in statement:
+        expected.add(("y", "reads"))
+    assert _accesses(graph) == expected
+
+
+def test_library_push_pop_methods_do_not_imply_builtin_mutations(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        """library L {
+            function push(C.Data storage, uint) internal {}
+            function push(uint[2] storage, uint) internal {}
+            function push(uint[] storage, uint, uint) internal {}
+            function pop(bytes32) internal pure {}
+            function push(uint, uint) internal pure {}
+            function push(mapping(uint=>uint[]) storage, uint) internal {}
+        }
+        contract C {
+            struct Data {uint scalar;} Data data;
+            uint[2] fixedItems; uint[] items; bytes32 fixedBytes; mapping(uint=>uint[]) lists;
+            using L for Data; using L for uint[2]; using L for uint[];
+            using L for bytes32; using L for uint; using L for mapping(uint=>uint[]);
+            function f() public {
+                data.push(1); fixedItems.push(1); items.push(1,2);
+                fixedBytes.pop(); data.scalar.push(1); lists.push(1);
+            }
+        }""",
+    )
+    assert _accesses(graph) == {
+        (name, "reads") for name in ("data", "fixedItems", "items", "fixedBytes", "lists")
+    }
+
+
+def test_nested_struct_fields_keep_their_declaring_type_scope(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        """contract Types {
+            struct Inner {uint[] items;}
+            struct Outer {Inner inner;}
+        }
+        contract C {
+            struct Inner {uint scalar;}
+            Types.Outer data;
+            function f() public {data.inner.items.push(1);}
+        }""",
+    )
+    assert _accesses(graph) == {("data", "reads"), ("data", "writes")}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "uint x = x + 1; x++;",
+        "(uint x, uint y) = (x + 1, y + 1); x++; y++;",
+        "for (uint x = x + 1; x < 3; ++x) { x++; }",
+        "{ uint x = x + 1; { uint x = x + 1; x++; } }",
+    ],
+)
+def test_initializer_reads_precede_new_local_bindings(tmp_path: Path, body: str) -> None:
+    graph = _parse(
+        tmp_path,
+        f"contract C {{ uint x; uint y; function f() public {{ {body} }} }}",
+    )
+    expected = {("x", "reads")}
+    if "uint y" in body:
+        expected.add(("y", "reads"))
+    assert _accesses(graph) == expected
+    accesses = [e for e in graph.edges if e.kind in {EdgeKind.READS, EdgeKind.WRITES}]
+    assert len(accesses) == len(expected)
+
+
+def test_loop_local_bindings_end_after_the_loop(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        "contract C {uint x; function f() public {for (uint x = x; x < 2; x++) { x++; } x++; }}",
+    )
+    accesses = [e for e in graph.edges if e.kind in {EdgeKind.READS, EdgeKind.WRITES}]
+    assert [e.kind for e in accesses] == [EdgeKind.READS, EdgeKind.READS, EdgeKind.WRITES]
+
+
+@pytest.mark.parametrize(
+    ("statement", "expected"),
+    [
+        ('a.call{value: 1}("");', []),
+        ('a.call{value: value}("");', [("value", "reads")]),
+        ("new D{salt: bytes32(0)}();", []),
+        ("new D{salt: bytes32(salt)}();", [("salt", "reads")]),
+    ],
+)
+def test_call_option_labels_are_not_state_reads(
+    tmp_path: Path, statement: str, expected: list[tuple[str, str]]
+) -> None:
+    graph = _parse(
+        tmp_path,
+        "contract D {} contract C {uint value; uint salt;"
+        f"function f(address a) public {{ {statement} }} }}",
+    )
+    accesses = [
+        (graph.nodes[e.target_id].name, e.kind.value)
+        for e in graph.edges
+        if e.kind in {EdgeKind.READS, EdgeKind.WRITES}
+    ]
+    assert accesses == expected

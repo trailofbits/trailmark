@@ -26,6 +26,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._declarations import add_callable, add_type, callable_scope
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -72,7 +73,8 @@ class CSharpParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="csharp", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_module(tree.root_node, file_path, module_id, graph)
+        with callable_scope(graph):
+            _visit_module(tree.root_node, file_path, module_id, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -153,7 +155,7 @@ def _create_namespace_unit(
         kind=NodeKind.NAMESPACE,
         location=location,
     )
-    graph.nodes[ns_id] = ns_unit
+    add_type(graph, ns_unit)
     add_contains_edge(graph, module_id, ns_id)
     return ns_id
 
@@ -213,7 +215,7 @@ def _extract_class(
         type_parameters=extract_type_parameters(node),
         docstring=_extract_docstring(node),
     )
-    graph.nodes[class_id] = class_unit
+    add_type(graph, class_unit)
     parent = container_id if container_id else module_id
     add_contains_edge(graph, parent, class_id)
 
@@ -327,7 +329,7 @@ def _extract_function(
         branches=tuple(branches),
         docstring=_extract_docstring(node),
     )
-    graph.nodes[func_id] = unit
+    func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
 
     _add_call_edges(
@@ -395,33 +397,26 @@ def _visit_node(
     exception_types: list[TypeRef],
     calls: list[tuple[str, Node]],
 ) -> None:
-    """Recursively visit a node, collecting body info."""
-    if node.type in _BRANCH_NODE_TYPES:
-        cond = node.child_by_field_name("condition")
-        cond_text = node_text(cond) if cond else node.type
-        branches.append(
-            BranchInfo(
-                location=make_location(node, file_path),
-                condition=cond_text,
+    """Visit body nodes in source order using an explicit work stack."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        if current.type in _BRANCH_NODE_TYPES:
+            cond = current.child_by_field_name("condition")
+            cond_text = node_text(cond) if cond else current.type
+            branches.append(
+                BranchInfo(
+                    location=make_location(current, file_path),
+                    condition=cond_text,
+                )
             )
-        )
-
-    if node.type in _THROW_TYPES:
-        _collect_throw(node, exception_types)
-
-    if node.type == "invocation_expression":
-        call_name = _extract_call_name(node)
-        if call_name:
-            calls.append((call_name, node))
-
-    for child in node.children:
-        _visit_node(
-            child,
-            file_path,
-            branches,
-            exception_types,
-            calls,
-        )
+        if current.type in _THROW_TYPES:
+            _collect_throw(current, exception_types)
+        if current.type == "invocation_expression":
+            call_name = _extract_call_name(current)
+            if call_name:
+                calls.append((call_name, current))
+        stack.extend(reversed(current.children))
 
 
 def _extract_call_name(node: Node) -> str:

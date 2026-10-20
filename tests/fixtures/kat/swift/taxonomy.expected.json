@@ -104,24 +104,6 @@
     },
     {
       "attributes": {
-        "type_name": "Int"
-      },
-      "confidence": "certain",
-      "kind": "type_uses",
-      "source": "taxonomy:add",
-      "target": "proxy.unresolved:Int"
-    },
-    {
-      "attributes": {
-        "type_name": "Int"
-      },
-      "confidence": "certain",
-      "kind": "type_uses",
-      "source": "taxonomy:branchy",
-      "target": "proxy.unresolved:Int"
-    },
-    {
-      "attributes": {
         "type_name": "Dog"
       },
       "confidence": "certain",

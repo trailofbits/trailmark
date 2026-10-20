@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from trailmark.models import (
     AnnotationKind,
     AssetValue,
@@ -131,6 +133,42 @@ class TestQueryEngineCallees:
 
 
 class TestQueryEnginePaths:
+    def test_depth_in_edges_is_exposed_and_keeps_self_paths_empty(self) -> None:
+        engine = _build_engine()
+        assert engine.paths_between("entry", "db_query", max_depth=1) == []
+        assert engine.paths_between("entry", "db_query", max_depth=2) == [
+            ["entry", "handler", "db_query"]
+        ]
+        assert engine.entrypoint_paths_to("db_query", max_depth=2) == [
+            ["entry", "handler", "db_query"]
+        ]
+        assert engine.paths_between("entry", "entry", max_depth=1) == []
+
+    @pytest.mark.parametrize("max_depth", [0, -1])
+    def test_nonpositive_depth_rejected_for_missing_references(self, max_depth: int) -> None:
+        engine = QueryEngine.from_graph(CodeGraph())
+        with pytest.raises(ValueError, match="max_depth.*at least 1"):
+            engine.paths_between("missing", "missing", max_depth=max_depth)
+        with pytest.raises(ValueError, match="max_depth.*at least 1"):
+            engine.entrypoint_paths_to("missing", max_depth=max_depth)
+        with pytest.raises(ValueError, match="max_depth.*at least 1"):
+            engine.connect_subgraphs("missing", "missing", max_depth=max_depth)
+
+    def test_facade_reachability_lists_are_sorted_by_id(self) -> None:
+        ids = ["source", "z", "a", "sink"]
+        graph = CodeGraph(
+            nodes={node_id: _make_node(node_id, node_id) for node_id in ids},
+            edges=[
+                CodeEdge("source", "z", EdgeKind.CALLS),
+                CodeEdge("source", "a", EdgeKind.CALLS),
+                CodeEdge("a", "sink", EdgeKind.CALLS),
+                CodeEdge("z", "sink", EdgeKind.CALLS),
+            ],
+        )
+        engine = QueryEngine.from_graph(graph)
+        assert [node["id"] for node in engine.reachable_from("source")] == ["a", "sink", "z"]
+        assert [node["id"] for node in engine.ancestors_of("sink")] == ["a", "source", "z"]
+
     def test_paths_between(self) -> None:
         engine = _build_engine()
         paths = engine.paths_between("entry", "db_query")
@@ -426,6 +464,11 @@ class TestQueryEngineComplexity:
 
 
 class TestQueryEngineSummary:
+    def test_dependencies_result_is_a_copy(self) -> None:
+        engine = _build_engine()
+        engine.summary()["dependencies"].append("outside")
+        assert engine.summary()["dependencies"] == ["flask", "sqlalchemy"]
+
     def test_summary_exact(self) -> None:
         engine = _build_engine()
         s = engine.summary()
@@ -678,6 +721,34 @@ class TestAnnotationToDict:
 
 
 class TestQueryEngineAnnotate:
+    def test_qualified_declaration_wins_over_materialized_proxy(self) -> None:
+        graph = CodeGraph(
+            nodes={
+                "mod:Auth.check": CodeUnit(
+                    id="mod:Auth.check",
+                    name="check",
+                    kind=NodeKind.METHOD,
+                    location=_LOC,
+                    return_type=TypeRef("bool"),
+                ),
+                "mod:verify": _make_node("mod:verify", "verify"),
+            },
+            edges=[
+                CodeEdge("mod:Auth.check", "mod:verify", EdgeKind.CALLS),
+                CodeEdge("mod:verify", "Auth.check", EdgeKind.CALLS),
+            ],
+        )
+        engine = QueryEngine.from_graph(graph)
+
+        assert [node["id"] for node in engine.callees_of("Auth.check")] == ["mod:verify"]
+        assert engine.type_references("Auth.check") == [
+            {"name": "bool", "module": None, "generic_args": []}
+        ]
+        assert engine.annotate("Auth.check", AnnotationKind.AUDIT_NOTE, "reviewed")
+        assert "mod:Auth.check" in graph.annotations
+        assert "proxy.unresolved:Auth.check" not in graph.annotations
+        assert engine.callees_of("proxy.unresolved:Auth.check") == []
+
     def test_annotate_existing_node(self) -> None:
         engine = _build_engine()
         result = engine.annotate(

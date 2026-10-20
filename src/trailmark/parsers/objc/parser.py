@@ -44,6 +44,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers.c.parser import visit_c_declaration
 
 _EXTENSIONS = (".m", ".mm", ".h")
 
@@ -119,6 +120,11 @@ def _visit_top_level_node(
         _extract_class_implementation(child, file_path, module_id, graph)
     elif child.type == "preproc_include":
         _extract_import(child, graph)
+    elif child.type in {"preproc_if", "preproc_ifdef", "preproc_else", "preproc_elif", "ERROR"}:
+        for nested in child.children:
+            _visit_top_level_node(nested, file_path, module_id, graph)
+    else:
+        visit_c_declaration(child, file_path, module_id, graph)
 
 
 def _extract_c_function(
@@ -427,10 +433,12 @@ def _add_call_edges(
 ) -> None:
     for call_name, call_node in calls:
         confidence = EdgeConfidence.CERTAIN if "." not in call_name else EdgeConfidence.INFERRED
+        module_id = source_id.split(":", 1)[0]
+        target_id = f"{module_id}:{call_name}" if call_name.isidentifier() else call_name
         graph.edges.append(
             CodeEdge(
                 source_id=source_id,
-                target_id=call_name,
+                target_id=target_id,
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
                 location=make_location(call_node, file_path),

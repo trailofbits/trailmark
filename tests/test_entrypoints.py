@@ -21,6 +21,34 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC = REPO_ROOT / "src"
 
 
+@pytest.mark.parametrize(
+    ("filename", "language", "source", "description"),
+    [
+        (
+            "Routes.PY",
+            "python",
+            '@app.route("/hello")\ndef hello():\n    pass\n',
+            "Python HTTP route decorator",
+        ),
+        ("Routes.RS", "rust", '#[get("/hello")]\nfn hello() {}\n', "Rust HTTP handler attribute"),
+        (
+            "Vault.SOL",
+            "solidity",
+            "contract Vault { function hello() external {} }",
+            "Solidity external/public function",
+        ),
+    ],
+)
+def test_framework_dispatch_normalizes_only_the_extension(
+    tmp_path: Path, filename: str, language: str, source: str, description: str
+) -> None:
+    (tmp_path / filename).write_text(source)
+
+    engine = QueryEngine.from_directory(str(tmp_path), language=language)
+
+    assert [ep["description"] for ep in engine.attack_surface()] == [description]
+
+
 class TestSelfAnalysis:
     """Running Trailmark on its own source must produce entrypoints.
 
@@ -151,6 +179,25 @@ class TestNewLanguageEntrypoints:
 
 
 class TestPyprojectScripts:
+    def test_script_suffix_requires_a_module_path_boundary(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text('[project.scripts]\ndemo = "pkg.app:run"\n')
+        (tmp_path / "mypkg").mkdir()
+        (tmp_path / "mypkg" / "app.py").write_text("def run():\n    pass\n")
+
+        engine = QueryEngine.from_directory(str(tmp_path))
+
+        assert engine.attack_surface() == []
+
+    def test_script_suffix_can_match_below_source_root(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text('[project.scripts]\ndemo = "pkg.app:run"\n')
+        package = tmp_path / "src" / "pkg"
+        package.mkdir(parents=True)
+        (package / "app.py").write_text("def run():\n    pass\n")
+
+        engine = QueryEngine.from_directory(str(package))
+
+        assert {ep["node_id"] for ep in engine.attack_surface()} == {"app:run"}
+
     def test_pyproject_script_overrides_main_heuristic(self, tmp_path: Path) -> None:
         """A pyproject.toml script target beats the generic main heuristic."""
         (tmp_path / "pyproject.toml").write_text(
@@ -661,6 +708,18 @@ class TestSwift:
 
 
 class TestObjectiveC:
+    def test_shared_header_objc_selectors_are_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "AppDelegate.h").write_text(
+            "@interface AppDelegate : NSObject\n"
+            "- (BOOL)application:(UIApplication *)app "
+            "didFinishLaunchingWithOptions:(NSDictionary *)opts;\n"
+            "@end\n"
+        )
+
+        engine = QueryEngine.from_directory(str(tmp_path), language="objc")
+
+        assert any("UIApplicationDelegate" in ep["description"] for ep in engine.attack_surface())
+
     def test_app_delegate_selector_detected(self, tmp_path: Path) -> None:
         (tmp_path / "AppDelegate.m").write_text(
             "#import <UIKit/UIKit.h>\n"
@@ -835,6 +894,18 @@ class TestRuby:
 
 
 class TestCCpp:
+    @pytest.mark.parametrize("extension", ["h", "H"])
+    def test_shared_header_c_export_markers_are_detected(
+        self, tmp_path: Path, extension: str
+    ) -> None:
+        (tmp_path / f"Public.{extension}").write_text(
+            '__attribute__((visibility("default")))\nint exported(int x) { return x; }\n'
+        )
+
+        engine = QueryEngine.from_directory(str(tmp_path), language="c")
+
+        assert {ep["node_id"] for ep in engine.attack_surface()} == {"Public:exported"}
+
     def test_extern_c_detected(self, tmp_path: Path) -> None:
         (tmp_path / "api.cpp").write_text(
             'extern "C" int add_one(int x) {\n    return x + 1;\n}\n',
@@ -870,6 +941,81 @@ class TestBulkOverrideRules:
     def _write_override(self, tmp_path: Path, body: str) -> None:
         (tmp_path / ".trailmark").mkdir(exist_ok=True)
         (tmp_path / ".trailmark" / "entrypoints.toml").write_text(body)
+
+    @pytest.mark.parametrize("root_kind", ["absolute", "relative", "dot", "subdirectory"])
+    def test_file_globs_use_configuration_root_not_checkout_ancestors(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, root_kind: str
+    ) -> None:
+        project = tmp_path / "public_html" / "repo"
+        for relative in ("src/internal.py", "public_html/index.py", "nested/public_html/deep.py"):
+            file = project / relative
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text("def handler():\n    pass\n")
+        self._write_override(
+            project, '[[entrypoint]]\nfile_glob = "public_html/**/*.py"\nkind = "api"\n'
+        )
+        monkeypatch.chdir(project if root_kind == "dot" else project.parent)
+        root = {
+            "absolute": str(project),
+            "relative": "repo",
+            "dot": ".",
+            "subdirectory": str(project / "src"),
+        }[root_kind]
+
+        engine = QueryEngine.from_directory(root)
+
+        expected = (
+            set()
+            if root_kind == "subdirectory"
+            else {"public_html.index:handler", "nested.public_html.deep:handler"}
+        )
+        assert {ep["node_id"] for ep in engine.attack_surface()} == expected
+
+    @pytest.mark.parametrize(
+        ("file_glob", "expected"),
+        [
+            (
+                "*.py",
+                {
+                    "src.handlers.api:handler",
+                    "src.handlers.admin.deep:handler",
+                    "src.myhandlers.api:handler",
+                },
+            ),
+            ("handlers/*.py", {"src.handlers.api:handler"}),
+            ("handlers/**/*.py", {"src.handlers.api:handler", "src.handlers.admin.deep:handler"}),
+        ],
+    )
+    def test_file_globs_match_segment_bounded_suffixes_within_repository(
+        self, tmp_path: Path, file_glob: str, expected: set[str]
+    ) -> None:
+        for relative in (
+            "src/handlers/api.py",
+            "src/handlers/admin/deep.py",
+            "src/myhandlers/api.py",
+        ):
+            path = tmp_path / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("def handler():\n    pass\n")
+        self._write_override(tmp_path, f'[[entrypoint]]\nfile_glob = "{file_glob}"\nkind = "api"\n')
+
+        engine = QueryEngine.from_directory(str(tmp_path))
+
+        assert {ep["node_id"] for ep in engine.attack_surface()} == expected
+
+    def test_leading_globstar_matches_nested_directories(self, tmp_path: Path) -> None:
+        path = tmp_path / "nested" / "public_html" / "index.py"
+        path.parent.mkdir(parents=True)
+        path.write_text("def handler():\n    pass\n")
+        self._write_override(
+            tmp_path, '[[entrypoint]]\nfile_glob = "**/public_html/**/*.py"\nkind = "api"\n'
+        )
+
+        engine = QueryEngine.from_directory(str(tmp_path))
+
+        assert {ep["node_id"] for ep in engine.attack_surface()} == {
+            "nested.public_html.index:handler"
+        }
 
     def test_file_glob_marks_every_matching_function(
         self,
@@ -1018,16 +1164,15 @@ class TestBulkOverrideRules:
         assert ep["trust_level"] == "untrusted_external"
         assert ep["asset_value"] == "high"
 
-    def test_malformed_glob_does_not_crash(self, tmp_path: Path) -> None:
+    def test_glob_brackets_are_literal_and_do_not_crash(self, tmp_path: Path) -> None:
         (tmp_path / "app.py").write_text("def main(): pass\n")
         self._write_override(
             tmp_path,
             "[[entrypoint]]\n"
-            'file_glob = "public/["\n'  # unclosed bracket → regex error
+            'file_glob = "public/["\n'  # Brackets are escaped, not interpreted as regex.
             'kind = "api"\n',
         )
-        # Should still succeed; the malformed rule is skipped and the
-        # main() heuristic still fires.
+        # The rule matches no file; the main() heuristic still fires.
         engine = QueryEngine.from_directory(str(tmp_path), language="python")
         assert engine.attack_surface()
 

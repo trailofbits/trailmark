@@ -7,9 +7,10 @@ import tomllib
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
+from trailmark.analysis.proxies import _add_proxy_node
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin, SourceLocation
+from trailmark.models.nodes import SourceLocation
 
 LINKS_FILE = Path(".trailmark/links.toml")
 
@@ -35,8 +36,13 @@ def apply_repository_links(graph: CodeGraph, root_path: str) -> None:
     if not isinstance(entries, list):
         msg = f"Invalid {LINKS_FILE}: 'link' must be an array of tables"
         raise ValueError(msg)
+    staged = CodeGraph(
+        nodes=graph.nodes.copy(), edges=graph.edges.copy(), root_path=graph.root_path
+    )
     for index, raw in enumerate(entries, start=1):
-        _apply_link(graph, raw, index, config_path)
+        _apply_link(staged, raw, index, config_path)
+    graph.nodes.update(staged.nodes)
+    graph.edges[:] = staged.edges
 
 
 def _apply_link(graph: CodeGraph, raw: object, index: int, config_path: Path) -> None:
@@ -142,16 +148,12 @@ def _resolve_endpoint(
 def _add_external_proxy(graph: CodeGraph, reference: str, config_path: Path) -> str:
     escaped = re.sub(r"[^0-9A-Za-z_.@$:-]+", "_", reference.strip()) or "unknown"
     node_id = f"proxy.external:{escaped}"
-    graph.nodes.setdefault(
+    _add_proxy_node(
+        graph,
         node_id,
-        CodeUnit(
-            id=node_id,
-            name=reference,
-            kind=NodeKind.PROXY,
-            location=SourceLocation(str(config_path), 0, 0),
-            origin=NodeOrigin.PROXY,
-            attributes=(("raw_symbol", reference), ("proxy_kind", "external")),
-        ),
+        reference,
+        "external",
+        SourceLocation(str(config_path), 0, 0),
     )
     return node_id
 

@@ -129,7 +129,50 @@ flowchart TD
     class CG data
 ```
 
-Node IDs follow the scheme `module:function`, `module:Class`, or `module:Class.method` for unambiguous lookup. Directory parsing resolves bare cross-file calls when a unique definition exists; ambiguous cross-file calls are left at their original best-effort target and marked `uncertain`. Edge confidence is tagged as `certain` (direct calls, `self.method()`), `inferred` (attribute access on non-self objects), or `uncertain` (dynamic dispatch or ambiguous resolution).
+Node IDs follow the scheme `module:function`, `module:Class`, or
+`module:Class.method`. Directory module IDs use root-relative dotted paths.
+When files would share a module ID (for example `app.py` and `app.rs`, or
+`pkg.py` and `pkg/__init__.py`), their module IDs include escaped filename
+extensions: `app\.py`, `app\.rs`, `pkg\.py`, and `pkg.__init__\.py`.
+Unique module IDs retain their existing form. Solidity, C++, Java, C#, Kotlin,
+and Swift overloads retain separate declarations and bodies; colliding callable
+IDs gain an `@line_column` suffix. These position-based IDs can change after
+source edits. When a type shares a callable's ID, the type keeps the base ID
+and the callable gains the position suffix. Calls needing overload resolution remain unresolved and
+`uncertain`; Trailmark does not choose an overload by argument types.
+Declared package/namespace IDs (for example Protobuf and Thrift namespaces) are
+not renamed by file planning; an unresolved cross-language ID collision raises
+`ValueError` instead of merging unrelated nodes.
+
+Directory parsing resolves bare cross-file calls to a unique free-function
+candidate with `inferred` confidence; ambiguous cross-file calls stay unresolved.
+Unqualified Solidity/C++ calls prefer a method in the caller's own container.
+Solidity calls can also bind to a unique internally callable method through
+resolved inheritance edges, with `inferred` confidence. Inherited overloads and
+multiple competing base methods remain unresolved.
+Unavailable external bases do not erase known unique local or free-function
+targets; those bindings are `inferred` while the inheritance graph is incomplete.
+They never bind to an unrelated class method through the free-function pass.
+Inheritance and implementation edges link to unique type declarations within
+one language before entrypoint detection. These name-based links are inferred;
+compiler import, receiver, and overload semantics remain language-specific.
+Edge confidence is tagged as `certain` (direct syntax), `inferred` (heuristic
+binding), or `uncertain` (dynamic dispatch or ambiguous resolution).
+
+Registered file-extension matching is case-insensitive for detection, directory
+parsing, and entrypoint dispatch. Thus `.C` selects C, rather than adopting the
+compiler convention that it means C++; `.H` alone does not auto-select a
+language. Explicit language selection can override single-file detection.
+C and Objective-C directory parsers accept `.h`. When both are selected, headers
+use the Objective-C grammar, whose visitor also retains C declarations. Each physical header is parsed once. The C++ directory parser accepts
+`.hpp`, `.hh`, and `.hxx`, and does not walk `.h`.
+
+Walks skip dot directories, VCS/cache directories, `node_modules`, `vendor`,
+`venv`, `build`, and `dist`, and do not traverse directory symlinks. A directory
+named `lib` is included. Explicit language lists ignore empty entries and
+deduplicate in first-occurrence order; at least one supported language is
+required. Unexpected concrete node-ID collisions across languages raise `ValueError`
+before merging. Semantic package modules within a language may span files. Shared unresolved proxy nodes may be merged.
 
 ### 2. Index
 
@@ -149,7 +192,7 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | `writers_of(name)` | Units that directly write the named state declaration |
 | `ancestors_of(name)` | Every function that can transitively reach the target (upward slice) |
 | `reachable_from(name)` | Every function transitively reachable from the source |
-| `paths_between(src, dst)` | All simple call paths between two nodes |
+| `paths_between(src, dst, *, max_depth=20)` | Distinct simple call paths bounded by edge count |
 | `connect_subgraphs(source, target)` | Paths connecting two named subgraphs |
 | `entrypoint_paths_to(name)` | Paths from any detected entrypoint to the target |
 | `attack_surface()` | Entrypoints tagged with trust level, asset value, and parser attributes when present |
@@ -163,8 +206,8 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | `clear_annotations(name, kind=None)` | Remove annotations from a node |
 | `diff_against(other)` | Structural diff of this engine's graph vs. another |
 | `preanalysis()` | Run the built-in pre-analysis passes and store annotations/subgraphs |
-| `augment_sarif(path)` | Merge SARIF findings into the graph |
-| `augment_weaudit(path)` | Merge weAudit findings into the graph |
+| `augment_sarif(path, *, replace_existing=True)` | Import SARIF findings; optionally retain earlier SARIF findings |
+| `augment_weaudit(path, *, replace_existing=True)` | Import weAudit findings; optionally retain earlier weAudit findings |
 | `augment_binary(path)` | Merge an external binary-analysis graph JSON file |
 | `findings(kind=None)` | Return nodes carrying finding-style annotations |
 | `subgraph(name)` | Return the nodes in a named subgraph |
@@ -173,7 +216,42 @@ The `QueryEngine` provides a high-level API over the indexed graph:
 | `summary()` | Node counts, edge counts, dependencies |
 | `unresolved_calls(name=None)` | Unresolved call sites, optionally restricted to one caller, with raw expressions and locations |
 | `call_resolution()` | Extracted call-site counts and unresolved calls grouped by callee label |
-| `to_json()` | Full graph export |
+| `to_json()` | Export topology, selected node metadata, subgraphs, and summary |
+
+Path queries return distinct node-ID sequences. `max_depth` is a positive
+maximum edge count (default 20); zero and negative values raise `ValueError`.
+Self-paths return `[]`; connecting overlapping subgraphs can return a shared
+node as a one-node path. Diagram data-flow depth uses the same edge count and
+retains actual confidence, taking the weakest confidence for parallel call
+sites. Repeated calls remain separate call sites in resolution diagnostics.
+
+Name lookup tries an exact node ID first. It then searches concrete declarations
+by exact name, `:name` suffix, then `.name` suffix, before applying those tiers to
+proxies. Use a full ID to disambiguate equal matches or explicitly query a proxy.
+Diagrams and queries share this ranking. Reachability lists are ordered by ID;
+returned summary dependencies and subgraph member sets are copies.
+
+SARIF and weAudit imports replace earlier findings from the same format by
+default. Pass `replace_existing=False` to accumulate findings across files.
+Repeated CLI `--sarif` and `--weaudit` flags retain every file's findings.
+An import that fails before completion preserves the graph's previous state.
+Binary imports reject colliding node IDs with `ValueError` instead of overwriting
+functions whose names normalize to the same ID. A reused binary artifact key
+with conflicting known architecture or hash also raises `ValueError`; omitted
+metadata does not erase known values. Finding imports validate consumed JSON
+shapes and attach source locations only to SOURCE-origin nodes, including
+overlapping source containers. Relative and absolute analysis roots match the
+same findings. Explicit append imports retain repeated observations.
+
+`QueryEngine.from_graph(graph)` retains the supplied mutable graph and normalizes
+proxies in place. Complete direct node and edge edits before constructing an
+engine, then use its mutation APIs. Users managing a `GraphStore` directly must
+call `rebuild_index()` after direct structural edits.
+
+The JSON export omits annotations, entrypoint tags, and call-site locations; it
+does not preserve all analysis state for persistence. Use `findings()`,
+`annotations_of()`, `attack_surface()`, and `unresolved_calls()` to inspect those
+details while the engine is available.
 
 ### Data Model
 
@@ -260,9 +338,13 @@ names.
 Assignments and `delete` produce writes; compound assignments and increments
 produce both reads and writes. Struct members, mapping entries, and array
 elements roll up to their owning state declaration. Index expressions are read
-separately. Direct state-array `.push()` and `.pop()` calls produce both kinds
-of edge. Parameters, named returns, and local variables respect lexical scope
-and shadow state names. For example:
+separately. Dynamic array and `bytes` `.push()` and `.pop()` mutations produce
+both kinds of edge, including nested mapping/array paths and same-file struct
+members whose type is known. A library method merely named `push` or `pop` does
+not imply a storage write. Parameters, named returns, and local variables respect
+lexical scope; initializer expressions read enclosing bindings before the new
+local binding takes effect. Call-option labels such as `value` and `salt` are
+not state accesses, while their expressions are analyzed. For example:
 
 ```python
 engine = QueryEngine.from_directory("./contracts", language="solidity")
@@ -277,8 +359,9 @@ storage-slot or mapping-key analysis. The first implementation resolves only
 state declared in the same contract. It does not follow inherited state,
 storage aliases, library effects, assembly, delegatecalls, or external calls.
 Declaration initializers and compiler-generated public getters are not modeled.
-Modifier bodies own their accesses; their effects are not propagated to the
-functions using them. State edges do not change the default call traversals.
+Modifier bodies own their accesses; invocation relationships and their effects
+are not modeled on functions using them. Absence of a modifier edge does not
+establish absence of access control. State edges do not change the default call traversals.
 An absent edge is not proof that a function cannot access storage. Other
 language parsers do not yet emit state-access edges.
 
@@ -450,7 +533,8 @@ trailmark analyze --complexity 10 path/to/project
 
 # Augment the graph with external findings (SARIF from static analyzers,
 # weAudit findings from the VS Code extension). Each --sarif / --weaudit
-# flag is repeatable. Add --json to print the augmented graph.
+# flag is repeatable. Add --json to export topology and selected node metadata;
+# finding details remain available through the API.
 trailmark augment --sarif results.sarif path/to/project
 trailmark augment --weaudit findings.json path/to/project
 trailmark augment --sarif a.sarif --sarif b.sarif --json path/to/project
@@ -475,6 +559,10 @@ trailmark diagram --target path/to/project --type call-graph
 trailmark diagram -t path/to/project -T call-graph -f parse_file --depth 3
 trailmark diagram -t path/to/project -T complexity --threshold 5 --direction LR
 ```
+
+`trailmark augment --json` writes graph topology and selected metadata as
+JSON to stdout and import summaries to stderr, so stdout can be redirected to a
+JSON file. This export omits finding details; use the in-memory findings API for them.
 
 ### Entrypoint detection
 
@@ -550,7 +638,11 @@ kind = "api"
 trust = "untrusted_external"
 ```
 
-Later entries override earlier ones when two rules tag the same node, so place broad rules first and specific corrections after.
+File globs match slash-bounded suffixes of paths relative to the configuration
+root (the directory containing `.trailmark/`), so `handlers/*.py` and `*.py`
+can match `src/handlers/api.py`. Directories outside that root do not affect them.
+Later entries override earlier ones when two rules tag the same node, so place
+broad rules first and specific corrections after.
 
 See [docs/entrypoint-patterns.md](docs/entrypoint-patterns.md) for the full reference, including frameworks not yet implemented (Express / Koa / Fastify, Laravel, Cobra, axum, warp, clap, and others) with grep-ready patterns contributors can use to add new detectors.
 

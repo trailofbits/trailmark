@@ -79,6 +79,43 @@ def test_parse_directory_uses_root_relative_module_ids(tmp_path: Path) -> None:
     }
 
 
+def test_parse_directory_matches_extensions_case_insensitively(tmp_path: Path) -> None:
+    (tmp_path / "upper.PY").write_text("")
+    (tmp_path / "mixed.pY").write_text("")
+    (tmp_path / "ignored.txt").write_text("")
+
+    graph = parse_directory(
+        _fake_parse_file,
+        language="test",
+        dir_path=str(tmp_path),
+        extensions=(".py",),
+    )
+
+    assert set(graph.nodes) == {"upper", "upper:helper", "mixed", "mixed:helper"}
+
+
+def test_parse_directory_does_not_traverse_directory_symlinks(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    (root / "local.py").write_text("")
+    (outside / "external.py").write_text("")
+    try:
+        (root / "linked").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlink creation is not supported on this platform")
+
+    graph = parse_directory(
+        _fake_parse_file,
+        language="test",
+        dir_path=str(root),
+        extensions=(".py",),
+    )
+
+    assert set(graph.nodes) == {"local", "local:helper"}
+
+
 def test_parse_directory_escapes_dotted_path_components(tmp_path: Path) -> None:
     dotted_dir = tmp_path / "a.b"
     dotted_file_parent = tmp_path / "a"
@@ -256,7 +293,7 @@ def test_cross_file_linker_resolves_unique_target(tmp_path: Path) -> None:
     assert len(call_edges) == 1
     assert call_edges[0].source_id == "caller:call_it"
     assert call_edges[0].target_id == "worker:do_work"
-    assert call_edges[0].confidence == EdgeConfidence.CERTAIN
+    assert call_edges[0].confidence == EdgeConfidence.INFERRED
 
 
 def test_cross_file_linker_keeps_same_module_when_target_exists(tmp_path: Path) -> None:
