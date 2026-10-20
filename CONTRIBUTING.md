@@ -13,6 +13,8 @@ uv sync --locked --all-groups
 `npm ci` installs the pinned Tree-sitter CLI used to generate the bundled Verus
 grammar. Its install script must be enabled; if your npm configuration disables
 scripts, run `npm rebuild tree-sitter-cli --ignore-scripts=false` before syncing.
+See [docs/installation.md](docs/installation.md#from-a-git-checkout) for how
+generated grammar sources are handled.
 
 ## Running Checks
 
@@ -33,18 +35,49 @@ uv run pytest -q tests/
 ## Mutation Testing
 
 Trailmark uses a pinned pytest-gremlins runner to verify test suite quality.
-Use the repository runner, which validates clean and instrumented baselines
-and runs component tests before retaining the remaining selected tests as fallback.
+Always use the repository runner rather than invoking the plugin directly.
 
 ```bash
+# Mutate the files under review and gate the results
 uv run python -m tests.run_mutations --reviewed --workers=4
 uv run python -m tests.mutation_gate
+
+# Full repository campaign
+uv run python -m tests.run_mutations --workers=4
 ```
 
-Omit `--reviewed` for a full repository campaign. `--workers=4` already enables
-parallel execution. Do not invoke the plugin directly or enable
-`TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing. See
-[the README](README.md#development) for scope, reports, and gate behavior.
+`--workers=4` already enables parallel execution. Reports are written to
+`coverage/gremlins/`.
+
+**Scope and gate.** Pull requests mutate the Rust/Verus files named in
+`tests/mutation_baseline.json` and gate new and changed functions there. Full
+repository campaigns run on pushes to main and through the mutation workflow's
+manual trigger. Unchanged legacy functions are identified by source hashes and
+enter the gate automatically when edited. The gate rejects unreviewed
+survivors, missing tests or results, errors, and timeouts. An exception
+requires a reason and a fingerprint of the function and mutation; changing
+that function requires reviewing its exceptions again.
+
+**How the runner works.** The runner pins pytest-gremlins 1.9.0 and uses real
+pytest subprocesses for every mutant, including fixtures and parametrized
+tests. It checks the clean baseline and each distinct instrumented test
+ordering before mutating, skips the redundant coverage pre-scan, and preserves
+package metadata and exact parameter IDs when loading mutated code. These
+measures work around upstream runner and selection issues; their control tests
+must pass before upgrading the plugin.
+
+**Test ordering.** Each mutant keeps the full selected test suite: component
+unit tests run first, followed by the remaining tests, stopping at the first
+failure. Shared-helper mutants retain tests from every language. Tests stay in
+their existing files; `tests/mutation_order.py` defines the ordering, and
+unknown components keep collection order. Use `--test-order=collection` to
+compare against pytest's original order.
+
+**Focusing a campaign.** Pass `--targets` with comma-separated source paths,
+followed by the relevant test files.
+
+Snapshot updates (`TRAILMARK_UPDATE_SNAPSHOTS=1`) are disabled during CI and
+mutation runs; do not enable them there.
 
 ## Architecture
 
@@ -80,4 +113,36 @@ Trailmark has a parse layer followed by a three-layer analysis stack:
 2. Register the parser in `_PARSER_MAP` and its file extensions in
    `_LANGUAGE_EXTENSIONS`, both in `src/trailmark/parse.py`.
 3. Add tests in `tests/test_<lang>_parser.py`.
-4. Update the language table in `README.md`.
+4. Add a row to the language table in `README.md`, including the
+   `--language` key.
+5. If the language has entrypoint conventions, add a detector in
+   `src/trailmark/analysis/entrypoints.py` and a row to the framework table in
+   `docs/entrypoints.md`. Note behavior that needs explanation in
+   `docs/languages.md`.
+
+## Documentation
+
+`README.md` is the landing page and the PyPI description. Reference material
+lives in `docs/`:
+
+| File | Covers |
+| --- | --- |
+| `docs/cli.md` | Subcommands, flags, output formats |
+| `docs/python-api.md` | `QueryEngine` and `trailmark.parse` |
+| `docs/graph-model.md` | Node/edge kinds, IDs, proxies, directory parsing, linking |
+| `docs/entrypoints.md` | Detection layers and `.trailmark/entrypoints.toml` |
+| `docs/links.md` | `.trailmark/links.toml` |
+| `docs/augmenting.md` | SARIF, weAudit, binary imports, annotations, preanalysis |
+| `docs/call-resolution.md` | Resolution diagnostics and limits |
+| `docs/languages.md` | Per-language behavior |
+| `docs/installation.md` | Grammars, offline installs, Nix, checkouts |
+| `docs/entrypoint-patterns.md` | Patterns for writing new entrypoint detectors |
+
+`tests/test_docs.py` keeps these files in sync with the code. It checks that
+every CLI subcommand, public `QueryEngine` method, language, and enum value is
+documented, runs the README example, verifies relative links and anchors, and
+pins specific statements of behavior to the guide that documents them. When
+behavior changes, update the guide and the matching test in the same change.
+
+Links in `README.md` use absolute `https://github.com/trailofbits/trailmark/blob/main/...`
+URLs so they work on PyPI; links between files in `docs/` are relative.

@@ -31,11 +31,14 @@ CodeGraph (data) -> GraphStore (indexed storage) -> QueryEngine (facade)
   returns model objects and node IDs.
 - Node IDs follow `module:function`, `module:Class`, `module:Class.method`.
 - Edge confidence: `certain`, `inferred`, `uncertain`.
-- Annotation sources: `"llm"`, `"docstring"`, `"manual"`.
+- Annotation sources: `"llm"`, `"docstring"`, `"manual"` for user
+  annotations; built-in passes use `"preanalysis"`, `"sarif:<tool>"`, and
+  `"weaudit:<author>"`.
 - Frozen dataclasses for immutable data. `CodeGraph` is mutable.
 - No relative (`..`) imports. Use `from trailmark.*`.
-- Update `README.md` and `tests/test_readme.py` when documented behavior
-  changes.
+- When documented behavior changes, update the guide in `docs/` that covers
+  it (or `README.md` for the landing page) and the matching check in
+  `tests/test_docs.py`. `CONTRIBUTING.md` maps topics to files.
 
 ## File Layout
 
@@ -43,21 +46,26 @@ CodeGraph (data) -> GraphStore (indexed storage) -> QueryEngine (facade)
 src/trailmark/
   models/          # Data classes: CodeUnit, CodeEdge, Annotation, CodeGraph
     graph.py       # CodeGraph with add_annotation, clear_annotations, merge
-    nodes.py       # CodeUnit, Parameter, TypeRef, BranchInfo
+    nodes.py       # CodeUnit, Parameter, TypeRef, BranchInfo, NodeKind, NodeOrigin
     edges.py       # CodeEdge, EdgeKind, EdgeConfidence
     annotations.py # Annotation, AnnotationKind, EntrypointTag
+    lookup.py      # Name-to-node-ID ranking shared by queries and diagrams
   parsers/         # Language-specific tree-sitter parsers
-    base.py        # BaseParser protocol
-    _common.py     # Shared parser utilities
+    base.py        # LanguageParser protocol
+    _common.py     # Shared parser utilities, directory walking, cross-file linking
     python/        # One subpackage per language
     javascript/
     ...
-  analysis/        # Higher-level passes: entrypoints, diff, augment, preanalysis
+  tree_sitter_custom/ # Bundled Circom, Miden Assembly, and Verus grammars
+  analysis/        # entrypoints, links, proxies, diff, augment, binary, preanalysis
   storage/
     graph_store.py # GraphStore: rustworkx-backed indexed storage
   query/
     api.py         # QueryEngine: high-level facade
+  parse.py         # Public parse API and language registry
+  diagram.py       # Mermaid diagram generation
   cli.py           # CLI entry point
+docs/              # User guides; see CONTRIBUTING.md for the topic map
 tests/             # pytest test suite
 ```
 

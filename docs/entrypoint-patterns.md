@@ -2,6 +2,8 @@
 
 Reference for implementing framework-aware entrypoint detectors in Trailmark. Each entry specifies the syntactic marker, scope (function/class/module), Trailmark enum defaults, a grep-ready pattern, and known gotchas.
 
+This file includes frameworks that Trailmark does not detect yet. For what is detected today, see the [framework coverage table](entrypoints.md#framework-coverage); detectors live in `src/trailmark/analysis/entrypoints.py`.
+
 **Enum legend** (from `src/trailmark/models/annotations.py`):
 
 - `EntrypointKind`: `user_input`, `api`, `database`, `file_system`, `third_party`
