@@ -65,6 +65,14 @@
 - Reorganize the documentation: a shorter README, and reference guides under
   `docs/` for the CLI, Python API, graph model, entrypoints, links, findings
   and preanalysis, call resolution, languages, and installation.
+- Associate entrypoint decorators and export markers with their declarations
+  instead of nearby source lines. Detect legacy PHP route comments and Swift
+  `@main` methods without tagging neighbouring helpers. Circom main components
+  are untrusted entrypoints and participate in taint propagation.
+- Skip malformed entrypoint override fields without crashing or broadening
+  rules. Keep functions inside C++ `extern "C"` blocks in the graph.
+- Honor explicit `analyze --complexity 0`; reject negative thresholds. Class
+  diagrams honor `--direction` and warn when more than 100 classes are rendered.
 
 Many node IDs change in this release: overloaded callables, colliding
 same-stem modules, Solidity contract-level types, and Java nested classes. A

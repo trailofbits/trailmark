@@ -133,12 +133,11 @@ class TestAnalyzeSubparser:
         action = _option(subparsers_map["analyze"], "--summary")
         assert "-s" in action.option_strings
 
-    def test_complexity_type_int_default_zero(
+    def test_complexity_default_is_unset(
         self, subparsers_map: dict[str, argparse.ArgumentParser]
     ) -> None:
         action = _option(subparsers_map["analyze"], "--complexity")
-        assert action.type is int
-        assert action.default == 0
+        assert action.default is None
 
     def test_complexity_has_short_flag_c(
         self, subparsers_map: dict[str, argparse.ArgumentParser]
@@ -264,7 +263,7 @@ class TestParseBehavior:
         assert args.path == "scratch-dir"
         assert args.summary is True
         assert args.language == "python"
-        assert args.complexity == 0
+        assert args.complexity is None
 
     def test_analyze_short_flags(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["analyze", "p", "-l", "rust", "-c", "10"])

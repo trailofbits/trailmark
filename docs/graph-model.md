@@ -126,9 +126,11 @@ only `calls` edges unless a method takes an `edge_kinds` argument.
 | `uncertain` | Dynamic dispatch, an ambiguous target, or an overload that needs argument types |
 
 Confidence records how the parser bound an edge, not whether its target was
-found. An unresolved call through a receiver, such as `auth.verify()`, is
-`inferred`, and an unresolved bare call such as `deny()` is `certain`. To find
-unresolved calls, look for edges to `proxy.unresolved:` nodes or use
+found. In the README's Python example, the unresolved receiver call
+`auth.verify()` is `inferred`; an unresolved bare call such as `deny()` is
+`certain`. Confidence varies by frontend: unresolved qualified calls in Rego,
+Sway, and Tact are `uncertain`. To find unresolved calls, look for edges to
+`proxy.unresolved:` nodes or use
 [`unresolved_calls()`](call-resolution.md) rather than filtering on
 `uncertain`. `type_uses` edges are `certain` even though they come from name
 matching.
@@ -137,8 +139,11 @@ matching.
 
 IDs have the form `module:function`, `module:Class`, or `module:Class.method`.
 
-- **Module IDs** are root-relative dotted paths: `src/auth/token.py` becomes
-  `src.auth.token`.
+- **Directory module IDs** are root-relative dotted paths: `src/auth/token.py`
+  becomes `src.auth.token` when parsing its project directory. Single-file
+  parsing uses the file stem instead (`token`); `__init__.py` uses its parent
+  directory's name. Languages with declared packages or namespaces can use
+  those identities instead, as described below.
 - **Colliding module IDs** include an escaped file extension. If `app.py` and
   `app.rs` both exist, their modules are `app\.py` and `app\.rs`. If `pkg.py`
   and `pkg/__init__.py` both exist, they are `pkg\.py` and `pkg.__init__\.py`.

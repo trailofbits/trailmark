@@ -15,6 +15,15 @@ from trailmark.query.api import QueryEngine
 _VERSION_STRING = f"trailmark {__version__}"
 
 
+def _complexity_threshold(value: str) -> int:
+    """Parse a nonnegative complexity threshold for the CLI."""
+    threshold = int(value)
+    if threshold < 0:
+        msg = "complexity threshold must be nonnegative"
+        raise argparse.ArgumentTypeError(msg)
+    return threshold
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the Trailmark CLI's argparse tree."""
     parser = argparse.ArgumentParser(
@@ -55,9 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     output.add_argument(
         "--complexity",
         "-c",
-        type=int,
-        default=0,
-        help="Show functions with complexity >= threshold",
+        type=_complexity_threshold,
+        default=None,
+        help="Show functions with complexity >= threshold (nonnegative)",
     )
     output.add_argument(
         "--resolution",
@@ -186,7 +195,7 @@ def _run_analyze(args: argparse.Namespace) -> None:
         print(json.dumps(engine.call_resolution(), indent=2))
     elif args.summary:
         _print_summary(engine)
-    elif args.complexity > 0:
+    elif args.complexity is not None:
         _print_complexity(engine, args.complexity)
     else:
         print(engine.to_json())

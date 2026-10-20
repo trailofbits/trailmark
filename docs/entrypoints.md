@@ -46,14 +46,14 @@ one wins.
 | Go | `http.HandleFunc` / `http.Handle` registrations, gin/chi/echo-style `<router>.GET/POST/...` registrations |
 | Rust | actix-web, rocket, FFI exports (`#[no_mangle]`, `pub extern "C"`), async-main attributes |
 | C / C++ | `extern "C"` linkage, `__attribute__((visibility("default")))`, `__declspec(dllexport)` |
-| Swift | `@main` |
+| Swift | Explicit `static` or `class` `main` methods declared inside `@main` types |
 | Objective-C | `UIApplicationDelegate` lifecycle selectors such as `application:openURL:options:` |
 | Dart | `@pragma('vm:entry-point')` |
 | Haskell | top-level `main` |
 | Erlang | functions listed in `-export([...])` |
 | Solidity | `public` and `external` functions, `fallback`, and `receive` (see below) |
 | Cairo / StarkNet | `#[external]`, `#[view]`, `#[l1_handler]`, `#[constructor]` |
-| Circom | `component main`, which becomes a synthetic `main` function tagged by the generic `main` layer (`trusted_internal`, `low`); override it to treat circuit inputs as untrusted |
+| Circom | `component main`, represented as a synthetic `main` function tagged `user_input`, `untrusted_external`, `high` |
 | Miden Assembly | `export.<name>` procedures |
 | Move | `public` and `entry` functions |
 | Tact | contract `init`, `receive`, `external`, and `bounced` handlers |
@@ -66,10 +66,13 @@ one wins.
 
 SQL has no entrypoint detection.
 
-Decorator and attribute detectors look at a window of lines around each
-function's first line, so an undecorated function placed directly next to a
-decorated one can be tagged too. Check `trailmark entrypoints` output and
-correct it in the override file when that happens.
+Decorator and attribute detectors use the source syntax tree to associate
+markers with their declarations. Attributes on neighbouring functions,
+enclosing types, or nested declarations do not tag the function being checked.
+Swift `@main` applies to the owning type's explicit `static` or `class` `main`
+method. Entry methods supplied by an extension or inherited from SwiftUI,
+and Vapor route registration, are not detected.
+Use the override file for handlers that are not covered by these patterns.
 
 [entrypoint-patterns.md](entrypoint-patterns.md) is a reference for detector
 authors: markers, suggested classifications, and grep-ready patterns, including
@@ -161,5 +164,7 @@ the directory you analyze.
 **Invalid entries are skipped silently.** Malformed TOML, unknown `kind`,
 `trust`, or `asset_value` values, `node` references that match nothing, and
 invalid regular expressions all cause the entry (or, for malformed TOML, the
-whole file) to be ignored without an error. Run `trailmark entrypoints` after
+whole file) to be ignored without an error. A field with the wrong TOML type
+also skips the whole entry, so an invalid condition cannot broaden a rule.
+Run `trailmark entrypoints` after
 editing the file to confirm the result.

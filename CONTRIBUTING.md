@@ -30,6 +30,9 @@ uv run --locked ty check
 
 # Tests
 uv run pytest -q tests/
+
+# Check source-distribution guide selection and local-note exclusions
+uv run --no-project --with hatchling python tests/sdist_smoke.py
 ```
 
 ## Mutation Testing

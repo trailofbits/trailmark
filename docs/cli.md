@@ -28,6 +28,10 @@ Parses `PATH` and prints the graph. The output flags are mutually exclusive.
 | `--complexity N`, `-c N` | One line per function with cyclomatic complexity &ge; `N`: ID, complexity, and `file:line` |
 | `--resolution` | Call-resolution report as JSON; see [Call resolution](call-resolution.md) |
 
+`--complexity N` requires a nonnegative integer. An explicit `--complexity 0`
+lists every function with a recorded complexity; omitting the output flags
+prints JSON. Negative thresholds are rejected.
+
 The JSON graph contains nodes, edges, subgraphs, and a summary. It does not
 contain annotations, entrypoint tags, or per-call-site locations; see
 [JSON export](python-api.md#json-export) for what is omitted and how to get it.
@@ -108,8 +112,9 @@ is measured in edges. `--direction` sets top-to-bottom (`TB`, the default) or
 left-to-right (`LR`) layout. Edge styles show confidence; `data-flow` uses the
 weakest confidence when one function calls another from several sites.
 
-Diagrams with more than 100 nodes print a warning to stderr. Use `--focus` to
-scope large graphs.
+Diagrams with more than 100 rendered nodes print a warning to stderr. For class
+diagrams, each class counts as one node; its listed members do not add nodes.
+Use `--focus` to scope large call graphs or select a data-flow target.
 
 ```bash
 trailmark diagram -t path/to/project -T call-graph -f parse_file --depth 3

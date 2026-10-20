@@ -124,9 +124,9 @@ counts as a read or write.
 | `nodes_with_annotation(kind)` | Nodes carrying an annotation of `kind` |
 | `findings(kind=None)` | Nodes with `finding` or `audit_note` annotations (or only `kind`), each with its matching annotations |
 | `preanalysis()` | A summary of each pass; results are stored as annotations and subgraphs |
-| `augment_sarif(path, *, replace_existing=True)` | Match counts for a SARIF import |
-| `augment_weaudit(path, *, replace_existing=True)` | Match counts for a weAudit import |
-| `augment_binary(path, *, connect_sources=True)` | Counts of imported binary nodes, edges, and source correspondences |
+| `augment_sarif(sarif_path, *, replace_existing=True)` | Match counts for a SARIF import |
+| `augment_weaudit(weaudit_path, *, replace_existing=True)` | Match counts for a weAudit import |
+| `augment_binary(graph_path, *, connect_sources=True)` | Counts of imported binary nodes, edges, and source correspondences |
 
 ```python
 from trailmark.models.annotations import AnnotationKind

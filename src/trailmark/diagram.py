@@ -227,7 +227,8 @@ def emit_class_hierarchy(
     if not type_nodes:
         return _empty_diagram("classDiagram", "No classes found")
 
-    lines = ["classDiagram"]
+    _warn_if_large(type_nodes)
+    lines = ["classDiagram", f"    direction {direction}"]
     for nid, n in type_nodes.items():
         lines.append(f"    class {sanitize_id(nid)} {{\n        {n.get('kind', '')}\n    }}")
 
@@ -288,7 +289,8 @@ def emit_containment(
     if not containers:
         return _empty_diagram("classDiagram", "No containment found")
 
-    lines = ["classDiagram"]
+    _warn_if_large({parent: nodes[parent] for parent in containers})
+    lines = ["classDiagram", f"    direction {direction}"]
     for parent_id, children in containers.items():
         parent = nodes[parent_id]
         sid = sanitize_id(parent_id)
@@ -487,7 +489,7 @@ def _warn_if_large(nodes: dict[str, Any]) -> None:
     if len(nodes) > _MAX_NODES:
         print(
             f"Warning: {len(nodes)} nodes exceeds {_MAX_NODES}. "
-            "Consider using --focus to scope the diagram.",
+            "Consider analyzing a smaller target.",
             file=sys.stderr,
         )
 

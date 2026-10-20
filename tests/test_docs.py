@@ -32,7 +32,7 @@ from trailmark.cli import build_parser
 from trailmark.models.annotations import AnnotationKind, AssetValue, EntrypointKind, TrustLevel
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.nodes import NodeKind, NodeOrigin
-from trailmark.parse import _LANGUAGE_EXTENSIONS, supported_languages
+from trailmark.parse import _LANGUAGE_EXTENSIONS, parse_directory, parse_file, supported_languages
 from trailmark.query.api import QueryEngine
 
 
@@ -229,7 +229,8 @@ def test_sdist_ships_docs(pyproject_data: dict[str, object]) -> None:
     for key in ("tool", "hatch", "build", "targets", "sdist"):
         table = cast("dict[str, object]", table[key])
     included = cast("list[str]", table["only-include"])
-    assert {"docs", *LINKED_FILES[:3]} <= set(included)
+    assert set(LINKED_FILES) <= set(included)
+    assert "docs" not in included
 
 
 # ── CLI ────────────────────────────────────────────────────────────────
@@ -272,8 +273,7 @@ def test_analyze_defaults_match_docs() -> None:
     analyze = _subparsers(build_parser())["analyze"]
     assert _find_option(analyze, "--language").default == "python"
     complexity = _find_option(analyze, "--complexity")
-    assert complexity.type is int
-    assert complexity.default == 0
+    assert complexity.default is None
     assert "-c" in complexity.option_strings
     assert "The default is `python`" in _flat("docs/cli.md")
 
@@ -304,35 +304,24 @@ def test_documented_methods_exist() -> None:
 
 
 @pytest.mark.parametrize(
-    ("method", "parameter", "default", "kind"),
-    [
-        ("paths_between", "max_depth", 20, inspect.Parameter.KEYWORD_ONLY),
-        ("augment_sarif", "replace_existing", True, inspect.Parameter.KEYWORD_ONLY),
-        ("augment_weaudit", "replace_existing", True, inspect.Parameter.KEYWORD_ONLY),
-        ("augment_binary", "connect_sources", True, inspect.Parameter.KEYWORD_ONLY),
-        ("complexity_hotspots", "threshold", 10, inspect.Parameter.POSITIONAL_OR_KEYWORD),
-        ("annotate", "source", "manual", inspect.Parameter.POSITIONAL_OR_KEYWORD),
-        ("annotations_of", "kind", None, inspect.Parameter.POSITIONAL_OR_KEYWORD),
-        ("clear_annotations", "kind", None, inspect.Parameter.POSITIONAL_OR_KEYWORD),
-    ],
+    ("method", "documented_signature"),
+    re.findall(r"^\| `([a-z_]+)(\([^`]*\))` \|", _raw("docs/python-api.md"), re.MULTILINE),
 )
 def test_documented_signatures_match(
     method: str,
-    parameter: str,
-    default: object,
-    kind: object,
+    documented_signature: str,
 ) -> None:
-    param = inspect.signature(getattr(QueryEngine, method)).parameters[parameter]
-    assert param.default == default
-    assert param.kind is kind
-    prefix = "*, " if kind is inspect.Parameter.KEYWORD_ONLY else ""
-    rendered = f"{prefix}{parameter}={default!r}".replace("'", '"')
-    assert rendered in _raw("docs/python-api.md"), f"{method}() row should show {rendered}"
-
-
-def test_annotate_positional_order_matches_docs() -> None:
-    params = list(inspect.signature(QueryEngine.annotate).parameters)
-    assert params[1:5] == ["name", "kind", "description", "source"]
+    """Compare each complete row, including argument names and keyword-only markers."""
+    signature = inspect.signature(getattr(QueryEngine, method))
+    parameters = [
+        parameter.replace(annotation=inspect.Parameter.empty)
+        for name, parameter in signature.parameters.items()
+        if name != "self"
+    ]
+    rendered = str(
+        signature.replace(parameters=parameters, return_annotation=inspect.Signature.empty)
+    ).replace("'", '"')
+    assert documented_signature == rendered, f"{method}() row should show {method}{rendered}"
 
 
 # ── Enums ──────────────────────────────────────────────────────────────
@@ -394,6 +383,48 @@ def test_language_count_matches_registry() -> None:
 
 
 # ── Executable examples ───────────────────────────────────────────────
+
+
+def test_module_ids_depend_on_parse_scope(tmp_path: Path) -> None:
+    source = tmp_path / "src" / "auth" / "token.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("def verify(): pass\n")
+    assert "token:verify" in parse_file(str(source)).nodes
+    assert "src.auth.token:verify" in parse_directory(str(tmp_path)).nodes
+    init = source.parent / "__init__.py"
+    init.write_text("def initialize(): pass\n")
+    assert "auth:initialize" in parse_file(str(init)).nodes
+    guide = _flat("docs/graph-model.md")
+    assert "**Directory module IDs** are root-relative dotted paths" in guide
+    assert "Single-file parsing uses the file stem instead" in guide
+    assert "`__init__.py` uses its parent directory's name" in guide
+
+
+@pytest.mark.parametrize(
+    ("language", "suffix", "source", "confidence"),
+    [
+        ("python", "py", "def f():\n    auth.verify()\n", EdgeConfidence.INFERRED),
+        ("rego", "rego", "package p\nallow { coin.transfer(1) }\n", EdgeConfidence.UNCERTAIN),
+        ("sway", "sw", "script; fn f() { coin::transfer(); }", EdgeConfidence.UNCERTAIN),
+        (
+            "tact",
+            "tact",
+            "contract C { fun f(other: C) { other.transfer(); } }",
+            EdgeConfidence.UNCERTAIN,
+        ),
+    ],
+)
+def test_unresolved_confidence_varies_by_frontend(
+    tmp_path: Path, language: str, suffix: str, source: str, confidence: EdgeConfidence
+) -> None:
+    path = tmp_path / f"sample.{suffix}"
+    path.write_text(source)
+    calls = parse_file(str(path), language=language).unresolved_calls()
+    assert len(calls) == 1
+    assert calls[0].confidence == confidence
+    guide = _flat("docs/graph-model.md")
+    assert "In the README's Python example" in guide
+    assert "Confidence varies by frontend" in guide
 
 
 def test_readme_example_graph(tmp_path: Path) -> None:

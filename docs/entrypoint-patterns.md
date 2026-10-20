@@ -794,16 +794,17 @@ mod MyContract {
 
 ### `component main`
 
-The circuit's root component declaration.
+The circuit's root component declaration, represented in the graph as a
+synthetic `main` function with a call edge to its template.
 
 ```circom
 component main = MyTemplate();
 component main {public [in_signal]} = MyTemplate();
 ```
 
-- **Scope:** module
+- **Scope:** synthetic function
 - **Kind:** `user_input` · **Trust:** `untrusted_external` (prover controls inputs) · **Asset:** `high`
-- **Pattern:** `^\s*component\s+main\b`.
+- **Pattern:** the parser's synthetic `main` function for `component main`.
 - **Source:** <https://docs.circom.io/circom-language/the-main-component/>
 
 ---

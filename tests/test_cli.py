@@ -600,11 +600,11 @@ class TestAnalyzeCommand:
         data = json.loads(mock_out.getvalue())
         assert data["root_path"] == str(tmp_path)
 
-    def test_analyze_complexity_zero_means_json(
+    def test_analyze_without_output_flags_prints_json(
         self,
         tmp_path: Path,
     ) -> None:
-        """Default complexity=0 should output JSON, not complexity."""
+        """Omitting the complexity flag preserves the default JSON output."""
         sample = tmp_path / "c0.py"
         sample.write_text("def f(): pass\n")
         with (
@@ -619,6 +619,41 @@ class TestAnalyzeCommand:
         # Should be parseable as JSON (default path)
         data = json.loads(mock_out.getvalue())
         assert "nodes" in data
+
+    @pytest.mark.parametrize("flag", ["--complexity", "-c"])
+    def test_analyze_explicit_zero_prints_all_recorded_complexities(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        flag: str,
+    ) -> None:
+        (tmp_path / "app.py").write_text(
+            "def simple(): pass\ndef branching(x):\n    if x: return 1\n"
+        )
+        monkeypatch.setattr(sys, "argv", ["trailmark", "analyze", str(tmp_path), flag, "0"])
+        main()
+        output = capsys.readouterr().out
+        assert "app:simple  complexity=1" in output
+        assert "app:branching  complexity=2" in output
+        assert len(output.splitlines()) == 2
+
+    @pytest.mark.parametrize("threshold", ["-1", "-20"])
+    def test_analyze_rejects_negative_complexity_before_parsing_source(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        threshold: str,
+    ) -> None:
+        monkeypatch.setattr(
+            sys, "argv", ["trailmark", "analyze", "/nonexistent", "--complexity", threshold]
+        )
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 2
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "complexity threshold must be nonnegative" in captured.err
 
     def test_analyze_complexity_one_not_json(
         self,
