@@ -522,7 +522,14 @@
     ],
     "entrypoints": 0,
     "functions": 8,
+    "languages": [
+      "objc"
+    ],
     "proxies": 0,
+    "source_file_counts": {
+      "objc": 1
+    },
+    "source_files": 1,
     "total_nodes": 11
   }
 }

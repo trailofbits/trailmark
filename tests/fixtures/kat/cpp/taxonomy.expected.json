@@ -721,7 +721,14 @@
     ],
     "entrypoints": 0,
     "functions": 10,
+    "languages": [
+      "cpp"
+    ],
     "proxies": 3,
+    "source_file_counts": {
+      "cpp": 1
+    },
+    "source_files": 1,
     "total_nodes": 18
   }
 }

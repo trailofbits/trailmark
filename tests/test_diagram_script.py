@@ -567,11 +567,15 @@ def test_cli_depth_defaults_depend_on_diagram_type(
     if depth is not None:
         args.extend(["--depth", str(depth)])
     if subcommand:
-        monkeypatch.setattr(cli, "build_engine", lambda target, language: engine)
+        monkeypatch.setattr(
+            cli, "build_engine", lambda target, language, *, allow_empty=False: engine
+        )
         monkeypatch.setattr(sys, "argv", ["trailmark", "diagram", *args])
         cli.main()
     else:
-        monkeypatch.setattr(diagram, "build_engine", lambda target, language: engine)
+        monkeypatch.setattr(
+            diagram, "build_engine", lambda target, language, *, allow_empty=False: engine
+        )
         assert diagram.main(args) == 0
 
     assert ("mod_sink" in capsys.readouterr().out) is includes_sink

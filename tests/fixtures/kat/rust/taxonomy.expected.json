@@ -805,7 +805,14 @@
     ],
     "entrypoints": 0,
     "functions": 9,
+    "languages": [
+      "rust"
+    ],
     "proxies": 5,
+    "source_file_counts": {
+      "rust": 1
+    },
+    "source_files": 1,
     "total_nodes": 19
   }
 }

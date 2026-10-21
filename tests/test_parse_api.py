@@ -61,6 +61,46 @@ class TestParseFile:
 
 
 class TestParseDirectory:
+    @pytest.mark.parametrize("language", ["python", "auto", "python,rust"])
+    @pytest.mark.parametrize("allow_empty", [False, True])
+    def test_invalid_root_is_rejected(
+        self, tmp_path: Path, language: str, allow_empty: bool
+    ) -> None:
+        missing = tmp_path / "missing"
+        file = tmp_path / "file.py"
+        file.write_text("")
+        for path in (missing, file):
+            with pytest.raises(ValueError, match="Not a directory"):
+                parse_directory(str(path), language, allow_empty=allow_empty)
+
+    def test_wrong_language_requires_explicit_empty_opt_in(self, tmp_path: Path) -> None:
+        (tmp_path / "app.rs").write_text("fn main() {}")
+        with pytest.raises(ValueError, match="No source files inspected.*python"):
+            parse_directory(str(tmp_path))
+        assert parse_directory(str(tmp_path), allow_empty=True).source_file_counts == {"python": 0}
+
+    def test_allow_empty_auto(self, tmp_path: Path) -> None:
+        graph = parse_directory(str(tmp_path), "auto", allow_empty=True)
+        assert graph.nodes == {}
+        assert graph.source_file_counts == {}
+
+    def test_counts_inspected_files_without_declarations(self, tmp_path: Path) -> None:
+        (tmp_path / "empty.py").write_text("")
+        (tmp_path / "comments.PY").write_text("# no declarations\n")
+        (tmp_path / "ignored.rs").write_text("fn main() {}")
+        vendor = tmp_path / "vendor"
+        vendor.mkdir()
+        (vendor / "excluded.py").write_text("")
+        graph = parse_directory(str(tmp_path), "python,go")
+        assert graph.source_file_counts == {"python": 2, "go": 0}
+        assert parse_file(str(tmp_path / "empty.py")).source_file_counts == {"python": 1}
+
+    def test_counts_owned_headers_once_and_uses_public_language_keys(self, tmp_path: Path) -> None:
+        (tmp_path / "shared.h").write_text("void helper(void);")
+        (tmp_path / "empty.cs").write_text("")
+        graph = parse_directory(str(tmp_path), "c,objc,c_sharp")
+        assert graph.source_file_counts == {"c": 0, "objc": 1, "c_sharp": 1}
+
     def test_parse_directory_single_language(self, tmp_path: Path) -> None:
         path = tmp_path / "main.py"
         path.write_text("def main():\n    pass\n")

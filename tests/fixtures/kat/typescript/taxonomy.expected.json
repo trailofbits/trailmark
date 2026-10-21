@@ -755,7 +755,14 @@
     ],
     "entrypoints": 0,
     "functions": 11,
+    "languages": [
+      "typescript"
+    ],
     "proxies": 3,
+    "source_file_counts": {
+      "typescript": 1
+    },
+    "source_files": 1,
     "total_nodes": 19
   }
 }

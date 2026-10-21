@@ -595,7 +595,14 @@
     ],
     "entrypoints": 0,
     "functions": 7,
+    "languages": [
+      "swift"
+    ],
     "proxies": 3,
+    "source_file_counts": {
+      "swift": 1
+    },
+    "source_files": 1,
     "total_nodes": 15
   }
 }

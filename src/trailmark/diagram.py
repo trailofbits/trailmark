@@ -85,6 +85,8 @@ def complexity_class(cc: int | None) -> str:
 def build_engine(
     target: str,
     language: str,
+    *,
+    allow_empty: bool = False,
 ) -> QueryEngine:
     """Construct a QueryEngine, exiting with guidance on failure."""
     try:
@@ -95,7 +97,11 @@ def build_engine(
             file=sys.stderr,
         )
         sys.exit(1)
-    return QueryEngine.from_directory(target, language=language)
+    try:
+        return QueryEngine.from_directory(target, language=language, allow_empty=allow_empty)
+    except (ValueError, OSError) as exc:
+        print(f"trailmark: error: {exc}", file=sys.stderr)
+        sys.exit(2)
 
 
 def _load_graph(engine: QueryEngine) -> dict[str, Any]:
@@ -506,6 +512,11 @@ def add_diagram_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--target", "-t", required=True, help="Directory to analyze")
     parser.add_argument("--language", "-l", default="python", help="Source language")
     parser.add_argument(
+        "--allow-empty",
+        action="store_true",
+        help="Allow an existing directory with zero matching source files",
+    )
+    parser.add_argument(
         "--type",
         "-T",
         required=True,
@@ -567,7 +578,7 @@ def render_diagram(engine: QueryEngine, args: argparse.Namespace) -> str:
 def main(argv: list[str] | None = None) -> int:
     """Entry point: parse args, build graph, emit diagram."""
     args = parse_args(argv)
-    engine = build_engine(args.target, args.language)
+    engine = build_engine(args.target, args.language, allow_empty=args.allow_empty)
     print(render_diagram(engine, args))
     return 0
 

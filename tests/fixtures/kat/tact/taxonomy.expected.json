@@ -282,7 +282,14 @@
     ],
     "entrypoints": 0,
     "functions": 6,
+    "languages": [
+      "tact"
+    ],
     "proxies": 0,
+    "source_file_counts": {
+      "tact": 1
+    },
+    "source_files": 1,
     "total_nodes": 9
   }
 }

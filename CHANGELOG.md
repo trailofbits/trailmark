@@ -2,6 +2,17 @@
 
 ## 0.7.0 (unreleased)
 
+- Detect parameter types/defaults, return and exception types, generic
+  parameters, declaration attributes, and node kind/origin/name changes in
+  structural diffs. Edge differences include confidence; confidence changes
+  appear as removals and additions. Diffs include both snapshots' source-file
+  coverage. Consumers validating the diff schema must accept these fields.
+- Reject missing/non-directory analysis roots and zero matching source files.
+  Python directory factories accept `allow_empty=True`, and source-reading CLI
+  commands accept `--allow-empty` for intentional empty inputs. Graphs record
+  inspected source-file counts per language; summaries expose those counts and
+  selected languages, including files with no declarations.
+
 - Model Solidity persistent state. Contract storage declarations become
   `state_variable` nodes (for example `token:Token.balances`) with `reads` and
   `writes` edges from functions, constructors, and modifiers, one per

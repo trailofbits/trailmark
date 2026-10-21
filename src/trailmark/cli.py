@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, TextIO
@@ -158,6 +159,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_diagram_arguments(diagram)
 
+    for command in (analyze, diff_cmd, entrypoints, augment):
+        command.add_argument(
+            "--allow-empty",
+            action="store_true",
+            help="Allow an existing directory with zero matching source files",
+        )
+
     return parser
 
 
@@ -172,16 +180,21 @@ def main() -> None:
     if args.command == "version":
         print(_VERSION_STRING)
         return
-    if args.command == "analyze":
-        _run_analyze(args)
-    elif args.command == "augment":
-        _run_augment(args)
-    elif args.command == "entrypoints":
-        _run_entrypoints(args)
-    elif args.command == "diff":
-        _run_diff(args)
-    elif args.command == "diagram":
-        _run_diagram(args)
+    try:
+        if args.command == "analyze":
+            _run_analyze(args)
+        elif args.command == "augment":
+            _run_augment(args)
+        elif args.command == "entrypoints":
+            _run_entrypoints(args)
+        elif args.command == "diff":
+            _run_diff(args)
+        elif args.command == "diagram":
+            _run_diagram(args)
+    except (ValueError, OSError) as exc:
+        parser.exit(2, f"trailmark: error: {exc}\n")
+    except subprocess.CalledProcessError as exc:
+        parser.exit(2, f"trailmark: error: {exc.stderr.decode().strip()}\n")
 
 
 def _run_analyze(args: argparse.Namespace) -> None:
@@ -189,6 +202,7 @@ def _run_analyze(args: argparse.Namespace) -> None:
     engine = QueryEngine.from_directory(
         args.path,
         language=args.language,
+        allow_empty=args.allow_empty,
     )
 
     if args.resolution:
@@ -211,6 +225,8 @@ def _print_summary(engine: QueryEngine) -> None:
     print(f"Call edges: {summary['call_edges']}")
     print(f"Dependencies: {', '.join(summary['dependencies'])}")
     print(f"Entrypoints: {summary['entrypoints']}")
+    print(f"Languages: {', '.join(summary['languages'])}")
+    print(f"Source files: {summary['source_files']}")
 
 
 def _print_complexity(engine: QueryEngine, threshold: int) -> None:
@@ -233,6 +249,7 @@ def _run_augment(args: argparse.Namespace) -> None:
     engine = QueryEngine.from_directory(
         args.path,
         language=args.language,
+        allow_empty=args.allow_empty,
     )
     summary_stream = sys.stderr if args.json else sys.stdout
 
@@ -250,7 +267,7 @@ def _run_augment(args: argparse.Namespace) -> None:
 
 def _run_diagram(args: argparse.Namespace) -> None:
     """Execute the diagram subcommand."""
-    engine = build_engine(args.target, args.language)
+    engine = build_engine(args.target, args.language, allow_empty=args.allow_empty)
     print(render_diagram(engine, args))
 
 
@@ -272,7 +289,9 @@ def _print_augment_result(
 
 def _run_entrypoints(args: argparse.Namespace) -> None:
     """Execute the entrypoints subcommand."""
-    engine = QueryEngine.from_directory(args.path, language=args.language)
+    engine = QueryEngine.from_directory(
+        args.path, language=args.language, allow_empty=args.allow_empty
+    )
     surface = engine.attack_surface()
 
     if args.json:
@@ -300,8 +319,12 @@ def _run_diff(args: argparse.Namespace) -> None:
     """Execute the diff subcommand."""
     from trailmark.analysis.diff import format_diff
 
-    before_engine = _load_diff_side(args.before, args.language, args.repo)
-    after_engine = _load_diff_side(args.after, args.language, args.repo)
+    before_engine = _load_diff_side(
+        args.before, args.language, args.repo, allow_empty=args.allow_empty
+    )
+    after_engine = _load_diff_side(
+        args.after, args.language, args.repo, allow_empty=args.allow_empty
+    )
     diff = after_engine.diff_against(before_engine)
 
     if args.json:
@@ -314,14 +337,18 @@ def _load_diff_side(
     side: str,
     language: str,
     repo: str,
+    *,
+    allow_empty: bool = False,
 ) -> QueryEngine:
     """Build a QueryEngine for a path or git ref."""
     from trailmark.analysis.diff import git_worktree
 
     candidate = Path(side)
-    if candidate.exists() and candidate.is_dir():
-        return QueryEngine.from_directory(str(candidate), language=language)
+    if candidate.exists() or candidate.is_absolute() or side.endswith("/"):
+        return QueryEngine.from_directory(
+            str(candidate), language=language, allow_empty=allow_empty
+        )
 
     repo_path = Path(repo).resolve()
     with git_worktree(repo_path, side) as worktree:
-        return QueryEngine.from_directory(str(worktree), language=language)
+        return QueryEngine.from_directory(str(worktree), language=language, allow_empty=allow_empty)

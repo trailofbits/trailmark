@@ -196,11 +196,15 @@ def parse_directory(
             return parse_directory(parse_file_fn, language, dir_path, extensions)
 
     merged = CodeGraph(language=language, root_path=dir_path)
+    inspected = 0
     for fpath in walk_source_files(dir_path, extensions):
         if sources.owners.get(_absolute_lexical_path(Path(fpath))) != language:
             continue
         file_graph = parse_file_fn(fpath)
         merged.merge(file_graph)
+        inspected += 1
+    coverage_language = "c_sharp" if language == "csharp" else language
+    merged.source_file_counts = {coverage_language: inspected}
     link_type_relationships(merged)
     resolve_inherited_method_calls(merged)
     link_cross_file_calls(merged)

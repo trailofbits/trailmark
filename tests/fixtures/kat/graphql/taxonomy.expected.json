@@ -319,7 +319,14 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 5,
+    "languages": [
+      "graphql"
+    ],
     "proxies": 0,
+    "source_file_counts": {
+      "graphql": 1
+    },
+    "source_files": 1,
     "total_nodes": 10
   }
 }

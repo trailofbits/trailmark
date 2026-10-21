@@ -25,6 +25,7 @@ class CodeGraph:
     dependencies: list[str] = field(default_factory=list)
     language: str = ""
     root_path: str = ""
+    source_file_counts: dict[str, int] = field(default_factory=dict)
 
     def unresolved_calls(self) -> list[CodeEdge]:
         """Return calls with missing targets or explicit unresolved proxies."""
@@ -79,3 +80,5 @@ class CodeGraph:
         for dep in other.dependencies:
             if dep not in self.dependencies:
                 self.dependencies.append(dep)
+        for language, count in other.source_file_counts.items():
+            self.source_file_counts[language] = self.source_file_counts.get(language, 0) + count

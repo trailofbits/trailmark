@@ -231,7 +231,14 @@
     ],
     "entrypoints": 0,
     "functions": 3,
+    "languages": [
+      "proto"
+    ],
     "proxies": 0,
+    "source_file_counts": {
+      "proto": 1
+    },
+    "source_files": 1,
     "total_nodes": 7
   }
 }

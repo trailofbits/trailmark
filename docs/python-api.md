@@ -27,6 +27,22 @@ with:
 `.trailmark/links.toml`, but not entrypoint detection. To get entrypoints, build
 a `QueryEngine`.
 
+`parse_directory()` and `QueryEngine.from_directory()` reject missing roots and
+paths that are not directories with `ValueError`. They also reject a directory
+where no source files were inspected for the selected languages. The default
+language is Python; use `language="auto"` or an explicit language list for other
+projects. Pass the keyword-only `allow_empty=True` to permit an existing directory
+with zero matching files, including an empty `auto` parse. A source file with no
+declarations still counts as inspected and does not require this option.
+
+`CodeGraph.source_file_counts` records inspected files per selected language,
+including zero counts in explicit language lists. A shared header belongs to
+one parser and counts once. `GraphStore.source_file_counts()` returns a copy.
+`QueryEngine.summary()` and the exported JSON summary include `languages`,
+`source_files` (the total), and `source_file_counts`. Manually assembled graphs
+have no coverage metadata unless the caller supplies it. These counts describe
+the selected files, not parser completeness or coverage of unselected languages.
+
 ## Building a `QueryEngine`
 
 ```python
@@ -182,9 +198,32 @@ See [Call resolution](call-resolution.md).
 before = QueryEngine.from_directory("before/")
 after = QueryEngine.from_directory("after/")
 diff = after.diff_against(before)
-# Keys: summary_delta, nodes {added, removed, modified},
+# Keys: source_coverage {before, after}, summary_delta, nodes {added, removed, modified},
 #       edges {added, removed}, entrypoints {added, removed, modified}
 ```
+
+`source_coverage` contains the two graphs' per-language `source_file_counts`,
+even when there are no changes. Modified nodes contain an `id` and `changes`;
+each changed field has `before` and `after` values. Comparison covers:
+
+- `name`, `kind`, `origin`, `cyclomatic_complexity`, and `line_span`;
+- `parameters` (the ordered parameter names), `parameter_types`, and
+  `parameter_defaults` (parallel ordered lists);
+- `return_type`, `exception_types`, `type_parameters`, and `attributes`.
+
+Type references are objects with `name`, `module`, and recursive `generic_args`,
+or `null` for an absent type. Type parameters contain `name`, `constraints`,
+`default`, and `variance`. Attributes are objects, so their order is ignored.
+Each added or removed edge contains `source`, `target`, `kind`, and `confidence`.
+A confidence change appears as removal of the old edge and addition of the new
+one. Parallel edges with identical endpoints, kind, and confidence are collapsed
+in the edge lists; the summary delta still reflects total edge counts.
+
+This is a comparison of extracted structure, not semantic equivalence. It ignores
+source bodies, docstrings, branch conditions, absolute positions (except line
+span), edge attributes and locations, annotations, and subgraphs. Build both
+snapshots with the same Trailmark version and language selection before
+interpreting the result.
 
 ## JSON export
 
@@ -213,4 +252,4 @@ with older releases can check `trailmark.__version__` or probe with `hasattr()`.
 | --- | --- |
 | 0.3.0 | `trailmark.parse` (`parse_file`, `parse_directory`, `detect_languages`, `supported_languages`) |
 | 0.4.0 | `connect_subgraphs`, `subgraph_edges`, `generic_parameters`, `type_references`, `augment_binary`, proxy nodes |
-| 0.7.0 | `state_read_by`, `state_written_by`, `readers_of`, `writers_of`, `unresolved_calls`, `call_resolution`; `replace_existing` on the finding importers; keyword-only `max_depth` on `paths_between` |
+| 0.7.0 | `state_read_by`, `state_written_by`, `readers_of`, `writers_of`, `unresolved_calls`, `call_resolution`; `replace_existing` on the finding importers; keyword-only `max_depth` on `paths_between`; directory `allow_empty`, source-file coverage in summaries and diffs, and the expanded structural diff fields above |

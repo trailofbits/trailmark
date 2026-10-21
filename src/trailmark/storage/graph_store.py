@@ -34,6 +34,10 @@ class GraphStore:
         self._graph = graph
         self.rebuild_index()
 
+    def source_file_counts(self) -> dict[str, int]:
+        """Return inspected source-file counts by selected parser language."""
+        return dict(self._graph.source_file_counts)
+
     def rebuild_index(self) -> None:
         """Rebuild all rustworkx indexes after graph nodes or edges change."""
         self._digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()

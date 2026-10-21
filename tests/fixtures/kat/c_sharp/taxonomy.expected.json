@@ -700,7 +700,14 @@
     ],
     "entrypoints": 0,
     "functions": 9,
+    "languages": [
+      "c_sharp"
+    ],
     "proxies": 2,
+    "source_file_counts": {
+      "c_sharp": 1
+    },
+    "source_files": 1,
     "total_nodes": 18
   }
 }

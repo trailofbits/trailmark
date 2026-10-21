@@ -1078,7 +1078,14 @@
     ],
     "entrypoints": 0,
     "functions": 10,
+    "languages": [
+      "haskell"
+    ],
     "proxies": 11,
+    "source_file_counts": {
+      "haskell": 1
+    },
+    "source_files": 1,
     "total_nodes": 26
   }
 }

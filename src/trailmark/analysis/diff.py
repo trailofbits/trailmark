@@ -22,21 +22,27 @@ from typing import Any
 from trailmark.models.annotations import EntrypointTag
 from trailmark.models.edges import CodeEdge
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit
+from trailmark.models.nodes import CodeUnit, TypeRef
 
 
 def compute_diff(before: CodeGraph, after: CodeGraph) -> dict[str, Any]:
     """Return a structured diff between two graphs.
 
     Fields:
-        - ``summary_delta``: counts (nodes, functions, classes, call edges,
-          entrypoints) with before/after/delta.
+        - ``source_coverage``: per-language inspected-file counts for each side.
+        - ``summary_delta``: counts (nodes, edges, entrypoints) with
+          before/after/delta.
         - ``nodes``: ``{added, removed, modified}`` node entries.
-        - ``edges``: ``{added, removed}`` edge entries.
+        - ``edges``: ``{added, removed}`` entries keyed by endpoints, kind,
+          and confidence. A confidence change is a removal and an addition.
         - ``entrypoints``: ``{added, removed, modified}`` entrypoint entries
           with trust/asset before/after.
     """
     return {
+        "source_coverage": {
+            "before": dict(before.source_file_counts),
+            "after": dict(after.source_file_counts),
+        },
         "summary_delta": _diff_summary(before, after),
         "nodes": _diff_nodes(before, after),
         "edges": _diff_edges(before, after),
@@ -90,6 +96,14 @@ def _unit_summary(unit: CodeUnit) -> dict[str, Any]:
 
 def _compare_units(before: CodeUnit, after: CodeUnit) -> dict[str, Any]:
     changes: dict[str, Any] = {}
+    for field in ("name", "kind", "origin"):
+        b_value = getattr(before, field)
+        a_value = getattr(after, field)
+        if b_value != a_value:
+            changes[field] = {
+                "before": b_value if field == "name" else b_value.value,
+                "after": a_value if field == "name" else a_value.value,
+            }
     if before.cyclomatic_complexity != after.cyclomatic_complexity:
         changes["cyclomatic_complexity"] = {
             "before": before.cyclomatic_complexity,
@@ -99,11 +113,47 @@ def _compare_units(before: CodeUnit, after: CodeUnit) -> dict[str, Any]:
     a_params = tuple(p.name for p in after.parameters)
     if b_params != a_params:
         changes["parameters"] = {"before": list(b_params), "after": list(a_params)}
+    b_signature, a_signature = _signature(before), _signature(after)
+    for field, b_value in b_signature.items():
+        a_value = a_signature[field]
+        if b_value != a_value:
+            changes[field] = {"before": b_value, "after": a_value}
+    b_attributes, a_attributes = dict(before.attributes), dict(after.attributes)
+    if b_attributes != a_attributes:
+        changes["attributes"] = {"before": b_attributes, "after": a_attributes}
     b_span = max(0, before.location.end_line - before.location.start_line + 1)
     a_span = max(0, after.location.end_line - after.location.start_line + 1)
     if b_span != a_span:
         changes["line_span"] = {"before": b_span, "after": a_span}
     return changes
+
+
+def _type_summary(ref: TypeRef | None) -> dict[str, Any] | None:
+    if ref is None:
+        return None
+    return {
+        "name": ref.name,
+        "module": ref.module,
+        "generic_args": [_type_summary(arg) for arg in ref.generic_args],
+    }
+
+
+def _signature(unit: CodeUnit) -> dict[str, Any]:
+    return {
+        "parameter_types": [_type_summary(p.type_ref) for p in unit.parameters],
+        "parameter_defaults": [p.default for p in unit.parameters],
+        "return_type": _type_summary(unit.return_type),
+        "exception_types": [_type_summary(ref) for ref in unit.exception_types],
+        "type_parameters": [
+            {
+                "name": p.name,
+                "constraints": [_type_summary(ref) for ref in p.constraints],
+                "default": _type_summary(p.default),
+                "variance": p.variance,
+            }
+            for p in unit.type_parameters
+        ],
+    }
 
 
 def _diff_edges(before: CodeGraph, after: CodeGraph) -> dict[str, Any]:
@@ -117,13 +167,13 @@ def _diff_edges(before: CodeGraph, after: CodeGraph) -> dict[str, Any]:
     }
 
 
-def _edge_key(edge: CodeEdge) -> tuple[str, str, str]:
-    return (edge.source_id, edge.target_id, edge.kind.value)
+def _edge_key(edge: CodeEdge) -> tuple[str, str, str, str]:
+    return (edge.source_id, edge.target_id, edge.kind.value, edge.confidence.value)
 
 
-def _edge_key_to_dict(key: tuple[str, str, str]) -> dict[str, str]:
-    source, target, kind = key
-    return {"source": source, "target": target, "kind": kind}
+def _edge_key_to_dict(key: tuple[str, str, str, str]) -> dict[str, str]:
+    source, target, kind, confidence = key
+    return {"source": source, "target": target, "kind": kind, "confidence": confidence}
 
 
 def _diff_entrypoints(before: CodeGraph, after: CodeGraph) -> dict[str, Any]:

@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from trailmark.analysis.diff import compute_diff, format_diff, git_worktree
-from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
+from trailmark.models.nodes import (
+    CodeUnit,
+    NodeKind,
+    NodeOrigin,
+    Parameter,
+    SourceLocation,
+    TypeParameter,
+    TypeRef,
+)
+from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 
@@ -90,8 +102,8 @@ class TestEdgeDiff:
         edges = compute_diff(before, after)["edges"]
 
         assert edges == {
-            "added": [{"source": "a", "target": "b|c", "kind": "calls"}],
-            "removed": [{"source": "a|b", "target": "c", "kind": "calls"}],
+            "added": [{"source": "a", "target": "b|c", "kind": "calls", "confidence": "certain"}],
+            "removed": [{"source": "a|b", "target": "c", "kind": "calls", "confidence": "certain"}],
         }
 
     def test_new_call_edge_detected(self, tmp_path: Path) -> None:
@@ -187,6 +199,50 @@ class TestEntrypointDiff:
 
 
 class TestQueryEngineIntegration:
+    def test_type_only_changes_are_reported(self, tmp_path: Path) -> None:
+        source = tmp_path / "app.py"
+        source.write_text("def f(x: int) -> int:\n    return x\n")
+        before = QueryEngine.from_graph(parse_file(str(source)))
+        source.write_text("def f(x: str) -> str:\n    return x\n")
+        after = QueryEngine.from_graph(parse_file(str(source)))
+
+        diff = after.diff_against(before)
+
+        changes = diff["nodes"]["modified"]
+        assert len(changes) == 1
+        assert changes[0]["id"] == "app:f"
+        assert changes[0]["changes"] == {
+            "parameter_types": {
+                "before": [{"name": "int", "module": None, "generic_args": []}],
+                "after": [{"name": "str", "module": None, "generic_args": []}],
+            },
+            "return_type": {
+                "before": {"name": "int", "module": None, "generic_args": []},
+                "after": {"name": "str", "module": None, "generic_args": []},
+            },
+        }
+        assert format_diff(diff) != "No structural changes."
+        assert diff["source_coverage"] == {"before": {"python": 1}, "after": {"python": 1}}
+
+    def test_storage_type_only_change_is_reported(self, tmp_path: Path) -> None:
+        source = tmp_path / "token.sol"
+        source.write_text("contract Token { uint256 public balance; }")
+        before = QueryEngine.from_graph(parse_file(str(source)))
+        source.write_text("contract Token { uint128 public balance; }")
+        after = QueryEngine.from_graph(parse_file(str(source)))
+
+        assert after.diff_against(before)["nodes"]["modified"] == [
+            {
+                "id": "token:Token.balance",
+                "changes": {
+                    "attributes": {
+                        "before": {"declared_type": "uint256"},
+                        "after": {"declared_type": "uint128"},
+                    }
+                },
+            }
+        ]
+
     def test_diff_against_method(self, tmp_path: Path) -> None:
         before = tmp_path / "before"
         after = tmp_path / "after"
@@ -199,6 +255,83 @@ class TestQueryEngineIntegration:
         diff = after_engine.diff_against(before_engine)
         added_ids = {n["id"] for n in diff["nodes"]["added"]}
         assert "app:b" in added_ids
+
+
+@pytest.mark.parametrize(
+    "change,field",
+    [
+        ({"parameters": (Parameter("x", default="1"),)}, "parameter_defaults"),
+        ({"return_type": TypeRef("Box", "types", (TypeRef("int"),))}, "return_type"),
+        (
+            {"parameters": (Parameter("x", TypeRef("Box", "types", (TypeRef("int"),))),)},
+            "parameter_types",
+        ),
+        ({"exception_types": (TypeRef("Error"),)}, "exception_types"),
+        (
+            {
+                "type_parameters": (
+                    TypeParameter("T", (TypeRef("Bound"),), TypeRef("int"), "covariant"),
+                )
+            },
+            "type_parameters",
+        ),
+        ({"kind": NodeKind.METHOD}, "kind"),
+        ({"origin": NodeOrigin.BINARY}, "origin"),
+        ({"name": "renamed"}, "name"),
+    ],
+)
+def test_signature_and_identity_metadata_changes(change: dict, field: str) -> None:
+    unit = CodeUnit(
+        "app:f",
+        "f",
+        NodeKind.FUNCTION,
+        SourceLocation("app.py", 1, 2),
+        parameters=(Parameter("x"),),
+    )
+    before = CodeGraph(nodes={unit.id: unit})
+    after = CodeGraph(nodes={unit.id: replace(unit, **change)})
+
+    diff = compute_diff(before, after)
+
+    assert field in diff["nodes"]["modified"][0]["changes"]
+    assert json.loads(json.dumps(diff)) == diff
+    assert compute_diff(after, before)["nodes"]["modified"]
+
+
+def test_confidence_change_and_parallel_confidence_variants() -> None:
+    certain = CodeEdge("app:f", "app:g", EdgeKind.CALLS)
+    uncertain = replace(certain, confidence=EdgeConfidence.UNCERTAIN)
+    before = CodeGraph(edges=[certain, certain, uncertain])
+    after = CodeGraph(edges=[uncertain])
+
+    diff = compute_diff(before, after)
+
+    assert diff["edges"] == {
+        "added": [],
+        "removed": [
+            {"source": "app:f", "target": "app:g", "kind": "calls", "confidence": "certain"}
+        ],
+    }
+    assert compute_diff(CodeGraph(edges=[certain]), after)["edges"]["added"] == [
+        {"source": "app:f", "target": "app:g", "kind": "calls", "confidence": "uncertain"},
+    ]
+
+
+def test_attribute_order_and_absolute_source_locations_do_not_change_structure() -> None:
+    unit = CodeUnit(
+        "app:f",
+        "f",
+        NodeKind.FUNCTION,
+        SourceLocation("before/app.py", 1, 2),
+        attributes=(("a", 1), ("b", True)),
+    )
+    moved = replace(
+        unit,
+        location=SourceLocation("after/app.py", 10, 11),
+        attributes=tuple(reversed(unit.attributes)),
+    )
+    diff = compute_diff(CodeGraph(nodes={unit.id: unit}), CodeGraph(nodes={unit.id: moved}))
+    assert diff["nodes"]["modified"] == []
 
 
 class TestFormatDiff:

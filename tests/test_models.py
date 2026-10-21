@@ -252,6 +252,13 @@ class TestAnnotations:
 
 
 class TestCodeGraph:
+    def test_merge_source_file_counts(self) -> None:
+        graph = CodeGraph(source_file_counts={"python": 2, "go": 0})
+        other = CodeGraph(source_file_counts={"python": 1, "rust": 3})
+        graph.merge(other)
+        assert graph.source_file_counts == {"python": 3, "go": 0, "rust": 3}
+        assert other.source_file_counts == {"python": 1, "rust": 3}
+
     def test_empty_graph(self) -> None:
         g = CodeGraph()
         assert len(g.nodes) == 0

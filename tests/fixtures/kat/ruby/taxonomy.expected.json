@@ -333,7 +333,14 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 5,
+    "languages": [
+      "ruby"
+    ],
     "proxies": 2,
+    "source_file_counts": {
+      "ruby": 1
+    },
+    "source_files": 1,
     "total_nodes": 11
   }
 }

@@ -204,7 +204,14 @@
     ],
     "entrypoints": 0,
     "functions": 5,
+    "languages": [
+      "masm"
+    ],
     "proxies": 0,
+    "source_file_counts": {
+      "masm": 1
+    },
+    "source_files": 1,
     "total_nodes": 6
   }
 }

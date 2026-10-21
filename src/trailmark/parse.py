@@ -111,19 +111,36 @@ def parse_file(path: str, language: str | None = None) -> CodeGraph:
     file_path = Path(path)
     resolved_language = _resolve_file_language(file_path, language)
     graph = _get_parser(resolved_language).parse_file(str(file_path))
+    graph.source_file_counts = {resolved_language: 1}
     link_type_relationships(graph)
     return ensure_proxy_nodes(graph)
 
 
-def parse_directory(path: str, language: str = "python") -> CodeGraph:
+def parse_directory(path: str, language: str = "python", *, allow_empty: bool = False) -> CodeGraph:
     """Parse a directory into a raw ``CodeGraph``.
 
     ``language`` accepts a specific language name (e.g. ``"python"``),
     ``"auto"`` to detect and merge all supported languages found under the
     directory, or a comma-separated list like ``"python,rust"``.
+
+    Raises ``ValueError`` for a missing/non-directory root or zero inspected
+    source files. ``allow_empty=True`` permits the latter. Coverage is recorded
+    in ``CodeGraph.source_file_counts``, including declaration-free files.
     """
-    languages = _resolve_directory_languages(path, language)
-    return _parse_and_merge(path, languages)
+    root = Path(path)
+    if not root.is_dir():
+        msg = f"Not a directory: {path}"
+        raise ValueError(msg)
+    languages = _resolve_directory_languages(path, language, allow_empty=allow_empty)
+    graph = _parse_and_merge(path, languages)
+    if not allow_empty and not sum(graph.source_file_counts.values()):
+        msg = (
+            f"No source files inspected under {path} for languages: {', '.join(languages)}. "
+            "Choose the source language (or 'auto'), or set allow_empty=True "
+            "(--allow-empty in the CLI) for an intentional empty input."
+        )
+        raise ValueError(msg)
+    return graph
 
 
 def detect_languages(path: str) -> list[str]:
@@ -187,11 +204,11 @@ def _resolve_file_language(path: Path, language: str | None) -> str:
     return language
 
 
-def _resolve_directory_languages(path: str, spec: str) -> list[str]:
+def _resolve_directory_languages(path: str, spec: str, *, allow_empty: bool = False) -> list[str]:
     """Expand a directory ``language`` argument into concrete languages."""
     if spec == "auto":
         detected = detect_languages(path)
-        if not detected:
+        if not detected and not allow_empty:
             msg = f"No supported languages detected under {path}"
             raise ValueError(msg)
         return detected

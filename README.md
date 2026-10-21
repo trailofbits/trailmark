@@ -89,6 +89,10 @@ trailmark diagram -t path/to/project -T call-graph -f handle_request
 trailmark analyze --language rust --resolution path/to/project
 ```
 
+Directory analysis rejects missing roots and zero matching source files. The
+summary includes selected languages and inspected file counts; use
+`--allow-empty` for an intentional empty input.
+
 The same questions from Python:
 
 ```python

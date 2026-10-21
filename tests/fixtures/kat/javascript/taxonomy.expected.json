@@ -552,7 +552,14 @@
     ],
     "entrypoints": 0,
     "functions": 9,
+    "languages": [
+      "javascript"
+    ],
     "proxies": 3,
+    "source_file_counts": {
+      "javascript": 1
+    },
+    "source_files": 1,
     "total_nodes": 15
   }
 }

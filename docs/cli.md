@@ -6,6 +6,13 @@ is `python`. Pass a key from the
 as `python,rust`, or `auto` to detect and merge every supported language found
 in the tree.
 
+Source-reading commands reject missing or non-directory roots and directories
+with zero matching source files. Use `--allow-empty` for an intentional empty
+input, such as a diff against a snapshot before its first source file was added.
+The option still requires an existing directory. Empty or comment-only source
+files are valid inputs. Inspect the selected languages and source-file counts
+in the analysis summary; selecting one language does not cover the others.
+
 - [`trailmark analyze`](#trailmark-analyze)
 - [`trailmark entrypoints`](#trailmark-entrypoints)
 - [`trailmark diff`](#trailmark-diff)
@@ -16,7 +23,7 @@ in the tree.
 ## `trailmark analyze`
 
 ```bash
-trailmark analyze [--language LANG] [--summary | --complexity N | --resolution] PATH
+trailmark analyze [--language LANG] [--allow-empty] [--summary | --complexity N | --resolution] PATH
 ```
 
 Parses `PATH` and prints the graph. The output flags are mutually exclusive.
@@ -24,7 +31,7 @@ Parses `PATH` and prints the graph. The output flags are mutually exclusive.
 | Flag | Output |
 | --- | --- |
 | *(none)* | Full graph as JSON (the same as `QueryEngine.to_json()`) |
-| `--summary`, `-s` | Node counts (functions, classes, proxies), call-edge count, dependencies, and entrypoint count |
+| `--summary`, `-s` | Node counts (functions, classes, proxies), call-edge count, dependencies, entrypoint count, selected languages, and inspected source-file count |
 | `--complexity N`, `-c N` | One line per function with cyclomatic complexity &ge; `N`: ID, complexity, and `file:line` |
 | `--resolution` | Call-resolution report as JSON; see [Call resolution](call-resolution.md) |
 
@@ -46,7 +53,7 @@ trailmark analyze --language rust --resolution path/to/project
 ## `trailmark entrypoints`
 
 ```bash
-trailmark entrypoints [--language LANG] [--json] PATH
+trailmark entrypoints [--language LANG] [--allow-empty] [--json] PATH
 ```
 
 Lists detected entrypoints with their kind, trust level, asset value, and
@@ -63,7 +70,7 @@ trailmark entrypoints --language solidity --json contracts/
 ## `trailmark diff`
 
 ```bash
-trailmark diff [--language LANG] [--repo REPO] [--json] BEFORE AFTER
+trailmark diff [--language LANG] [--repo REPO] [--allow-empty] [--json] BEFORE AFTER
 ```
 
 Compares two snapshots of a codebase. Each side is a directory if one exists at
@@ -73,10 +80,14 @@ that path; otherwise it is treated as a git ref (branch, tag, or commit) in
 not touched.
 
 The text report shows up to 20 each of the added, removed, and modified nodes
-(for example, changed complexity, parameters, or line span), the number of
+(for example, changed complexity, parameter/return types, declaration attributes,
+or line span), the number of
 added and removed edges, and every added, removed, or modified entrypoint.
 `--json` emits the complete structure returned by `QueryEngine.diff_against()`,
-including each changed edge.
+including each changed edge's confidence and both snapshots' per-language
+`source_coverage`. Confidence changes appear as removed and added edges. See the
+[diff comparison scope](python-api.md#diff-and-export) for the full field list
+and limits. Both sides must inspect source files unless `--allow-empty` is set.
 
 ```bash
 trailmark diff before/ after/
@@ -92,7 +103,7 @@ such a declaration changes its ID, so the diff reports it as removed and added.
 
 ```bash
 trailmark diagram --target PATH --type TYPE [--language LANG] [--focus NAME]
-                  [--depth N] [--direction TB|LR] [--threshold N]
+                  [--depth N] [--direction TB|LR] [--threshold N] [--allow-empty]
 ```
 
 Prints a [Mermaid](https://mermaid.js.org/) diagram. `--target` (`-t`) and

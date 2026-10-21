@@ -158,7 +158,14 @@
     ],
     "entrypoints": 0,
     "functions": 3,
+    "languages": [
+      "rego"
+    ],
     "proxies": 0,
+    "source_file_counts": {
+      "rego": 1
+    },
+    "source_files": 1,
     "total_nodes": 4
   }
 }

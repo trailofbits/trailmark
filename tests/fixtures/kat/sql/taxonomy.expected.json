@@ -153,7 +153,14 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 1,
+    "languages": [
+      "sql"
+    ],
     "proxies": 0,
+    "source_file_counts": {
+      "sql": 1
+    },
+    "source_files": 1,
     "total_nodes": 5
   }
 }

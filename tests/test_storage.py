@@ -26,6 +26,15 @@ from trailmark.storage.graph_store import GraphStore
 _LOC = SourceLocation(file_path="test.py", start_line=1, end_line=10)
 
 
+def test_source_file_counts_are_copied_without_topology_rebuild() -> None:
+    graph = CodeGraph(source_file_counts={"python": 1})
+    store = GraphStore(graph)
+    store.source_file_counts()["python"] = 99
+    assert store.source_file_counts() == {"python": 1}
+    graph.source_file_counts["rust"] = 2
+    assert store.source_file_counts() == {"python": 1, "rust": 2}
+
+
 def _make_node(
     node_id: str,
     name: str,

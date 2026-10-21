@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from io import StringIO
 from pathlib import Path
@@ -101,6 +102,159 @@ def test_repeated_augment_flags_retain_findings_from_every_file(
     members = {node_id for ids in graph["subgraphs"].values() for node_id in ids}
     assert {"first:first", "second:second"} <= members
     assert captured.err.count("Matched: 1") == 2
+
+
+@pytest.mark.parametrize("command", ["analyze", "entrypoints", "augment", "diagram"])
+@pytest.mark.parametrize("missing", [False, True])
+def test_source_commands_reject_uninspected_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+    missing: bool,
+) -> None:
+    (tmp_path / "app.rs").write_text("fn main() {}")
+    target = str(tmp_path / "missing") if missing else str(tmp_path)
+    argv = ["trailmark", command, target]
+    if command == "diagram":
+        argv = ["trailmark", command, "--target", target, "--type", "call-graph"]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(SystemExit) as exc:
+        main()
+
+    assert exc.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "Not a directory" in output.err if missing else "No source files inspected" in output.err
+    assert "Traceback" not in output.err
+
+
+@pytest.mark.parametrize("empty_side", ["before", "after"])
+def test_diff_rejects_zero_source_files_on_either_side(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    empty_side: str,
+) -> None:
+    before, after = tmp_path / "before", tmp_path / "after"
+    for path in (before, after):
+        path.mkdir()
+        (path / "app.rs").write_text("fn main() {}")
+        if path.name != empty_side:
+            (path / "app.py").write_text("def f(): pass")
+    argv = ["trailmark", "diff", str(before), str(after), "--json"]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "No source files inspected" in output.err
+    assert str(tmp_path / empty_side) in output.err
+
+    monkeypatch.setattr(sys, "argv", [*argv, "--allow-empty"])
+    main()
+    diff = json.loads(capsys.readouterr().out)
+    assert diff["source_coverage"][empty_side] == {"python": 0}
+    assert diff["source_coverage"]["after" if empty_side == "before" else "before"] == {"python": 1}
+    assert diff["nodes"]["added" if empty_side == "before" else "removed"]
+
+
+@pytest.mark.parametrize("language,counts", [("python", {"python": 0}), ("auto", {})])
+def test_analyze_explicit_empty_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    language: str,
+    counts: dict[str, int],
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["trailmark", "analyze", str(tmp_path), "--language", language, "--allow-empty"],
+    )
+    main()
+    output = capsys.readouterr()
+    graph = json.loads(output.out)
+    assert graph["summary"]["source_file_counts"] == counts
+    assert graph["summary"]["source_files"] == 0
+    assert output.err == ""
+
+
+def test_diff_git_refs_allow_intentional_empty_snapshot_and_clean_up(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def git(*args: str) -> str:
+        return subprocess.run(  # noqa: S603
+            ["git", *args],  # noqa: S607
+            cwd=tmp_path,
+            check=True,
+            text=True,
+            capture_output=True,
+        ).stdout
+
+    git("init")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    git("commit", "--allow-empty", "-m", "empty snapshot")
+    git("tag", "empty-snapshot")
+    (tmp_path / "app.rs").write_text("fn main() {}")
+    git("add", "app.rs")
+    git("commit", "-m", "add Rust source")
+    git("tag", "rust-snapshot")
+    argv = [
+        "trailmark",
+        "diff",
+        "empty-snapshot",
+        "rust-snapshot",
+        "--repo",
+        str(tmp_path),
+        "--language",
+        "auto",
+        "--json",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 2
+    assert capsys.readouterr().out == ""
+    assert git("worktree", "list", "--porcelain").count("worktree ") == 1
+
+    monkeypatch.setattr(sys, "argv", [*argv, "--allow-empty"])
+    main()
+    diff = json.loads(capsys.readouterr().out)
+    assert diff["source_coverage"] == {"before": {}, "after": {"rust": 1}}
+    assert "app:main" in {node["id"] for node in diff["nodes"]["added"]}
+    assert git("worktree", "list", "--porcelain").count("worktree ") == 1
+
+
+def test_rust_diff_rejects_python_default_and_auto_detects_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    before, after = tmp_path / "before", tmp_path / "after"
+    before.mkdir()
+    after.mkdir()
+    (before / "app.rs").write_text("fn main() {}")
+    (after / "app.rs").write_text("fn main() { extra(); }\nfn extra() {}")
+    argv = ["trailmark", "diff", str(before), str(after), "--json"]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "No source files inspected" in output.err
+
+    monkeypatch.setattr(sys, "argv", [*argv, "--language", "auto"])
+    main()
+    diff = json.loads(capsys.readouterr().out)
+    assert diff["source_coverage"] == {"before": {"rust": 1}, "after": {"rust": 1}}
+    assert "app:extra" in {node["id"] for node in diff["nodes"]["added"]}
 
 
 class TestResolutionReport:
@@ -274,6 +428,9 @@ class TestAnalyzeCommand:
             "call_edges",
             "dependencies",
             "entrypoints",
+            "languages",
+            "source_files",
+            "source_file_counts",
         }
         # Nodes is a dict, edges is a list
         assert isinstance(data["nodes"], dict)
@@ -297,7 +454,7 @@ class TestAnalyzeCommand:
         ):
             main()
         lines = mock_out.getvalue().strip().split("\n")
-        assert len(lines) == 7
+        assert len(lines) == 9
         # Verify exact line format with exact string matching
         assert lines[0] == "Nodes: 3"
         assert lines[1] == "  Functions: 1"
@@ -306,6 +463,8 @@ class TestAnalyzeCommand:
         assert lines[4] == "Call edges: 0"
         assert lines[5] == "Dependencies: "
         assert lines[6] == "Entrypoints: 0"
+        assert lines[7] == "Languages: python"
+        assert lines[8] == "Source files: 1"
 
     def test_analyze_summary_with_dependencies(
         self,

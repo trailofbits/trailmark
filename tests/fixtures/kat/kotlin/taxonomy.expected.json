@@ -631,7 +631,14 @@
     "dependencies": [],
     "entrypoints": 0,
     "functions": 8,
+    "languages": [
+      "kotlin"
+    ],
     "proxies": 3,
+    "source_file_counts": {
+      "kotlin": 1
+    },
+    "source_files": 1,
     "total_nodes": 16
   }
 }
