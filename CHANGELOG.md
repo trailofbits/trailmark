@@ -73,6 +73,9 @@
   rules. Keep functions inside C++ `extern "C"` blocks in the graph.
 - Honor explicit `analyze --complexity 0`; reject negative thresholds. Class
   diagrams honor `--direction` and warn when more than 100 classes are rendered.
+- Upgrade pytest-gremlins to 1.11.4 and revalidate the mutation runner against
+  its pytest and import handling. Reject skipped instrumentation. Keep
+  `tree-sitter` on the 0.25 series because 0.26.0 causes native crashes.
 
 Many node IDs change in this release: overloaded callables, colliding
 same-stem modules, Solidity contract-level types, and Java nested classes. A

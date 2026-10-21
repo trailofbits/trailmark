@@ -100,6 +100,9 @@ def _validate_versions(run: dict[str, Any], baseline: dict[str, Any]) -> None:
 
 
 def _validate_report(report: dict[str, Any], baseline: dict[str, Any]) -> None:
+    skipped = report.get("skipped_files", {})
+    if not isinstance(skipped, dict) or skipped:
+        raise ValueError("Mutation report contains skipped files or invalid skip metadata")
     results = report["results"]
     if not results or len(results) != report["summary"]["total"]:
         raise ValueError("Missing or incomplete mutation results")

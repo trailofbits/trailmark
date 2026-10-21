@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.run_mutations import RUNNER, VERSION
+
 pytestmark = pytest.mark.mutation_infrastructure
 
 
@@ -69,6 +71,12 @@ def test_weak(tmp_path, value):
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+    run = json.loads((tmp_path / "coverage/gremlins/run.json").read_text())
+    assert run["pytest_gremlins"] == VERSION
+    assert run["runner"] == RUNNER
+    assert run["test_order"] == "component"
+    assert run["tests"] == ["test_toy.py", "test_integration.py"]
+    assert set(run["sources"]) == {"toy/__init__.py"}
     report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
     results = report["results"]
     strong = [r for r in results if r["line_number"] == 5]
@@ -108,4 +116,77 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path) -> None:
     )
     assert result.returncode != 0
     assert "Instrumented baseline failed" in result.stdout + result.stderr
+    assert not (tmp_path / "coverage/gremlins/run.json").exists()
+
+
+def test_runner_instruments_spawned_children(tmp_path: Path) -> None:
+    (tmp_path / "target.py").write_text("def checked():\n    return True\n")
+    (tmp_path / "child_worker.py").write_text(
+        "def evaluate(queue):\n    from target import checked\n    queue.put(checked())\n"
+    )
+    (tmp_path / "test_spawn.py").write_text("""\
+from multiprocessing import get_context
+from child_worker import evaluate
+
+def test_checked_only_in_child(tmp_path):
+    assert tmp_path.is_dir()
+    context = get_context("spawn")
+    queue = context.Queue()
+    child = context.Process(target=evaluate, args=(queue,))
+    child.start()
+    try:
+        answer = queue.get(timeout=10)
+        child.join(timeout=10)
+        assert child.exitcode == 0
+        assert answer is True
+    finally:
+        if child.is_alive():
+            child.terminate()
+            child.join()
+        queue.close()
+""")
+    runner = Path(__file__).with_name("run_mutations.py")
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, str(runner), "--targets=target.py", "--workers=2", "test_spawn.py"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
+    assert len(report["results"]) == 2
+    assert {row["operator"] for row in report["results"]} == {"boolean", "return"}
+    assert {row["status"] for row in report["results"]} == {"zapped"}
+    assert all(
+        row["selected_tests"] == ["test_spawn.py::test_checked_only_in_child"]
+        for row in report["results"]
+    )
+
+
+def test_runner_rejects_skipped_instrumentation(tmp_path: Path) -> None:
+    (tmp_path / "target.py").write_text("def checked(value):\n    return value > 0\n")
+    (tmp_path / "test_target.py").write_text(
+        "from target import checked\ndef test_checked():\n    assert checked(1)\n"
+    )
+    runner = Path(__file__).with_name("run_mutations.py")
+    launcher = tmp_path / "launch.py"
+    launcher.write_text(
+        "import runpy\nfrom unittest.mock import patch\n"
+        "with patch('pytest_gremlins.plugin.transform_source', "
+        "side_effect=ValueError('controlled instrumentation failure')):\n"
+        f"    runpy.run_path({str(runner)!r}, run_name='__main__')\n"
+    )
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, str(launcher), "--targets=target.py", "test_target.py"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert result.returncode != 0
+    assert "Mutation instrumentation skipped files" in result.stdout + result.stderr
+    assert "controlled instrumentation failure" in result.stdout + result.stderr
     assert not (tmp_path / "coverage/gremlins/run.json").exists()

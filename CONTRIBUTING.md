@@ -61,13 +61,13 @@ survivors, missing tests or results, errors, and timeouts. An exception
 requires a reason and a fingerprint of the function and mutation; changing
 that function requires reviewing its exceptions again.
 
-**How the runner works.** The runner pins pytest-gremlins 1.9.0 and uses real
-pytest subprocesses for every mutant, including fixtures and parametrized
-tests. It checks the clean baseline and each distinct instrumented test
-ordering before mutating, skips the redundant coverage pre-scan, and preserves
-package metadata and exact parameter IDs when loading mutated code. These
-measures work around upstream runner and selection issues; their control tests
-must pass before upgrading the plugin.
+**How the runner works.** The runner pins pytest-gremlins 1.11.4 and uses its
+pytest subprocesses and import handling, including fixtures, parametrized tests,
+package metadata, and instrumentation in spawned child processes. Trailmark
+checks the clean baseline and each distinct instrumented test ordering before
+mutating, skips the redundant coverage pre-scan, preserves exact parameter IDs,
+and rejects skipped instrumentation. The adapter uses private plugin APIs; its
+control tests must pass before upgrading the plugin.
 
 **Test ordering.** Each mutant keeps the full selected test suite: component
 unit tests run first, followed by the remaining tests, stopping at the first

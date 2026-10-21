@@ -48,6 +48,31 @@ def test_passes_complete_killed_campaign(tmp_path: Path, campaign: tuple) -> Non
     assert check(tmp_path, *campaign) == []
 
 
+@pytest.mark.parametrize("skipped", [{"other.py": "ValueError: cannot instrument"}, [], None])
+def test_rejects_skipped_or_invalid_instrumentation(
+    tmp_path: Path, campaign: tuple, skipped: Any
+) -> None:
+    campaign[0]["skipped_files"] = skipped
+    with pytest.raises(ValueError, match="skipped files"):
+        check(tmp_path, *campaign)
+
+
+@pytest.mark.parametrize(
+    ("document", "field", "previous"),
+    [
+        (1, "pytest_gremlins", "1.9.0"),
+        (2, "pytest_gremlins", "1.9.0"),
+        (1, "runner", "trailmark-full-pytest-v2"),
+    ],
+)
+def test_rejects_previous_adapter_reports(
+    tmp_path: Path, campaign: tuple, document: int, field: str, previous: str
+) -> None:
+    campaign[document][field] = previous
+    with pytest.raises(ValueError, match="version|validated pytest"):
+        check(tmp_path, *campaign)
+
+
 @pytest.mark.parametrize("status", ["survived", "timeout", "error", "pardoned"])
 def test_rejects_non_kills(tmp_path: Path, campaign: tuple, status: str) -> None:
     report, run, baseline = campaign

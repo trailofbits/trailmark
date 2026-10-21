@@ -1,8 +1,8 @@
 """Run pytest-gremlins with complete pytest semantics and baseline controls.
 
 Run as ``uv run python -m tests.run_mutations --targets=src/trailmark/...``.
-Remove the version-specific adapter after upstream issues #486 and #415 and
-package-import handling are fixed, retaining the behavioral control tests.
+Use upstream's full-pytest bootstrap and import handling, adding complete test
+selection, component ordering, and executed instrumented baseline controls.
 """
 
 from __future__ import annotations
@@ -22,14 +22,16 @@ from unittest.mock import patch
 import pytest
 from pytest_gremlins import plugin
 from pytest_gremlins.instrumentation.gremlin import Gremlin
+from pytest_gremlins.instrumentation.spawn_hook import export_spawn_hook
+from pytest_gremlins.node_id_file import command_with_node_ids_file
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.mutation_order import prioritize_tests, relative_node_ids
 
-VERSION = "1.9.0"
-RUNNER = "trailmark-full-pytest-v2"
+VERSION = "1.11.4"
+RUNNER = "trailmark-full-pytest-v3"
 
 
 def _arguments() -> argparse.Namespace:
@@ -72,9 +74,15 @@ def _check_instrumented_orders(
     env.pop("ACTIVE_GREMLIN", None)
     env["PYTEST_GREMLINS_SOURCES_FILE"] = str(directory / "sources.json")
     env["GREMLIN_ROOTDIR"] = str(Path.cwd())
+    export_spawn_hook(env)
     session = plugin._get_session()
     if session is None:
         raise pytest.UsageError("Missing mutation session for baseline validation")
+    if session.skipped_files:
+        raise pytest.UsageError(f"Mutation instrumentation skipped files: {session.skipped_files}")
+    command = plugin._build_test_command(
+        directory, session.preserved_addopts, xdist_loaded=session.xdist_loaded
+    )
     tests = list(session.test_node_ids)
     orders = {
         tuple(prioritize_tests(path, tests) if test_order == "component" else tests)
@@ -83,7 +91,7 @@ def _check_instrumented_orders(
     for index, order in enumerate(sorted(orders), 1):
         print(f"Checking instrumented baseline order {index}/{len(orders)}", flush=True)
         control = subprocess.run(  # noqa: S603
-            [sys.executable, str(directory / "gremlin_bootstrap.py"), *order],
+            command_with_node_ids_file(command, order, directory),
             env=env,
             check=False,
             timeout=180,
@@ -94,19 +102,35 @@ def _check_instrumented_orders(
             )
 
 
-def _instrumented_writer(test_order: str) -> Callable[[dict[str, ast.Module], Path], Path]:
+def _instrumented_writer(
+    test_order: str,
+) -> Callable[[dict[str, ast.Module], Path, dict[str, list[str]] | None], Path]:
     write_sources = plugin._write_instrumented_sources
 
-    def write_and_check(instrumented_asts: dict[str, ast.Module], rootdir: Path) -> Path:
-        directory = write_sources(instrumented_asts, rootdir)
+    def write_and_check(
+        instrumented_asts: dict[str, ast.Module],
+        rootdir: Path,
+        duplicates: dict[str, list[str]] | None = None,
+    ) -> Path:
+        directory = write_sources(instrumented_asts, rootdir, duplicates)
         _check_instrumented_orders(directory, instrumented_asts, test_order)
         return directory
 
     return write_and_check
 
 
+class _RequireCompleteInstrumentation:
+    @pytest.hookimpl(trylast=True)
+    def pytest_collection_finish(self) -> None:
+        session = plugin._get_session()
+        # No writer runs when every target fails instrumentation.
+        if session is not None and session.skipped_files:
+            raise pytest.UsageError(
+                f"Mutation instrumentation skipped files: {session.skipped_files}"
+            )
+
+
 def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
-    bootstrap = Path(__file__).with_name("mutation_bootstrap.py").read_text()
 
     def select_tests(gremlin: Gremlin, session: plugin.GremlinSession) -> list[str]:
         tests = list(session.test_node_ids)
@@ -117,8 +141,6 @@ def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
         )
 
     with (
-        patch.object(plugin, "_get_bootstrap_script", return_value=bootstrap),
-        patch.object(plugin, "_get_lightweight_runner_script", return_value=bootstrap),
         patch.object(
             plugin, "_write_instrumented_sources", side_effect=_instrumented_writer(args.test_order)
         ),
@@ -139,7 +161,8 @@ def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
                 f"--gremlin-targets={args.targets}",
                 "--gremlin-report=json,html",
                 f"--gremlins-html-dir={report_dir}",
-            ]
+            ],
+            plugins=[_RequireCompleteInstrumentation()],
         )
 
 
