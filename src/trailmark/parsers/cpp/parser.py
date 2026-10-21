@@ -138,6 +138,7 @@ def _visit_top_level_node(
         )
     elif child.type in (
         "linkage_specification",
+        "declaration_list",
         "preproc_if",
         "preproc_ifdef",
         "preproc_else",

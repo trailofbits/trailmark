@@ -310,6 +310,46 @@ class TestEmitContainment:
         assert "No containment found" in result
 
 
+@pytest.mark.parametrize(
+    ("emitter", "build"),
+    [
+        (diagram.emit_class_hierarchy, _build_class_hierarchy_engine),
+        (diagram.emit_containment, _build_containment_engine),
+    ],
+    ids=["class-hierarchy", "containment"],
+)
+@pytest.mark.parametrize("direction", ["TB", "LR"])
+def test_class_diagrams_honor_direction(
+    emitter: Callable[[QueryEngine, str], str], build: Callable[[], QueryEngine], direction: str
+) -> None:
+    result = emitter(build(), direction)
+    assert result.splitlines()[:2] == ["classDiagram", f"    direction {direction}"]
+
+
+@pytest.mark.parametrize("emitter", [diagram.emit_class_hierarchy, diagram.emit_containment])
+@pytest.mark.parametrize("class_count", [100, 101])
+def test_class_diagram_size_warning_counts_rendered_classes(
+    emitter: Callable[[QueryEngine, str], str],
+    class_count: int,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    graph = CodeGraph()
+    for i in range(class_count):
+        owner = f"mod:C{i}"
+        member = f"{owner}.method"
+        graph.nodes[owner] = _make_node(owner, f"C{i}", NodeKind.CLASS)
+        graph.nodes[member] = _make_node(member, "method", NodeKind.METHOD)
+        graph.edges.append(CodeEdge(owner, member, EdgeKind.CONTAINS))
+    graph.nodes["mod:unrelated"] = _make_node("mod:unrelated", "unrelated")
+    result = emitter(QueryEngine.from_graph(graph), "LR")
+    assert result.count("    class ") == class_count
+    stderr = capsys.readouterr().err
+    if class_count > 100:
+        assert "101 nodes exceeds 100" in stderr
+    else:
+        assert stderr == ""
+
+
 class TestEmitComplexity:
     def test_above_threshold(self) -> None:
         engine = _build_call_graph_engine()

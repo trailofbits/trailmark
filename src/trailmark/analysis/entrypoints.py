@@ -51,6 +51,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from trailmark.analysis._entrypoint_declarations import DeclarationCache
 from trailmark.models.annotations import (
     AssetValue,
     EntrypointKind,
@@ -59,12 +60,9 @@ from trailmark.models.annotations import (
 )
 from trailmark.models.edges import EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit, NodeKind
+from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin
 
 OVERRIDE_FILE = ".trailmark/entrypoints.toml"
-
-# How many lines above start_line to scan for decorators/attributes.
-_DECORATOR_LOOKBACK = 12
 
 # Python HTTP web-framework decorator suffix on any receiver.
 #   Matches: @app.route(...), @router.get(...), @bp.post(...), @routes.put(...)
@@ -94,7 +92,7 @@ _RS_ASYNC_MAIN_ATTR = re.compile(r"^\s*#\[\s*\w+::main\s*\]\s*$")
 
 # Rust FFI export: #[no_mangle] or `pub extern "C" fn`
 _RS_NO_MANGLE = re.compile(r"^\s*#\[\s*no_mangle\s*\]\s*$")
-_RS_EXTERN_C_FN = re.compile(r"\bpub\s+extern\s+\"C\"\s+fn\b")
+_RS_EXTERN_C_FN = re.compile(r"\bpub\s+(?:unsafe\s+)?extern\s+\"C\"\s+fn\b")
 
 # JS/TS — NestJS method decorators: @Get(), @Post(), @Put(), @Delete(), @Patch(),
 # @Options(), @Head(), @All(). Capital first letter distinguishes from free
@@ -133,9 +131,6 @@ _CAIRO_CONTRACT_ATTR = re.compile(
     r"^\s*#\[\s*(external|view|l1_handler|constructor)\b",
 )
 
-# Circom — component main declaration on the signature line
-_CIRCOM_MAIN = re.compile(r"^\s*component\s+main\b")
-
 # Miden Assembly — exported procedures and program begin block
 _MASM_EXPORT = re.compile(r"^\s*export\.([A-Za-z_]\w*)")
 
@@ -144,15 +139,6 @@ _ERLANG_EXPORT = re.compile(r"^\s*-\s*export\s*\(\s*\[")
 
 # Haskell — `main :: IO ()` / `main = ...` at column 0
 _HASKELL_MAIN = re.compile(r"^main\s*(::|=)")
-
-# Swift — @main on an App/struct indicates the entry point.
-_SWIFT_MAIN_ATTR = re.compile(r"^\s*@main\b")
-
-# Swift — Vapor route registration: `app.get("/path") { req in ... }`
-# and related `.post/.put/.delete/.patch` on any receiver.
-_SWIFT_VAPOR_ROUTE = re.compile(
-    r"^\s*[A-Za-z_]\w*\.(get|post|put|patch|delete|on)\s*\(",
-)
 
 # Objective-C — AppDelegate lifecycle selectors on UIApplicationDelegate
 _OBJC_APP_DELEGATE_SELECTORS = frozenset(
@@ -276,7 +262,7 @@ def _detect_framework_entrypoints(graph: CodeGraph) -> dict[str, EntrypointTag]:
     and Solidity visibility. Dispatch uses the source extension; shared C and
     Objective-C headers also use the node kind to select a detector.
     """
-    cache = _SourceCache()
+    cache = _SourceCache(graph.language)
     result: dict[str, EntrypointTag] = {}
     for node_id, unit in graph.nodes.items():
         if unit.kind.value not in {"function", "method"}:
@@ -360,7 +346,7 @@ def _detect_python(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    decorators = cache.decorators_above(path, unit.location.start_line)
+    decorators = cache.declarations.decorators(unit)
     for line in decorators:
         if _PY_HTTP_DECORATOR.match(line):
             return EntrypointTag(
@@ -391,8 +377,8 @@ def _detect_rust(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    decorators = cache.decorators_above(path, unit.location.start_line)
-    signature = cache.line(path, unit.location.start_line)
+    decorators = cache.declarations.decorators(unit)
+    signature = cache.declarations.signature(unit)
 
     for line in decorators:
         if _RS_HTTP_ATTR.match(line):
@@ -533,7 +519,7 @@ def _detect_js_ts(
             )
 
     # NestJS decorators on methods.
-    decorators = cache.decorators_above(path, unit.location.start_line)
+    decorators = cache.declarations.decorators(unit)
     for line in decorators:
         if _JS_NEST_DECORATOR.match(line):
             return EntrypointTag(
@@ -580,7 +566,7 @@ def _detect_java(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    decorators = cache.decorators_above(path, unit.location.start_line)
+    decorators = cache.declarations.decorators(unit)
     for line in decorators:
         if _JAVA_SPRING_HANDLER.match(line):
             return EntrypointTag(
@@ -619,7 +605,7 @@ def _detect_csharp(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    decorators = cache.decorators_above(path, unit.location.start_line)
+    decorators = cache.declarations.decorators(unit)
     for line in decorators:
         if _CS_HTTP_ATTR.match(line):
             return EntrypointTag(
@@ -643,7 +629,7 @@ def _detect_php(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    decorators = cache.decorators_above(path, unit.location.start_line)
+    decorators = cache.declarations.decorators(unit)
     for line in decorators:
         if _PHP_ROUTE_ATTR.match(line) or _PHP_ROUTE_ANNOTATION.match(line):
             return EntrypointTag(
@@ -660,7 +646,7 @@ def _detect_cairo(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    decorators = cache.decorators_above(path, unit.location.start_line)
+    decorators = cache.declarations.decorators(unit)
     for line in decorators:
         if _CAIRO_CONTRACT_ATTR.match(line):
             return EntrypointTag(
@@ -677,21 +663,15 @@ def _detect_circom(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    """Treat the file containing `component main = Template(...)` as an entrypoint.
-
-    The parser exposes template/function nodes, not `component main` itself;
-    we flag the module node if the file declares a main component.
-    """
-    if unit.kind.value != "module":
-        return None
-    for line in cache.iter_lines(path):
-        if _CIRCOM_MAIN.match(line):
-            return EntrypointTag(
-                kind=EntrypointKind.USER_INPUT,
-                trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
-                description="Circom circuit main component",
-                asset_value=AssetValue.HIGH,
-            )
+    """Tag the synthetic callable emitted for a circuit's main component."""
+    del cache, path
+    if unit.name == "main" and unit.origin == NodeOrigin.SYNTHETIC:
+        return EntrypointTag(
+            kind=EntrypointKind.USER_INPUT,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Circom circuit main component",
+            asset_value=AssetValue.HIGH,
+        )
     return None
 
 
@@ -781,26 +761,15 @@ def _detect_swift(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    """Detect Swift entrypoints: @main attribute + Vapor route registration."""
-    decorators = cache.decorators_above(path, unit.location.start_line)
-    for line in decorators:
-        if _SWIFT_MAIN_ATTR.match(line):
-            return EntrypointTag(
-                kind=EntrypointKind.USER_INPUT,
-                trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
-                description="Swift @main app entrypoint",
-                asset_value=AssetValue.HIGH,
-            )
-    # Vapor routes are registered inside the function body rather than
-    # via a decorator; match handlers whose containing file has at least
-    # one `<receiver>.get(...)` / `.post(...)` / etc. call.
-    for line in cache.iter_lines(path):
-        if _SWIFT_VAPOR_ROUTE.match(line):
-            # A Vapor file: tag every function as a potential handler entry
-            # only if its name matches the handler closure pattern.
-            # Without call-graph resolution this is coarse — Vapor-handler
-            # detection is best done via the override file for now.
-            break
+    """Detect an explicit type main method declared inside a Swift @main type."""
+    del path
+    if cache.declarations.is_swift_main(unit):
+        return EntrypointTag(
+            kind=EntrypointKind.USER_INPUT,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Swift @main app entrypoint",
+            asset_value=AssetValue.HIGH,
+        )
     return None
 
 
@@ -820,7 +789,7 @@ def _detect_kotlin(
        (``android:exported="true"`` in the manifest) — we over-detect
        here and let the override file tighten when appropriate.
     """
-    decorators = cache.decorators_above(path, unit.location.start_line)
+    decorators = cache.declarations.decorators(unit)
     for line in decorators:
         if _JAVA_SPRING_HANDLER.match(line):
             return EntrypointTag(
@@ -922,25 +891,14 @@ def _detect_c_cpp(
     """Detect C / C++ library exports by explicit linkage markers.
 
     Matches ``extern "C"``, ``__attribute__((visibility("default")))``,
-    and ``__declspec(dllexport)`` on or just above the signature line.
+    and ``__declspec(dllexport)`` belonging to the declaration.
+    Enclosing ``extern "C"`` blocks also apply to their functions.
     Plain non-``static`` functions in headers are NOT flagged by default
     because that inversion ("everything not static is exported") is too
     broad for audit purposes — use the override file for projects where
     that's the intent.
     """
-    # Explicit markers sometimes appear on the line above the signature
-    # (e.g. `__declspec(dllexport)\nint foo(...)`), so scan both.
-    signature = cache.signature_block(path, unit.location.start_line) or ""
-    if _C_EXPORT_MARKERS.search(signature):
-        return EntrypointTag(
-            kind=EntrypointKind.API,
-            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
-            description='C/C++ exported symbol (extern "C" / visibility / dllexport)',
-            asset_value=AssetValue.HIGH,
-        )
-    # Also check one line above — some projects put the attribute on its own line.
-    above = cache.line(path, unit.location.start_line - 1) or ""
-    if _C_EXPORT_MARKERS.search(above):
+    if any(_C_EXPORT_MARKERS.match(marker) for marker in cache.declarations.c_export_markers(unit)):
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
@@ -965,7 +923,7 @@ def _detect_dart(
     execute in-process and aren't directly attacker-reachable —
     add them via the override file if you want them surfaced.
     """
-    decorators = cache.decorators_above(path, unit.location.start_line)
+    decorators = cache.declarations.decorators(unit)
     for line in decorators:
         if _DART_VM_ENTRY_POINT.match(line):
             return EntrypointTag(
@@ -1126,9 +1084,10 @@ def _detect_objc(unit: CodeUnit) -> EntrypointTag | None:
 class _SourceCache:
     """Lazily reads and caches source files during a detection pass."""
 
-    def __init__(self) -> None:
+    def __init__(self, language: str | None = None) -> None:
         self._lines: dict[str, list[str]] = {}
         self._scan_cache: dict[str, set[str]] = {}
+        self.declarations = DeclarationCache(language)
 
     def _read(self, path: str) -> list[str]:
         cached = self._lines.get(path)
@@ -1218,33 +1177,6 @@ class _SourceCache:
                 names.add(class_stack[-1])
         self._scan_cache[key] = names
         return names
-
-    def decorators_above(self, path: str, start_line: int) -> list[str]:
-        """Return decorator-style lines around ``start_line``.
-
-        Different parsers report different ``start_line`` values for decorated
-        functions: Python points at the ``def`` line (decorators are above),
-        Java/C#/PHP-attribute parsers often point at the decorator line
-        itself (decorators are at or just below). We scan a small window
-        on either side and keep only lines that look like decorators or
-        attributes (``@foo``, ``#[foo]``, or ``[foo]`` — the last for C#).
-        """
-        lines = self._read(path)
-        start_idx = start_line - 1
-        lo = max(0, start_idx - _DECORATOR_LOOKBACK)
-        hi = min(len(lines), start_idx + 4)
-        collected: list[str] = []
-        for i in range(lo, hi):
-            stripped = lines[i].strip()
-            if not stripped:
-                continue
-            if (
-                stripped.startswith("@")
-                or stripped.startswith("#[")
-                or (stripped.startswith("[") and not stripped.startswith("[["))
-            ):
-                collected.append(lines[i])
-        return collected
 
     def signature_block(self, path: str, start_line: int) -> str | None:
         """Return the function signature as a single line.
@@ -1448,6 +1380,10 @@ def _entry_to_matches(
     Returns an empty list if the entry is malformed, references an
     unknown node, or matches nothing.
     """
+    # A mistyped condition must not silently broaden a multi-condition rule.
+    for field in ("node", "file_glob", "param_type", "name_regex", "description"):
+        if field in entry and not isinstance(entry[field], str):
+            return []
     tag = _entry_tag(entry)
     if tag is None:
         return []
@@ -1481,6 +1417,8 @@ def _entry_tag(entry: dict[str, Any]) -> EntrypointTag | None:
     asset_name = entry.get("asset_value", "medium")
     description = entry.get("description")
 
+    if not all(isinstance(value, str) for value in (kind_name, trust_name, asset_name)):
+        return None
     kind = _KIND_BY_NAME.get(kind_name)
     trust = _TRUST_BY_NAME.get(trust_name)
     asset = _ASSET_BY_NAME.get(asset_name)

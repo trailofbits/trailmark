@@ -93,6 +93,7 @@ jobs:
           python-version: "3.13"
 
       - run: npm ci
+      - run: uv run --no-project --with hatchling python tests/sdist_smoke.py
       - run: uv build
       - run: uv venv /tmp/trailmark-wheel && uv pip install --python /tmp/trailmark-wheel dist/*.whl
       - run: /tmp/trailmark-wheel/bin/python tests/package_smoke.py tests/fixtures/kat

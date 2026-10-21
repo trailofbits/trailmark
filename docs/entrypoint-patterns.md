@@ -2,6 +2,8 @@
 
 Reference for implementing framework-aware entrypoint detectors in Trailmark. Each entry specifies the syntactic marker, scope (function/class/module), Trailmark enum defaults, a grep-ready pattern, and known gotchas.
 
+This file includes frameworks that Trailmark does not detect yet. For what is detected today, see the [framework coverage table](entrypoints.md#framework-coverage); detectors live in `src/trailmark/analysis/entrypoints.py`.
+
 **Enum legend** (from `src/trailmark/models/annotations.py`):
 
 - `EntrypointKind`: `user_input`, `api`, `database`, `file_system`, `third_party`
@@ -792,16 +794,17 @@ mod MyContract {
 
 ### `component main`
 
-The circuit's root component declaration.
+The circuit's root component declaration, represented in the graph as a
+synthetic `main` function with a call edge to its template.
 
 ```circom
 component main = MyTemplate();
 component main {public [in_signal]} = MyTemplate();
 ```
 
-- **Scope:** module
+- **Scope:** synthetic function
 - **Kind:** `user_input` · **Trust:** `untrusted_external` (prover controls inputs) · **Asset:** `high`
-- **Pattern:** `^\s*component\s+main\b`.
+- **Pattern:** the parser's synthetic `main` function for `component main`.
 - **Source:** <https://docs.circom.io/circom-language/the-main-component/>
 
 ---

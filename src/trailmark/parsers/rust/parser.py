@@ -195,6 +195,31 @@ def _macro_name(node: Node) -> Node | None:
     return macro
 
 
+def parse_syntax_roots(source: bytes, file_path: str) -> list[Node]:
+    """Return native Rust and supported Verus syntax with original positions.
+
+    Source-based analysis passes need the same macro boundaries and Verus
+    grammar as graph extraction. Opaque macros and Verus inside functions
+    remain excluded by the parser's existing policy.
+    """
+    parser = RustParser()
+    root = parser._parser.parse(source).root_node
+    roots = [root]
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        if node.type == "function_item":
+            continue
+        if node.type == "macro_invocation":
+            tree = parser._parse_macro(source, node, file_path)
+            if tree is not None:
+                roots.append(tree.root_node)
+                pending.append(tree.root_node)
+        else:
+            pending.extend(reversed(node.named_children))
+    return roots
+
+
 def _mask_unsupported_verus(source: bytes, node: Node, file_path: str) -> bytes:
     masked = bytearray(source)
     for name, tokens in _verus_token_trees(node):
