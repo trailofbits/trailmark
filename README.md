@@ -248,10 +248,10 @@ other per-language behavior.
 | [Installation](https://github.com/trailofbits/trailmark/blob/main/docs/installation.md) | Grammar caches, offline installs, bundled grammars, Nix, checkouts |
 | [Changelog](https://github.com/trailofbits/trailmark/blob/main/CHANGELOG.md) | What changed in each release |
 
-## Using Trailmark with Claude Code
+## Agent skills
 
-The `trailmark` plugin in [trailofbits/skills](https://github.com/trailofbits/skills)
-packages Trailmark workflows as Claude Code skills, including call-graph
+The [Trailmark plugin](https://github.com/trailofbits/skills/tree/main/plugins/trailmark)
+packages Trailmark workflows as agent skills, including call-graph
 summaries, diagram generation, finding triage, and differential review.
 
 ## Limitations

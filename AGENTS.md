@@ -10,6 +10,24 @@ twenty language frontends via tree-sitter-language-pack plus bundled
 custom grammars, and uses rustworkx for graph traversal. Treat
 `README.md` as the authoritative public feature list.
 
+## Agent Skills
+
+The [Trailmark plugin](https://github.com/trailofbits/skills/tree/main/plugins/trailmark)
+in `trailofbits/skills` provides agent workflows for using Trailmark. When a
+task calls for graph analysis, select the skills that match it:
+
+| Task | Skills |
+| --- | --- |
+| Build and query code graphs | [trailmark](https://github.com/trailofbits/skills/blob/main/plugins/trailmark/skills/trailmark/SKILL.md) |
+| Gather bounded source context | [slicing-code-context](https://github.com/trailofbits/skills/blob/main/plugins/trailmark/skills/slicing-code-context/SKILL.md) |
+| Review structural changes | [graph-evolution](https://github.com/trailofbits/skills/blob/main/plugins/trailmark/skills/graph-evolution/SKILL.md), [trailmark-review-gate](https://github.com/trailofbits/skills/blob/main/plugins/trailmark/skills/trailmark-review-gate/SKILL.md) |
+| Triage findings and related variants | [trailmark-finding-triage](https://github.com/trailofbits/skills/blob/main/plugins/trailmark/skills/trailmark-finding-triage/SKILL.md), [trailmark-variant-neighborhood](https://github.com/trailofbits/skills/blob/main/plugins/trailmark/skills/trailmark-variant-neighborhood/SKILL.md) |
+| Generate diagrams | [diagramming-code](https://github.com/trailofbits/skills/blob/main/plugins/trailmark/skills/diagramming-code/SKILL.md) |
+| Triage mutation survivors | [genotoxic](https://github.com/trailofbits/skills/blob/main/plugins/trailmark/skills/genotoxic/SKILL.md) |
+
+The plugin README covers installation and compatibility. Check the installed
+Trailmark version and follow the selected skill's feature gates.
+
 ## Architecture
 
 ```
