@@ -53,6 +53,8 @@
 - Parse each `.h` file once, with the Objective-C grammar when both C and
   Objective-C are selected, and link calls across the C, C++, and Objective-C
   frontends in polyglot parses (#86).
+- Add a VB.NET frontend (`vb`) with typed methods, containers, overloads,
+  lambdas, accessor bodies, conservative calls and explicit CLI Main detection.
 - Match file extensions case-insensitively. Explicit language lists drop empty
   and duplicate entries, and an empty list raises `ValueError`. Node-ID
   collisions between languages raise `ValueError` instead of merging unrelated

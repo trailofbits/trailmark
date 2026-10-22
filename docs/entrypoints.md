@@ -171,3 +171,7 @@ whole file) to be ignored without an error. A field with the wrong TOML type
 also skips the whole entry, so an invalid condition cannot broaden a rule.
 Run `trailmark entrypoints` after
 editing the file to confirm the result.
+
+VB.NET: explicit Module/Shared Main methods with the supported CLI signature
+are detected case-insensitively; instance Main and generated framework startup
+methods require overrides. See [VB.NET](languages.md#vbnet).

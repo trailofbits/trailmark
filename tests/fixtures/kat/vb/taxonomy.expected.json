@@ -1,0 +1,204 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "System"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Demo"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Demo",
+      "target": "taxonomy:Demo.App"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Demo.App",
+      "target": "taxonomy:Demo.App.Helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Demo.App",
+      "target": "taxonomy:Demo.App.Main"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Demo.App.Main",
+      "target": "taxonomy:Demo.App.Helper"
+    }
+  ],
+  "language": "vb",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 15,
+        "file_path": "taxonomy.vb",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Demo": {
+      "attributes": {
+        "vb_module": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Demo",
+      "kind": "namespace",
+      "location": {
+        "end_col": 0,
+        "end_line": 15,
+        "file_path": "taxonomy.vb",
+        "start_col": 0,
+        "start_line": 2
+      },
+      "name": "Demo",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Demo.App": {
+      "attributes": {
+        "vb_module": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Demo.App",
+      "kind": "class",
+      "location": {
+        "end_col": 0,
+        "end_line": 14,
+        "file_path": "taxonomy.vb",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "App",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Demo.App.Helper": {
+      "attributes": {
+        "vb_main": false,
+        "vb_shared": true
+      },
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "x > 0",
+          "location": {
+            "end_col": 0,
+            "end_line": 8,
+            "file_path": "taxonomy.vb",
+            "start_col": 2,
+            "start_line": 5
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Demo.App.Helper",
+      "kind": "method",
+      "location": {
+        "end_col": 0,
+        "end_line": 10,
+        "file_path": "taxonomy.vb",
+        "start_col": 1,
+        "start_line": 4
+      },
+      "name": "Helper",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Integer"
+          }
+        },
+        {
+          "default": "1",
+          "name": "y",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Integer"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Integer"
+      }
+    },
+    "taxonomy:Demo.App.Main": {
+      "attributes": {
+        "vb_main": true,
+        "vb_shared": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Demo.App.Main",
+      "kind": "method",
+      "location": {
+        "end_col": 0,
+        "end_line": 13,
+        "file_path": "taxonomy.vb",
+        "start_col": 1,
+        "start_line": 10
+      },
+      "name": "Main",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.vb",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 1,
+    "classes": 1,
+    "dependencies": [
+      "System"
+    ],
+    "entrypoints": 0,
+    "functions": 2,
+    "languages": [
+      "vb"
+    ],
+    "proxies": 0,
+    "source_file_counts": {
+      "vb": 1
+    },
+    "source_files": 1,
+    "total_nodes": 5
+  },
+  "trailmark_version": "<trailmark-version>"
+}

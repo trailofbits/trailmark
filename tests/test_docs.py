@@ -206,6 +206,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/python-api.md", "changing them does not change the graph"),
     ("docs/augmenting.md", "keeps both copies"),
     ("docs/links.md", "recorded but not traversed"),
+    ("docs/languages.md", "Instance Main methods are excluded"),
+    ("docs/entrypoints.md", "explicit Module/Shared Main methods"),
     # Configuration files
     ("docs/links.md", "target_external = true"),
     ("docs/links.md", "source_external = true"),

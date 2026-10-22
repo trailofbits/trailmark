@@ -1236,7 +1236,10 @@ def _detect_main_functions(graph: CodeGraph) -> dict[str, EntrypointTag]:
     """
     result: dict[str, EntrypointTag] = {}
     for node_id, unit in graph.nodes.items():
-        if unit.name != "main":
+        is_vb = Path(unit.location.file_path).suffix.lower() == ".vb"
+        if (is_vb and not dict(unit.attributes).get("vb_main")) or (
+            not is_vb and unit.name != "main"
+        ):
             continue
         if unit.kind.value not in {"function", "method"}:
             continue

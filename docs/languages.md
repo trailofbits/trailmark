@@ -14,6 +14,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Lua](#lua)
 - [SQL](#sql)
 - [C, C++, and Objective-C headers](#c-c-and-objective-c-headers)
+- [VB.NET](#vbnet)
 
 ## Bash
 
@@ -221,3 +222,26 @@ rules.
 The C and C++ parsers recover functions inside preprocessor conditional blocks
 and tree-sitter error nodes, so code that does not parse cleanly as a whole
 still yields its functions.
+
+## VB.NET
+
+The `vb` frontend targets Visual Basic .NET (`.vb`), not VB6 or VBA. It extracts
+namespaces, modules, classes/structures/interfaces/enums, methods, constructors,
+property accessor bodies, lambdas, parameters/defaults/types, return types,
+branches and imports. IDs include containers (`file:Demo.App.Main`); overloads
+are distinct nodes with source-position suffixes. Lambdas own their bodies and
+have byte-offset IDs.
+
+Unique same-container calls and explicit calls through known local modules or
+Shared methods resolve case-insensitively as `inferred`. Parameter/local shadows,
+overloads, unknown receivers, delegates, aliases, inheritance and cross-file
+calls stay uncertain; the compiler's overload/type resolution is not reproduced.
+Calls are extracted from explicit invocations and bare call statements; implicit
+property access and compiler-generated calls are not modeled.
+
+Explicit Main methods are CLI entrypoints when they belong to a Module or are
+Shared, accept no parameters or one String() parameter, and return nothing or
+Integer. Instance Main methods are excluded, including lowercase `main`.
+Generated application-framework entrypoints require overrides. The packaged
+grammar has gaps, including generic method syntax; syntax errors produce an
+incomplete-graph warning even for some valid VB.NET programs.
