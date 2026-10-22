@@ -82,6 +82,7 @@ def test_diagnostic_comparisons_do_not_grow_with_all_preceding_errors(
     [
         ("powershell", "# hello\n", True),
         ("powershell", "\ufeff<# hello #>\n# last\n", True),
+        ("powershell", "\ufeff# prefix\n(", False),
         ("powershell", "# before\nfunction bad( { }\n# after\n", False),
         ("powershell", "function bad( { }\n# after\n", False),
         ("powershell", "# before\nfunction bad( { }\n", False),
@@ -116,3 +117,11 @@ def test_nested_c_macro_errors_retain_all_diagnostics(tmp_path: Path) -> None:
         ("syntax_error", 4, 0),
         ("syntax_error", 5, 17),
     ]
+
+
+def test_bom_comment_prefix_does_not_hide_trailing_syntax_error(tmp_path: Path) -> None:
+    path = tmp_path / "broken.ps1"
+    path.write_text("\ufeff# prefix\n(")
+    assert parse_file(str(path)).parse_diagnostics
+    with pytest.raises(ValueError, match="diagnostic"):
+        parse_file(str(path), strict=True)
