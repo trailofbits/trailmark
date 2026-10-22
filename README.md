@@ -11,7 +11,8 @@ other relationships, then lets you ask structural questions about it:
 - Which functions write this Solidity storage variable?
 - Where did call resolution stop, so that reachability results are incomplete?
 
-It supports 31 languages through [tree-sitter](https://tree-sitter.github.io/),
+It parses the [supported languages](https://github.com/trailofbits/trailmark#supported-languages) through
+[tree-sitter](https://tree-sitter.github.io/),
 stores the graph in [rustworkx](https://www.rustworkx.org/), and exposes it
 through a command-line tool and a Python API. Trailmark was built for security
 review: every edge records whether it came straight from syntax or from a

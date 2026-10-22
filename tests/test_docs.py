@@ -400,8 +400,11 @@ def test_language_extensions_match_registry() -> None:
         assert documented == expected, f"README extensions for {language} drifted"
 
 
-def test_language_count_matches_registry() -> None:
-    assert f"supports {len(supported_languages())} languages" in _flat("README.md")
+def test_language_overview_links_to_registry_checked_inventory() -> None:
+    assert (
+        "[supported languages](https://github.com/trailofbits/trailmark#supported-languages)"
+        in _raw("README.md")
+    )
 
 
 # ── Executable examples ───────────────────────────────────────────────
