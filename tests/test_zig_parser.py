@@ -122,3 +122,13 @@ def test_loop_capture_does_not_bind_to_free_function(tmp_path: Path) -> None:
     assert len(calls) == 1
     assert calls[0].confidence == EdgeConfidence.UNCERTAIN
     assert graph.nodes[calls[0].target_id].kind == NodeKind.PROXY
+
+
+def test_container_constant_alias_does_not_bind_across_files(tmp_path: Path) -> None:
+    _source(tmp_path, "const alias = callback; fn caller() void { alias(); }")
+    (tmp_path / "other.zig").write_text("fn alias() void {}")
+    graph = parse_directory(str(tmp_path), language="zig")
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert calls[0].confidence == EdgeConfidence.UNCERTAIN
+    assert graph.nodes[calls[0].target_id].kind == NodeKind.PROXY

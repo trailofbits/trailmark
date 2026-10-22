@@ -206,20 +206,20 @@ class _Extractor:
                         )
                     )
 
-    def resolve(self, raw: str, owner: str, shadows: set[str]) -> str | None:
+    def resolve(self, raw: str, owner: str, shadows: set[str]) -> tuple[str | None, bool]:
         parts = raw.split(".")
         if parts[0] in shadows or raw.startswith("@"):
-            return None
+            return None, parts[0] in shadows
         scope = owner
         while True:
             ident = self.child_id(scope, raw)
             target = self.graph.nodes.get(ident)
             if target is not None and target.kind in {NodeKind.FUNCTION, NodeKind.METHOD}:
-                return ident
+                return ident, True
             if parts[0] in self.bindings.get(scope, set()):
-                return None
+                return None, True
             if scope == self.module:
-                return None
+                return None, False
             scope = self.parents[scope]
 
     def calls(self) -> None:
@@ -244,10 +244,14 @@ class _Extractor:
                 if parent.type == "FieldOrFnCall" and parent.parent is not None:
                     parent = parent.parent
                 raw = node_text(parent)[: node.start_byte - parent.start_byte].strip()
-                target = self.resolve(raw, owner, shadows)
+                target, bound = self.resolve(raw, owner, shadows)
                 # Dotted identities prevent the directory heuristic from binding
                 # a callback or unknown receiver to an unrelated free function.
-                unresolved = f"{ident}.<dynamic>.{raw}" if raw.split(".")[0] in shadows else raw
+                unresolved = (
+                    f"{ident}.<dynamic>.{raw}"
+                    if bound and target is None and "." not in raw
+                    else raw
+                )
                 self.graph.edges.append(
                     CodeEdge(
                         ident,
