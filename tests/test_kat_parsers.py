@@ -46,6 +46,7 @@ PARSER_FIXTURES: list[tuple[str, str]] = [
     ("php", "taxonomy"),
     ("proto", "taxonomy"),
     ("python", "taxonomy"),
+    ("r", "taxonomy"),
     ("rego", "taxonomy"),
     ("ruby", "taxonomy"),
     ("rust", "taxonomy"),

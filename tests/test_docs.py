@@ -193,6 +193,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/call-resolution.md", "receiver types"),
     ("docs/call-resolution.md", "outside its counts"),
     ("docs/call-resolution.md", "Zero unresolved calls is not proof"),
+    ("docs/languages.md", "A dynamic `character.only=TRUE` package argument"),
     # Graph model and directory parsing
     ("docs/graph-model.md", "@line_column"),
     ("docs/graph-model.md", "Each physical header is parsed once"),

@@ -21,6 +21,7 @@ from trailmark.parsers.base import LanguageParser
 
 _PARSER_MAP: dict[str, tuple[str, str]] = {
     "python": ("trailmark.parsers.python", "PythonParser"),
+    "r": ("trailmark.parsers.r", "RParser"),
     "javascript": ("trailmark.parsers.javascript", "JavaScriptParser"),
     "typescript": ("trailmark.parsers.typescript", "TypeScriptParser"),
     "php": ("trailmark.parsers.php", "PHPParser"),
@@ -60,6 +61,7 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
 # also accept .h; polyglot parsing assigns each shared header one owner.
 _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "python": (".py",),
+    "r": (".r",),
     "javascript": (".js", ".jsx", ".mjs", ".cjs"),
     "typescript": (".ts", ".tsx"),
     "php": (".php",),

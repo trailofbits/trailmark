@@ -50,6 +50,8 @@
   resolved inheritance. `inherits` and `implements` edges link only to unique
   same-language type declarations, and `type_uses` edges target only type
   declarations (#86).
+- Add an R frontend for named/anonymous functions, closures, default/variadic
+  parameters, branches, call sites and literal package/source dependencies.
 - Parse each `.h` file once, with the Objective-C grammar when both C and
   Objective-C are selected, and link calls across the C, C++, and Objective-C
   frontends in polyglot parses (#86).

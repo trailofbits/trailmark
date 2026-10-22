@@ -208,6 +208,7 @@ for working with proxies.
 | Language | Extensions | `--language` | Extracts |
 | --- | --- | --- | --- |
 | Python | `.py` | `python` | functions, classes, methods |
+| R | `.r` | `r` | named/anonymous functions, closures, defaults, branches, calls, package/source dependencies |
 | JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | `javascript` | functions, classes, arrow functions |
 | TypeScript | `.ts`, `.tsx` | `typescript` | functions, classes, interfaces, enums |
 | PHP | `.php` | `php` | functions, classes, interfaces, traits |

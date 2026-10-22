@@ -12,6 +12,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Aiken](#aiken)
 - [TypeScript](#typescript)
 - [Lua](#lua)
+- [R](#r)
 - [SQL](#sql)
 - [C, C++, and Objective-C headers](#c-c-and-objective-c-headers)
 
@@ -201,6 +202,26 @@ proxies even when a function elsewhere has the same name. A shadowed `require`
 does not create an import. Named `main` functions follow the generic entrypoint
 rule; chunk execution and host callbacks require entrypoint overrides. Lua
 syntax errors produce a warning and can leave an incomplete graph.
+
+## R
+
+The R frontend detects `.r` and `.R` through case-insensitive extension matching.
+It extracts functions assigned with `<-`, `=`, or `->`, nested closures, anonymous
+functions (including shorthand syntax), defaults/variadics, branches, explicit
+calls/native-pipe call stages, and literal `library`, `require` and `source`
+dependencies. `file:<script>` owns top-level execution. Anonymous and repeated
+names gain byte-offset suffixes; nested functions retain their enclosing owner.
+
+Unique unreassigned lexical functions resolve as `inferred`. Parameters,
+assignments and loop variables conservatively shadow names throughout their
+function environment; top-level calls also respect declaration order. Namespace
+and object dispatch, aliases, S3/S4 methods, callbacks, cross-file bindings and
+nonstandard evaluation stay uncertain. Superassignment, dynamic assignment,
+source loading and environment evaluation disable inference throughout the file.
+A dynamic `character.only=TRUE` package argument is not a literal dependency.
+Promises and runtime environments are not evaluated. Script execution needs an
+entrypoint override; `main` follows the generic rule. Syntax errors produce an
+incomplete-graph warning.
 
 ## SQL
 

@@ -1,0 +1,297 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:<script>"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:main"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:<script>",
+      "target": "taxonomy:<script>.<lambda>@137"
+    },
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "utils"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:<script>.<dynamic>.library"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:<script>",
+      "target": "proxy.unresolved:taxonomy:_script_._dynamic_.library"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "taxonomy:helper"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:main.<dynamic>.pkg::helper"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "proxy.unresolved:taxonomy:main._dynamic_.pkg::helper"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:<script>.<dynamic>.lapply"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:<script>",
+      "target": "proxy.unresolved:taxonomy:_script_._dynamic_.lapply"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:<script>.<lambda>@137",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:<script>",
+      "target": "taxonomy:helper"
+    }
+  ],
+  "language": "r",
+  "nodes": {
+    "proxy.unresolved:taxonomy:_script_._dynamic_.lapply": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:<script>.<dynamic>.lapply"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:_script_._dynamic_.lapply",
+      "kind": "proxy",
+      "location": {
+        "end_col": 33,
+        "end_line": 4,
+        "file_path": "taxonomy.R",
+        "start_col": 0,
+        "start_line": 4
+      },
+      "name": "taxonomy:<script>.<dynamic>.lapply",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:_script_._dynamic_.library": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:<script>.<dynamic>.library"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:_script_._dynamic_.library",
+      "kind": "proxy",
+      "location": {
+        "end_col": 14,
+        "end_line": 1,
+        "file_path": "taxonomy.R",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy:<script>.<dynamic>.library",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:main._dynamic_.pkg::helper": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:main.<dynamic>.pkg::helper"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:main._dynamic_.pkg::helper",
+      "kind": "proxy",
+      "location": {
+        "end_col": 46,
+        "end_line": 3,
+        "file_path": "taxonomy.R",
+        "start_col": 32,
+        "start_line": 3
+      },
+      "name": "taxonomy:main.<dynamic>.pkg::helper",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 6,
+        "file_path": "taxonomy.R",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:<script>": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:<script>",
+      "kind": "function",
+      "location": {
+        "end_col": 0,
+        "end_line": 6,
+        "file_path": "taxonomy.R",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "<script>",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:<script>.<lambda>@137": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:<script>.<lambda>@137",
+      "kind": "function",
+      "location": {
+        "end_col": 32,
+        "end_line": 4,
+        "file_path": "taxonomy.R",
+        "start_col": 11,
+        "start_line": 4
+      },
+      "name": "<lambda>@137",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:helper": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "x > 0",
+          "location": {
+            "end_col": 59,
+            "end_line": 2,
+            "file_path": "taxonomy.R",
+            "start_col": 36,
+            "start_line": 2
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 61,
+        "end_line": 2,
+        "file_path": "taxonomy.R",
+        "start_col": 10,
+        "start_line": 2
+      },
+      "name": "helper",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": null
+        },
+        {
+          "default": "1",
+          "name": "y",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "...",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:main": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:main",
+      "kind": "function",
+      "location": {
+        "end_col": 48,
+        "end_line": 3,
+        "file_path": "taxonomy.R",
+        "start_col": 8,
+        "start_line": 3
+      },
+      "name": "main",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.R",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 6,
+    "classes": 0,
+    "dependencies": [
+      "utils"
+    ],
+    "entrypoints": 0,
+    "functions": 4,
+    "languages": [
+      "r"
+    ],
+    "proxies": 3,
+    "source_file_counts": {
+      "r": 1
+    },
+    "source_files": 1,
+    "total_nodes": 8
+  },
+  "trailmark_version": "<trailmark-version>"
+}
