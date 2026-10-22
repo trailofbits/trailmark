@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Language, Node, Parser
@@ -26,6 +27,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -312,58 +314,78 @@ def _add_call_edges(
 
 
 def _link_includes(graph: CodeGraph) -> None:
-    """Resolve template/function symbols only within explicit include closures."""
-    from dataclasses import replace
-
-    from trailmark.parsers._walk import walk_owned
-
+    """Resolve symbols in include closures with one path and symbol index."""
+    paths = {unit.location.file_path for unit in graph.nodes.values()}
+    resolved = {path: Path(path).resolve() for path in paths}
     files = {
-        Path(n.location.file_path).resolve()
-        for n in graph.nodes.values()
-        if n.kind == NodeKind.MODULE
+        resolved[n.location.file_path] for n in graph.nodes.values() if n.kind == NodeKind.MODULE
     }
+    includes = _include_paths(files)
+    symbols: dict[tuple[Path, str], list[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind in {NodeKind.TEMPLATE, NodeKind.FUNCTION}:
+            symbols.setdefault((resolved[unit.location.file_path], unit.name), []).append(unit.id)
+    visible = {path: _include_closure(path, includes) for path in files}
+    graph.edges[:] = [_include_edge(e, graph, resolved, visible, symbols) for e in graph.edges]
+
+
+def _include_paths(files: set[Path]) -> dict[Path, set[Path]]:
     includes: dict[Path, set[Path]] = {}
     parser = CircomParser()
     for path in files:
         root = parser._parser.parse(path.read_bytes()).root_node
-        includes[path] = set()
+        targets = set()
         for node in walk_owned(root):
-            if node.type == "include_directive":
-                source = node.child_by_field_name("source")
-                if source is not None:
-                    target = (path.parent / node_text(source).strip("\"'")).resolve()
-                    if target in files:
-                        includes[path].add(target)
-    edges = []
-    for edge in graph.edges:
-        if edge.kind != EdgeKind.CALLS or not dict(edge.attributes).get("circom_dependency"):
-            edges.append(edge)
-            continue
-        source = graph.nodes[edge.source_id]
-        visible = set()
-        pending = [Path(source.location.file_path).resolve()]
-        while pending:
-            path = pending.pop()
-            if path not in visible:
-                visible.add(path)
-                pending.extend(includes.get(path, ()))
-        raw = dict(edge.attributes).get("raw_target", edge.target_id)
-        name = str(raw).rsplit(":", 1)[-1]
-        candidates = [
-            n.id
-            for n in graph.nodes.values()
-            if n.kind in {NodeKind.TEMPLATE, NodeKind.FUNCTION}
-            and n.name == name
-            and Path(n.location.file_path).resolve() in visible
-        ]
-        if len(candidates) == 1:
-            edge = replace(edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED)
-        elif candidates:
-            edge = replace(
-                edge,
-                target_id=f"{edge.source_id}.$ambiguous.{name}",
-                confidence=EdgeConfidence.UNCERTAIN,
-                attributes=edge.attributes + (("binding_blocked", True),),
-            )
-        edges.append(edge)
-    graph.edges[:] = edges
+            if node.type != "include_directive":
+                continue
+            source = node.child_by_field_name("source")
+            if source is not None:
+                target = (path.parent / node_text(source).strip("\"'")).resolve()
+                if target in files:
+                    targets.add(target)
+        includes[path] = targets
+    return includes
+
+
+def _include_closure(path: Path, includes: dict[Path, set[Path]]) -> set[Path]:
+    visible, pending = set(), [path]
+    while pending:
+        current = pending.pop()
+        if current not in visible:
+            visible.add(current)
+            pending.extend(includes.get(current, ()))
+    return visible
+
+
+def _include_edge(
+    edge: CodeEdge,
+    graph: CodeGraph,
+    resolved: dict[str, Path],
+    visible: dict[Path, set[Path]],
+    symbols: dict[tuple[Path, str], list[str]],
+) -> CodeEdge:
+    if edge.kind != EdgeKind.CALLS or not dict(edge.attributes).get("circom_dependency"):
+        return edge
+    path = resolved[graph.nodes[edge.source_id].location.file_path]
+    raw = dict(edge.attributes).get("raw_target", edge.target_id)
+    name = str(raw).rsplit(":", 1)[-1]
+    candidates = [
+        ident
+        for included in visible.get(path, {path})
+        for ident in symbols.get((included, name), [])
+    ]
+    if len(candidates) == 1:
+        target = candidates[0]
+        confidence = (
+            EdgeConfidence.CERTAIN
+            if resolved[graph.nodes[target].location.file_path] == path
+            else EdgeConfidence.INFERRED
+        )
+        return replace(edge, target_id=target, confidence=confidence)
+    if candidates:
+        return replace(
+            edge,
+            target_id=f"{edge.source_id}.$ambiguous.{name}",
+            confidence=EdgeConfidence.UNCERTAIN,
+        )
+    return edge

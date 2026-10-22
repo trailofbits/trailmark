@@ -32,21 +32,25 @@
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:Taxonomy.intdiv"
+        "php_function_target": "Taxonomy.intdiv",
+        "php_global_fallback": true,
+        "raw_target": "taxonomy:intdiv"
       },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Taxonomy.branchy",
-      "target": "proxy.unresolved:taxonomy:Taxonomy.intdiv"
+      "target": "proxy.unresolved:taxonomy:intdiv"
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:Taxonomy.intval"
+        "php_function_target": "Taxonomy.intval",
+        "php_global_fallback": true,
+        "raw_target": "taxonomy:intval"
       },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Taxonomy.branchy",
-      "target": "proxy.unresolved:taxonomy:Taxonomy.intval"
+      "target": "proxy.unresolved:taxonomy:intval"
     },
     {
       "confidence": "certain",
@@ -158,16 +162,16 @@
       "parameters": [],
       "return_type": null
     },
-    "proxy.unresolved:taxonomy:Taxonomy.intdiv": {
+    "proxy.unresolved:taxonomy:intdiv": {
       "attributes": {
         "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:Taxonomy.intdiv"
+        "raw_symbol": "taxonomy:intdiv"
       },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:Taxonomy.intdiv",
+      "id": "proxy.unresolved:taxonomy:intdiv",
       "kind": "proxy",
       "location": {
         "end_col": 34,
@@ -176,21 +180,21 @@
         "start_col": 17,
         "start_line": 34
       },
-      "name": "taxonomy:Taxonomy.intdiv",
+      "name": "taxonomy:intdiv",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
     },
-    "proxy.unresolved:taxonomy:Taxonomy.intval": {
+    "proxy.unresolved:taxonomy:intval": {
       "attributes": {
         "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:Taxonomy.intval"
+        "raw_symbol": "taxonomy:intval"
       },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:Taxonomy.intval",
+      "id": "proxy.unresolved:taxonomy:intval",
       "kind": "proxy",
       "location": {
         "end_col": 28,
@@ -199,7 +203,7 @@
         "start_col": 15,
         "start_line": 37
       },
-      "name": "taxonomy:Taxonomy.intval",
+      "name": "taxonomy:intval",
       "origin": "proxy",
       "parameters": [],
       "return_type": null

@@ -16,6 +16,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -28,6 +29,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._declarations import add_callable, callable_scope
 from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -47,7 +49,7 @@ _BRANCH_NODE_TYPES = frozenset(
 _THROW_TYPES = frozenset({"raise_statement"})
 
 _EXTENSIONS = (".py",)
-_CALLABLE_BOUNDARIES = frozenset({"function_definition", "class_definition", "lambda"})
+_CALLABLE_BOUNDARIES = frozenset({"function_definition", "class_definition"})
 
 
 class PythonParser:
@@ -60,13 +62,15 @@ class PythonParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("python"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Python file into a CodeGraph."""
         source = Path(file_path).read_bytes()
         tree = self._parser.parse(source)
         graph = CodeGraph(language="python", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_module(tree.root_node, file_path, module_id, graph)
+        with callable_scope(graph):
+            _visit_module(tree.root_node, file_path, module_id, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -115,13 +119,15 @@ def _extract_class(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    *,
+    owner_id: str | None = None,
 ) -> None:
     """Extract a class definition and its methods."""
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return
     class_name = node_text(name_node)
-    class_id = f"{module_id}:{class_name}"
+    class_id = f"{owner_id}.{class_name}" if owner_id else f"{module_id}:{class_name}"
     location = make_location(node, file_path)
 
     class_unit = CodeUnit(
@@ -133,7 +139,7 @@ def _extract_class(
         docstring=_extract_docstring(node),
     )
     graph.nodes[class_id] = class_unit
-    add_contains_edge(graph, module_id, class_id)
+    add_contains_edge(graph, owner_id or module_id, class_id)
 
     _extract_base_classes(node, class_id, module_id, graph)
 
@@ -211,45 +217,16 @@ def _extract_function(
         kind = NodeKind.FUNCTION
         container_id = module_id
 
-    params = _extract_parameters(node, method=class_id is not None and owner_id is None)
-    return_type = _extract_return_type(node)
-    body = node.child_by_field_name("body")
-
-    branches: list[BranchInfo] = []
-    exception_types: list[TypeRef] = []
-    calls: list[tuple[str, Node]] = []
-
-    if body is not None:
-        collect_body_info(
-            body,
-            file_path,
-            _BRANCH_NODE_TYPES,
-            "call",
-            _THROW_TYPES,
-            branches,
-            exception_types,
-            calls,
-            skip_types=_CALLABLE_BOUNDARIES,
-        )
-
-    complexity = compute_complexity(branches)
-
-    location = make_location(node, file_path)
-
-    unit = CodeUnit(
-        id=func_id,
-        name=func_name,
+    unit, calls = _function_unit(
+        node,
+        file_path,
+        func_id=func_id,
+        func_name=func_name,
         kind=kind,
-        location=location,
-        parameters=tuple(params),
-        return_type=return_type,
-        exception_types=tuple(exception_types),
-        type_parameters=extract_type_parameters(node),
-        cyclomatic_complexity=complexity,
-        branches=tuple(branches),
-        docstring=_extract_docstring(node),
+        method=class_id is not None and owner_id is None,
     )
-    graph.nodes[func_id] = unit
+    body = node.child_by_field_name("body")
+    func_id = add_callable(graph, unit)
 
     add_contains_edge(graph, container_id, func_id)
 
@@ -257,31 +234,10 @@ def _extract_function(
         for nested in walk_owned(body, boundaries=_CALLABLE_BOUNDARIES):
             if nested.type == "function_definition":
                 _extract_function(nested, file_path, module_id, class_id, graph, owner_id=func_id)
+            elif nested.type == "class_definition":
+                _extract_class(nested, file_path, module_id, graph, owner_id=func_id)
 
-    for call_name, call_node in calls:
-        target_id = _resolve_call_target(
-            call_name,
-            module_id,
-            class_id,
-        )
-        confidence = (
-            EdgeConfidence.CERTAIN
-            if "." not in call_name or call_name.startswith("self.")
-            else EdgeConfidence.INFERRED
-        )
-        graph.edges.append(
-            guard_call(
-                CodeEdge(
-                    source_id=func_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CALLS,
-                    confidence=confidence,
-                    location=make_location(call_node, file_path),
-                ),
-                call_node,
-                graph=graph,
-            )
-        )
+    _add_call_edges(calls, func_id, module_id, class_id, file_path, graph)
 
 
 def _extract_parameters(node: Node, *, method: bool = False) -> list[Parameter]:
@@ -460,3 +416,81 @@ def _extract_import(node: Node, graph: CodeGraph) -> None:
         module_name = parts[1].split(".")[0]
         if module_name not in graph.dependencies:
             graph.dependencies.append(module_name)
+
+
+def _add_call_edges(
+    calls: list[tuple[str, Node]],
+    func_id: str,
+    module_id: str,
+    class_id: str | None,
+    file_path: str,
+    graph: CodeGraph,
+) -> None:
+    for call_name, call_node in calls:
+        target_id = _resolve_call_target(
+            call_name,
+            module_id,
+            class_id,
+        )
+        confidence = (
+            EdgeConfidence.CERTAIN
+            if "." not in call_name or call_name.startswith("self.")
+            else EdgeConfidence.INFERRED
+        )
+        graph.edges.append(
+            guard_call(
+                CodeEdge(
+                    source_id=func_id,
+                    target_id=target_id,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                ),
+                call_node,
+                graph=graph,
+            )
+        )
+
+
+def _function_unit(
+    node: Node, file_path: str, *, func_id: str, func_name: str, kind: NodeKind, method: bool
+) -> tuple[CodeUnit, list[tuple[str, Node]]]:
+    params = _extract_parameters(node, method=method)
+    return_type = _extract_return_type(node)
+    body = node.child_by_field_name("body")
+
+    branches: list[BranchInfo] = []
+    exception_types: list[TypeRef] = []
+    calls: list[tuple[str, Node]] = []
+
+    if body is not None:
+        collect_body_info(
+            body,
+            file_path,
+            _BRANCH_NODE_TYPES,
+            "call",
+            _THROW_TYPES,
+            branches,
+            exception_types,
+            calls,
+            skip_types=_CALLABLE_BOUNDARIES,
+        )
+
+    complexity = compute_complexity(branches)
+
+    location = make_location(node, file_path)
+
+    unit = CodeUnit(
+        id=func_id,
+        name=func_name,
+        kind=kind,
+        location=location,
+        parameters=tuple(params),
+        return_type=return_type,
+        exception_types=tuple(exception_types),
+        type_parameters=extract_type_parameters(node),
+        cyclomatic_complexity=complexity,
+        branches=tuple(branches),
+        docstring=_extract_docstring(node),
+    )
+    return unit, calls

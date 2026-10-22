@@ -38,6 +38,7 @@ from trailmark.models.nodes import (
     SourceLocation,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -92,6 +93,7 @@ class DartParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("dart"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single .dart file into a CodeGraph."""
         source = Path(file_path).read_bytes()
@@ -122,85 +124,42 @@ def _visit_module(
     _walk_siblings(root.children, file_path, module_id, module_id, graph)
 
 
-def _walk_siblings(
-    children: list[Node],
-    file_path: str,
-    module_id: str,
-    container_id: str,
-    graph: CodeGraph,
-) -> None:
-    """Walk a list of sibling nodes, pairing signatures with bodies.
+_SIGNATURES = frozenset(
+    {
+        "function_signature",
+        "method_signature",
+        "constructor_signature",
+        "factory_constructor_signature",
+    }
+)
 
-    Dart emits ``function_signature`` / ``method_signature`` followed by
-    a sibling ``function_body``. Annotations appear as ``annotation``
-    siblings immediately before the declaration they apply to — we track
-    the pending-annotation-set so detectors can see them later.
-    """
-    pending_annotations: list[Node] = []
+
+def _walk_siblings(
+    children: list[Node], file_path: str, module_id: str, container_id: str, graph: CodeGraph
+) -> None:
+    """Pair signatures with sibling bodies; annotations are read from source."""
     idx = 0
     while idx < len(children):
         node = children[idx]
-        if node.type == "annotation":
-            pending_annotations.append(node)
-            idx += 1
-            continue
         if node.type == "import_or_export":
             _extract_import(node, graph)
-            pending_annotations.clear()
         elif node.type == "class_definition":
             _extract_class(node, file_path, module_id, graph)
-            pending_annotations.clear()
-        elif node.type in {"function_signature", "method_signature"}:
+        elif node.type in _SIGNATURES:
             body = children[idx + 1] if idx + 1 < len(children) else None
-            if body is not None and body.type == "function_body":
-                _extract_function_from_signature(
-                    node,
-                    body,
-                    file_path,
-                    module_id,
-                    container_id,
-                    pending_annotations,
-                    graph,
-                )
-                idx += 1  # Also consume the body node.
-            else:
-                _extract_function_from_signature(
-                    node,
-                    None,
-                    file_path,
-                    module_id,
-                    container_id,
-                    pending_annotations,
-                    graph,
-                )
-            pending_annotations.clear()
+            body = body if body is not None and body.type == "function_body" else None
+            _extract_function_from_signature(
+                node, body, file_path, module_id, graph, container_id=container_id
+            )
+            idx += int(body is not None)
         elif node.type == "declaration":
-            # Abstract method in a class body — wraps either a
-            # method_signature or function_signature without a body.
-            for member in node.children:
-                if member.type in {
-                    "method_signature",
-                    "function_signature",
-                    "constructor_signature",
-                    "factory_constructor_signature",
-                }:
-                    _extract_function_from_signature(
-                        member,
-                        None,
-                        file_path,
-                        module_id,
-                        container_id,
-                        pending_annotations,
-                        graph,
-                    )
-                    break
-            pending_annotations.clear()
-        else:
-            # Anything else — class body separator, comments — clears pending
-            # annotations unless it's whitespace-y content that doesn't carry
-            # meaning.
-            if node.type not in {"comment", ";", "{", "}"}:
-                pending_annotations.clear()
+            signature = next(
+                (member for member in node.children if member.type in _SIGNATURES), None
+            )
+            if signature is not None:
+                _extract_function_from_signature(
+                    signature, None, file_path, module_id, graph, container_id=container_id
+                )
         idx += 1
 
 
@@ -236,10 +195,9 @@ def _extract_function_from_signature(
     body: Node | None,
     file_path: str,
     module_id: str,
-    container_id: str,
-    pending_annotations: list[Node],
     graph: CodeGraph,
     *,
+    container_id: str,
     name_override: str | None = None,
 ) -> None:
     """Pair a signature with its body (if present) into a CodeUnit."""
@@ -263,19 +221,7 @@ def _extract_function_from_signature(
         else f"{container_id}:{func_name}"
     )
 
-    params = _extract_parameters(inner)
-    return_type = _extract_return_type(inner)
-
-    span_end = body if body is not None else signature
-
-    branches, exception_types, calls = _collect_func_body(body, file_path)
-    initializers = first_child_by_type(signature, "initializers")
-    if initializers is not None:
-        extra_branches, extra_exceptions, extra_calls = _collect_func_body(initializers, file_path)
-        branches = extra_branches + branches
-        exception_types = extra_exceptions + exception_types
-        calls = extra_calls + calls
-    complexity = compute_complexity(branches)
+    branches, exception_types, calls = _declaration_body(signature, body, file_path)
 
     location = make_location(signature, file_path)
     # Extend the end line to cover the body too.
@@ -287,46 +233,18 @@ def _extract_function_from_signature(
         name=func_name,
         kind=NodeKind.METHOD if is_method else NodeKind.FUNCTION,
         location=location,
-        parameters=tuple(params),
-        return_type=return_type,
+        parameters=tuple(_extract_parameters(inner)),
+        return_type=_extract_return_type(inner),
         exception_types=tuple(exception_types),
         type_parameters=extract_type_parameters(inner),
-        cyclomatic_complexity=complexity,
+        cyclomatic_complexity=compute_complexity(branches),
         branches=tuple(branches),
         attributes=(("dart_constructor", constructor),),
     )
     graph.nodes[func_id] = unit
     add_contains_edge(graph, container_id, func_id)
 
-    # Attach annotation texts as audit-visible annotations so detectors
-    # can find them via the node's enclosing file scan.
-    for ann in pending_annotations:
-        _ = ann  # kept for readability; detection happens via source scan
-    _ = span_end
-    if body is not None:
-        for nested in walk_owned(
-            body, boundaries=frozenset({"function_expression", "lambda_expression"})
-        ):
-            if nested.type in {"function_expression", "lambda_expression"}:
-                parameters = nested.child_by_field_name("parameters")
-                nested_body = nested.child_by_field_name("body")
-                if parameters is not None:
-                    name_node = _function_name_node(parameters)
-                    name = (
-                        node_text(name_node)
-                        if name_node is not None
-                        else f"$lambda@{nested.start_point.row + 1}_{nested.start_point.column}"
-                    )
-                    _extract_function_from_signature(
-                        parameters,
-                        nested_body,
-                        file_path,
-                        module_id,
-                        func_id,
-                        [],
-                        graph,
-                        name_override=name,
-                    )
+    _extract_nested_functions(body, file_path, module_id, func_id, graph)
     _add_call_edges(calls, func_id, file_path, graph)
 
 
@@ -574,3 +492,50 @@ def _merge_locations(
         start_col=start_node.start_point.column,
         end_col=end_node.end_point.column,
     )
+
+
+def _declaration_body(
+    signature: Node, body: Node | None, file_path: str
+) -> tuple[list[BranchInfo], list[TypeRef], list[tuple[str, Node]]]:
+    branches, exception_types, calls = _collect_func_body(body, file_path)
+    declaration = signature.parent
+    initializers = first_child_by_type(signature, "initializers")
+    if initializers is None and declaration is not None and declaration.type == "declaration":
+        initializers = next(
+            (c for c in declaration.named_children if c.type in {"initializers", "redirection"}),
+            None,
+        )
+    if initializers is not None:
+        extra_branches, extra_exceptions, extra_calls = _collect_func_body(initializers, file_path)
+        branches = extra_branches + branches
+        exception_types = extra_exceptions + exception_types
+        calls = extra_calls + calls
+    return branches, exception_types, calls
+
+
+def _extract_nested_functions(
+    body: Node | None, file_path: str, module_id: str, func_id: str, graph: CodeGraph
+) -> None:
+    if body is not None:
+        for nested in walk_owned(
+            body, boundaries=frozenset({"function_expression", "lambda_expression"})
+        ):
+            if nested.type in {"function_expression", "lambda_expression"}:
+                parameters = nested.child_by_field_name("parameters")
+                nested_body = nested.child_by_field_name("body")
+                if parameters is not None:
+                    name_node = _function_name_node(parameters)
+                    name = (
+                        node_text(name_node)
+                        if name_node is not None
+                        else f"$lambda@{nested.start_point.row + 1}_{nested.start_point.column}"
+                    )
+                    _extract_function_from_signature(
+                        parameters,
+                        nested_body,
+                        file_path,
+                        module_id,
+                        graph,
+                        container_id=func_id,
+                        name_override=name,
+                    )

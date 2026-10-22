@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -16,6 +17,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -75,6 +77,7 @@ class JavaParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("java"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Java file into a CodeGraph."""
         source = Path(file_path).read_bytes()
@@ -278,78 +281,12 @@ def _extract_function(
     )
     if node.type == "lambda_expression":
         kind = NodeKind.FUNCTION
-    params = _extract_parameters(node)
-    return_type = _extract_return_type(node)
+    unit, calls = _function_unit(node, file_path, func_id=func_id, func_name=func_name, kind=kind)
     body = node.child_by_field_name("body")
-    branches, exception_types, calls = _walk_body(
-        body,
-        file_path,
-    )
-
-    unit = CodeUnit(
-        id=func_id,
-        name=func_name,
-        kind=kind,
-        location=make_location(node, file_path),
-        parameters=tuple(params),
-        return_type=return_type,
-        exception_types=tuple(exception_types),
-        type_parameters=extract_type_parameters(node),
-        cyclomatic_complexity=compute_complexity(branches),
-        branches=tuple(branches),
-        docstring=_extract_docstring(node),
-        attributes=(
-            (
-                "java_private",
-                any(
-                    c.type == "modifiers" and "private" in node_text(c).split()
-                    for c in node.named_children
-                ),
-            ),
-            (
-                "java_static",
-                any(
-                    c.type == "modifiers" and "static" in node_text(c).split()
-                    for c in node.named_children
-                ),
-            ),
-        ),
-    )
     func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
 
-    if body is not None:
-        for nested in walk_owned(
-            body, boundaries=frozenset({"lambda_expression", "class_declaration", "class_body"})
-        ):
-            if nested.type == "lambda_expression":
-                _extract_function(
-                    nested,
-                    file_path,
-                    module_id,
-                    func_id,
-                    graph,
-                    name_override=(
-                        f"$lambda@{nested.start_point.row + 1}_{nested.start_point.column}"
-                    ),
-                )
-            elif nested.type == "class_declaration":
-                _extract_class(nested, file_path, module_id, graph, func_id)
-            elif (
-                nested.type == "class_body"
-                and nested.parent is not None
-                and nested.parent.type == "object_creation_expression"
-            ):
-                _extract_class(
-                    nested.parent,
-                    file_path,
-                    module_id,
-                    graph,
-                    func_id,
-                    name_override=(
-                        f"$anonymous@{nested.start_point.row + 1}_{nested.start_point.column}"
-                    ),
-                )
+    _extract_nested_callables(body, file_path, module_id, func_id, graph)
     _add_call_edges(
         calls,
         func_id,
@@ -671,36 +608,117 @@ def _servlet_base(node: Node) -> bool:
 
 
 def _bind_constructors(graph: CodeGraph) -> None:
-    from dataclasses import replace
-
     owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
     bases = {e.source_id: e.target_id for e in graph.edges if e.kind == EdgeKind.INHERITS}
-    edges = []
-    for edge in graph.edges:
-        name = dict(edge.attributes).get("constructor_type")
-        if isinstance(name, str):
-            owner = owners.get(edge.source_id, "")
-            if name == "this":
-                types = [owner]
-            elif name == "super":
-                types = [bases[owner]] if owner in bases else []
-            else:
-                types = [
-                    n.id
-                    for n in graph.nodes.values()
-                    if n.kind == NodeKind.CLASS and n.name == name
-                ]
-            if len(types) == 1:
-                candidates = [
-                    n.id
-                    for n in graph.nodes.values()
-                    if n.kind == NodeKind.METHOD
-                    and owners.get(n.id) == types[0]
-                    and n.name == graph.nodes[types[0]].name
-                ]
-                if len(candidates) == 1:
-                    edge = replace(
-                        edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED
-                    )
-        edges.append(edge)
-    graph.edges[:] = edges
+    types: dict[str, list[str]] = {}
+    constructors: dict[str, list[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind == NodeKind.CLASS:
+            types.setdefault(unit.name, []).append(unit.id)
+        owner = graph.nodes.get(owners.get(unit.id, ""))
+        if unit.kind == NodeKind.METHOD and owner is not None and unit.name == owner.name:
+            constructors.setdefault(owner.id, []).append(unit.id)
+    graph.edges[:] = [_constructor_edge(e, owners, bases, types, constructors) for e in graph.edges]
+
+
+def _constructor_edge(
+    edge: CodeEdge,
+    owners: dict[str, str],
+    bases: dict[str, str],
+    types: dict[str, list[str]],
+    constructors: dict[str, list[str]],
+) -> CodeEdge:
+    name = dict(edge.attributes).get("constructor_type")
+    if not isinstance(name, str):
+        return edge
+    owner = owners.get(edge.source_id, "")
+    if name == "this":
+        candidates = [owner]
+    elif name == "super":
+        candidates = [bases[owner]] if owner in bases else []
+    else:
+        candidates = types.get(name, [])
+    targets = constructors.get(candidates[0], []) if len(candidates) == 1 else []
+    if len(targets) == 1:
+        return replace(edge, target_id=targets[0], confidence=EdgeConfidence.INFERRED)
+    return replace(edge, target_id=f"{edge.source_id}.$constructor.{name}")
+
+
+def _extract_nested_callables(
+    body: Node | None, file_path: str, module_id: str, func_id: str, graph: CodeGraph
+) -> None:
+    if body is not None:
+        for nested in walk_owned(
+            body, boundaries=frozenset({"lambda_expression", "class_declaration", "class_body"})
+        ):
+            if nested.type == "lambda_expression":
+                _extract_function(
+                    nested,
+                    file_path,
+                    module_id,
+                    func_id,
+                    graph,
+                    name_override=(
+                        f"$lambda@{nested.start_point.row + 1}_{nested.start_point.column}"
+                    ),
+                )
+            elif nested.type == "class_declaration":
+                _extract_class(nested, file_path, module_id, graph, func_id)
+            elif (
+                nested.type == "class_body"
+                and nested.parent is not None
+                and nested.parent.type == "object_creation_expression"
+            ):
+                _extract_class(
+                    nested.parent,
+                    file_path,
+                    module_id,
+                    graph,
+                    func_id,
+                    name_override=(
+                        f"$anonymous@{nested.start_point.row + 1}_{nested.start_point.column}"
+                    ),
+                )
+
+
+def _function_unit(
+    node: Node, file_path: str, *, func_id: str, func_name: str, kind: NodeKind
+) -> tuple[CodeUnit, list[tuple[str, Node]]]:
+    params = _extract_parameters(node)
+    return_type = _extract_return_type(node)
+    body = node.child_by_field_name("body")
+    branches, exception_types, calls = _walk_body(
+        body,
+        file_path,
+    )
+
+    unit = CodeUnit(
+        id=func_id,
+        name=func_name,
+        kind=kind,
+        location=make_location(node, file_path),
+        parameters=tuple(params),
+        return_type=return_type,
+        exception_types=tuple(exception_types),
+        type_parameters=extract_type_parameters(node),
+        cyclomatic_complexity=compute_complexity(branches),
+        branches=tuple(branches),
+        docstring=_extract_docstring(node),
+        attributes=(
+            (
+                "java_private",
+                any(
+                    c.type == "modifiers" and "private" in node_text(c).split()
+                    for c in node.named_children
+                ),
+            ),
+            (
+                "java_static",
+                any(
+                    c.type == "modifiers" and "static" in node_text(c).split()
+                    for c in node.named_children
+                ),
+            ),
+        ),
+    )
+    return unit, calls

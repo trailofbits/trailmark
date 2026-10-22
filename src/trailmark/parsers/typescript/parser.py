@@ -16,7 +16,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
-from trailmark.parsers._bindings import guard_call
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -28,6 +28,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._declarations import add_callable, callable_scope
 from trailmark.parsers._ecmascript import discover_callables
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -66,6 +67,7 @@ class TypeScriptParser:
         self._parser = Parser(get_language("typescript"))
         self._tsx_parser = Parser(get_language("tsx"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single TypeScript file into a CodeGraph."""
         source = Path(file_path).read_bytes()
@@ -73,7 +75,8 @@ class TypeScriptParser:
         tree = parser.parse(source)
         graph = CodeGraph(language="typescript", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_module(tree.root_node, file_path, module_id, graph)
+        with callable_scope(graph):
+            _visit_module(tree.root_node, file_path, module_id, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -93,7 +96,13 @@ def _visit_module(
     graph: CodeGraph,
 ) -> None:
     """Walk the top-level of a module, extracting nodes and edges."""
-    add_module_node(root, file_path, module_id, graph)
+    add_module_node(
+        root,
+        file_path,
+        module_id,
+        graph,
+        grammar="tsx" if Path(file_path).suffix.lower() == ".tsx" else "typescript",
+    )
     for child in root.children:
         _visit_top_level_node(child, file_path, module_id, graph)
     discover_callables(
@@ -276,7 +285,7 @@ def _extract_function_expr(
         exception_types=tuple(exception_types),
         docstring=_extract_jsdoc(func_node),
     )
-    graph.nodes[func_id] = unit
+    func_id = add_callable(graph, unit)
     add_contains_edge(graph, module_id, func_id)
 
     _add_call_edges(
@@ -632,7 +641,7 @@ def _extract_function(
     name_override: str | None = None,
     owner_id: str | None = None,
     is_method: bool = False,
-) -> None:
+) -> str | None:
     """Extract a function or generator function declaration."""
     name_node = node.child_by_field_name("name")
     if name_node is None and name_override is None:
@@ -693,7 +702,7 @@ def _extract_function(
         exception_types=tuple(exception_types),
         docstring=_extract_jsdoc(node),
     )
-    graph.nodes[func_id] = unit
+    func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
 
     _add_call_edges(
@@ -704,6 +713,7 @@ def _extract_function(
         file_path,
         graph,
     )
+    return func_id
 
 
 def _extract_parameters(node: Node) -> list[Parameter]:
@@ -882,16 +892,12 @@ def _add_call_edges(
             target_id = _resolve_call_target(call_name, module_id, class_id)
         confidence = _call_confidence(call_name)
         graph.edges.append(
-            guard_call(
-                CodeEdge(
-                    source_id=source_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CALLS,
-                    confidence=confidence,
-                    location=make_location(call_node, file_path),
-                ),
-                call_node,
-                graph=graph,
+            CodeEdge(
+                source_id=source_id,
+                target_id=target_id,
+                kind=EdgeKind.CALLS,
+                confidence=confidence,
+                location=make_location(call_node, file_path),
             )
         )
 

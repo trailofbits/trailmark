@@ -526,7 +526,7 @@ def _walk_branches(
     branches: list[BranchInfo],
 ) -> None:
     """Recursively find branch nodes (case alternatives, guards)."""
-    if node.type in {"local_binds", "function", "bind", "patterns", "signature"}:
+    if node.type in {"local_binds", "function", "patterns", "signature"}:
         return
     if node.type in _BRANCH_NODE_TYPES:
         branches.append(
@@ -563,7 +563,7 @@ def _walk_calls(
     calls: list[tuple[str, Node]],
 ) -> None:
     """Recursively find apply nodes and extract call targets."""
-    if node.type in {"local_binds", "function", "bind", "patterns", "signature"}:
+    if node.type in {"local_binds", "function", "patterns", "signature"}:
         return
     if node.type == "infix":
         operator = node.child_by_field_name("operator")

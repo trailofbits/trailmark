@@ -111,7 +111,13 @@ def test_anonymous_calls_have_their_own_owner(tmp_path: Path) -> None:
     lambdas = [u for u in graph.nodes.values() if u.name.startswith("<lambda>")]
     assert len(lambdas) == 1
     calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
-    assert [(e.source_id, e.target_id) for e in calls] == [(lambdas[0].id, "sample:helper")]
+    deferred = [e for e in calls if dict(e.attributes).get("deferred")]
+    assert [(e.source_id, e.target_id, e.confidence) for e in deferred] == [
+        ("sample:outer", lambdas[0].id, EdgeConfidence.UNCERTAIN)
+    ]
+    assert [(e.source_id, e.target_id) for e in calls if e not in deferred] == [
+        (lambdas[0].id, "sample:helper")
+    ]
 
 
 def test_sibling_validator_handlers_stay_distinct(tmp_path: Path) -> None:

@@ -17,6 +17,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -71,6 +72,7 @@ class GoParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("go"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Go file into a CodeGraph."""
         source = Path(file_path).read_bytes()
@@ -330,9 +332,8 @@ def _collect_func_body(
             branches,
             exception_types,
             calls,
-            skip_types=frozenset({"func_literal"}),
         )
-        for expression in walk_owned(body, boundaries=frozenset({"func_literal"})):
+        for expression in walk_owned(body):
             if expression.type != "type_conversion_expression":
                 continue
             type_node = expression.child_by_field_name("type")

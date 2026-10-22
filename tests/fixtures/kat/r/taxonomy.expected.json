@@ -74,6 +74,15 @@
       "kind": "calls",
       "source": "taxonomy:<script>",
       "target": "taxonomy:helper"
+    },
+    {
+      "attributes": {
+        "deferred": true
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:<script>",
+      "target": "taxonomy:<script>.<lambda>@137"
     }
   ],
   "language": "r",
@@ -276,7 +285,7 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 6,
+    "call_edges": 7,
     "classes": 0,
     "dependencies": [
       "utils"

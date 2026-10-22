@@ -18,6 +18,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope, units_at
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -75,6 +76,7 @@ class CppParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("cpp"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single C++ file into a CodeGraph."""
         source = Path(file_path).read_bytes()
@@ -133,8 +135,6 @@ def _visit_top_level_node(
         )
     elif child.type == "preproc_include":
         _extract_include(child, graph)
-    elif child.type == "namespace_definition":
-        _extract_namespace(child, file_path, module_id, graph)
     elif child.type in ("type_definition", "declaration"):
         _extract_type_def(
             child,
@@ -153,12 +153,8 @@ def _visit_top_level_node(
     ):
         for nested in child.children:
             _visit_top_level_node(nested, file_path, module_id, class_id, graph)
-    elif child.type == "class_specifier":
-        _extract_class(child, file_path, module_id, graph)
-    elif child.type == "struct_specifier":
-        _extract_struct(child, file_path, module_id, graph)
-    elif child.type == "enum_specifier":
-        _extract_enum(child, file_path, module_id, graph)
+    elif child.type in _TYPE_EXTRACTORS:
+        _TYPE_EXTRACTORS[child.type](child, file_path, module_id, graph)
     elif child.type == "template_declaration":
         _visit_template_body(
             child,
@@ -210,11 +206,8 @@ def _owner(node: Node, module: str, graph: CodeGraph) -> str:
         }:
             candidates = [
                 unit.id
-                for unit in graph.nodes.values()
-                if unit.location.file_path == graph.root_path
-                and unit.location.start_line == ancestor.start_point.row + 1
-                and unit.location.start_col == ancestor.start_point.column
-                and unit.kind
+                for unit in units_at(ancestor, graph.root_path)
+                if unit.kind
                 in {
                     NodeKind.NAMESPACE,
                     NodeKind.CLASS,
@@ -494,117 +487,31 @@ def _extract_function(
         func_id = _owned_id(container_id, func_name)
         kind = NodeKind.FUNCTION
 
-    params = _extract_parameters(node)
-    return_type = _extract_return_type(node)
-    body = node.child_by_field_name("body")
-
-    branches: list[BranchInfo] = []
-    exception_types: list[TypeRef] = []
-    calls: list[tuple[str, Node]] = []
-
-    if body is not None:
-        collect_body_info(
-            body,
-            file_path,
-            _BRANCH_NODE_TYPES,
-            "call_expression",
-            _THROW_TYPES,
-            branches,
-            exception_types,
-            calls,
-            skip_types=frozenset(
-                {"lambda_expression", "class_specifier", "struct_specifier", "function_definition"}
-            ),
-        )
-
-    complexity = compute_complexity(branches)
-    location = make_location(node, file_path)
-    docstring = _extract_docstring(node)
-
-    unit = CodeUnit(
-        id=func_id,
-        name=func_name,
-        kind=kind,
-        location=location,
-        parameters=tuple(params),
-        return_type=return_type,
-        exception_types=tuple(exception_types),
-        type_parameters=extract_type_parameters(generic_node or node),
-        cyclomatic_complexity=complexity,
-        branches=tuple(branches),
-        docstring=docstring,
-        attributes=(
-            (
-                "internal_linkage",
-                ".$anonymous" in func_id
-                or ":$anonymous" in func_id
-                or any(
-                    c.type == "storage_class_specifier" and node_text(c) == "static"
-                    for c in node.named_children
-                ),
-            ),
-        ),
+    unit, calls = _function_unit(
+        node, file_path, func_id=func_id, func_name=func_name, kind=kind, generic_node=generic_node
     )
+    body = node.child_by_field_name("body")
+    branches, exception_types = list(unit.branches), list(unit.exception_types)
     func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
 
-    if body is not None:
-        for deferred in walk_owned(
-            body,
-            boundaries=frozenset(
-                {"lambda_expression", "class_specifier", "struct_specifier", "function_definition"}
-            ),
-        ):
-            if deferred.type == "lambda_expression":
-                _extract_function(
-                    deferred,
-                    file_path,
-                    module_id,
-                    func_id,
-                    graph,
-                    name_override=(
-                        f"$lambda@{deferred.start_point.row + 1}_{deferred.start_point.column}"
-                    ),
-                )
-                captures = deferred.child_by_field_name("captures")
-                if captures is not None:
-                    collect_body_info(
-                        captures,
-                        file_path,
-                        _BRANCH_NODE_TYPES,
-                        "call_expression",
-                        _THROW_TYPES,
-                        branches,
-                        exception_types,
-                        calls,
-                    )
-                if (
-                    deferred.parent is not None
-                    and deferred.parent.type == "call_expression"
-                    and deferred.parent.child_by_field_name("function") == deferred
-                ):
-                    calls.append(
-                        (
-                            f"{func_id}.$lambda@{deferred.start_point.row + 1}_"
-                            f"{deferred.start_point.column}",
-                            deferred.parent,
-                        )
-                    )
-            elif deferred.type in {"class_specifier", "struct_specifier"}:
-                _visit_top_level_node(deferred, file_path, module_id, None, graph)
+    _extract_deferred_callables(
+        body,
+        file_path,
+        module_id,
+        func_id,
+        graph,
+        branches=branches,
+        exception_types=exception_types,
+        calls=calls,
+    )
     graph.nodes[func_id] = replace(
         graph.nodes[func_id],
         branches=tuple(branches),
         exception_types=tuple(exception_types),
         cyclomatic_complexity=compute_complexity(branches),
     )
-    _add_call_edges(
-        calls,
-        func_id,
-        module_id,
-        file_path,
-        graph,
-    )
+    _add_call_edges(calls, func_id, module_id, file_path, graph)
 
 
 def _add_call_edges(
@@ -786,3 +693,140 @@ def _extract_include(node: Node, graph: CodeGraph) -> None:
             if path and path not in graph.dependencies:
                 graph.dependencies.append(path)
             return
+
+
+def _extract_deferred_callables(
+    body: Node | None,
+    file_path: str,
+    module_id: str,
+    func_id: str,
+    graph: CodeGraph,
+    *,
+    branches: list[BranchInfo],
+    exception_types: list[TypeRef],
+    calls: list[tuple[str, Node]],
+) -> None:
+    if body is not None:
+        for deferred in walk_owned(
+            body,
+            boundaries=frozenset(
+                {"lambda_expression", "class_specifier", "struct_specifier", "function_definition"}
+            ),
+        ):
+            if deferred.type == "lambda_expression":
+                _extract_function(
+                    deferred,
+                    file_path,
+                    module_id,
+                    func_id,
+                    graph,
+                    name_override=(
+                        f"$lambda@{deferred.start_point.row + 1}_{deferred.start_point.column}"
+                    ),
+                )
+                _collect_captures(deferred, file_path, branches, exception_types, calls)
+                if (
+                    deferred.parent is not None
+                    and deferred.parent.type == "call_expression"
+                    and deferred.parent.child_by_field_name("function") == deferred
+                ):
+                    calls.append(
+                        (
+                            f"{func_id}.$lambda@{deferred.start_point.row + 1}_"
+                            f"{deferred.start_point.column}",
+                            deferred.parent,
+                        )
+                    )
+            elif deferred.type in {"class_specifier", "struct_specifier"}:
+                _visit_top_level_node(deferred, file_path, module_id, None, graph)
+
+
+def _function_unit(
+    node: Node,
+    file_path: str,
+    *,
+    func_id: str,
+    func_name: str,
+    kind: NodeKind,
+    generic_node: Node | None,
+) -> tuple[CodeUnit, list[tuple[str, Node]]]:
+    body = node.child_by_field_name("body")
+
+    branches: list[BranchInfo] = []
+    exception_types: list[TypeRef] = []
+    calls: list[tuple[str, Node]] = []
+
+    if body is not None:
+        collect_body_info(
+            body,
+            file_path,
+            _BRANCH_NODE_TYPES,
+            "call_expression",
+            _THROW_TYPES,
+            branches,
+            exception_types,
+            calls,
+            skip_types=frozenset(
+                {"lambda_expression", "class_specifier", "struct_specifier", "function_definition"}
+            ),
+        )
+
+    complexity = compute_complexity(branches)
+    location = make_location(node, file_path)
+    docstring = _extract_docstring(node)
+
+    unit = CodeUnit(
+        id=func_id,
+        name=func_name,
+        kind=kind,
+        location=location,
+        parameters=tuple(_extract_parameters(node)),
+        return_type=_extract_return_type(node),
+        exception_types=tuple(exception_types),
+        type_parameters=extract_type_parameters(generic_node or node),
+        cyclomatic_complexity=complexity,
+        branches=tuple(branches),
+        docstring=docstring,
+        attributes=(("internal_linkage", _internal_linkage(node, func_id)),),
+    )
+    return unit, calls
+
+
+_TYPE_EXTRACTORS = {
+    "namespace_definition": _extract_namespace,
+    "class_specifier": _extract_class,
+    "struct_specifier": _extract_struct,
+    "enum_specifier": _extract_enum,
+}
+
+
+def _internal_linkage(node: Node, func_id: str) -> bool:
+    return (
+        ".$anonymous" in func_id
+        or ":$anonymous" in func_id
+        or any(
+            c.type == "storage_class_specifier" and node_text(c) == "static"
+            for c in node.named_children
+        )
+    )
+
+
+def _collect_captures(
+    deferred: Node,
+    file_path: str,
+    branches: list[BranchInfo],
+    exception_types: list[TypeRef],
+    calls: list[tuple[str, Node]],
+) -> None:
+    captures = deferred.child_by_field_name("captures")
+    if captures is not None:
+        collect_body_info(
+            captures,
+            file_path,
+            _BRANCH_NODE_TYPES,
+            "call_expression",
+            _THROW_TYPES,
+            branches,
+            exception_types,
+            calls,
+        )

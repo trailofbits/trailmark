@@ -97,7 +97,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     (
         "docs/skills-compatibility.md",
         "The release tag, pyproject version, runtime version, "
-        "changelog heading and wheel metadata must agree.",
+        "dated changelog heading, wheel metadata and root sdist `PKG-INFO` must agree.",
     ),
     ("docs/parser-coverage.md", "Erlang callable IDs include arity: `module:function/2`."),
     ("docs/parser-coverage.md", "singleton methods use `file:Class.self.method`."),
@@ -629,6 +629,14 @@ def _read_requires_python(pyproject_data: dict[str, object]) -> str:
         "`coproc`",
         "`method_id`",
         "`#declaration`",
+        "`deferred`",
+        "`macro_signature_unresolved`",
+        "`syntax_error_context`",
+        "`assert!(...)`",
+        "`unsupported_syntax`",
+        "`package fun`",
+        "`file:api.init`",
+        "`$operator.plus_plus`",
     ],
 )
 def test_parser_coverage_contracts(marker: str) -> None:

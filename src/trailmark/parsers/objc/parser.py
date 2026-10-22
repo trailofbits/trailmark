@@ -19,6 +19,7 @@ don't collide in node IDs.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -33,6 +34,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -75,6 +77,7 @@ class ObjCParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("objc"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single .m / .mm / .h file into a CodeGraph."""
         source = Path(file_path).read_bytes()
@@ -83,6 +86,7 @@ class ObjCParser:
         module_id = module_id_from_path(file_path)
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
+        _bind_self_messages(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -539,3 +543,31 @@ def _add_blocks(body: Node | None, owner: str, file_path: str, graph: CodeGraph)
         add_contains_edge(graph, owner, ident)
         _add_blocks(nested_body, ident, file_path, graph)
         _add_call_edges(calls, ident, file_path, graph)
+
+
+def _bind_self_messages(graph: CodeGraph) -> None:
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    methods: dict[tuple[str, str, bool], list[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind == NodeKind.METHOD:
+            methods.setdefault((owners.get(unit.id, ""), unit.name, ".+" in unit.id), []).append(
+                unit.id
+            )
+    edges = []
+    for edge in graph.edges:
+        selector = dict(edge.attributes).get("objc_selector")
+        if isinstance(selector, str) and edge.target_id.startswith("[self "):
+            candidates = methods.get(
+                (owners.get(edge.source_id, ""), selector, ".+" in edge.source_id), []
+            )
+            if len(candidates) == 1:
+                attributes = dict(edge.attributes)
+                attributes["binding_blocked"] = False
+                edge = replace(
+                    edge,
+                    target_id=candidates[0],
+                    confidence=EdgeConfidence.INFERRED,
+                    attributes=tuple(attributes.items()),
+                )
+        edges.append(edge)
+    graph.edges[:] = edges

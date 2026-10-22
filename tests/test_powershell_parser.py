@@ -66,7 +66,11 @@ function main {
     anonymous = [u for u in graph.nodes.values() if u.name.startswith("<lambda>")]
     assert len(anonymous) == 1 and anonymous[0].cyclomatic_complexity == 2
     assert graph.nodes["sample:main"].cyclomatic_complexity == 1
-    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and not dict(e.attributes).get("deferred")
+    ]
     assert len(calls) == 2 and {e.source_id for e in calls} == {"sample:main", anonymous[0].id}
 
 
@@ -100,7 +104,11 @@ function main { helper; & $helper; $obj.helper(); [Other]::helper() }
     graph = parse_directory(str(tmp_path), language="auto")
     assert detect_languages(str(tmp_path)) == ["powershell"]
     assert graph.source_file_counts == {"powershell": 2}
-    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and not dict(e.attributes).get("deferred")
+    ]
     assert len(calls) == 4
     assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
     assert (

@@ -18,6 +18,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -37,6 +38,7 @@ from trailmark.parsers._declarations import (
     bind_lexical_calls,
     callable_scope,
 )
+from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
 _EXTENSIONS = (".swift",)
@@ -91,6 +93,7 @@ class SwiftParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("swift"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Swift file into a CodeGraph."""
         source = Path(file_path).read_bytes()
@@ -167,6 +170,7 @@ def _extract_protocol(
             _extract_function(member, file_path, module_id, proto_id, graph)
 
 
+@bounded_nesting
 def _extract_class_like(
     node: Node,
     file_path: str,
@@ -389,39 +393,65 @@ def _extract_import(node: Node, graph: CodeGraph) -> None:
 
 
 def _merge_extensions(graph: CodeGraph) -> None:
-    """Attach separately parsed extensions only to an unambiguous source type."""
-    for extension in list(graph.nodes.values()):
+    """Move extension members using indexes built once for the merged graph."""
+    types: dict[str, list[CodeUnit]] = {}
+    children: dict[str, list[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind in {NodeKind.CLASS, NodeKind.STRUCT, NodeKind.INTERFACE, NodeKind.ENUM}:
+            for key in {unit.name, unit.id.split(":", 1)[-1]}:
+                types.setdefault(key, []).append(unit)
+    for edge in graph.edges:
+        if edge.kind == EdgeKind.CONTAINS:
+            children.setdefault(edge.source_id, []).append(edge.target_id)
+    moved: dict[str, str] = {}
+    removed = set()
+    reserved = set(graph.nodes)
+    for extension in tuple(graph.nodes.values()):
         target = dict(extension.attributes).get("swift_extension_target")
         if not isinstance(target, str):
             continue
-        types = [
-            n
-            for n in graph.nodes.values()
-            if n.kind in {NodeKind.CLASS, NodeKind.STRUCT, NodeKind.INTERFACE, NodeKind.ENUM}
-            and (n.name == target or n.id.split(":", 1)[-1] == target)
+        candidates = types.get(target, [])
+        local = [
+            unit for unit in candidates if unit.location.file_path == extension.location.file_path
         ]
-        local = [n for n in types if n.location.file_path == extension.location.file_path]
-        candidates = local or types
-        if len(candidates) != 1:
+        candidates = local or candidates
+        if len(candidates) == 1:
+            _extension_moves(extension.id, candidates[0].id, graph, children, reserved, moved)
+            removed.add(extension.id)
+    graph.nodes = {
+        moved.get(ident, ident): replace(unit, id=moved[ident]) if ident in moved else unit
+        for ident, unit in graph.nodes.items()
+        if ident not in removed
+    }
+    graph.edges[:] = [
+        replace(
+            e,
+            source_id=moved.get(e.source_id, e.source_id),
+            target_id=moved.get(e.target_id, e.target_id),
+        )
+        for e in graph.edges
+        if not (e.kind == EdgeKind.CONTAINS and e.target_id in removed)
+    ]
+
+
+def _extension_moves(
+    extension: str,
+    owner: str,
+    graph: CodeGraph,
+    children: dict[str, list[str]],
+    reserved: set[str],
+    moved: dict[str, str],
+) -> None:
+    pending = list(children.get(extension, ()))
+    while pending:
+        ident = pending.pop()
+        if ident not in graph.nodes or ident in moved:
             continue
-        owner = candidates[0].id
-        moved = {}
-        for ident, unit in list(graph.nodes.items()):
-            if ident.startswith(extension.id + "."):
-                destination = owner + ident[len(extension.id) :]
-                if destination in graph.nodes:
-                    destination += f"@{unit.location.start_line}_{unit.location.start_col or 0}"
-                moved[ident] = destination
-                graph.nodes[destination] = replace(unit, id=destination)
-                del graph.nodes[ident]
-        moved[extension.id] = owner
-        graph.edges[:] = [
-            replace(
-                edge,
-                source_id=moved.get(edge.source_id, edge.source_id),
-                target_id=moved.get(edge.target_id, edge.target_id),
-            )
-            for edge in graph.edges
-            if not (edge.kind == EdgeKind.CONTAINS and edge.target_id == extension.id)
-        ]
-        del graph.nodes[extension.id]
+        unit = graph.nodes[ident]
+        destination = owner + ident[len(extension) :]
+        if destination in reserved:
+            destination += f"@{unit.location.start_line}_{unit.location.start_col or 0}"
+        reserved.add(destination)
+        moved[ident] = destination
+        pending.extend(children.get(ident, ()))
+    moved[extension] = owner

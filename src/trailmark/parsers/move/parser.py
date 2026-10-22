@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from tree_sitter import Language, Node, Parser
@@ -10,6 +10,8 @@ from tree_sitter import Language, Node, Parser
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import BranchInfo, CodeUnit, NodeKind, Parameter, TypeRef
+from trailmark.parsers._binding_index import binding_scope
+from trailmark.parsers._bindings import lexical_declaration
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -24,6 +26,21 @@ from trailmark.tree_sitter_custom.move import language
 
 _EXTENSIONS = (".move",)
 _FUNCTIONS = {"function_definition", "native_function_definition", "macro_function_definition"}
+_SCOPES = frozenset({"function_definition", "block", "lambda_expression", "for_expression"})
+_BINDINGS = (
+    ("let_statement", "binds"),
+    ("lambda_expression", "bindings"),
+    ("for_expression", "binding"),
+)
+
+
+@dataclass(frozen=True)
+class _Module:
+    owner: str
+    logical: str
+    imports: dict[str, str]
+    path: str
+    graph: CodeGraph
 
 
 class MoveParser:
@@ -36,79 +53,15 @@ class MoveParser:
     def __init__(self) -> None:
         self._parser = Parser(Language(language()))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         root = self._parser.parse(Path(file_path).read_bytes()).root_node
         graph = CodeGraph(language="move", root_path=file_path)
         module = module_id_from_path(file_path)
         add_module_node(root, file_path, module, graph)
         for declaration in root.named_children:
-            if declaration.type != "module_definition":
-                continue
-            identity = declaration.child_by_field_name("module_identity")
-            body = declaration.child_by_field_name("module_body")
-            if identity is None or body is None:
-                continue
-            logical = node_text(identity)
-            owner = f"{module}:{logical}"
-            graph.nodes[owner] = CodeUnit(
-                id=owner,
-                name=logical,
-                kind=NodeKind.MODULE,
-                location=make_location(declaration, file_path),
-            )
-            add_contains_edge(graph, module, owner)
-            imports: dict[str, str] = {}
-            for item in body.named_children:
-                if item.type == "use_declaration":
-                    graph.dependencies.append(
-                        node_text(item).removeprefix("use").strip().rstrip(";")
-                    )
-                    for imported in item.named_children:
-                        target = next(
-                            (c for c in imported.named_children if c.type == "module_identity"),
-                            None,
-                        )
-                        if target is not None and imported.type == "use_module":
-                            alias = imported.child_by_field_name("alias")
-                            imports[
-                                node_text(alias) if alias else node_text(target).rsplit("::", 1)[-1]
-                            ] = node_text(target)
-                        elif target is not None:
-                            prefix = node_text(target)
-                            for member in imported.children_by_field_name("use_member"):
-                                symbol = member.child_by_field_name("member")
-                                alias = member.child_by_field_name("alias")
-                                if symbol is None:
-                                    continue
-                                name = node_text(symbol)
-                                if name == "Self":
-                                    imports[
-                                        node_text(alias) if alias else prefix.rsplit("::", 1)[-1]
-                                    ] = prefix
-                                else:
-                                    imports[node_text(alias) if alias else name] = (
-                                        f"{prefix}::{name}"
-                                    )
-            for item in body.named_children:
-                if item.type in _FUNCTIONS:
-                    _function(item, owner, logical, imports, file_path, graph)
-                elif item.type in {
-                    "struct_definition",
-                    "native_struct_definition",
-                    "enum_definition",
-                }:
-                    name = item.child_by_field_name("name")
-                    if name is not None:
-                        ident = f"{owner}:{node_text(name)}"
-                        graph.nodes[ident] = CodeUnit(
-                            id=ident,
-                            name=node_text(name),
-                            kind=NodeKind.ENUM
-                            if item.type == "enum_definition"
-                            else NodeKind.STRUCT,
-                            location=make_location(item, file_path),
-                        )
-                        add_contains_edge(graph, owner, ident)
+            if declaration.type == "module_definition":
+                _module(declaration, module, file_path, graph)
         _link_calls(graph)
         return graph
 
@@ -118,121 +71,185 @@ class MoveParser:
         return graph
 
 
-def _function(
-    node: Node, owner: str, logical: str, imports: dict[str, str], path: str, graph: CodeGraph
-) -> None:
+def _module(node: Node, module: str, path: str, graph: CodeGraph) -> None:
+    identity = node.child_by_field_name("module_identity")
+    body = node.child_by_field_name("module_body")
+    if identity is None or body is None:
+        return
+    logical = node_text(identity)
+    owner = f"{module}:{logical}"
+    graph.nodes[owner] = CodeUnit(
+        id=owner, name=logical, kind=NodeKind.MODULE, location=make_location(node, path)
+    )
+    add_contains_edge(graph, module, owner)
+    imports = {}
+    for item in body.named_children:
+        if item.type == "use_declaration":
+            _imports(item, imports, owner, graph)
+    context = _Module(owner, logical, imports, path, graph)
+    for item in body.named_children:
+        if item.type in _FUNCTIONS:
+            _function(item, context)
+        elif item.type in {"struct_definition", "native_struct_definition", "enum_definition"}:
+            _type(item, context)
+
+
+def _imports(node: Node, imports: dict[str, str], owner: str, graph: CodeGraph) -> None:
+    dependency = node_text(node).removeprefix("use").strip().rstrip(";")
+    graph.dependencies.append(dependency)
+    graph.edges.append(CodeEdge(owner, dependency, EdgeKind.IMPORTS))
+    for imported in node.named_children:
+        target = next((c for c in imported.named_children if c.type == "module_identity"), None)
+        if target is None:
+            continue
+        prefix = node_text(target)
+        if imported.type == "use_module":
+            alias = imported.child_by_field_name("alias")
+            imports[node_text(alias) if alias else prefix.rsplit("::", 1)[-1]] = prefix
+        else:
+            for member in imported.children_by_field_name("use_member"):
+                _import_member(member, prefix, imports)
+
+
+def _import_member(member: Node, prefix: str, imports: dict[str, str]) -> None:
+    symbol = member.child_by_field_name("member")
+    alias = member.child_by_field_name("alias")
+    if symbol is None:
+        return
+    name = node_text(symbol)
+    key = node_text(alias) if alias else (prefix.rsplit("::", 1)[-1] if name == "Self" else name)
+    imports[key] = prefix if name == "Self" else f"{prefix}::{name}"
+
+
+def _type(node: Node, context: _Module) -> None:
+    name = node.child_by_field_name("name")
+    if name is None:
+        return
+    ident = f"{context.owner}:{node_text(name)}"
+    context.graph.nodes[ident] = CodeUnit(
+        id=ident,
+        name=node_text(name),
+        kind=NodeKind.ENUM if node.type == "enum_definition" else NodeKind.STRUCT,
+        location=make_location(node, context.path),
+    )
+    add_contains_edge(context.graph, context.owner, ident)
+
+
+def _parameters(node: Node) -> tuple[Parameter, ...]:
+    parameters = node.child_by_field_name("parameters")
+    if parameters is None:
+        return ()
+    params = []
+    for parameter in walk_owned(parameters):
+        if parameter.type != "function_parameter":
+            continue
+        name = parameter.child_by_field_name("name")
+        annotation = parameter.child_by_field_name("type")
+        if name is not None:
+            params.append(
+                Parameter(node_text(name), TypeRef(node_text(annotation)) if annotation else None)
+            )
+    return tuple(params)
+
+
+def _function(node: Node, context: _Module) -> None:
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return
     name = node_text(name_node)
-    ident = f"{owner}:{name}"
-    if ident in graph.nodes:
+    ident = f"{context.owner}:{name}"
+    if ident in context.graph.nodes:
         ident += f"@{node.start_point.row + 1}_{node.start_point.column}"
-    params = []
-    parameters = node.child_by_field_name("parameters")
-    if parameters is not None:
-        for parameter in walk_owned(parameters):
-            if parameter.type != "function_parameter":
-                continue
-            local = parameter.child_by_field_name("name")
-            annotation = parameter.child_by_field_name("type")
-            if local is not None:
-                params.append(
-                    Parameter(
-                        node_text(local), TypeRef(node_text(annotation)) if annotation else None
-                    )
-                )
-    body = node.child_by_field_name("body")
-    branches = []
-    calls = []
-    bound = {p.name for p in params}
-    if body is not None:
-        nodes = list(walk_owned(body, boundaries=frozenset({"lambda_expression"})))
-        for site in nodes:
-            if site.type == "let_statement":
-                binding = site.child_by_field_name("bind")
-                if binding is not None:
-                    bound.update(
-                        node_text(c)
-                        for c in walk_owned(binding)
-                        if c.type in {"variable_identifier", "identifier"}
-                    )
-            if site.type in {"if_expression", "while_expression", "loop_expression", "match_arm"}:
-                branches.append(BranchInfo(make_location(site, path), site.type))
-            if site.type in {"call_expression", "macro_call_expression"}:
-                expression = next(
-                    (c for c in site.named_children if c.type == "name_expression"), None
-                )
-                access = (
-                    expression.child_by_field_name("access")
-                    if expression is not None
-                    else site.child_by_field_name("access")
-                )
-                if access is not None:
-                    calls.append((site, access))
+    parameters = _parameters(node)
+    branches, calls = _body(node.child_by_field_name("body"), context.path)
     result = node.child_by_field_name("return_type")
-    graph.nodes[ident] = CodeUnit(
+    modifiers = [node_text(c) for c in node.named_children if c.type == "modifier"]
+    context.graph.nodes[ident] = CodeUnit(
         id=ident,
         name=name,
         kind=NodeKind.FUNCTION,
-        location=make_location(node, path),
-        parameters=tuple(params),
+        location=make_location(node, context.path),
+        parameters=parameters,
         return_type=TypeRef(node_text(result).removeprefix(":").strip()) if result else None,
         branches=tuple(branches),
         cyclomatic_complexity=compute_complexity(branches),
         attributes=(
-            ("move_symbol", f"{logical}::{name}"),
-            (
-                "move_entry",
-                any(node_text(c) == "entry" for c in node.named_children if c.type == "modifier"),
-            ),
-            (
-                "move_public",
-                any(
-                    node_text(c).startswith("public")
-                    for c in node.named_children
-                    if c.type == "modifier"
-                ),
-            ),
+            ("move_symbol", f"{context.logical}::{name}"),
+            ("move_entry", "entry" in modifiers),
+            ("move_public", any(m.startswith("public") or m == "package" for m in modifiers)),
         ),
     )
-    add_contains_edge(graph, owner, ident)
-    for site, access in calls:
-        member = access.child_by_field_name("member")
-        raw = node_text(access)
-        if member is not None:
-            # Type application is metadata on access, not a comparison expression.
-            prefix = raw[: member.start_byte - access.start_byte]
-            raw = prefix + node_text(member)
-        if "::" in raw:
-            first, tail = raw.split("::", 1)
-            raw = imports.get(first, first) + "::" + tail
-            target = raw
-        else:
-            raw = imports.get(raw, raw)
-            target = raw if "::" in raw else f"{owner}:{raw}"
-        blocked = raw in bound or root_error(site)
-        if blocked:
-            target = f"{ident}.$binding.{raw}"
-        graph.edges.append(
-            CodeEdge(
-                ident,
-                target,
-                EdgeKind.CALLS,
-                confidence=EdgeConfidence.UNCERTAIN
-                if blocked or "::" in raw
-                else EdgeConfidence.CERTAIN,
-                location=make_location(site, path),
-                attributes=(("binding_blocked", True), ("move_target", raw if not blocked else "")),
-            )
+    add_contains_edge(context.graph, context.owner, ident)
+    for site, access, broken in calls:
+        context.graph.edges.append(_call(site, access, broken, ident, context))
+
+
+def _body(body: Node | None, path: str) -> tuple[list[BranchInfo], list[tuple[Node, Node, bool]]]:
+    branches, calls = [], []
+    pending = [(body, False)] if body is not None else []
+    while pending:
+        node, broken = pending.pop()
+        broken = broken or node.type == "ERROR"
+        if node.type in {
+            "if_expression",
+            "while_expression",
+            "loop_expression",
+            "for_expression",
+            "match_arm",
+        }:
+            branches.append(BranchInfo(make_location(node, path), node.type))
+        if node.type in {"call_expression", "macro_call_expression"}:
+            access = _access(node)
+            if access is not None:
+                calls.append((node, access, broken or node.has_error))
+        pending.extend((child, broken) for child in reversed(node.named_children))
+    return branches, calls
+
+
+def _access(site: Node) -> Node | None:
+    expression = next((c for c in site.named_children if c.type == "name_expression"), None)
+    return (expression or site).child_by_field_name("access")
+
+
+def _call(site: Node, access: Node, broken: bool, ident: str, context: _Module) -> CodeEdge:
+    raw = _access_name(access)
+    local = "::" not in raw
+    parameters = context.graph.nodes[ident].parameters
+    blocked = broken or (
+        local
+        and (
+            any(p.name == raw for p in parameters)
+            or lexical_declaration(site, raw, scopes=_SCOPES, declarations=_BINDINGS) is not None
         )
+    )
+    if "::" in raw:
+        first, tail = raw.split("::", 1)
+        raw = context.imports.get(first, first) + "::" + tail
+    else:
+        raw = context.imports.get(raw, raw)
+    target = raw if "::" in raw else f"{context.owner}:{raw}"
+    if blocked:
+        target = f"{ident}.$binding.{raw}"
+    return CodeEdge(
+        ident,
+        target,
+        EdgeKind.CALLS,
+        confidence=EdgeConfidence.UNCERTAIN if blocked or "::" in raw else EdgeConfidence.CERTAIN,
+        location=make_location(site, context.path),
+        attributes=(("binding_blocked", blocked), ("move_target", raw if not blocked else "")),
+    )
 
 
-def root_error(node: Node) -> bool:
-    """Recovery cannot establish a concrete local callable binding."""
-    while node.parent is not None:
-        node = node.parent
-    return node.has_error
+def _access_name(access: Node) -> str:
+    text = access.text or b""
+    spans = [
+        (n.start_byte - access.start_byte, n.end_byte - access.start_byte)
+        for n in walk_owned(access, boundaries=frozenset({"type_arguments"}))
+        if n.type == "type_arguments"
+    ]
+    for start, end in reversed(spans):
+        text = text[:start] + text[end:]
+    return text.decode().removesuffix("!")
 
 
 def _link_calls(graph: CodeGraph) -> None:
@@ -246,6 +263,14 @@ def _link_calls(graph: CodeGraph) -> None:
         raw = dict(edge.attributes).get("move_target")
         candidates = symbols.get(raw, []) if isinstance(raw, str) else []
         if len(candidates) == 1:
-            edge = replace(edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED)
+            source = graph.nodes[edge.source_id]
+            target = graph.nodes[candidates[0]]
+            edge = replace(
+                edge,
+                target_id=target.id,
+                confidence=EdgeConfidence.CERTAIN
+                if source.location.file_path == target.location.file_path
+                else EdgeConfidence.INFERRED,
+            )
         edges.append(edge)
     graph.edges[:] = edges

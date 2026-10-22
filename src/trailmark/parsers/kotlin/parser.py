@@ -32,6 +32,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -51,6 +52,7 @@ from trailmark.parsers._declarations import (
     bind_lexical_calls,
     callable_scope,
 )
+from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
 _EXTENSIONS = (".kt", ".kts")
@@ -92,6 +94,7 @@ class KotlinParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("kotlin"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Kotlin file into a CodeGraph."""
         source = Path(file_path).read_bytes()
@@ -140,6 +143,7 @@ def _visit_top_level_node(
                 _extract_import(header, graph)
 
 
+@bounded_nesting
 def _extract_class_like(
     node: Node,
     file_path: str,

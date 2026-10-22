@@ -11,6 +11,7 @@ from pathlib import Path
 from tree_sitter import Node, Parser
 from tree_sitter_language_pack import get_language
 
+from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import BranchInfo, CodeUnit, NodeKind, Parameter, TypeRef
@@ -358,6 +359,15 @@ class JuliaParser:
                     continue
                 if node.type == "macrocall_expression" and not _transparent(node):
                     mutated = True
+                    graph.parse_diagnostics.append(
+                        ParseDiagnostic(
+                            "julia",
+                            "julia",
+                            make_location(node, file_path),
+                            "unsupported_syntax",
+                            "Julia macro expansion skipped",
+                        )
+                    )
                     _LOG.warning(
                         "Julia macro expansion skipped in %s at line %s",
                         file_path,

@@ -67,12 +67,13 @@ def test_balanced_body_recovery_preserves_span_calls_and_following_owner(
         parse_file(str(tmp_path / "sample.c"), "c", strict=True)
 
 
-def test_conditional_braces_are_not_recovered_as_one_configuration(tmp_path: Path) -> None:
+def test_brace_neutral_conditional_groups_allow_recovery(tmp_path: Path) -> None:
     source = BLOCKS.replace(" BLOCK_BEGIN { first();", "#if OPTION\n BLOCK_BEGIN { first();")
     source = source.replace(" final_step();", "#endif\n final_step();")
     graph = _parse(tmp_path, source)
     assert graph.parse_diagnostics
-    assert not any(dict(unit.attributes).get("syntax_recovered") for unit in graph.nodes.values())
+    assert dict(graph.nodes["sample:action"].attributes)["syntax_recovered"]
+    assert "sample:final_step" in _calls(graph, "action")
 
 
 def test_ordinary_nested_blocks_and_typedefs_keep_normal_calls(tmp_path: Path) -> None:
@@ -121,7 +122,7 @@ def test_macro_signature_aliases_from_quoted_header_keep_body_owners(tmp_path: P
         "#define DECL(n) _Static_assert(1, #n)\n",
     ],
 )
-def test_unsupported_macro_signatures_remain_distinct_and_unbound(
+def test_unsupported_macro_signatures_keep_distinct_owners_and_targets(
     tmp_path: Path, definition: str
 ) -> None:
     graph = _parse(
@@ -132,7 +133,15 @@ def test_unsupported_macro_signatures_remain_distinct_and_unbound(
     for name in ("DECL(left)", "DECL(right)"):
         unit = graph.nodes[f"sample:{name}"]
         assert dict(unit.attributes)["macro_signature_unresolved"]
-        assert all(target.startswith("proxy.") for target in _calls(graph, name))
+        assert _calls(graph, name) == {"sample:helper"}
+        edges = [
+            edge
+            for edge in graph.edges
+            if edge.source_id == unit.id and edge.kind == EdgeKind.CALLS
+        ]
+        assert all(edge.confidence == EdgeConfidence.UNCERTAIN for edge in edges)
+        assert all(dict(edge.attributes)["macro_signature_unresolved"] for edge in edges)
+        assert not any(dict(edge.attributes).get("binding_blocked") for edge in edges)
         assert unit.parameters == ()
     assert any(item.kind == "unsupported_syntax" for item in graph.parse_diagnostics)
 
@@ -197,11 +206,12 @@ void action(void) { hooks.start(); other.start(); }
 
 
 def test_incomplete_caller_does_not_infer_callback_table_targets(tmp_path: Path) -> None:
-    source = BLOCKS.split("void first")[0] + CALLBACKS.replace(
-        "hooks.start(); other.start();",
-        "BLOCK_BEGIN { hooks.start(); } BLOCK_RESCUE { other.start(); } BLOCK_END();",
+    declarations = CALLBACKS.split("void action")[0]
+    source = declarations + BLOCKS.replace("first();", "hooks.start();").replace(
+        "second();", "other.start();"
     )
     graph = _parse(tmp_path, source)
+    assert dict(graph.nodes["sample:action"].attributes)["syntax_recovered"]
     assert dict(graph.nodes["sample:action"].attributes)["parse_incomplete"]
     assert not ({"sample:setup", "sample:alternate"} & _calls(graph, "action"))
     assert not any(dict(edge.attributes).get("callback_table") for edge in graph.edges)

@@ -30,7 +30,7 @@ def discover_callables(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
-    extract: Callable[[Node, str, str, bool], None],
+    extract: Callable[[Node, str, str, bool], str | None],
 ) -> None:
     """Preserve nested and anonymous bodies without implying their execution."""
     by_location = {
@@ -49,8 +49,15 @@ def discover_callables(
             node_id = by_location.get(position)
             if node_id is None:
                 name = _callable_name(node)
-                extract(node, name, owner, class_owner)
-                node_id = f"{module_id}:{name}" if owner == module_id else f"{owner}.{name}"
+                if (
+                    node.type == "method_definition"
+                    and node.parent is not None
+                    and node.parent.type == "object"
+                ):
+                    name = f"{_object_binding(node.parent)}.{name}"
+                node_id = extract(node, name, owner, class_owner)
+                if node_id is None:
+                    continue
             owner, class_owner = node_id, False
         elif node.type in {"class_declaration", "class"}:
             position = (node.start_point.row + 1, node.start_point.column)
@@ -90,3 +97,24 @@ def _callable_name(node: Node) -> str:
         if parent.type == "export_statement":
             return "default"
     return f"$lambda@{node.start_point.row + 1}_{node.start_point.column}"
+
+
+def _object_binding(node: Node) -> str:
+    parts = []
+    current: Node | None = node
+    while current is not None:
+        parent = current.parent
+        if parent is None:
+            break
+        field = {"variable_declarator": "name", "assignment_expression": "left", "pair": "key"}.get(
+            parent.type
+        )
+        binding = parent.child_by_field_name(field) if field else None
+        if binding is not None:
+            parts.append(node_text(binding))
+        if parent.type != "pair":
+            break
+        current = parent.parent
+    return (
+        ".".join(reversed(parts)) or f"$object@{node.start_point.row + 1}_{node.start_point.column}"
+    )

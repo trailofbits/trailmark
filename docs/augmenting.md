@@ -37,8 +37,11 @@ unmatched.
 
 SARIF artifact indices resolve through the run's `artifacts` array. Relative
 URIs with `uriBaseId` resolve through chained `originalUriBaseIds` before source
-matching. Unknown or cyclic bases and invalid indices remain unmatched rather
-than binding to a same-named file under the analysis root.
+matching. Undefined base IDs (including Semgrep's `%SRCROOT%`) retain the
+analysis-root-relative path behavior. Defined bases must be directory URIs ending
+in `/`; malformed, cyclic, or overly deep chains and invalid artifact indices
+remain unmatched. Resolution is cached per run and capped at 32 links. Relative
+paths cannot climb above a defined base, including encoded `..` segments.
 
 | Input | Annotation | `source` | Subgraphs created |
 | --- | --- | --- | --- |

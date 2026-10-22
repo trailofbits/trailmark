@@ -128,6 +128,15 @@
       "kind": "calls",
       "source": "taxonomy:Taxonomy.<script>",
       "target": "taxonomy:Taxonomy.main"
+    },
+    {
+      "attributes": {
+        "deferred": true
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.main",
+      "target": "taxonomy:Taxonomy.main.<lambda>@372"
     }
   ],
   "language": "julia",
@@ -501,7 +510,7 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 8,
+    "call_edges": 9,
     "classes": 0,
     "dependencies": [
       "LinearAlgebra"

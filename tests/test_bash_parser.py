@@ -134,7 +134,12 @@ def test_repeated_and_nested_definitions_keep_separate_bodies(tmp_path: Path) ->
     outer_calls = [
         e for e in graph.edges if e.kind == EdgeKind.CALLS and e.source_id == "sample:outer"
     ]
-    assert len(outer_calls) == 1 and "fourth" in outer_calls[0].target_id
+    assert len(outer_calls) == 2
+    assert any("fourth" in e.target_id for e in outer_calls)
+    assert any(
+        e.target_id == "sample:outer.inner" and dict(e.attributes).get("deferred")
+        for e in outer_calls
+    )
 
 
 def test_script_entrypoint_override_reaches_helper(tmp_path: Path) -> None:

@@ -26,6 +26,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -64,16 +65,13 @@ class RubyParser:
         graph = CodeGraph(language="ruby", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
+        _bind_ruby_methods(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
-        """Parse all .rb files under dir_path into a merged graph."""
-        return parse_directory(
-            self.parse_file,
-            "ruby",
-            dir_path,
-            _EXTENSIONS,
-        )
+        graph = parse_directory(self.parse_file, "ruby", dir_path, _EXTENSIONS)
+        _bind_ruby_methods(graph)
+        return graph
 
 
 def _visit_module(
@@ -111,6 +109,7 @@ def _visit_top_level_node(
         _check_require(child, graph)
 
 
+@bounded_nesting
 def _extract_class(
     node: Node,
     file_path: str,
@@ -125,9 +124,9 @@ def _extract_class(
     class_name = node_text(name_node)
     owner = container_id or module_id
     class_id = (
-        f"{owner}.{class_name.replace(chr(58) * 2, chr(46))}"
+        f"{owner}.{class_name.replace('::', '.')}"
         if container_id
-        else f"{owner}:{class_name.replace(chr(58) * 2, chr(46))}"
+        else f"{owner}:{class_name.replace('::', '.')}"
     )
     location = make_location(node, file_path)
 
@@ -145,6 +144,7 @@ def _extract_class(
     _visit_class_body(node, file_path, module_id, class_id, graph)
 
 
+@bounded_nesting
 def _extract_ruby_module(
     node: Node,
     file_path: str,
@@ -218,42 +218,14 @@ def _visit_class_body(
     body = node.child_by_field_name("body")
     if body is None:
         return
-    superclass = node.child_by_field_name("superclass")
-    controller = (
-        superclass is not None
-        and _extract_superclass_name(superclass).rsplit("::", 1)[-1]
-        in {"ApplicationController", "Base", "API"}
-        and (
-            _extract_superclass_name(superclass) == "ApplicationController"
-            or _extract_superclass_name(superclass).startswith("ActionController::")
-        )
-    )
-    worker = any(
-        child.type == "call"
-        and (method := child.child_by_field_name("method")) is not None
-        and node_text(method) == "include"
-        and (args := child.child_by_field_name("arguments")) is not None
-        and any(
-            node_text(arg) in {"Sidekiq::Worker", "Sidekiq::Job"} for arg in args.named_children
-        )
-        for child in body.named_children
-    )
+    controller, worker = _class_traits(node, body)
     visibility = "public"
     named_visibility = {}
     for child in body.named_children:
         if child.type == "identifier" and node_text(child) in {"private", "protected", "public"}:
             visibility = node_text(child)
         elif child.type == "call":
-            method = child.child_by_field_name("method")
-            args = child.child_by_field_name("arguments")
-            if (
-                method is not None
-                and node_text(method) in {"private", "protected", "public"}
-                and args is not None
-            ):
-                for arg in args.named_children:
-                    if arg.type == "simple_symbol":
-                        named_visibility[node_text(arg).removeprefix(":")] = node_text(method)
+            _named_visibility(child, named_visibility)
         elif child.type in {"method", "singleton_method"}:
             _extract_function(
                 child,
@@ -266,30 +238,12 @@ def _visit_class_body(
                 controller=controller,
                 worker=worker,
             )
-        elif child.type == "class":
-            _extract_class(child, file_path, module_id, graph, class_id)
-        elif child.type == "module":
-            _extract_ruby_module(child, file_path, module_id, graph, class_id)
-        elif (
-            child.type == "singleton_class"
-            and (value := child.child_by_field_name("value")) is not None
-            and value.type == "self"
-        ):
+        elif child.type in {"class", "module"}:
+            extractor = _extract_class if child.type == "class" else _extract_ruby_module
+            extractor(child, file_path, module_id, graph, class_id)
+        elif _self_singleton(child):
             _visit_class_body(child, file_path, module_id, class_id, graph, singleton=True)
-    owned = {
-        edge.target_id
-        for edge in graph.edges
-        if edge.kind == EdgeKind.CONTAINS and edge.source_id == class_id
-    }
-    for unit in list(graph.nodes.values()):
-        if (
-            unit.id in owned
-            and unit.name in named_visibility
-            and dict(unit.attributes).get("ruby_receiver") == "instance"
-        ):
-            attributes = dict(unit.attributes)
-            attributes["ruby_visibility"] = named_visibility[unit.name]
-            graph.nodes[unit.id] = replace(unit, attributes=tuple(attributes.items()))
+    _apply_named_visibility(graph, class_id, named_visibility)
 
 
 def _extract_function(
@@ -311,73 +265,21 @@ def _extract_function(
     func_name = node_text(name_node)
 
     singleton = singleton or node.type == "singleton_method"
-    if class_id is not None:
-        func_id = f"{class_id}.{'self.' if singleton else ''}{func_name}"
-        kind = NodeKind.METHOD
-        container_id = class_id
-    else:
-        func_id = f"{module_id}:{func_name}"
-        kind = NodeKind.FUNCTION
-        container_id = module_id
-
+    func_id, kind, container_id = _function_identity(module_id, class_id, func_name, singleton)
     params = _extract_parameters(node)
     body = node.child_by_field_name("body")
 
-    branches: list[BranchInfo] = []
-    exception_types: list[TypeRef] = []
-    calls: list[tuple[str, Node]] = []
-
-    if body is not None:
-        _collect_ruby_body_info(
-            body,
-            file_path,
-            branches,
-            exception_types,
-            calls,
-        )
-
-    if body is not None:
-        bound = {p.name for p in params}
-        for current in walk_owned(
-            body, boundaries=frozenset({"lambda", "method", "singleton_method"})
-        ):
-            if current.type == "assignment":
-                left = current.child_by_field_name("left")
-                if left is not None and left.type == "identifier":
-                    bound.add(node_text(left))
-        for current in walk_owned(
-            body, boundaries=frozenset({"lambda", "method", "singleton_method"})
-        ):
-            if (
-                current.type != "identifier"
-                or node_text(current) in bound
-                or _block_bound(current)
-                or current.parent is None
-            ):
-                continue
-            parent = current.parent
-            if parent.type in {
-                "call",
-                "assignment",
-                "method_parameters",
-                "block_parameters",
-                "lambda_parameters",
-            }:
-                continue
-            calls.append((node_text(current), current))
-        calls.sort(key=lambda call: call[1].start_byte)
-    complexity = compute_complexity(branches)
-    location = make_location(node, file_path)
+    branches, exception_types, calls, bound = _ruby_body_info(body, file_path, params)
 
     unit = CodeUnit(
         id=func_id,
         name=func_name,
         kind=kind,
-        location=location,
+        location=make_location(node, file_path),
         parameters=tuple(params),
         return_type=None,
         exception_types=tuple(exception_types),
-        cyclomatic_complexity=complexity,
+        cyclomatic_complexity=compute_complexity(branches),
         branches=tuple(branches),
         docstring=_extract_docstring(node),
         attributes=(
@@ -397,6 +299,7 @@ def _extract_function(
         class_id,
         file_path,
         graph,
+        bound=bound,
     )
 
 
@@ -407,6 +310,8 @@ def _add_call_edges(
     class_id: str | None,
     file_path: str,
     graph: CodeGraph,
+    *,
+    bound: set[str],
 ) -> None:
     """Add CALLS edges for all collected call sites."""
     for call_name, call_node in calls:
@@ -417,11 +322,13 @@ def _add_call_edges(
         )
         confidence = _call_confidence(call_name)
         bare = "." not in call_name or call_name.startswith("self.")
-        if class_id is not None and bare:
-            receiver = dict(graph.nodes[func_id].attributes).get("ruby_receiver")
-            prefix = "self." if receiver == "singleton" else ""
-            target_id = f"{class_id}.{prefix}{call_name.removeprefix('self.')}"
-        blocked = class_id is not None and bare
+        blocked = "." not in call_name and call_name in bound
+        attributes: tuple[tuple[str, str | bool], ...] = (("binding_blocked", blocked),)
+        if bare:
+            attributes += (("ruby_bare_name", call_name.removeprefix("self.")),)
+        if blocked:
+            target_id = f"{func_id}.$binding.{call_name}"
+            confidence = EdgeConfidence.UNCERTAIN
 
         graph.edges.append(
             CodeEdge(
@@ -430,7 +337,7 @@ def _add_call_edges(
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
                 location=make_location(call_node, file_path),
-                attributes=(("binding_blocked", blocked),),
+                attributes=attributes,
             )
         )
 
@@ -658,3 +565,208 @@ def _resolve_call_target(
     if "." not in call_name:
         return f"{module_id}:{call_name}"
     return call_name
+
+
+def _ruby_bound_names(body: Node) -> set[str]:
+    bound = set()
+    for node in walk_owned(body, boundaries=frozenset({"lambda", "method", "singleton_method"})):
+        field = {"assignment": "left", "operator_assignment": "left", "for": "pattern"}.get(
+            node.type
+        )
+        pattern = node.child_by_field_name(field) if field else None
+        if node.type == "exception_variable":
+            pattern = node
+        if pattern is not None:
+            bound.update(node_text(n) for n in walk_owned(pattern) if n.type == "identifier")
+    return bound
+
+
+def _bind_ruby_methods(graph: CodeGraph) -> None:
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    bases: dict[str, list[str]] = {}
+    methods: dict[tuple[str, str, str], list[str]] = {}
+    for edge in graph.edges:
+        if edge.kind == EdgeKind.INHERITS:
+            bases.setdefault(edge.source_id, []).append(edge.target_id)
+    for unit in graph.nodes.values():
+        receiver = dict(unit.attributes).get("ruby_receiver")
+        if unit.kind == NodeKind.METHOD and isinstance(receiver, str):
+            methods.setdefault((owners.get(unit.id, ""), unit.name, receiver), []).append(unit.id)
+    graph.edges[:] = [_ruby_method_edge(e, graph, owners, bases, methods) for e in graph.edges]
+
+
+def _ruby_method_edge(
+    edge: CodeEdge,
+    graph: CodeGraph,
+    owners: dict[str, str],
+    bases: dict[str, list[str]],
+    methods: dict[tuple[str, str, str], list[str]],
+) -> CodeEdge:
+    attributes = dict(edge.attributes)
+    name = attributes.get("ruby_bare_name")
+    source = graph.nodes.get(edge.source_id)
+    if not isinstance(name, str) or source is None or attributes.get("binding_blocked"):
+        return edge
+    owner = owners.get(source.id, "")
+    receiver = str(dict(source.attributes).get("ruby_receiver", "instance"))
+    candidates = _ruby_candidates(owner, name, receiver, bases, methods)
+    if len(candidates) == 1:
+        target = candidates[0]
+        return replace(
+            edge,
+            target_id=target,
+            confidence=EdgeConfidence.CERTAIN
+            if owners.get(target) == owner
+            else EdgeConfidence.INFERRED,
+        )
+    if candidates:
+        return replace(
+            edge, target_id=f"{owner}.{name}@ambiguous", confidence=EdgeConfidence.UNCERTAIN
+        )
+    # Bare Kernel/global calls keep the module/global lookup path.
+    if edge.target_id.startswith(owner + "."):
+        return replace(edge, target_id=f"{source.id.split(':', 1)[0]}:{name}")
+    return edge
+
+
+def _ruby_candidates(
+    owner: str,
+    name: str,
+    receiver: str,
+    bases: dict[str, list[str]],
+    methods: dict[tuple[str, str, str], list[str]],
+) -> list[str]:
+    pending, seen, result = [owner], set(), []
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        local = methods.get((current, name, receiver), [])
+        if local:
+            result.extend(local)
+        else:
+            pending.extend(bases.get(current, ()))
+    return result
+
+
+def _ruby_body_info(
+    body: Node | None, file_path: str, params: list[Parameter]
+) -> tuple[list[BranchInfo], list[TypeRef], list[tuple[str, Node]], set[str]]:
+    bound = {p.name for p in params}
+    branches: list[BranchInfo] = []
+    exception_types: list[TypeRef] = []
+    calls: list[tuple[str, Node]] = []
+
+    if body is not None:
+        _collect_ruby_body_info(
+            body,
+            file_path,
+            branches,
+            exception_types,
+            calls,
+        )
+
+    if body is not None:
+        bound.update(_ruby_bound_names(body))
+        for current in walk_owned(
+            body, boundaries=frozenset({"lambda", "method", "singleton_method"})
+        ):
+            if (
+                current.type != "identifier"
+                or node_text(current) in bound
+                or _block_bound(current)
+                or current.parent is None
+            ):
+                continue
+            parent = current.parent
+            if parent.type in {
+                "call",
+                "assignment",
+                "method_parameters",
+                "block_parameters",
+                "lambda_parameters",
+                "left_assignment_list",
+                "exception_variable",
+                "for",
+            }:
+                continue
+            calls.append((node_text(current), current))
+        calls.sort(key=lambda call: call[1].start_byte)
+    return branches, exception_types, calls, bound
+
+
+def _class_traits(node: Node, body: Node) -> tuple[bool, bool]:
+    superclass = node.child_by_field_name("superclass")
+    controller = (
+        superclass is not None
+        and _extract_superclass_name(superclass).rsplit("::", 1)[-1]
+        in {"ApplicationController", "Base", "API"}
+        and (
+            _extract_superclass_name(superclass) == "ApplicationController"
+            or _extract_superclass_name(superclass).startswith("ActionController::")
+        )
+    )
+    worker = any(
+        child.type == "call"
+        and (method := child.child_by_field_name("method")) is not None
+        and node_text(method) == "include"
+        and (args := child.child_by_field_name("arguments")) is not None
+        and any(
+            node_text(arg) in {"Sidekiq::Worker", "Sidekiq::Job"} for arg in args.named_children
+        )
+        for child in body.named_children
+    )
+    return controller, worker
+
+
+def _apply_named_visibility(
+    graph: CodeGraph, class_id: str, named_visibility: dict[str, str]
+) -> None:
+    owned = {
+        edge.target_id
+        for edge in graph.edges
+        if edge.kind == EdgeKind.CONTAINS and edge.source_id == class_id
+    }
+    for unit in list(graph.nodes.values()):
+        if (
+            unit.id in owned
+            and unit.name in named_visibility
+            and dict(unit.attributes).get("ruby_receiver") == "instance"
+        ):
+            attributes = dict(unit.attributes)
+            attributes["ruby_visibility"] = named_visibility[unit.name]
+            graph.nodes[unit.id] = replace(unit, attributes=tuple(attributes.items()))
+
+
+def _function_identity(
+    module_id: str, class_id: str | None, func_name: str, singleton: bool
+) -> tuple[str, NodeKind, str]:
+    if class_id is not None:
+        func_id = f"{class_id}.{'self.' if singleton else ''}{func_name}"
+        kind = NodeKind.METHOD
+        container_id = class_id
+    else:
+        func_id = f"{module_id}:{func_name}"
+        kind = NodeKind.FUNCTION
+        container_id = module_id
+
+    return func_id, kind, container_id
+
+
+def _named_visibility(child: Node, named_visibility: dict[str, str]) -> None:
+    method = child.child_by_field_name("method")
+    args = child.child_by_field_name("arguments")
+    if (
+        method is not None
+        and node_text(method) in {"private", "protected", "public"}
+        and args is not None
+    ):
+        for arg in args.named_children:
+            if arg.type == "simple_symbol":
+                named_visibility[node_text(arg).removeprefix(":")] = node_text(method)
+
+
+def _self_singleton(child: Node) -> bool:
+    value = child.child_by_field_name("value")
+    return child.type == "singleton_class" and value is not None and value.type == "self"

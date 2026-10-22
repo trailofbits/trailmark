@@ -25,6 +25,9 @@ from trailmark.models.nodes import (
     TypeRef,
 )
 from trailmark.parsers._binding import resolve_inherited_method_calls
+from trailmark.parsers._binding_index import initialize_bindings, record_unit
+from trailmark.parsers._php_linking import link_php_functions
+from trailmark.parsers._walk import walk_owned
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -327,8 +330,11 @@ def add_module_node(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    *,
+    grammar: str | None = None,
 ) -> None:
     """Create a MODULE node and add it to the graph."""
+    initialize_bindings(root)
     module_loc = make_location(root, file_path)
     module_unit = CodeUnit(
         id=module_id,
@@ -337,22 +343,61 @@ def add_module_node(
         location=module_loc,
     )
     graph.nodes[module_id] = module_unit
-    if root.has_error:
-        from trailmark.parsers._walk import walk_owned
+    if root.has_error and not _comments_only(root):
+        seen = set(graph.parse_diagnostics)
+        graph.parse_diagnostics.extend(
+            _syntax_diagnostics(root, file_path, graph.language, grammar, seen)
+        )
 
-        for node in walk_owned(root, named_only=False):
-            if node.type == "ERROR" or node.is_missing:
-                diagnostic = ParseDiagnostic(
-                    language="c_sharp" if graph.language == "csharp" else graph.language,
-                    grammar=graph.language,
-                    location=make_location(node, file_path),
-                    kind="missing_syntax" if node.is_missing else "syntax_error",
-                    message=f"Missing {node.type}"
-                    if node.is_missing
-                    else "Grammar could not parse this source range",
-                )
-                if diagnostic not in graph.parse_diagnostics:
-                    graph.parse_diagnostics.append(diagnostic)
+
+def _comments_only(root: Node) -> bool:
+    source = root.text or b""
+    if not source.strip():
+        return True
+    cursor = 0
+    for node in walk_owned(root):
+        if "comment" not in node.type:
+            if node != root and not node.named_children and (node.text or b"").strip():
+                return False
+            continue
+        start, end = node.start_byte - root.start_byte, node.end_byte - root.start_byte
+        if start < cursor:
+            continue
+        if source[cursor:start].strip():
+            return False
+        cursor = end
+    return not source[cursor:].strip()
+
+
+def _syntax_diagnostics(
+    root: Node, path: str, language: str, grammar: str | None, seen: set[ParseDiagnostic]
+) -> Iterator[ParseDiagnostic]:
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        pending.extend(
+            reversed(
+                [
+                    child
+                    for child in node.children
+                    if child.has_error or child.is_missing or child.type == "ERROR"
+                ]
+            )
+        )
+        if node.type != "ERROR" and not node.is_missing:
+            continue
+        diagnostic = ParseDiagnostic(
+            language="c_sharp" if language == "csharp" else language,
+            grammar=grammar or language,
+            location=make_location(node, path),
+            kind="missing_syntax" if node.is_missing else "syntax_error",
+            message=f"Missing {node.type}"
+            if node.is_missing
+            else "Grammar could not parse this source range",
+        )
+        if diagnostic not in seen:
+            seen.add(diagnostic)
+            yield diagnostic
 
 
 def add_contains_edge(
@@ -361,6 +406,9 @@ def add_contains_edge(
     child_id: str,
 ) -> None:
     """Add a CONTAINS edge from container to child."""
+    unit = graph.nodes.get(child_id)
+    if unit is not None:
+        record_unit(unit)
     graph.edges.append(
         CodeEdge(
             source_id=container_id,
@@ -525,8 +573,33 @@ def link_cross_file_calls(graph: CodeGraph, *, eligible_ids: set[str] | None = N
     exact targets are retained; overloaded and ambiguous names stay unresolved.
     A unique name across files is a heuristic, so its confidence is inferred.
     """
+    if graph.language == "php":
+        link_php_functions(graph)
+        return
+    name_to_ids = _free_functions(graph, eligible_ids)
+    new_edges: list[CodeEdge] = []
+    for edge in graph.edges:
+        if not _needs_cross_file_target(edge, graph, eligible_ids):
+            new_edges.append(edge)
+            continue
+        candidates = _cross_file_candidates(edge, graph, name_to_ids)
+        if len(candidates) == 1:
+            edge = dataclasses.replace(
+                edge,
+                target_id=candidates[0],
+                confidence=EdgeConfidence.UNCERTAIN
+                if edge.confidence == EdgeConfidence.UNCERTAIN
+                else EdgeConfidence.INFERRED,
+            )
+        elif candidates:
+            edge = dataclasses.replace(edge, confidence=EdgeConfidence.UNCERTAIN)
+        new_edges.append(edge)
+    graph.edges[:] = new_edges
+
+
+def _free_functions(graph: CodeGraph, eligible_ids: set[str] | None) -> dict[str, list[str]]:
     owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
-    name_to_ids: dict[str, list[str]] = {}
+    names: dict[str, list[str]] = {}
     for node_id, unit in graph.nodes.items():
         owner = graph.nodes.get(owners.get(node_id, ""))
         if (
@@ -534,55 +607,45 @@ def link_cross_file_calls(graph: CodeGraph, *, eligible_ids: set[str] | None = N
             and (eligible_ids is None or node_id in eligible_ids)
             and (owner is None or owner.kind not in {NodeKind.FUNCTION, NodeKind.METHOD})
         ):
-            name_to_ids.setdefault(unit.name, []).append(node_id)
-    new_edges: list[CodeEdge] = []
-    for edge in graph.edges:
-        if (
-            edge.kind != EdgeKind.CALLS
-            or edge.target_id in graph.nodes
-            or dict(edge.attributes).get("binding_blocked")
-            or (eligible_ids is not None and edge.source_id not in eligible_ids)
-        ):
-            new_edges.append(edge)
-            continue
-        target = edge.target_id
-        bare_name = target.rsplit(":", 1)[-1]
-        if "::" in target or "->" in target or "." in bare_name:
-            new_edges.append(edge)
-            continue
-        source = graph.nodes.get(edge.source_id)
+            names.setdefault(unit.name, []).append(node_id)
+    return names
+
+
+def _needs_cross_file_target(
+    edge: CodeEdge, graph: CodeGraph, eligible_ids: set[str] | None
+) -> bool:
+    if (
+        edge.kind != EdgeKind.CALLS
+        or edge.target_id in graph.nodes
+        or dict(edge.attributes).get("binding_blocked")
+        or (eligible_ids is not None and edge.source_id not in eligible_ids)
+    ):
+        return False
+    target = edge.target_id
+    return "::" not in target and "->" not in target and "." not in target.rsplit(":", 1)[-1]
+
+
+def _cross_file_candidates(
+    edge: CodeEdge, graph: CodeGraph, names: dict[str, list[str]]
+) -> list[str]:
+    source = graph.nodes.get(edge.source_id)
+    candidates = [
+        candidate
+        for candidate in names.get(edge.target_id.rsplit(":", 1)[-1], [])
+        if not dict(graph.nodes[candidate].attributes).get("internal_linkage")
+        or source is not None
+        and source.location.file_path == graph.nodes[candidate].location.file_path
+    ]
+    if source is not None and "go_package" in dict(source.attributes):
         candidates = [
             candidate
-            for candidate in name_to_ids.get(bare_name, [])
-            if not dict(graph.nodes[candidate].attributes).get("internal_linkage")
-            or source is not None
-            and source.location.file_path == graph.nodes[candidate].location.file_path
+            for candidate in candidates
+            if Path(graph.nodes[candidate].location.file_path).parent
+            == Path(source.location.file_path).parent
+            and dict(graph.nodes[candidate].attributes).get("go_package")
+            == dict(source.attributes).get("go_package")
         ]
-        if source is not None and "go_package" in dict(source.attributes):
-            source = graph.nodes.get(edge.source_id)
-            if source is not None:
-                candidates = [
-                    candidate
-                    for candidate in candidates
-                    if Path(graph.nodes[candidate].location.file_path).parent
-                    == Path(source.location.file_path).parent
-                    and dict(graph.nodes[candidate].attributes).get("go_package")
-                    == dict(source.attributes).get("go_package")
-                ]
-        if len(candidates) == 1:
-            edge = dataclasses.replace(
-                edge,
-                target_id=candidates[0],
-                confidence=(
-                    EdgeConfidence.UNCERTAIN
-                    if edge.confidence == EdgeConfidence.UNCERTAIN
-                    else EdgeConfidence.INFERRED
-                ),
-            )
-        elif candidates:
-            edge = dataclasses.replace(edge, confidence=EdgeConfidence.UNCERTAIN)
-        new_edges.append(edge)
-    graph.edges[:] = new_edges
+    return candidates
 
 
 def link_type_relationships(graph: CodeGraph) -> None:

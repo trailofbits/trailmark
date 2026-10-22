@@ -60,7 +60,11 @@ sub main { my sub helper {}; helper(); $cb->(); $obj->helper(); Missing::helper(
     )
     (tmp_path / "other.pm").write_text("package Missing; sub helper {}")
     graph = parse_directory(str(tmp_path), language="auto")
-    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and not dict(e.attributes).get("deferred")
+    ]
     assert len(calls) == 4 and all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
     assert detect_languages(str(tmp_path)) == ["perl"]
     assert graph.source_file_counts == {"perl": 2}

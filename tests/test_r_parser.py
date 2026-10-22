@@ -33,7 +33,11 @@ main = function() { inner <- function(z) helper(z); inner(1); other(2) }
     assert [p.name for p in helper.parameters] == ["x", "y", "..."]
     assert helper.parameters[1].default == "1" and helper.cyclomatic_complexity == 2
     assert "sample:other" in graph.nodes and "sample:main.inner" in graph.nodes
-    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and not dict(e.attributes).get("deferred")
+    ]
     assert len(calls) == 5 and all(e.confidence == EdgeConfidence.INFERRED for e in calls)
     assert QueryEngine.from_directory(str(tmp_path), language="auto").entrypoint_paths_to("helper")
 
@@ -48,7 +52,11 @@ lapply(xs, function(helper) helper())
     )
     (tmp_path / "other.r").write_text("helper <- function() 2")
     graph = parse_directory(str(tmp_path), language="auto")
-    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and not dict(e.attributes).get("deferred")
+    ]
     assert len(calls) == 5 and all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
     anonymous = [u for u in graph.nodes.values() if u.name.startswith("<lambda>")]
     assert len(anonymous) == 1

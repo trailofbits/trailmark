@@ -175,3 +175,6 @@ editing the file to confirm the result.
 VB.NET: explicit Module/Shared Main methods with the supported CLI signature
 are detected case-insensitively; instance Main and generated framework startup
 methods require overrides. See [VB.NET](languages.md#vbnet).
+
+An explicit override `node` key that matches no declaration emits a warning.
+Rebuild overrides after parser identity changes; see [skills compatibility](skills-compatibility.md).

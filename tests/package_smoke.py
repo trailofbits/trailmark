@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 import tree_sitter_sql
 
 from trailmark.models.edges import EdgeKind
-from trailmark.parse import parse_directory, supported_languages
+from trailmark.parse import parse_directory, parse_file, supported_languages
 from trailmark.parsers.rust.parser import RustParser
 
 
@@ -70,6 +70,8 @@ def _check_distribution_metadata() -> None:
         raise RuntimeError(
             "trailmark distribution does not include the bundled Move grammar license"
         )
+    if not any(str(path).endswith("tree_sitter_custom/move/NOTICE") for path in trailmark_files):
+        raise RuntimeError("trailmark distribution does not include the bundled Move notices")
     binaries = [str(p) for p in trailmark_files if str(p).endswith((".so", ".pyd", ".dylib"))]
     if binaries:
         raise RuntimeError(
@@ -77,10 +79,24 @@ def _check_distribution_metadata() -> None:
         )
 
 
+def _check_installed_move_parser() -> None:
+    with TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "bank.move"
+        path.write_text(
+            "module 0x1::bank { struct Account has key { value: u64 } "
+            "fun helper() {} package fun check() acquires Account { helper(); } }"
+        )
+        graph = parse_file(str(path), "move", strict=True)
+    calls = {(e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS}
+    if calls != {("bank:0x1::bank:check", "bank:0x1::bank:helper")}:
+        raise RuntimeError("installed Move grammar did not produce the expected call graph")
+
+
 def main() -> None:
     _check_parser_fixtures(Path(sys.argv[1]).resolve())
     _check_distribution_metadata()
     _check_installed_verus_parser()
+    _check_installed_move_parser()
 
 
 if __name__ == "__main__":

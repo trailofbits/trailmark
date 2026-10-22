@@ -122,9 +122,11 @@ def parse_file(path: str, language: str | None = None, *, strict: bool = False) 
         path: Source file to parse.
         language: Optional explicit parser language. If omitted, language is
             inferred from the file extension.
+        strict: Reject parse or unsupported-syntax diagnostics.
 
     Raises:
-        ValueError: If the language is unsupported or cannot be inferred.
+        ValueError: If the language is unsupported, cannot be inferred, or
+            strict mode finds parse diagnostics.
     """
     file_path = Path(path)
     resolved_language = _resolve_file_language(file_path, language)
@@ -147,6 +149,8 @@ def parse_directory(
     Raises ``ValueError`` for a missing/non-directory root or zero inspected
     source files. ``allow_empty=True`` permits the latter. Coverage is recorded
     in ``CodeGraph.source_file_counts``, including declaration-free files.
+    ``strict=True`` raises ``ValueError`` when any file has parse or
+    unsupported-syntax diagnostics.
     """
     root = Path(path)
     if not root.is_dir():

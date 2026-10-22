@@ -20,4 +20,9 @@ This product bundles the following third-party components:
   Copyright (c) The Move Contributors
   Licensed under the Apache License, Version 2.0
   https://github.com/MystenLabs/sui/tree/f3fd7754ebe506e2a8b1cb4e0ddb45be3e5eb6c1/external-crates/move/tooling/tree-sitter
-  Trailmark adds inline modifiers and Aptos-style function-type return syntax.
+  Includes MIT-licensed grammar contributions:
+  Copyright (c) 2023 Tim Zakian
+  Copyright (c) 2020 nonsense0202
+  Full MIT notices: src/trailmark/tree_sitter_custom/move/NOTICE
+  Trailmark adds inline/package modifiers, Aptos-style function-type returns,
+  acquires clauses, for ranges, and compound assignment operators.

@@ -17,6 +17,7 @@ from trailmark.models.nodes import (
     TypeRef,
 )
 from trailmark.parsers._binding import resolve_inherited_method_calls
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -80,6 +81,7 @@ class SolidityParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("solidity"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Solidity file into a CodeGraph."""
         source = Path(file_path).read_bytes()

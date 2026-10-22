@@ -102,6 +102,7 @@ module.exports = grammar({
         ))),
       'entry',
       'inline',
+      'package',
       'native',
     ),
     ability: $ => choice(
@@ -297,6 +298,7 @@ module.exports = grammar({
       optional(field('type_parameters', $.type_parameters)),
       field('parameters', $.function_parameters),
       optional(field('return_type', $.ret_type)),
+      optional(seq('acquires', sepBy1(',', $.module_access))),
     ),
     function_parameters: $ => seq(
       '(',
@@ -616,6 +618,7 @@ module.exports = grammar({
       $.lambda_expression,
       $.if_expression,
       $.while_expression,
+      $.for_expression,
       $.return_expression,
       $.abort_expression,
       $.assign_expression,
@@ -700,6 +703,11 @@ module.exports = grammar({
       field('body', $._expression),
     ),
 
+    for_expression: $ => seq(
+      'for', '(', field('binding', $._variable_identifier), 'in',
+      field('range', $._expression), ')', field('body', $._expression),
+    ),
+
     // loop expression
     loop_expression: $ => seq('loop', field('body', $._expression)),
 
@@ -765,7 +773,7 @@ module.exports = grammar({
     assign_expression: $ => prec.left(PRECEDENCE.assign,
       seq(
         field('lhs', $._unary_expression),
-        '=',
+        choice('=', '+=', '-=', '*=', '/=', '%=', '|=', '&=', '^=', '<<=', '>>='),
         field('rhs', $._expression)
       )
     ),

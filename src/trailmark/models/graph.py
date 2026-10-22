@@ -74,9 +74,7 @@ class CodeGraph:
         """Merge another graph into this one."""
         self.nodes.update(other.nodes)
         self.edges.extend(other.edges)
-        for diagnostic in other.parse_diagnostics:
-            if diagnostic not in self.parse_diagnostics:
-                self.parse_diagnostics.append(diagnostic)
+        self.parse_diagnostics.extend(other.parse_diagnostics)
         for node_id, anns in other.annotations.items():
             self.annotations.setdefault(node_id, []).extend(anns)
         self.entrypoints.update(other.entrypoints)

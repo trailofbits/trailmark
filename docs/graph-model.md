@@ -227,3 +227,11 @@ After each file is parsed, Trailmark links the graph by name:
 
 Compiler-level import, receiver, and overload semantics are not modeled. See
 [Language notes](languages.md) for per-language rules.
+
+
+Nested callable declarations also have conservative owner-to-body `calls` edges
+with `uncertain` confidence and a `deferred` attribute. This keeps callback paths
+visible in reachability queries without asserting immediate invocation. Confidence
+records target binding; a parse error elsewhere in a C function does not by itself
+lower confidence. Broken call contexts carry `syntax_error_context`; recovered C
+bodies retain their documented uncertain calls.

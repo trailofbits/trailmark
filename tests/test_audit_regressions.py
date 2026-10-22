@@ -12,6 +12,7 @@ from trailmark.models import (
     CodeEdge,
     CodeGraph,
     CodeUnit,
+    EdgeConfidence,
     EdgeKind,
     NodeKind,
     Parameter,
@@ -532,7 +533,14 @@ def test_cairo_module_ownership_and_embedded_abi() -> None:
         if e.kind == EdgeKind.CONTAINS
     )
     engine = QueryEngine.from_directory(str(FIXTURES / "cairo/contract/src"), language="cairo")
-    assert len(engine.attack_surface()) == 6
+    assert {entry["node_id"] for entry in engine.attack_surface()} == {
+        "lib:Counter.constructor",
+        "lib:Counter.CounterImpl.read",
+        "lib:Counter.CounterImpl.write",
+        "lib:Counter.legacy_control",
+        "lib:Counter.from_l1",
+        "lib:Counter.PerItem.per_item_control",
+    }
 
 
 def test_php_namespace_and_callable_ownership() -> None:
@@ -546,7 +554,7 @@ def test_php_namespace_and_callable_ownership() -> None:
         "semicolon_namespace:Gamma.gammaTarget"
     ]
     graph = parse_file(str(FIXTURES / "php/callables.php"), "php")
-    assert not _calls(graph, "callables:buildCallbacks")
+    _assert_deferred_reachable(graph, "callables:buildCallbacks")
     assert graph.nodes["callables:buildCallbacks"].cyclomatic_complexity == 1
     assert not graph.nodes["callables:buildCallbacks"].exception_types
     assert len([n for n in graph.nodes.values() if "$lambda" in n.id]) == 2
@@ -692,7 +700,7 @@ def test_cpp_namespace_identity_and_deferred_ownership(tmp_path: Path) -> None:
         assert _calls(graph, f"case:{namespace}.entry") == [f"case:{namespace}.sink"]
     assert _calls(graph, "case:$anonymous.private_entry") == ["case:$anonymous.private_sink"]
     graph = parse_directory(str(FIXTURES / "cpp/body_ownership"), "cpp")
-    assert not _calls(graph, "case:outer")
+    _assert_deferred_reachable(graph, "case:outer")
     assert graph.nodes["case:outer"].cyclomatic_complexity == 1
     assert len([n for n in graph.nodes.values() if _calls(graph, n.id) == ["case:sink"]]) == 3
     source = tmp_path / "captures.cpp"
@@ -700,7 +708,14 @@ def test_cpp_namespace_identity_and_deferred_ownership(tmp_path: Path) -> None:
         "void sink() {}\nint eager() { return 1; }\nvoid f() { auto cb=[x=eager()] { sink(); }; }\n"
     )
     graph = parse_file(str(source), "cpp", strict=True)
-    assert _calls(graph, "captures:f") == ["captures:eager"]
+    edges = [e for e in graph.edges if e.kind == EdgeKind.CALLS and e.source_id == "captures:f"]
+    assert [e.target_id for e in edges if not dict(e.attributes).get("deferred")] == [
+        "captures:eager"
+    ]
+    assert any(
+        e.target_id == "captures:f.$lambda@3_19" and e.confidence == EdgeConfidence.UNCERTAIN
+        for e in edges
+    )
     graph = parse_directory(str(FIXTURES / "cpp/callable_shadow"), "cpp")
     for name in ("parameter", "pointer", "closure", "object", "Holder.method"):
         assert "case:callback" not in _calls(graph, f"case:{name}")
@@ -716,7 +731,7 @@ def test_csharp_namespaces_shadowing_and_call_forms() -> None:
     prefix = "Scopes:Audit.Scopes.Dispatch"
     for name in ("ByParameter", "ByLocal", "LocalShadow"):
         assert f"{prefix}.Send" not in _calls(graph, f"{prefix}.{name}")
-    assert not _calls(graph, f"{prefix}.Deferred")
+    _assert_deferred_reachable(graph, f"{prefix}.Deferred")
     assert graph.nodes[f"{prefix}.Deferred"].cyclomatic_complexity == 1
     prefix = "Signatures:Audit.Signatures.Syntax"
     assert _calls(graph, f"{prefix}.Generic") == [f"{prefix}.Identity", f"{prefix}.Sink"]
@@ -757,7 +772,7 @@ def test_swift_extensions_scopes_and_deferred_bodies(tmp_path: Path) -> None:
     assert engine.paths_between("probe:Service.audit", "probe:secretSink")
     assert engine.paths_between("probe:Service.audit", "probe:decoySink") == []
     graph = parse_directory(str(FIXTURES / "swift/ownership"), "swift")
-    assert not _calls(graph, "probe:install")
+    _assert_deferred_reachable(graph, "probe:install")
     assert graph.nodes["probe:install"].cyclomatic_complexity == 1
     (tmp_path / "a.swift").write_text("struct Service {}\nfunc sink() {}\n")
     (tmp_path / "b.swift").write_text("extension Service { func run() { sink() } }\n")
@@ -774,7 +789,7 @@ def test_swift_extensions_scopes_and_deferred_bodies(tmp_path: Path) -> None:
 
 def test_kotlin_nested_companions_and_local_owners() -> None:
     graph = parse_directory(str(FIXTURES / "kotlin/fixtures"), "kotlin")
-    assert not _calls(graph, "Ownership:caller")
+    _assert_deferred_reachable(graph, "Ownership:caller")
     assert graph.nodes["Ownership:caller"].cyclomatic_complexity == 1
     assert _calls(graph, "Ownership:caller.neverCalled") == ["Ownership:hiddenSink"]
     assert _calls(graph, "Ownership:Outer.Nested.nestedMethod") == ["Ownership:hiddenSink"]
@@ -792,10 +807,18 @@ def test_objc_selectors_dispatch_identity_and_blocks() -> None:
     messages = [e for e in graph.edges if dict(e.attributes).get("objc_selector")]
     assert len(messages) == 3
     assert {dict(e.attributes)["objc_selector"] for e in messages} == {"touch", "perform:other:"}
-    assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in messages)
+    assert any(
+        e.target_id == "Selectors:Worker.touch" and e.confidence == EdgeConfidence.INFERRED
+        for e in messages
+    )
+    assert all(
+        e.confidence == EdgeConfidence.UNCERTAIN
+        for e in messages
+        if graph.nodes[e.target_id].kind == NodeKind.PROXY
+    )
     assert len([e for e in graph.edges if e.kind == EdgeKind.CALLS]) == 6
     graph = parse_directory(str(FIXTURES / "objc/fixtures/blocks"), "objc")
-    assert not _calls(graph, "Blocks:build_callback")
+    _assert_deferred_reachable(graph, "Blocks:build_callback")
     assert graph.nodes["Blocks:build_callback"].cyclomatic_complexity == 1
     block = next(
         n for n in graph.nodes.values() if "$block" in n.id and n.kind == NodeKind.FUNCTION
@@ -822,7 +845,7 @@ def test_dart_constructors_arrows_and_lexical_binding() -> None:
     for name in ("parameterShadow", "localShadow", "Handler.implicit"):
         assert "binding:sink" not in _calls(graph, f"binding:{name}")
     assert _calls(graph, "binding:Handler.implicit") == ["binding:Handler.sink"]
-    assert not _calls(graph, "binding:deferred")
+    _assert_deferred_reachable(graph, "binding:deferred")
 
 
 def test_circom_include_visibility_discard_and_main_arguments(tmp_path: Path) -> None:
@@ -851,7 +874,14 @@ def test_move_qualified_generics_callbacks_and_modules() -> None:
     sites = [e.location.start_line for e in graph.edges if e.kind == EdgeKind.CALLS and e.location]
     assert sites == [4, 5]
     graph = parse_file(str(FIXTURES / "move/callback/callback.move"), "move", strict=True)
-    assert _calls(graph, "callback:0x42::callback:run")
+    callback_calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and e.source_id == "callback:0x42::callback:run"
+    ]
+    assert len(callback_calls) == 1
+    assert callback_calls[0].confidence == EdgeConfidence.UNCERTAIN
+    assert dict(callback_calls[0].attributes)["binding_blocked"] is True
     assert "callback:0x42::callback:handler" not in _calls(graph, "callback:0x42::callback:run")
     graph = parse_file(str(FIXTURES / "move/multi_module/multi.move"), "move", strict=True)
     assert {"multi:0x42::a:ping", "multi:0x42::b:ping"} <= graph.nodes.keys()
@@ -985,8 +1015,9 @@ def test_erlang_arity_exports_specs_and_qualified_calls() -> None:
 
 def test_erlang_closure_creation_capture_and_target_evaluation() -> None:
     graph = parse_file(str(FIXTURES / "erlang/closures/closure_demo.erl"), "erlang")
-    for source in ("capture/0", "remote_capture/0", "deferred/0"):
+    for source in ("capture/0", "remote_capture/0"):
         assert not _calls(graph, f"closure_demo:{source}")
+    _assert_deferred_reachable(graph, "closure_demo:deferred/0")
     assert graph.nodes["closure_demo:deferred/0"].cyclomatic_complexity == 1
     closures = [unit for unit in graph.nodes.values() if ".$fun@" in unit.id]
     assert len(closures) == 2
@@ -1077,7 +1108,6 @@ def test_sql_replacement_signature_excludes_default_and_normalizes_schema(tmp_pa
         {"index": -1},
         {"index": 7},
         {"index": True},
-        {"uri": "app.py", "uriBaseId": "unknown"},
         {"uri": "app.py", "uriBaseId": "cycle"},
     ],
 )
@@ -1163,3 +1193,19 @@ def test_rust_alias_resolution_preserves_blocked_and_noncall_edges(
     assert _resolve_edge(control, context).target_id == "scope:real"
     edge = CodeEdge("scope:caller", "scope:alias", kind, attributes=(("binding_blocked", blocked),))
     assert _resolve_edge(edge, context) == edge
+
+
+def _assert_deferred_reachable(graph: CodeGraph, source: str) -> None:
+    edges = [
+        edge for edge in graph.edges if edge.kind == EdgeKind.CALLS and edge.source_id == source
+    ]
+    assert edges
+    assert all(
+        edge.confidence == EdgeConfidence.UNCERTAIN and dict(edge.attributes).get("deferred")
+        for edge in edges
+    )
+    reachable = {unit["id"] for unit in QueryEngine.from_graph(graph).reachable_from(source)}
+    assert {edge.target_id for edge in edges} <= reachable
+    assert all(
+        graph.nodes[edge.target_id].kind in {NodeKind.FUNCTION, NodeKind.METHOD} for edge in edges
+    )

@@ -62,3 +62,124 @@ Core regressions cover indexed/base-relative SARIF locations, structured syntax
 and unsupported-syntax diagnostics, strict parsing, valid empty inputs, and
 release metadata validation. Run these with `uv run pytest -q tests/`; see
 `CONTRIBUTING.md` for lint, type, mutation, and installed-distribution checks.
+
+Each finding below links to its regression suite and minimized source inputs.
+The named tests in the linked suite assert the language’s combined cases.
+
+| Finding | Regression suite | Fixtures |
+| --- | --- | --- |
+| PY-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | Inline cases in suite |
+| PY-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | Inline cases in suite |
+| PY-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | Inline cases in suite |
+| R-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [r](r/) |
+| R-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [r](r/) |
+| R-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [r](r/) |
+| JS-001 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [javascript](javascript/) |
+| JS-002 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [javascript](javascript/) |
+| JS-003 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [javascript](javascript/) |
+| TS-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [typescript](typescript/) |
+| TS-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [typescript](typescript/) |
+| TS-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [typescript](typescript/) |
+| PHP-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [php](php/) |
+| PHP-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [php](php/) |
+| PHP-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [php](php/) |
+| PERL-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [perl](perl/) |
+| PERL-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [perl](perl/) |
+| PERL-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [perl](perl/) |
+| RUBY-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [ruby](ruby/) |
+| RUBY-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [ruby](ruby/) |
+| RUBY-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [ruby](ruby/) |
+| LUA-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [lua](lua/) |
+| LUA-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [lua](lua/) |
+| C-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [c](c/) |
+| C-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [c](c/) |
+| C-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [c](c/) |
+| BASH-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [bash](bash/) |
+| BASH-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [bash](bash/) |
+| BASH-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [bash](bash/) |
+| CPP-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [cpp](cpp/) |
+| CPP-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [cpp](cpp/) |
+| CPP-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [cpp](cpp/) |
+| CS-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [c_sharp](c_sharp/) |
+| CS-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [c_sharp](c_sharp/) |
+| CS-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [c_sharp](c_sharp/) |
+| POWERSHELL-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [powershell](powershell/) |
+| POWERSHELL-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [powershell](powershell/) |
+| POWERSHELL-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [powershell](powershell/) |
+| JAVA-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [java](java/) |
+| JAVA-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [java](java/) |
+| JAVA-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [java](java/) |
+| VB-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [vb](vb/) |
+| VB-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [vb](vb/) |
+| VB-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [vb](vb/) |
+| GO-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [go](go/) |
+| GO-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [go](go/) |
+| GO-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [go](go/) |
+| RUST-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [rust](rust/) |
+| RUST-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [rust](rust/) |
+| RUST-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [rust](rust/) |
+| ZIG-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [zig](zig/) |
+| ZIG-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [zig](zig/) |
+| ZIG-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [zig](zig/) |
+| SOL-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [solidity](solidity/) |
+| SOL-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [solidity](solidity/) |
+| SOL-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [solidity](solidity/) |
+| AIKEN-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [aiken](aiken/) |
+| AIKEN-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [aiken](aiken/) |
+| AIKEN-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [aiken](aiken/) |
+| CAIRO-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [cairo](cairo/) |
+| CAIRO-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [cairo](cairo/) |
+| CAIRO-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [cairo](cairo/) |
+| CIRCOM-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [circom](circom/) |
+| CIRCOM-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [circom](circom/) |
+| CIRCOM-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [circom](circom/) |
+| HASKELL-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [haskell](haskell/) |
+| HASKELL-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [haskell](haskell/) |
+| HASKELL-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [haskell](haskell/) |
+| JULIA-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [julia](julia/) |
+| JULIA-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [julia](julia/) |
+| JULIA-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [julia](julia/) |
+| ERLANG-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [erlang](erlang/) |
+| ERLANG-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [erlang](erlang/) |
+| ERLANG-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [erlang](erlang/) |
+| MASM-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [masm](masm/) |
+| MASM-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [masm](masm/) |
+| MASM-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [masm](masm/) |
+| SWIFT-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [swift](swift/) |
+| SWIFT-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [swift](swift/) |
+| SWIFT-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [swift](swift/) |
+| OBJC-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [objc](objc/) |
+| OBJC-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [objc](objc/) |
+| OBJC-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [objc](objc/) |
+| KOTLIN-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [kotlin](kotlin/) |
+| KOTLIN-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [kotlin](kotlin/) |
+| KOTLIN-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [kotlin](kotlin/) |
+| DART-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [dart](dart/) |
+| DART-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [dart](dart/) |
+| DART-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [dart](dart/) |
+| MOVE-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [move](move/) |
+| MOVE-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [move](move/) |
+| MOVE-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [move](move/) |
+| TACT-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [tact](tact/) |
+| TACT-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [tact](tact/) |
+| TACT-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [tact](tact/) |
+| FUNC-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [func](func/) |
+| FUNC-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [func](func/) |
+| FUNC-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [func](func/) |
+| SWAY-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [sway](sway/) |
+| SWAY-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [sway](sway/) |
+| REGO-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [rego](rego/) |
+| REGO-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [rego](rego/) |
+| REGO-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [rego](rego/) |
+| PROTO-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [proto](proto/) |
+| PROTO-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [proto](proto/) |
+| PROTO-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [proto](proto/) |
+| THRIFT-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [thrift](thrift/) |
+| THRIFT-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [thrift](thrift/) |
+| THRIFT-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [thrift](thrift/) |
+| GRAPHQL-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [graphql](graphql/) |
+| GRAPHQL-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [graphql](graphql/) |
+| GRAPHQL-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [graphql](graphql/) |
+| SQL-01 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [sql](sql/) |
+| SQL-02 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [sql](sql/) |
+| SQL-03 | [test_audit_regressions.py](../../../tests/test_audit_regressions.py) | [sql](sql/) |

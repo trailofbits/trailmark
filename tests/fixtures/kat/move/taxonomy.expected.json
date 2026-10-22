@@ -8,13 +8,19 @@
     },
     {
       "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy:0x1::taxonomy",
+      "target": "0x1::string"
+    },
+    {
+      "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:0x1::taxonomy",
       "target": "taxonomy:0x1::taxonomy:main"
     },
     {
       "attributes": {
-        "binding_blocked": true,
+        "binding_blocked": false,
         "move_target": "helper"
       },
       "confidence": "certain",

@@ -25,6 +25,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._php_linking import link_php_functions
 from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -81,6 +82,7 @@ class PHPParser:
         graph = CodeGraph(language="php", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
+        link_php_functions(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -394,6 +396,15 @@ def _add_call_edges(
                 confidence = EdgeConfidence.UNCERTAIN
             elif not scope.startswith("$"):
                 target_id = f"{_php_reference_id(call_node, module_id, scope)}.{method}"
+        attributes: tuple[tuple[str, str | bool], ...] = ()
+        if call_node.type == "function_call_expression" and not call_name.startswith("$"):
+            attributes = (
+                (
+                    "php_function_target",
+                    _php_reference_id(call_node, module_id, call_name).split(":", 1)[-1],
+                ),
+                ("php_global_fallback", "\\" not in call_name),
+            )
         graph.edges.append(
             CodeEdge(
                 source_id=func_id,
@@ -401,6 +412,7 @@ def _add_call_edges(
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
                 location=make_location(call_node, file_path),
+                attributes=attributes,
             )
         )
 

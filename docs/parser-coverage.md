@@ -4,13 +4,19 @@ Trailmark graphs describe extracted declarations and call sites. File counts
 measure inspected source files. They do not establish complete language coverage,
 execution, dataflow, exploitability, or dead code. Check `parse_diagnostics()`
 when interpreting results; `strict=True` and CLI `--strict` reject incomplete
-syntax analysis. Valid empty files remain valid inputs.
+syntax analysis. Empty and comment-only files remain valid inputs, including
+PowerShell and GraphQL inputs whose pinned grammar reports an empty-root error.
 
 ## Callable ownership and binding
 
 Python nested `def` and `async def` declarations have owner-qualified IDs such as
 `file:factory.hidden`. Their calls, branches and exceptions belong to the nested
-function. Creating or returning that function adds no invocation edge. Variadic
+function. Nested callable bodies are also reachable through conservative `calls`
+edges from their nearest callable owner, with uncertain confidence and `deferred`
+metadata. This applies across frontends, including callbacks and methods of local
+or anonymous classes. These edges retain possible execution paths; they do not
+prove that creating or registering a callable invokes it. Python lambda calls stay
+with the enclosing function. Local classes retain separate method owners. Variadic
 parameters retain names and annotations; `self` and `cls` are omitted only as
 actual method receivers, and retained in free functions and static methods.
 
@@ -18,7 +24,9 @@ JavaScript and TypeScript retain nested functions, arrows, anonymous callbacks,
 class-field arrows, object methods, CommonJS handler assignments, and anonymous
 default exports. Anonymous IDs contain source positions. Moving a declaration
 can change its ID. Registration and acquisition of a callable do not establish
-its execution. Concise bodies include their root call or conditional. TypeScript
+its execution; the uncertain `deferred` edges express that distinction. Object
+methods use binding-qualified IDs such as `file:api.init` and `file:admin.get`.
+Concise bodies include their root call or conditional. TypeScript
 uses the TSX grammar for `.tsx`; interface methods retain signature metadata.
 Unknown receiver writes and conditional writes invalidate concrete-constructor
 inference; expired block-local declarations do not affect an outer receiver.
@@ -26,7 +34,11 @@ inference; expired block-local declarations do not affect an outer receiver.
 Lexical callable parameters and locals prevent binding to unrelated same-name
 functions. Such calls remain uncertain proxies with `binding_blocked` metadata,
 including after directory linking. This guard does not infer callback values or
-reproduce a compiler's full alias, overload, or control-flow analysis.
+reproduce a compiler's full alias, overload, or control-flow analysis. Scope
+indexes preserve language declaration order: Rust, Go and Kotlin initializers can
+call the previous same-name binding. Python function names bind in their enclosing
+scope; class methods do not shadow module functions. Java variables and parameters
+occupy a separate namespace and do not block method calls.
 
 Rust and Verus preserve repeated same-name impl methods with source-offset
 suffixes instead of combining their bodies. Ambiguous trait and concrete generic
@@ -36,13 +48,16 @@ impl dispatch remains unresolved. Declaration-owned `unsafe(no_mangle)` and
 Go retains grouped, variadic, function-typed and unnamed parameters. Unnamed
 slots use `$argN`; variadic types retain `...`. Explicit single-type generic
 calls are distinguished from locally declared generic type conversions.
-Unqualified directory call inference stays within the source directory.
+Unqualified directory call inference stays within the source directory. Calls
+inside Go function literals stay with their enclosing named function.
 
 PHP namespace owners appear in declaration IDs, including semicolon namespaces;
 namespace separators become dots. Closures and arrows own their calls and body
 metadata. First-class `(...)` acquisition contributes no call; argument unpacking
 still does. Nullsafe and scoped calls retain sites. Local `self`, named-class and
 unambiguous `parent` targets can resolve; late-static dispatch stays uncertain.
+Free functions link across files by namespace and name, including fully qualified
+references. Unqualified namespace calls retain PHP's global-function fallback.
 
 Perl qualified subroutine names determine symbol ownership while body/default
 lookup retains the lexical package. Signature defaults retain calls and nested
@@ -69,11 +84,14 @@ SQL retains overloads and separate relation/routine namespaces. Colliding routin
 IDs gain source-position suffixes. Relation matching folds unquoted PostgreSQL
 identifiers to lowercase and preserves quoted case. Recovered procedure bodies
 exclude comments, strings and later statements. SQL dependencies are
-`corresponds_to` edges, not runtime calls; search paths are not evaluated.
+`corresponds_to` edges, not runtime calls; search paths are not evaluated. Replacing
+a routine overload removes its previous body dependencies and containment edge.
 
 Cairo module, trait, impl, struct and enum IDs retain their owners. Impl namespaces
 are explicit containment nodes. Concrete methods of contract `abi(embed_v0)`
-implementations are exposed entrypoints; private helpers remain private.
+implementations are exposed entrypoints; private helpers remain private. The
+pinned Cairo grammar rejects common `assert!(...)` macro statements. They produce
+syntax diagnostics and cause strict parsing to fail even for compiler-valid input.
 
 Aiken parameter labels do not replace local binding names. Unapplied captures
 such as `helper(_, 1)` do not imply immediate execution; pipeline application
@@ -117,7 +135,8 @@ Julia destructured arguments bind their lexical leaf names without flattening th
 signature. Quoted syntax is data; only interpolation at the current quote level
 contributes calls. Long and short callable-struct methods have receiver metadata
 and separate bodies; callable-object dispatch remains uncertain. Macro expansion
-and grammar recovery can still leave graphs incomplete.
+and grammar recovery can still leave graphs incomplete. Skipped Julia macros emit
+`unsupported_syntax` diagnostics and fail strict parsing.
 
 C tag and callable namespaces retain both declarations when names coincide.
 Indirect pointer calls remain uncertain. C/C++ static definitions and C++ anonymous
@@ -129,16 +148,25 @@ C can recover a balanced physical function body around bare block macros while
 preserving byte offsets and the original syntax diagnostics. Recovered functions
 carry `parse_incomplete` and `syntax_recovered` attributes; their calls remain
 uncertain. This is source-span recovery, not preprocessing or a model of nonlocal
-control flow. Conditional preprocessor branches and unbalanced bodies are not
-recovered as one configuration.
+control flow. Conditional preprocessor groups are allowed when every branch
+boundary preserves brace depth and the group closes inside the body. Brace-changing
+conditionals and unbalanced bodies are not recovered as one configuration.
+Recovery verifies each function independently, so a failed candidate does not
+cancel other verified spans. Unrelated remaining syntax errors remain diagnosed.
 
 Single-identifier declaration macros can recover a concrete function signature
 from unambiguous definitions in the file or literal quoted headers. Simple token
-pasting is supported; include lookup and expansion are bounded. The concrete
+pasting and object-like wrapper aliases are supported; lookup and expansion are
+bounded. Quoted includes must resolve inside the analyzed directory (or the source
+file's parent for single-file parsing), including through symlinks. Header trees
+and directive indexes are cached only for the current directory operation. The concrete
 symbol becomes the callable ID, with `macro_wrapper`, `source_alias`, and
 `expansion_alias` attributes preserving its source spelling. Conditional,
 redefined, recursive, variadic, or stringifying wrappers can remain symbolic
-`WRAPPER(name)` declarations with diagnostics and uncertain, unbound calls.
+`WRAPPER(name)` declarations with diagnostics and uncertain calls marked
+`macro_signature_unresolved`. Their calls can still link to real declarations.
+Untyped `WRAPPER(name) { ... }` definitions retain that wrapper identity even if
+the header is unavailable; argument-only names are not exposed as global aliases.
 Unavailable macro definitions cannot establish compiled names. Repeated unknown
 declarations retain separate source-position IDs and body ownership.
 
@@ -147,7 +175,12 @@ designated function initializers. It binds by object and field, records
 `callback_table` / `callback_field`, and uses inferred confidence. Mutable or
 conditional tables, positional initializers, unknown pointers, and shadowed
 receivers remain uncertain. This does not select build configurations or infer
-general callback dataflow. Incomplete callers do not infer callback-table targets.
+general callback dataflow. Recovered bodies and unresolved macro signatures do
+not infer callback-table targets. Other parse errors mark the function
+`parse_incomplete` but affect confidence only at calls within an ERROR subtree or
+with broken descendants. Those calls carry `syntax_error_context`; unrelated
+calls and callback-table sites keep their normal binding confidence. Calls on a
+callback's return value remain separate indirect sites.
 
 C++ namespaces qualify declaration IDs, including file-local `$anonymous` owners.
 Lambdas and local classes own their bodies; lambda capture initializers stay with
@@ -157,14 +190,19 @@ lambdas have separate owners. Generic and conditional-access calls are retained.
 Java lambdas and local/anonymous classes own deferred bodies. Explicit construction
 and constructor chaining have located edges; unknown or overloaded constructors
 remain proxies. Servlet entrypoints require servlet ancestry, an instance method,
-a void return and request/response parameters.
+a void return and request/response parameters. Unrecognized framework
+intermediates such as `FrameworkServlet` do not establish servlet ancestry.
 
 Swift extensions retain methods and attach to an unambiguous extracted type without
 replacing its kind or source location. Local functions and closures own their bodies.
 Kotlin recursively extracts nested and companion containers. Both prefer known
 lexical methods over same-named free functions and preserve uncertain callable values.
+Ruby, Kotlin and Swift container nesting beyond 48 extraction levels produces an
+`unsupported_syntax` diagnostic instead of exhausting the Python stack.
 
-Objective-C message sends retain complete selectors as uncertain calls. Class
+Objective-C message sends retain complete selectors. A unique `self` selector in
+the same implementation can link with inferred confidence; other sends stay
+uncertain. Class
 methods use `module:Class.+selector` IDs; instance methods retain
 `module:Class.selector`. Blocks have separate source-position owners.
 Dart constructors use `module:Class.Class` and `module:Class.Class.named` IDs.
@@ -172,18 +210,25 @@ Constructor initializers and arrow bodies retain calls, and deferred local bodie
 have separate owners. These syntax edges do not imply runtime dispatch inference.
 
 Circom include linking follows literal include paths and their transitive closure.
-Ambiguous included template/function names remain unresolved. Main-component
+Same-file calls retain certain confidence; cross-file include bindings are
+inferred. Ambiguous included template/function names remain unresolved. Main-component
 arguments retain nested calls; anonymous-component `_` discard syntax is supported.
 Circom 2.2 bus declarations remain unsupported and produce diagnostics.
 
 Move uses the bundled Move grammar pinned to MystenLabs/sui commit
 `f3fd7754ebe506e2a8b1cb4e0ddb45be3e5eb6c1`, with small syntax additions recorded in
 `NOTICE`. Tests cover Aptos-style inline callbacks and generic application, multiple
-explicit module declarations, and Sui 2024-style structs. This is fixture coverage,
+explicit module declarations, `acquires`, `for` ranges, compound assignments,
+`package fun`, and Sui 2024-style structs. This is fixture coverage,
 not a compiler-version compatibility guarantee. Address blocks remain unsupported
 and produce diagnostics. Qualified/address/alias targets retain their symbols;
-unknown callback values remain uncertain. Lambdas and macro expansion do not have
-complete body or value-flow coverage.
+unknown callback values remain uncertain. `let` bindings take effect after their
+initializer and respect block scopes. A syntax error affects calls in that error
+context, rather than the entire file. Imports retain both dependency metadata and
+`imports` edges. Logical module names include the address, such as `0x1::bank`;
+unsupported address-block syntax does not synthesize a logical module node.
+Move lambda calls remain with the enclosing function; callback values and macro
+expansion do not have complete value-flow coverage.
 
 Tact distinguishes static global calls from `self` member calls. Receiver parameters
 and optional/map/bounced signature types are retained. Trait bodies and inherited
@@ -200,7 +245,9 @@ inline-if call syntax that is split without an ERROR node is explicitly diagnose
 Ruby namespaces qualify nested type/method IDs. Instance methods use
 `file:Class.method`; singleton methods use `file:Class.self.method`. Bare method
 reads retain vcall sites while known parameters, local variables, and block
-parameters remain values. Rails actions and Sidekiq `perform` entrypoints require
+parameters remain values, including destructuring, rescue variables and loop
+binders. Bare calls remain eligible for local/inherited method and cross-file
+global linking; known local callable values stay uncertain. Rails actions and Sidekiq `perform` entrypoints require
 public instance-method metadata; private and singleton helpers are excluded.
 Runtime metaprogramming, reopened class inheritance, and lambda-body coverage remain
 limited.
@@ -215,6 +262,8 @@ Haskell local where/let declarations have owner-qualified IDs and separate body
 metrics. Function/lambda/case binders prevent unrelated global binding. Parenthesized,
 qualified, backtick and operator applications retain sites. `$` remains an ordinary
 potentially shadowed operator call; no automatic function application lowering is
-claimed. Constructor patterns do not create calls. Typeclass default bodies,
+claimed. Calls inside Haskell do-bind expressions are retained. Unresolved
+operator proxy IDs use readable names such as `$operator.plus` and
+`$operator.plus_plus`. Constructor patterns do not create calls. Typeclass default bodies,
 applied-type instance bodies, Template Haskell expansion and typeclass dispatch
 remain incomplete.

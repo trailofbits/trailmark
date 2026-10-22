@@ -20,13 +20,14 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
-        "raw_target": "taxonomy:Taxonomy.Greeter.raise"
+        "binding_blocked": false,
+        "raw_target": "taxonomy:raise",
+        "ruby_bare_name": "raise"
       },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Taxonomy.Greeter.greet",
-      "target": "proxy.unresolved:taxonomy:Taxonomy.Greeter.raise"
+      "target": "proxy.unresolved:taxonomy:raise"
     },
     {
       "confidence": "certain",
@@ -62,23 +63,25 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
-        "raw_target": "taxonomy:Taxonomy.self.Integer"
+        "binding_blocked": false,
+        "raw_target": "taxonomy:Integer",
+        "ruby_bare_name": "Integer"
       },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Taxonomy.self.branchy",
-      "target": "proxy.unresolved:taxonomy:Taxonomy.self.Integer"
+      "target": "proxy.unresolved:taxonomy:Integer"
     },
     {
       "attributes": {
-        "binding_blocked": true,
-        "raw_target": "taxonomy:Taxonomy.self.raise"
+        "binding_blocked": false,
+        "raw_target": "taxonomy:raise",
+        "ruby_bare_name": "raise"
       },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Taxonomy.self.branchy",
-      "target": "proxy.unresolved:taxonomy:Taxonomy.self.raise"
+      "target": "proxy.unresolved:taxonomy:raise"
     },
     {
       "confidence": "certain",
@@ -118,13 +121,14 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
-        "raw_target": "taxonomy:Taxonomy.Dog.super"
+        "binding_blocked": false,
+        "raw_target": "taxonomy:super",
+        "ruby_bare_name": "super"
       },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Taxonomy.Dog.initialize",
-      "target": "proxy.unresolved:taxonomy:Taxonomy.Dog.super"
+      "target": "proxy.unresolved:taxonomy:super"
     },
     {
       "confidence": "certain",
@@ -134,13 +138,14 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
-        "raw_target": "taxonomy:Taxonomy.Dog.raise"
+        "binding_blocked": false,
+        "raw_target": "taxonomy:raise",
+        "ruby_bare_name": "raise"
       },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Taxonomy.Dog.bark",
-      "target": "proxy.unresolved:taxonomy:Taxonomy.Dog.raise"
+      "target": "proxy.unresolved:taxonomy:raise"
     },
     {
       "confidence": "certain",
@@ -236,85 +241,16 @@
       "parameters": [],
       "return_type": null
     },
-    "proxy.unresolved:taxonomy:Taxonomy.Dog.raise": {
+    "proxy.unresolved:taxonomy:Integer": {
       "attributes": {
         "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:Taxonomy.Dog.raise"
+        "raw_symbol": "taxonomy:Integer"
       },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:Taxonomy.Dog.raise",
-      "kind": "proxy",
-      "location": {
-        "end_col": 22,
-        "end_line": 61,
-        "file_path": "taxonomy.rb",
-        "start_col": 6,
-        "start_line": 61
-      },
-      "name": "taxonomy:Taxonomy.Dog.raise",
-      "origin": "proxy",
-      "parameters": [],
-      "return_type": null
-    },
-    "proxy.unresolved:taxonomy:Taxonomy.Dog.super": {
-      "attributes": {
-        "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:Taxonomy.Dog.super"
-      },
-      "branches": [],
-      "cyclomatic_complexity": null,
-      "docstring": null,
-      "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:Taxonomy.Dog.super",
-      "kind": "proxy",
-      "location": {
-        "end_col": 17,
-        "end_line": 55,
-        "file_path": "taxonomy.rb",
-        "start_col": 6,
-        "start_line": 55
-      },
-      "name": "taxonomy:Taxonomy.Dog.super",
-      "origin": "proxy",
-      "parameters": [],
-      "return_type": null
-    },
-    "proxy.unresolved:taxonomy:Taxonomy.Greeter.raise": {
-      "attributes": {
-        "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:Taxonomy.Greeter.raise"
-      },
-      "branches": [],
-      "cyclomatic_complexity": null,
-      "docstring": null,
-      "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:Taxonomy.Greeter.raise",
-      "kind": "proxy",
-      "location": {
-        "end_col": 31,
-        "end_line": 8,
-        "file_path": "taxonomy.rb",
-        "start_col": 6,
-        "start_line": 8
-      },
-      "name": "taxonomy:Taxonomy.Greeter.raise",
-      "origin": "proxy",
-      "parameters": [],
-      "return_type": null
-    },
-    "proxy.unresolved:taxonomy:Taxonomy.self.Integer": {
-      "attributes": {
-        "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:Taxonomy.self.Integer"
-      },
-      "branches": [],
-      "cyclomatic_complexity": null,
-      "docstring": null,
-      "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:Taxonomy.self.Integer",
+      "id": "proxy.unresolved:taxonomy:Integer",
       "kind": "proxy",
       "location": {
         "end_col": 19,
@@ -323,30 +259,53 @@
         "start_col": 6,
         "start_line": 30
       },
-      "name": "taxonomy:Taxonomy.self.Integer",
+      "name": "taxonomy:Integer",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
     },
-    "proxy.unresolved:taxonomy:Taxonomy.self.raise": {
+    "proxy.unresolved:taxonomy:raise": {
       "attributes": {
         "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:Taxonomy.self.raise"
+        "raw_symbol": "taxonomy:raise"
       },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:Taxonomy.self.raise",
+      "id": "proxy.unresolved:taxonomy:raise",
       "kind": "proxy",
       "location": {
-        "end_col": 22,
-        "end_line": 32,
+        "end_col": 31,
+        "end_line": 8,
         "file_path": "taxonomy.rb",
         "start_col": 6,
-        "start_line": 32
+        "start_line": 8
       },
-      "name": "taxonomy:Taxonomy.self.raise",
+      "name": "taxonomy:raise",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:super": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:super"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:super",
+      "kind": "proxy",
+      "location": {
+        "end_col": 17,
+        "end_line": 55,
+        "file_path": "taxonomy.rb",
+        "start_col": 6,
+        "start_line": 55
+      },
+      "name": "taxonomy:super",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
@@ -830,12 +789,12 @@
       "ruby"
     ],
     "parse_diagnostics": [],
-    "proxies": 8,
+    "proxies": 6,
     "source_file_counts": {
       "ruby": 1
     },
     "source_files": 1,
-    "total_nodes": 22
+    "total_nodes": 20
   },
   "trailmark_version": "<trailmark-version>"
 }

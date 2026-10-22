@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, replace
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind
+from trailmark.parsers._binding_index import record_unit
 
 
 @dataclass
@@ -22,6 +23,7 @@ class _Declarations:
     graph: CodeGraph
     ids: dict[str, list[str]] = field(default_factory=dict)
     moved: dict[str, _MovedCallable] = field(default_factory=dict)
+    bases: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -75,9 +77,8 @@ def _callable_base(
 ) -> str | None:
     if edge.target_id in declarations.ids:
         return edge.target_id
-    for base, ids in declarations.ids.items():
-        if edge.target_id in ids:
-            return base
+    if edge.target_id in declarations.bases:
+        return declarations.bases[edge.target_id]
     # Kotlin and Swift emit bare names. Check the caller's own declarations
     # before module functions, without inferring receiver or argument types.
     if any(separator in edge.target_id for separator in (":", ".", "->")):
@@ -148,8 +149,10 @@ def _move_callable(declarations: _Declarations, base: str) -> None:
         raise ValueError(f"Declaration ID collision: {first_id!r}")
     graph.nodes.pop(base)
     graph.nodes[first_id] = replace(first, id=first_id)
+    record_unit(graph.nodes[first_id])
     declarations.moved[base] = _MovedCallable(first_id, len(graph.edges))
     declarations.ids[base][0] = first_id
+    declarations.bases[first_id] = base
 
 
 def add_type(graph: CodeGraph, unit: CodeUnit) -> None:
@@ -176,6 +179,7 @@ def add_callable(graph: CodeGraph, unit: CodeUnit) -> str:
         raise ValueError(f"Declaration ID collision: {node_id!r}")
     graph.nodes[node_id] = replace(unit, id=node_id)
     ids.append(node_id)
+    declarations.bases[node_id] = base
     return node_id
 
 
@@ -250,3 +254,10 @@ def bind_lexical_calls(graph: CodeGraph) -> None:
                 owner = owners.get(owner, "")
         edges.append(edge)
     graph.edges[:] = edges
+
+
+def repair_body_edges(graph: CodeGraph) -> None:
+    """Commit pending callable moves before replacing or deleting a body."""
+    declarations = _current_declarations(graph)
+    _repair_body_edges(declarations)
+    declarations.moved.clear()

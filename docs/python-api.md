@@ -280,3 +280,8 @@ Pass `strict=True` to `parse_file`, `parse_directory` or
 `QueryEngine.from_directory` to reject graphs with diagnostics. Valid empty
 files remain valid. An empty diagnostic list means no problem was recorded;
 it does not establish complete language coverage or compiler validation.
+
+Empty and comment-only PowerShell and GraphQL files pass strict parsing. Strict
+mode still rejects known grammar gaps, including Cairo `assert!(...)`, and
+explicitly skipped Julia macros. See [parser coverage](parser-coverage.md) for
+the syntax and ownership limits behind these diagnostics.

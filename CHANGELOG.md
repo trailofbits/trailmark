@@ -2,6 +2,28 @@
 
 ## 0.7.0 (unreleased)
 
+- Preserve possible callback paths with uncertain `deferred` calls to nested
+  callable owners. Retain Python lambda, Go closure, Haskell do-bind and Dart
+  constructor-initializer calls. Preserve distinct JS/TS object methods and
+  repeated Python nested declarations.
+- Index lexical declarations, header directives, Erlang symbols, constructors and
+  extension members instead of rescanning them for each call. Keep initializer
+  binding order and Java method/variable namespaces distinct. Deduplicate syntax
+  diagnostics in linear time.
+- Recover C bodies independently through brace-neutral preprocessor conditionals,
+  keep valid call confidence despite unrelated errors, and retain real targets in
+  unresolved macro wrappers. Restrict header lookup to the analyzed root.
+- Fix PHP namespace calls, Ruby bare-call binding, Objective-C self sends, Move
+  call-local recovery and generic linking, SQL overload replacement, and Circom
+  same-file confidence. Diagnose excessive declaration nesting.
+- Accept common Aptos `acquires`, range-loop, compound-assignment and package
+  visibility syntax. Ship the upstream Move MIT notices with all distributions.
+- Restore Semgrep SARIF paths with undefined base IDs, cache bounded URI-base
+  chains, and reject paths escaping defined bases. Keep empty/comment-only files
+  valid in strict mode and report skipped Julia macros.
+- Require dated release changelogs and verify both wheel and sdist metadata before
+  publishing. Warn when explicit entrypoint overrides match no node.
+
 - Generate bundled Move and Circom parsers during builds instead of tracking
   generated sources in Git; wheels and sdists remain self-contained.
 
@@ -142,7 +164,13 @@
   smoke tests on Python 3.13 and 3.15 on Linux and macOS.
 
 Many node IDs change in this release: overloaded callables, colliding
-same-stem modules, Solidity contract-level types, and Java nested classes. A
+same-stem modules, Solidity contract-level types, and Java nested classes. C#,
+PHP and Ruby IDs include namespace owners. Rust collision suffixes use byte
+offsets; other positioned declarations use line/column suffixes. Anonymous lambda
+and block IDs move with their source position. Unresolved C declaration wrappers
+use `file:WRAPPER(name)` even without a reachable header. Move module names include
+the address; unsupported address blocks no longer synthesize logical modules.
+Rebuild entrypoint overrides after the upgrade. A
 `trailmark diff` across the upgrade shows these as removals and additions.
 Cross-file calls that were `certain` are now `inferred`, and some ambiguous or
 method targets that were linked before are now unresolved proxies. Polyglot

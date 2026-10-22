@@ -55,6 +55,8 @@ class QueryEngine:
         Missing/non-directory roots and zero inspected source files raise
         ``ValueError``. Set ``allow_empty=True`` for an intentional empty
         input. ``summary()`` reports selected languages and source-file counts.
+        ``strict=True`` raises ``ValueError`` for parse or unsupported-syntax
+        diagnostics in any selected file.
 
         Entrypoint detection runs automatically so that ``attack_surface()``
         and the entrypoint-dependent preanalysis passes have data to work

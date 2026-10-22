@@ -113,8 +113,9 @@ end
     anonymous = next(n for n in graph.nodes.values() if n.name.startswith("<lambda>"))
     assert _calls(graph, anonymous.id) == [("sample:leaf", EdgeConfidence.INFERRED)]
     outer_calls = _calls(graph, "sample:outer")
-    assert len(outer_calls) == 3
-    assert outer_calls[-2:] == [
+    assert len(outer_calls) == 4
+    assert (anonymous.id, EdgeConfidence.UNCERTAIN) in outer_calls
+    assert [call for call in outer_calls if call[1] != EdgeConfidence.UNCERTAIN] == [
         ("sample:outer.first", EdgeConfidence.INFERRED),
         ("sample:outer.second", EdgeConfidence.INFERRED),
     ]

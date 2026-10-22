@@ -25,10 +25,22 @@ compatibility tests, not a claim that those external gates have been updated.
   Namespace, nested callable, overload, Erlang arity, Ruby singleton,
   Objective-C class-method, and Rego clause IDs can differ from v0.6. Position
   suffixes move when source declarations move. See [parser coverage](parser-coverage.md).
+  In particular, C#, PHP and Ruby include namespace owners; Rust collision suffixes
+  use `@byte_offset`, while other positioned declarations use `@line_column`.
+  Anonymous `$lambda@line_column` and Objective-C `$block@line_column` IDs move
+  with source lines. JavaScript/TypeScript object methods include their binding,
+  such as `file:api.init`, so separate objects do not share a callable ID.
+  C declaration wrappers without reachable macro definitions
+  use `file:WRAPPER(name)`, rather than exposing the argument as a compiled name.
+  Move logical module names include the address (`0x1::bank`); unsupported address
+  blocks no longer synthesize a logical module node. Rebuild ID-keyed entrypoint
+  overrides; unmatched explicit override keys now emit warnings.
 - Test all three confidence values and query depth semantics against the installed
   version. An uncertain proxy is a retained site, not a proven target. Empty
   self-path lists must not classify a directly callable entrypoint as unreachable;
-  include the entrypoint itself in the reachability set.
+  include the entrypoint itself in the reachability set. Nested callable bodies
+  have uncertain owner-to-body call edges with `deferred: true`. Reachability
+  includes these possible callback paths; confidence filters can exclude them.
 
 ## Finding and state workflows
 
@@ -38,7 +50,9 @@ call paths. Storage nodes are not function call targets. Query relationships
 retain occurrence locations; do not turn repeated edges into independent claims.
 
 SARIF imports resolve indexed artifacts and chained URI bases before matching
-source files. Keep relocation rules explicit and inspect unmatched results.
+source files. Undefined base IDs use analysis-root-relative paths; defined bases
+are bounded directory URIs. Keep relocation rules explicit and inspect unmatched
+results.
 Repeated finding imports and JSON-only CLI output have regression coverage;
 verify those behaviors before enabling the corresponding workflow gate.
 
@@ -56,6 +70,7 @@ update gates only after those tests pass.
 ## Release preflight
 
 The publishing workflow runs `tests/release_preflight.py` before building and
-again against the built wheel. The release tag, pyproject version, runtime
-version, changelog heading and wheel metadata must agree. This does not publish
-or tag anything during ordinary development.
+again against the built wheel and sdist. The release tag, pyproject version,
+runtime version, dated changelog heading, wheel metadata and root sdist `PKG-INFO`
+must agree. Publishing rejects an `(unreleased)` heading; ordinary test runs can
+retain it. This does not publish or tag anything during ordinary development.

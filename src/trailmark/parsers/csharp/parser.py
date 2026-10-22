@@ -16,6 +16,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -74,6 +75,7 @@ class CSharpParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("csharp"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single C# file into a CodeGraph."""
         source = Path(file_path).read_bytes()

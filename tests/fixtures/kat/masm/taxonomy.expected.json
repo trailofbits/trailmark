@@ -232,34 +232,7 @@
     "languages": [
       "masm"
     ],
-    "parse_diagnostics": [
-      {
-        "grammar": "masm",
-        "kind": "syntax_error",
-        "language": "masm",
-        "location": {
-          "end_col": 4,
-          "end_line": 4,
-          "file_path": "taxonomy.masm",
-          "start_col": 3,
-          "start_line": 4
-        },
-        "message": "Grammar could not parse this source range"
-      },
-      {
-        "grammar": "masm",
-        "kind": "syntax_error",
-        "language": "masm",
-        "location": {
-          "end_col": 6,
-          "end_line": 6,
-          "file_path": "taxonomy.masm",
-          "start_col": 5,
-          "start_line": 6
-        },
-        "message": "Grammar could not parse this source range"
-      }
-    ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "masm": 1

@@ -47,7 +47,11 @@ End Namespace
     )
     assert helper.parameters[1].default == "1" and helper.cyclomatic_complexity == 2
     assert graph.dependencies == ["System"]
-    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and not dict(e.attributes).get("deferred")
+    ]
     assert len(calls) == 2 and all(e.target_id == helper.id for e in calls)
     engine = QueryEngine.from_directory(str(tmp_path), language="auto")
     assert {e["node_id"] for e in engine.attack_surface()} == {"sample:Demo.App.MAIN"}
@@ -75,7 +79,11 @@ End Module
     graph = parse_file(str(path))
     helpers = [u for u in graph.nodes.values() if u.name == "Helper"]
     assert len(helpers) == 2 and all("@" in u.id for u in helpers)
-    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and not dict(e.attributes).get("deferred")
+    ]
     assert len(calls) == 3 and all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
     assert all(e.confidence == EdgeConfidence.UNCERTAIN for e in calls)
 
@@ -128,7 +136,11 @@ End Class
     assert {"sample:App.New", "sample:App.Value.get", "sample:App.Value.set"} <= graph.nodes.keys()
     anonymous = [u for u in graph.nodes.values() if u.name.startswith("<lambda>")]
     assert len(anonymous) == 1 and len(anonymous[0].parameters) == 1
-    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and not dict(e.attributes).get("deferred")
+    ]
     assert len(calls) == 6
     assert len([e for e in calls if e.source_id == "sample:App.Run"]) == 2
 
@@ -150,7 +162,11 @@ End Namespace
 """,
     )
     graph = parse_file(str(path))
-    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    calls = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and not dict(e.attributes).get("deferred")
+    ]
     assert len(calls) == 2
     assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
 

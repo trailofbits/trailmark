@@ -11,6 +11,7 @@ from tree_sitter_language_pack import get_language
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, TypeRef
+from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._bindings import lexical_declaration
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -43,6 +44,7 @@ class FuncParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("func"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         source = Path(file_path).read_bytes()
         tree = self._parser.parse(source)

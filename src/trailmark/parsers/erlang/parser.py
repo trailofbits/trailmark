@@ -27,6 +27,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.erlang._symbols import exported, imported, module_symbols
 
 _BRANCH_NODE_TYPES = frozenset({"cr_clause", "if_clause", "catch_clause", "receive_after"})
 
@@ -51,7 +52,8 @@ class ErlangParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="erlang", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_module(tree.root_node, file_path, module_id, graph)
+        with module_symbols(tree.root_node):
+            _visit_module(tree.root_node, file_path, module_id, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -177,7 +179,7 @@ def _create_function_node(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,
-        attributes=(("erlang_arity", _arity(clause)), ("erlang_exported", _exported(clause, name))),
+        attributes=(("erlang_arity", _arity(clause)), ("erlang_exported", exported(name))),
     )
     graph.nodes[func_id] = unit
     add_contains_edge(graph, module_id, func_id)
@@ -507,7 +509,7 @@ def _add_call_edges(
         if call_name.rsplit("/", 1)[0] in _THROW_ATOMS:
             continue
         target_id = _resolve_call_target(call_name, module_id)
-        target_id = _import_target(call_node, call_name) or target_id
+        target_id = imported(call_name) or target_id
         dynamic = "$dynamic." in call_name
         if call_node.type == "remote":
             module = call_node.child_by_field_name("module")
@@ -515,7 +517,7 @@ def _add_call_edges(
             dynamic = dynamic or atom is None or atom.type != "atom"
         confidence = EdgeConfidence.UNCERTAIN if dynamic else _call_confidence(call_name)
         if dynamic:
-            target_id = f"{source_id}.$dynamic.{call_name}"
+            target_id = f"{source_id}.$dynamic.{call_name.removeprefix('$dynamic.')}"
         expression = call_node.child_by_field_name("expr")
         while expression is not None and expression.type == "paren_expr":
             expression = expression.child_by_field_name("expr")
@@ -675,42 +677,6 @@ def _children_by_field(
 def _arity(node: Node) -> int:
     args = node.child_by_field_name("args")
     return len(args.children_by_field_name("args")) if args is not None else 0
-
-
-def _exported(node: Node, name: str) -> bool:
-    while node.parent is not None:
-        node = node.parent
-    for export in node.named_children:
-        if export.type == "export_attribute":
-            for fa in export.children_by_field_name("funs"):
-                if _fa_name(fa) == name:
-                    return True
-    return False
-
-
-def _fa_name(node: Node) -> str:
-    function = node.child_by_field_name("fun")
-    arity = node.child_by_field_name("arity")
-    return (
-        f"{node_text(function)}/{node_text(arity).removeprefix('/')}"
-        if function is not None and arity is not None
-        else ""
-    )
-
-
-def _import_target(node: Node, name: str) -> str | None:
-    if ":" in name or "$dynamic." in name:
-        return None
-    while node.parent is not None:
-        node = node.parent
-    for imported in node.named_children:
-        if imported.type == "import_attribute":
-            module = imported.child_by_field_name("module")
-            if module is not None and any(
-                _fa_name(fa) == name for fa in imported.children_by_field_name("funs")
-            ):
-                return f"{node_text(module)}:{name}"
-    return None
 
 
 def _closure_id(owner: str, node: Node) -> str:

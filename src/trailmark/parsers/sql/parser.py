@@ -28,7 +28,12 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._declarations import add_callable, add_type, callable_scope
+from trailmark.parsers._declarations import (
+    add_callable,
+    add_type,
+    callable_scope,
+    repair_body_edges,
+)
 
 _EXTENSIONS = (".sql",)
 _DECLARATIONS: dict[str, NodeKind] = {
@@ -245,40 +250,21 @@ def _sql_reference_id(graph: CodeGraph, module_id: str, schema: str | None, name
     return _sql_id(module_id, schema, name)
 
 
+_Token = tuple[str, int, int]
+
+
 def _extract_procedures(source: bytes, file_path: str, module_id: str, graph: CodeGraph) -> None:
     """Recover procedures from actual top-level statements, never quoted text."""
     text = source.decode("utf-8", errors="replace")
+    native_lines = {
+        u.location.start_line for u in graph.nodes.values() if u.kind == NodeKind.PROCEDURE
+    }
     for tokens in _statements(text):
-        words = [token[0].upper() for token in tokens[:5]]
-        offset = 3 if words[:3] == ["CREATE", "OR", "REPLACE"] else 1
-        if (
-            not words
-            or words[0] != "CREATE"
-            or len(tokens) <= offset
-            or words[offset] != "PROCEDURE"
-        ):
+        header = _procedure_header(tokens)
+        if header is None:
             continue
-        cursor = offset + 1
-        if cursor >= len(tokens):
-            continue
-        name = tokens[cursor][0]
-        schema = None
-        cursor += 1
-        if cursor + 1 < len(tokens) and tokens[cursor][0] == ".":
-            schema, name = name, tokens[cursor + 1][0]
-            cursor += 2
-        if cursor >= len(tokens) or tokens[cursor][0] != "(":
-            continue
-        depth, end_params = 0, cursor
-        for index in range(cursor, len(tokens)):
-            if tokens[index][0] == "(":
-                depth += 1
-            elif tokens[index][0] == ")":
-                depth -= 1
-                if depth == 0:
-                    end_params = index
-                    break
-        parameters = _recovered_parameters(tokens[cursor + 1 : end_params])
+        schema, name, cursor = header
+        end_params = _parameter_end(tokens, cursor)
         start, end = tokens[0][1], tokens[-1][2]
         location = SourceLocation(
             file_path,
@@ -287,59 +273,94 @@ def _extract_procedures(source: bytes, file_path: str, module_id: str, graph: Co
             start - text.rfind("\n", 0, start) - 1,
             end - text.rfind("\n", 0, end) - 1,
         )
-        base = _sql_id(module_id, schema, name)
-        # The grammar may gain native procedure support in a later version.
-        if any(
-            unit.kind == NodeKind.PROCEDURE and unit.location.start_line == location.start_line
-            for unit in graph.nodes.values()
-        ):
+        if location.start_line in native_lines:
             continue
         unit_id = _add_routine(
             graph,
             CodeUnit(
-                id=base,
+                id=_sql_id(module_id, schema, name),
                 name=name,
                 kind=NodeKind.PROCEDURE,
                 location=location,
-                parameters=parameters,
+                parameters=_recovered_parameters(tokens[cursor + 1 : end_params]),
                 attributes=(("sql_schema", schema or ""),),
             ),
         )
         container = f"{module_id}:{schema}" if schema else module_id
         add_contains_edge(graph, container if container in graph.nodes else module_id, unit_id)
-        body = tokens[end_params + 1 :]
-        # Dollar/single quoted AS bodies are SQL at one deeper lexical level.
-        for index, token in enumerate(body):
-            if token[0].upper() == "AS" and index + 1 < len(body):
-                literal = body[index + 1][0]
-                tag = _dollar_quote_tag(literal, 0)
-                if tag:
-                    body = list(_tokens(literal[len(tag) : -len(tag)]))
-                elif literal.startswith("'"):
-                    body = list(_tokens(literal[1:-1].replace("''", "'")))
-                break
-        seen: set[str] = set()
-        for index, token in enumerate(body[:-1]):
-            if token[0].upper() not in {"FROM", "JOIN", "UPDATE", "INTO"}:
-                continue
-            target_name = body[index + 1][0]
-            if re.fullmatch(_IDENTIFIER, target_name) is None:
-                continue
-            target_schema = None
-            if index + 3 < len(body) and body[index + 2][0] == ".":
-                target_schema, target_name = target_name, body[index + 3][0]
-            target = _sql_reference_id(graph, module_id, target_schema, target_name)
-            if target not in seen:
-                seen.add(target)
-                graph.edges.append(
-                    CodeEdge(
-                        unit_id,
-                        target,
-                        EdgeKind.CORRESPONDS_TO,
-                        confidence=EdgeConfidence.INFERRED,
-                        attributes=(("relationship", "sql_dependency"),),
-                    )
+        _procedure_dependencies(
+            _procedure_body(tokens[end_params + 1 :]), unit_id, module_id, graph
+        )
+
+
+def _procedure_header(tokens: list[_Token]) -> tuple[str | None, str, int] | None:
+    words = [token[0].upper() for token in tokens[:5]]
+    offset = 3 if words[:3] == ["CREATE", "OR", "REPLACE"] else 1
+    if not words or words[0] != "CREATE" or len(tokens) <= offset or words[offset] != "PROCEDURE":
+        return None
+    cursor = offset + 1
+    if cursor >= len(tokens):
+        return None
+    name, schema = tokens[cursor][0], None
+    cursor += 1
+    if cursor + 1 < len(tokens) and tokens[cursor][0] == ".":
+        schema, name = name, tokens[cursor + 1][0]
+        cursor += 2
+    return (schema, name, cursor) if cursor < len(tokens) and tokens[cursor][0] == "(" else None
+
+
+def _parameter_end(tokens: list[_Token], cursor: int) -> int:
+    depth = 0
+    for index in range(cursor, len(tokens)):
+        if tokens[index][0] == "(":
+            depth += 1
+        elif tokens[index][0] == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+    return cursor
+
+
+def _procedure_body(body: list[_Token]) -> list[_Token]:
+    # Dollar/single quoted AS bodies are SQL at one deeper lexical level.
+    for index, token in enumerate(body[:-1]):
+        if token[0].upper() != "AS":
+            continue
+        literal = body[index + 1][0]
+        tag = _dollar_quote_tag(literal, 0)
+        if tag:
+            return list(_tokens(literal[len(tag) : -len(tag)]))
+        if literal.startswith("'"):
+            return list(_tokens(literal[1:-1].replace("''", "'")))
+        break
+    return body
+
+
+def _procedure_dependencies(
+    body: list[_Token], unit_id: str, module_id: str, graph: CodeGraph
+) -> None:
+    seen: set[str] = set()
+    for index, token in enumerate(body[:-1]):
+        if token[0].upper() not in {"FROM", "JOIN", "UPDATE", "INTO"}:
+            continue
+        target_name = body[index + 1][0]
+        if re.fullmatch(_IDENTIFIER, target_name) is None:
+            continue
+        target_schema = None
+        if index + 3 < len(body) and body[index + 2][0] == ".":
+            target_schema, target_name = target_name, body[index + 3][0]
+        target = _sql_reference_id(graph, module_id, target_schema, target_name)
+        if target not in seen:
+            seen.add(target)
+            graph.edges.append(
+                CodeEdge(
+                    unit_id,
+                    target,
+                    EdgeKind.CORRESPONDS_TO,
+                    confidence=EdgeConfidence.INFERRED,
+                    attributes=(("relationship", "sql_dependency"),),
                 )
+            )
 
 
 def _dollar_quote_tag(text: str, index: int) -> str | None:
@@ -447,6 +468,7 @@ def _add_routine(graph: CodeGraph, unit: CodeUnit) -> str:
             and _identifier(str(attributes.get("sql_schema", ""))) == _identifier(str(schema))
             and attributes.get("sql_signature") == signature
         ):
+            repair_body_edges(graph)
             graph.nodes[old.id] = dataclasses.replace(
                 unit, id=old.id, attributes=(*unit.attributes, ("sql_signature", signature))
             )
@@ -463,6 +485,9 @@ def _add_routine(graph: CodeGraph, unit: CodeUnit) -> str:
     )
 
 
+_SQL_TOKEN = re.compile(r"[A-Za-z_][\w$]*|[0-9]+(?:\.[0-9]+)?")
+
+
 def _tokens(text: str) -> Iterator[tuple[str, int, int]]:
     """Yield lexical tokens and character spans; skip nested SQL comments."""
     index = 0
@@ -476,31 +501,16 @@ def _tokens(text: str) -> Iterator[tuple[str, int, int]]:
             index = len(text) if end < 0 else end + 1
             continue
         if text.startswith("/*", index):
-            depth, index = 1, index + 2
-            while index < len(text) and depth:
-                if text.startswith("/*", index):
-                    depth, index = depth + 1, index + 2
-                elif text.startswith("*/", index):
-                    depth, index = depth - 1, index + 2
-                else:
-                    index += 1
+            index = _comment_end(text, index)
             continue
         tag = _dollar_quote_tag(text, index) if text[index] == "$" else None
         if tag:
             end = text.find(tag, index + len(tag))
             index = len(text) if end < 0 else end + len(tag)
         elif text[index] in "'\"":
-            quote, index = text[index], index + 1
-            while index < len(text):
-                if text[index] == quote:
-                    index += 1
-                    if index >= len(text) or text[index] != quote:
-                        break
-                elif text[index] == "\\" and quote == "'":
-                    index += 1
-                index += 1
+            index = _quoted_end(text, index)
         else:
-            match = re.match(r"[A-Za-z_][\w$]*|[0-9]+(?:\.[0-9]+)?", text[index:])
+            match = _SQL_TOKEN.match(text, index)
             index += len(match.group(0)) if match else 1
         yield text[start:index], start, index
 
@@ -560,3 +570,28 @@ def _recovered_parameters(tokens: list[tuple[str, int, int]]) -> tuple[Parameter
         type_name = " ".join(words[1:] if len(words) > 1 else words)
         result.append(Parameter(name, TypeRef(type_name), default=default))
     return tuple(result)
+
+
+def _comment_end(text: str, index: int) -> int:
+    depth, index = 1, index + 2
+    while index < len(text) and depth:
+        if text.startswith("/*", index):
+            depth, index = depth + 1, index + 2
+        elif text.startswith("*/", index):
+            depth, index = depth - 1, index + 2
+        else:
+            index += 1
+    return index
+
+
+def _quoted_end(text: str, index: int) -> int:
+    quote, index = text[index], index + 1
+    while index < len(text):
+        if text[index] == quote:
+            index += 1
+            if index >= len(text) or text[index] != quote:
+                break
+        elif text[index] == "\\" and quote == "'":
+            index += 1
+        index += 1
+    return index

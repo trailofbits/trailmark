@@ -6,7 +6,7 @@ import dataclasses
 import re
 from hashlib import sha256
 
-from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin, SourceLocation, TypeRef
 
@@ -34,9 +34,43 @@ def ensure_proxy_nodes(graph: CodeGraph) -> CodeGraph:
     The function mutates and returns ``graph`` so callers can normalize a graph
     before building indexes while preserving existing call sites.
     """
+    _connect_deferred_calls(graph)
     _materialize_unresolved_calls(graph)
     materialize_type_use_edges(graph)
     return graph
+
+
+def _connect_deferred_calls(graph: CodeGraph) -> None:
+    """Expose nested callable bodies without claiming they execute eagerly."""
+    owners = {
+        edge.target_id: edge.source_id for edge in graph.edges if edge.kind == EdgeKind.CONTAINS
+    }
+    existing = {
+        (edge.source_id, edge.target_id) for edge in graph.edges if edge.kind == EdgeKind.CALLS
+    }
+    callable_kinds = {NodeKind.FUNCTION, NodeKind.METHOD, NodeKind.PROCEDURE}
+    for unit in tuple(graph.nodes.values()):
+        if unit.kind not in callable_kinds:
+            continue
+        owner = owners.get(unit.id)
+        seen = set()
+        while owner is not None and owner not in seen:
+            seen.add(owner)
+            container = graph.nodes.get(owner)
+            if container is not None and container.kind in callable_kinds:
+                if (owner, unit.id) not in existing:
+                    graph.edges.append(
+                        CodeEdge(
+                            owner,
+                            unit.id,
+                            EdgeKind.CALLS,
+                            confidence=EdgeConfidence.UNCERTAIN,
+                            location=unit.location,
+                            attributes=(("deferred", True),),
+                        )
+                    )
+                break
+            owner = owners.get(owner)
 
 
 def _materialize_unresolved_calls(graph: CodeGraph) -> None:
@@ -48,7 +82,8 @@ def _materialize_unresolved_calls(graph: CodeGraph) -> None:
             new_edges.append(edge)
             continue
 
-        proxy_id = _proxy_id("unresolved", edge.target_id)
+        symbol = _operator_symbol(edge.target_id) if graph.language == "haskell" else edge.target_id
+        proxy_id = _proxy_id("unresolved", symbol)
         existing = staged.nodes.get(proxy_id)
         if existing is not None and not _same_proxy_identity(
             existing, edge.target_id, "unresolved"
@@ -228,3 +263,27 @@ def _flatten_type_ref(type_ref: TypeRef) -> list[TypeRef]:
     for arg in type_ref.generic_args:
         refs.extend(_flatten_type_ref(arg))
     return refs
+
+
+def _operator_symbol(raw: str) -> str:
+    names = {
+        "+": "plus",
+        "-": "minus",
+        "*": "times",
+        "/": "slash",
+        "$": "apply",
+        ".": "compose",
+        "=": "equal",
+        "<": "less",
+        ">": "greater",
+        "!": "bang",
+        "&": "and",
+        "|": "or",
+        ":": "cons",
+        "^": "caret",
+        "%": "percent",
+    }
+    module, _, name = raw.partition(":")
+    if name and all(char in names for char in name):
+        return f"{module}:$operator.{'_'.join(names[char] for char in name)}"
+    return raw
