@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.12", "3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -73,14 +73,15 @@ jobs:
       - run: npm ci
       - run: uv sync --locked --all-groups
 
-      - run: uv run pytest -q tests/
+      - run: uv run --locked pytest -q tests/
 
   package:
-    name: Package Smoke Test (${{ matrix.os }})
+    name: Package Smoke Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python-version: ["3.13", "3.15"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -90,12 +91,14 @@ jobs:
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
 
       - run: npm ci
       - run: uv run --no-project --with hatchling python tests/sdist_smoke.py
-      - run: uv build
-      - run: uv venv /tmp/trailmark-wheel && uv pip install --python /tmp/trailmark-wheel dist/*.whl
+      - run: uv build --python ${{ matrix.python-version }}
+      - run: uv venv --python ${{ matrix.python-version }} /tmp/trailmark-wheel
+      - run: uv pip install --python /tmp/trailmark-wheel dist/*.whl
       - run: /tmp/trailmark-wheel/bin/python tests/package_smoke.py tests/fixtures/kat
-      - run: uv venv /tmp/trailmark-sdist && uv pip install --python /tmp/trailmark-sdist dist/*.tar.gz
+      - run: uv venv --python ${{ matrix.python-version }} /tmp/trailmark-sdist
+      - run: uv pip install --python /tmp/trailmark-sdist dist/*.tar.gz
       - run: /tmp/trailmark-sdist/bin/python tests/package_smoke.py tests/fixtures/kat

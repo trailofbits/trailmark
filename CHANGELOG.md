@@ -76,6 +76,8 @@
 - Upgrade pytest-gremlins to 1.11.4 and revalidate the mutation runner against
   its pytest and import handling. Reject skipped instrumentation. Keep
   `tree-sitter` on the 0.25 series because 0.26.0 causes native crashes.
+- Test Python 3.15 in CI alongside 3.12–3.14. Run wheel and source-distribution
+  smoke tests on Python 3.13 and 3.15 on Linux and macOS.
 
 Many node IDs change in this release: overloaded callables, colliding
 same-stem modules, Solidity contract-level types, and Java nested classes. A

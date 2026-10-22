@@ -94,6 +94,9 @@ def pyproject_data() -> dict[str, object]:
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     # Installation and bundled grammars
+    ("README.md", "CI tests Python 3.12 through 3.15."),
+    ("CONTRIBUTING.md", "CI tests Python 3.12 through 3.15."),
+    ("docs/installation.md", "CI tests Python 3.12 through 3.15."),
     ("docs/installation.md", "`tree-sitter-language-pack` 1.22.1 or newer"),
     ("docs/installation.md", "Root-owned grammar caches are supported"),
     ("docs/installation.md", "not group- or other-writable"),

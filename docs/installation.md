@@ -5,7 +5,9 @@ uv tool install trailmark        # the CLI, in its own environment
 uv add trailmark                 # the library, in a uv-managed project
 ```
 
-Trailmark requires Python &ge; 3.12. CI tests Python 3.12 through 3.14.
+Trailmark requires Python &ge; 3.12. CI tests Python 3.12 through 3.15.
+Wheel and source-distribution smoke tests run on Python 3.13 and 3.15 on
+Linux and macOS, including the bundled native grammars.
 
 ## Grammars
 

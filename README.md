@@ -54,8 +54,8 @@ uv tool install trailmark        # the CLI
 uv add trailmark                 # the library, in a uv-managed project
 ```
 
-Requires Python &ge; 3.12. With Nix, `nix run github:trailofbits/trailmark`
-runs the CLI directly.
+Requires Python &ge; 3.12. CI tests Python 3.12 through 3.15.
+With Nix, `nix run github:trailofbits/trailmark` runs the CLI directly.
 
 This README and the guides track the `main` branch. The
 [changelog](https://github.com/trailofbits/trailmark/blob/main/CHANGELOG.md)

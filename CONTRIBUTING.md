@@ -3,7 +3,7 @@
 ## Setup
 
 Requires Python >= 3.12, [uv](https://docs.astral.sh/uv/), Node.js/npm,
-a C compiler (`cc`), and Python development headers. CI tests Python 3.12–3.14.
+a C compiler (`cc`), and Python development headers. CI tests Python 3.12 through 3.15.
 
 ```bash
 npm ci
