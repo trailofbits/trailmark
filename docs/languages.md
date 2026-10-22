@@ -11,6 +11,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Solidity persistent state](#solidity-persistent-state)
 - [Aiken](#aiken)
 - [TypeScript](#typescript)
+- [Perl](#perl)
 - [Lua](#lua)
 - [SQL](#sql)
 - [C, C++, and Objective-C headers](#c-c-and-objective-c-headers)
@@ -177,6 +178,28 @@ TypeScript resolves direct calls and straightforward receivers assigned with
 `new ConcreteClass()`. Interface dispatch through manifests, computed property
 names, dependency-injection containers, and other dynamic mechanisms is
 best-effort and often stays unresolved.
+
+## Perl
+
+The Perl 5 frontend (`.pl`, `.pm`) extracts packages, named subroutine bodies,
+anonymous subs, signatures/defaults, branches, and literal `use`, `require` and
+`do FILE` dependencies. Prototypes are retained as `perl_prototype` metadata,
+not mistaken for formal parameters. Forward declarations do not create duplicate
+implementations. Package names qualify IDs (`file:Example.helper`); anonymous and
+repeated definitions have byte-offset suffixes. `file:<script>` owns top-level
+execution, while anonymous subs own their bodies.
+
+Unique same-file package functions resolve as `inferred`, including explicit
+package-qualified calls. Lexical subs are retained but calls through their
+bindings stay uncertain; their names conservatively shadow package functions
+throughout the enclosing function. Coderefs, receiver methods, imported aliases,
+AUTOLOAD and cross-file names remain uncertain proxies. Typeglob assignment,
+subroutine undefinition and `eval` disable local inference throughout the file.
+No Perl or generated assembly is executed or analyzed as generated output;
+heredoc contents are data. Script execution needs an entrypoint override;
+`main` uses the generic rule. Syntax errors warn that the graph may be incomplete.
+Some valid Perl regex syntax exceeds the packaged grammar, including a pattern
+in OpenSSL's `arm-xlate.pl`; those warnings indicate a source coverage gap.
 
 ## Lua
 

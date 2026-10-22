@@ -188,6 +188,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/augmenting.md", "`replace_existing=False`"),
     ("docs/augmenting.md", "preserves the graph's previous state"),
     ("docs/augmenting.md", "not data flow"),
+    ("docs/languages.md", "Prototypes are retained as `perl_prototype` metadata"),
     # Call resolution
     ("docs/call-resolution.md", "--resolution"),
     ("docs/call-resolution.md", "receiver types"),

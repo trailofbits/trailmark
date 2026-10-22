@@ -1,0 +1,311 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:<script>"
+    },
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "strict"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Example"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.legacy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.main"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:<script>",
+      "target": "taxonomy:<script>.<lambda>@182"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:Example.legacy.<dynamic>.shift"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Example.legacy",
+      "target": "proxy.unresolved:taxonomy:Example.legacy._dynamic_.shift"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Example.main",
+      "target": "taxonomy:Example.helper"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Example.main",
+      "target": "taxonomy:Example.helper"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:Example.main.<dynamic>.$obj->helper"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Example.main",
+      "target": "proxy.unresolved:taxonomy:Example.main._dynamic_.$obj-_helper"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:<script>.<lambda>@182",
+      "target": "taxonomy:Example.helper"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:<script>",
+      "target": "taxonomy:Example.main"
+    }
+  ],
+  "language": "perl",
+  "nodes": {
+    "proxy.unresolved:taxonomy:Example.legacy._dynamic_.shift": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Example.legacy.<dynamic>.shift"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Example.legacy._dynamic_.shift",
+      "kind": "proxy",
+      "location": {
+        "end_col": 30,
+        "end_line": 4,
+        "file_path": "taxonomy.pl",
+        "start_col": 25,
+        "start_line": 4
+      },
+      "name": "taxonomy:Example.legacy.<dynamic>.shift",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Example.main._dynamic_.$obj-_helper": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Example.main.<dynamic>.$obj->helper"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Example.main._dynamic_.$obj-_helper",
+      "kind": "proxy",
+      "location": {
+        "end_col": 56,
+        "end_line": 5,
+        "file_path": "taxonomy.pl",
+        "start_col": 42,
+        "start_line": 5
+      },
+      "name": "taxonomy:Example.main.<dynamic>.$obj->helper",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 8,
+        "file_path": "taxonomy.pl",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:<script>": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:<script>",
+      "kind": "function",
+      "location": {
+        "end_col": 0,
+        "end_line": 8,
+        "file_path": "taxonomy.pl",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "<script>",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:<script>.<lambda>@182": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:<script>.<lambda>@182",
+      "kind": "function",
+      "location": {
+        "end_col": 27,
+        "end_line": 6,
+        "file_path": "taxonomy.pl",
+        "start_col": 9,
+        "start_line": 6
+      },
+      "name": "<lambda>@182",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Example": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example",
+      "kind": "namespace",
+      "location": {
+        "end_col": 16,
+        "end_line": 2,
+        "file_path": "taxonomy.pl",
+        "start_col": 0,
+        "start_line": 2
+      },
+      "name": "Example",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Example.helper": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "$x",
+          "location": {
+            "end_col": 47,
+            "end_line": 3,
+            "file_path": "taxonomy.pl",
+            "start_col": 25,
+            "start_line": 3
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.helper",
+      "kind": "function",
+      "location": {
+        "end_col": 49,
+        "end_line": 3,
+        "file_path": "taxonomy.pl",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "helper",
+      "parameters": [
+        {
+          "default": null,
+          "name": "$x",
+          "type_ref": null
+        },
+        {
+          "default": "1",
+          "name": "$y",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Example.legacy": {
+      "attributes": {
+        "perl_prototype": "($$)"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.legacy",
+      "kind": "function",
+      "location": {
+        "end_col": 33,
+        "end_line": 4,
+        "file_path": "taxonomy.pl",
+        "start_col": 0,
+        "start_line": 4
+      },
+      "name": "legacy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Example.main": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.main",
+      "kind": "function",
+      "location": {
+        "end_col": 59,
+        "end_line": 5,
+        "file_path": "taxonomy.pl",
+        "start_col": 0,
+        "start_line": 5
+      },
+      "name": "main",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.pl",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 6,
+    "classes": 0,
+    "dependencies": [
+      "strict"
+    ],
+    "entrypoints": 0,
+    "functions": 5,
+    "languages": [
+      "perl"
+    ],
+    "proxies": 2,
+    "source_file_counts": {
+      "perl": 1
+    },
+    "source_files": 1,
+    "total_nodes": 9
+  },
+  "trailmark_version": "<trailmark-version>"
+}

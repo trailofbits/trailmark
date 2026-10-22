@@ -40,6 +40,8 @@
   nodes. Colliding callable IDs gain an `@line_column` suffix; a type that
   shares a callable's ID keeps the base ID. Calls that need overload resolution
   stay unresolved and `uncertain` (#86).
+- Add a Perl 5 frontend for packages, subroutine bodies, signatures/prototypes,
+  anonymous subs, build-script calls, dependencies and conservative package binding.
 - Give same-stem files distinct module IDs when they would collide, using
   escaped extensions (`app\.py`, `app\.rs`, `pkg.__init__\.py`). Solidity
   contract-level structs and enums are now `module:Contract.Name`, and Java
