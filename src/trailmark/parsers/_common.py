@@ -27,7 +27,6 @@ from trailmark.models.nodes import (
 from trailmark.parsers._binding import resolve_inherited_method_calls
 from trailmark.parsers._binding_index import initialize_bindings, record_unit
 from trailmark.parsers._php_linking import link_php_functions
-from trailmark.parsers._walk import walk_owned
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -351,18 +350,13 @@ def add_module_node(
 
 
 def _comments_only(root: Node) -> bool:
+    """Recognize file-level comment trivia without walking declaration bodies."""
     source = root.text or b""
-    if not source.strip():
-        return True
     cursor = 0
-    for node in walk_owned(root):
+    for node in root.named_children:
         if "comment" not in node.type:
-            if node != root and not node.named_children and (node.text or b"").strip():
-                return False
             continue
         start, end = node.start_byte - root.start_byte, node.end_byte - root.start_byte
-        if start < cursor:
-            continue
         if source[cursor:start].strip():
             return False
         cursor = end
@@ -614,15 +608,16 @@ def _free_functions(graph: CodeGraph, eligible_ids: set[str] | None) -> dict[str
 def _needs_cross_file_target(
     edge: CodeEdge, graph: CodeGraph, eligible_ids: set[str] | None
 ) -> bool:
-    if (
-        edge.kind != EdgeKind.CALLS
-        or edge.target_id in graph.nodes
-        or dict(edge.attributes).get("binding_blocked")
-        or (eligible_ids is not None and edge.source_id not in eligible_ids)
-    ):
-        return False
     target = edge.target_id
-    return "::" not in target and "->" not in target and "." not in target.rsplit(":", 1)[-1]
+    return (
+        edge.kind == EdgeKind.CALLS
+        and target not in graph.nodes
+        and not dict(edge.attributes).get("binding_blocked")
+        and (eligible_ids is None or edge.source_id in eligible_ids)
+        and "::" not in target
+        and "->" not in target
+        and "." not in target.rsplit(":", 1)[-1]
+    )
 
 
 def _cross_file_candidates(

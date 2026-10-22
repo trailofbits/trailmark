@@ -33,15 +33,15 @@
       "reason": "Equivalent for parser-produced call locations: a call starts at an expression token, never at the enclosing block opening-brace token. Equality with block.start_point cannot occur. The upper boundary is observably different for a call adjacent to the closing brace and has a regression test."
     },
     {
-      "fingerprint": "94fda0cb67a61981229b44fffc4d6c1f99cc9f8118eb074374f5affc2d64d52b",
-      "source_hash": "ce7d84d7043a5369d4afe18049d34e3a3368176239bf1c09194f366e45d352eb",
+      "fingerprint": "ee8d5120b8ff15ca058945feec653ab5951017e0e40992ed46c1723c1a9f33a4",
+      "source_hash": "0b9cbfe71d123d19a9537f3cddac959073ddbc205dbd024bbce357b138ba0f38",
       "path": "src/trailmark/parsers/_common.py",
       "function": "<module>",
-      "line": 51,
+      "line": 53,
       "operator": "boolean",
       "original": "True",
       "mutated": "False",
-      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, installed in a private ContextVar, read only by module_id_from_path/parse_directory, and reset in finally. directory_sources yields None, never the record; no field assignments, hashing, equality checks, or serialization consume it. Frozen guards field rebinding only; nested map mutation is possible in both variants and parser consumers do neither. The independent core review checked call sites and tested the mutable-decorator variant against directory parsing. Existing semantic tests verify IDs, ownership, header linking, collision expansion, and package modules rather than asserting this private decorator implementation. Re-reviewed after adding source-file coverage and frontend diagnostics/binding filters: those paths mutate only graph data and local counters; the private planning record remains read-only and does not escape."
+      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, installed in a private ContextVar, read only by module_id_from_path/parse_directory, and reset in finally. directory_sources yields None, never the record; no field assignments, hashing, equality checks, or serialization consume it. Frozen guards field rebinding only; nested map mutation is possible in both variants and parser consumers do neither. The independent core review checked call sites and tested the mutable-decorator variant against directory parsing. Existing semantic tests verify IDs, ownership, header linking, collision expansion, and package modules rather than asserting this private decorator implementation. Re-reviewed after adding source-file coverage and frontend diagnostics/binding filters: those paths mutate only graph data and local counters; the private planning record remains read-only and does not escape. Re-reviewed after indexed linking and linear diagnostic traversal: _DirectorySources still only carries read-only operation context and is reset in finally; no consumer assigns its fields."
     }
   ],
   "legacy_policy": "These functions match the pre-PR base f7e19d3. Their existing mutation outcomes are reported but not gated until their AST changes. New functions and changed functions in the scoped files are gated automatically.",
