@@ -146,6 +146,7 @@
     }
   },
   "root_path": "taxonomy.sql",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 0,
@@ -162,5 +163,6 @@
     },
     "source_files": 1,
     "total_nodes": 5
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

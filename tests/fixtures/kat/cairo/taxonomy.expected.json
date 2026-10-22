@@ -481,6 +481,7 @@
     }
   },
   "root_path": "taxonomy.cairo",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 2,
@@ -499,5 +500,6 @@
     },
     "source_files": 1,
     "total_nodes": 12
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

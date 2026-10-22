@@ -108,7 +108,7 @@ count (default 20) and must be positive; zero or a negative value raises
 | `attack_surface()` | Each entrypoint's node ID, kind, trust level, asset value, description, and parser attributes such as Solidity visibility |
 | `complexity_hotspots(threshold=10)` | Functions with cyclomatic complexity &ge; `threshold` |
 | `functions_that_raise(exception_name)` | Functions whose parser-detected exception types include `exception_name` |
-| `summary()` | Total nodes; function, class, and proxy counts; call-edge count; dependencies; entrypoint count |
+| `summary()` | Total nodes; function, class, and proxy counts; call-edge count; dependencies; entrypoint count; selected languages and inspected source-file counts |
 
 ### Types
 
@@ -227,8 +227,20 @@ interpreting the result.
 
 ## JSON export
 
-`to_json()` and the CLI's JSON output contain nodes, edges, subgraphs, and a
-summary. The JSON export omits annotations, entrypoint tags, and call-site
+`to_json()` and `trailmark analyze`'s default JSON output contain nodes, edges, subgraphs, and a
+summary. Since v0.7, graph exports also contain top-level `trailmark_version`
+(the exporting package's `trailmark.__version__`) and `schema_version`
+(currently `1`). `schema_version` changes for incompatible export-format
+changes; additive fields may appear within a schema version. It does not
+version parser behavior, so compare exports generated with the same Trailmark
+version and language selection even when their schema versions match.
+Unversioned exports from older releases have no declared schema version;
+rebuild both snapshots with one tested version before interpreting a diff.
+These fields identify the exporter, not the source revision or all settings
+used to construct a graph. Trailmark does not import graph exports or
+automatically validate their compatibility.
+
+The JSON export omits annotations, entrypoint tags, and call-site
 locations, so it does not preserve all analysis state. While the engine is
 available, use `findings()`, `annotations_of()`, `attack_surface()`, and
 `unresolved_calls()` for those details.

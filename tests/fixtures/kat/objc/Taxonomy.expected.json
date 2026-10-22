@@ -513,6 +513,7 @@
     }
   },
   "root_path": "Taxonomy.m",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 0,
@@ -531,5 +532,6 @@
     },
     "source_files": 1,
     "total_nodes": 11
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

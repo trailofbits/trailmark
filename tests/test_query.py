@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from trailmark import __version__
 from trailmark.models import (
     AnnotationKind,
     AssetValue,
@@ -565,6 +566,8 @@ class TestToJson:
         engine = _build_engine()
         data = json.loads(engine.to_json())
         assert set(data.keys()) == {
+            "trailmark_version",
+            "schema_version",
             "language",
             "root_path",
             "summary",
@@ -574,6 +577,11 @@ class TestToJson:
         }
         assert len(data["nodes"]) == 3
         assert len(data["edges"]) == 2
+
+    def test_to_json_provenance(self) -> None:
+        data = json.loads(_build_engine().to_json())
+        assert data["trailmark_version"] == __version__
+        assert data["schema_version"] == 1
 
     def test_to_json_edge_dict_exact(self) -> None:
         """Each edge dict must have exact keys and values."""

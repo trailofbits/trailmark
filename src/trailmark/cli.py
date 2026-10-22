@@ -74,6 +74,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Report extracted call-resolution counts and unresolved callee groups as JSON",
     )
+    analyze.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the summary as JSON (graph and resolution output already use JSON)",
+    )
 
     diff_cmd = subparsers.add_parser(
         "diff",
@@ -199,6 +204,8 @@ def main() -> None:
 
 def _run_analyze(args: argparse.Namespace) -> None:
     """Execute the analyze subcommand."""
+    if args.json and args.complexity is not None:
+        raise ValueError("--json cannot be combined with --complexity")
     engine = QueryEngine.from_directory(
         args.path,
         language=args.language,
@@ -208,7 +215,10 @@ def _run_analyze(args: argparse.Namespace) -> None:
     if args.resolution:
         print(json.dumps(engine.call_resolution(), indent=2))
     elif args.summary:
-        _print_summary(engine)
+        if args.json:
+            print(json.dumps(engine.summary(), indent=2))
+        else:
+            _print_summary(engine)
     elif args.complexity is not None:
         _print_complexity(engine, args.complexity)
     else:

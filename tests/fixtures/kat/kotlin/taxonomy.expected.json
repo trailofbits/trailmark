@@ -624,6 +624,7 @@
     }
   },
   "root_path": "taxonomy.kt",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 4,
@@ -640,5 +641,6 @@
     },
     "source_files": 1,
     "total_nodes": 16
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

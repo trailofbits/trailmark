@@ -1068,6 +1068,7 @@
     }
   },
   "root_path": "taxonomy.hs",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 19,
@@ -1087,5 +1088,6 @@
     },
     "source_files": 1,
     "total_nodes": 26
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

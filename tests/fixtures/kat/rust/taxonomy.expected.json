@@ -796,6 +796,7 @@
     }
   },
   "root_path": "taxonomy.rs",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 11,
@@ -814,5 +815,6 @@
     },
     "source_files": 1,
     "total_nodes": 19
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

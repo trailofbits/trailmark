@@ -48,12 +48,15 @@ def _rewrite_file_paths(obj: Any, fixture_name: str) -> None:
 def parse_to_canonical(fixture: Path, language: str | None = None) -> dict[str, Any]:
     """Parse ``fixture`` and return a normalized canonical JSON dict.
 
-    The returned dict round-trips through ``json.dumps(..., sort_keys=True)``
-    so two runs on the same input always produce byte-identical output.
+    The exporting package version is normalized so release bumps do not
+    change parser snapshots. The returned dict round-trips through
+    ``json.dumps(..., sort_keys=True)`` so two runs on the same input always
+    produce byte-identical output.
     """
     graph = parse_file(str(fixture), language=language)
     engine = QueryEngine.from_graph(graph)
     raw = json.loads(engine.to_json())
+    raw["trailmark_version"] = "<trailmark-version>"
     return _normalize_paths(raw, fixture.name)
 
 

@@ -816,6 +816,7 @@
     }
   },
   "root_path": "taxonomy.py",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 8,
@@ -836,5 +837,6 @@
     },
     "source_files": 1,
     "total_nodes": 20
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

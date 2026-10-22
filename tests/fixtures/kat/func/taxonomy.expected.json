@@ -156,6 +156,7 @@
     }
   },
   "root_path": "taxonomy.fc",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 1,
@@ -174,5 +175,6 @@
     },
     "source_files": 1,
     "total_nodes": 4
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

@@ -543,6 +543,7 @@
     }
   },
   "root_path": "taxonomy.js",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 3,
@@ -561,5 +562,6 @@
     },
     "source_files": 1,
     "total_nodes": 15
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

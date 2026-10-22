@@ -7,6 +7,7 @@ from dataclasses import asdict
 from typing import Any
 
 import trailmark.parse as _parse_api
+from trailmark import __version__
 from trailmark.analysis.augment import augment_from_sarif, augment_from_weaudit
 from trailmark.analysis.binary import augment_from_binary_graph
 from trailmark.analysis.diff import compute_diff
@@ -486,11 +487,14 @@ class QueryEngine:
     def to_json(self, indent: int = 2) -> str:
         """Export topology, selected node metadata, subgraphs, and summary.
 
+        Includes the exporting Trailmark version and JSON schema version.
         Annotations, entrypoint tags, and call-site locations are omitted;
         this export does not preserve all analysis state for persistence.
         """
         graph = self._store._graph  # noqa: SLF001
         data = {
+            "trailmark_version": __version__,
+            "schema_version": 1,
             "language": graph.language,
             "root_path": graph.root_path,
             "summary": self.summary(),

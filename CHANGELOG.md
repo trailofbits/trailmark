@@ -12,7 +12,12 @@
   commands accept `--allow-empty` for intentional empty inputs. Graphs record
   inspected source-file counts per language; summaries expose those counts and
   selected languages, including files with no declarations.
-
+- Add top-level `trailmark_version` and `schema_version` (initially `1`) to
+  graph JSON exports. The schema version describes the export format; parser
+  behavior still depends on the Trailmark version and selected languages.
+- Add `trailmark analyze --summary --json` to print `QueryEngine.summary()`
+  directly, without importing CLI internals. Existing text summaries remain
+  available; `--json` cannot be combined with `--complexity`.
 - Model Solidity persistent state. Contract storage declarations become
   `state_variable` nodes (for example `token:Token.balances`) with `reads` and
   `writes` edges from functions, constructors, and modifiers, one per

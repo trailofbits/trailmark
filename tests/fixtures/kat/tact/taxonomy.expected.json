@@ -273,6 +273,7 @@
     }
   },
   "root_path": "taxonomy.tact",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 4,
@@ -291,5 +292,6 @@
     },
     "source_files": 1,
     "total_nodes": 9
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

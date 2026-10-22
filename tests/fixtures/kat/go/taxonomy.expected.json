@@ -638,6 +638,7 @@
     }
   },
   "root_path": "taxonomy.go",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 8,
@@ -658,5 +659,6 @@
     },
     "source_files": 1,
     "total_nodes": 16
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }

@@ -129,6 +129,13 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/python-api.md", "source_coverage"),
     ("docs/python-api.md", "removal of the old edge and addition of the new"),
     ("docs/python-api.md", "not semantic equivalence"),
+    ("README.md", "trailmark analyze --summary --json"),
+    ("docs/cli.md", "same object as `QueryEngine.summary()`"),
+    ("docs/cli.md", "cannot be combined with `--complexity`"),
+    ("docs/python-api.md", "`trailmark_version`"),
+    ("docs/python-api.md", "`schema_version` (currently `1`)"),
+    ("docs/python-api.md", "Unversioned exports from older releases"),
+    ("docs/python-api.md", "does not version parser behavior"),
     # Rust and Verus
     ("README.md", "`verus!` blocks"),
     ("docs/languages.md", "brace-delimited blocks"),

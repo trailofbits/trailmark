@@ -23,10 +23,11 @@ in the analysis summary; selecting one language does not cover the others.
 ## `trailmark analyze`
 
 ```bash
-trailmark analyze [--language LANG] [--allow-empty] [--summary | --complexity N | --resolution] PATH
+trailmark analyze [--language LANG] [--allow-empty] [--json] [--summary | --complexity N | --resolution] PATH
 ```
 
-Parses `PATH` and prints the graph. The output flags are mutually exclusive.
+Parses `PATH` and prints the graph. `--summary`, `--complexity`, and `--resolution`
+are mutually exclusive.
 
 | Flag | Output |
 | --- | --- |
@@ -34,17 +35,25 @@ Parses `PATH` and prints the graph. The output flags are mutually exclusive.
 | `--summary`, `-s` | Node counts (functions, classes, proxies), call-edge count, dependencies, entrypoint count, selected languages, and inspected source-file count |
 | `--complexity N`, `-c N` | One line per function with cyclomatic complexity &ge; `N`: ID, complexity, and `file:line` |
 | `--resolution` | Call-resolution report as JSON; see [Call resolution](call-resolution.md) |
+| `--json` | With `--summary`, the same object as `QueryEngine.summary()` as JSON (v0.7+); graph and resolution output already use JSON |
+
+`--summary --json` writes only the summary object to stdout, including
+`languages`, `source_files`, and `source_file_counts`. It does not include the
+graph's nodes, edges, or export provenance. `--json` cannot be combined with
+`--complexity`.
 
 `--complexity N` requires a nonnegative integer. An explicit `--complexity 0`
 lists every function with a recorded complexity; omitting the output flags
 prints JSON. Negative thresholds are rejected.
 
-The JSON graph contains nodes, edges, subgraphs, and a summary. It does not
-contain annotations, entrypoint tags, or per-call-site locations; see
+The JSON graph contains nodes, edges, subgraphs, a summary, and the
+`trailmark_version` and `schema_version` export provenance fields (v0.7+).
+It does not contain annotations, entrypoint tags, or per-call-site locations; see
 [JSON export](python-api.md#json-export) for what is omitted and how to get it.
 
 ```bash
 trailmark analyze --summary path/to/project
+trailmark analyze --language auto --summary --json path/to/project > summary.json
 trailmark analyze --language auto path/to/project > graph.json
 trailmark analyze --complexity 10 path/to/project
 trailmark analyze --language rust --resolution path/to/project

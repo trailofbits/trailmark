@@ -11,7 +11,9 @@ from unittest.mock import patch
 
 import pytest
 
+from trailmark import __version__
 from trailmark.cli import main
+from trailmark.query.api import QueryEngine
 
 
 def _write_finding_report(report: Path, source: str, source_file: str) -> None:
@@ -412,6 +414,8 @@ class TestAnalyzeCommand:
         data = json.loads(mock_out.getvalue())
         # Exact top-level keys
         assert set(data.keys()) == {
+            "trailmark_version",
+            "schema_version",
             "language",
             "root_path",
             "summary",
@@ -435,6 +439,78 @@ class TestAnalyzeCommand:
         # Nodes is a dict, edges is a list
         assert isinstance(data["nodes"], dict)
         assert isinstance(data["edges"], list)
+        assert data["trailmark_version"] == __version__
+        assert data["schema_version"] == 1
+
+    @pytest.mark.parametrize("empty", [False, True])
+    def test_analyze_summary_json_matches_query_api(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        empty: bool,
+    ) -> None:
+        if not empty:
+            (tmp_path / "app.py").write_text("def main():\n    helper()\ndef helper():\n    pass\n")
+            (tmp_path / "app.rs").write_text("fn run() {}\n")
+        argv = ["trailmark", "analyze", str(tmp_path), "--language", "auto", "--summary", "--json"]
+        if empty:
+            argv.append("--allow-empty")
+        monkeypatch.setattr(sys, "argv", argv)
+        main()
+        output = capsys.readouterr()
+        assert output.err == ""
+        summary = json.loads(output.out)
+        expected = QueryEngine.from_directory(
+            str(tmp_path), language="auto", allow_empty=empty
+        ).summary()
+        assert summary == expected
+        assert summary["source_file_counts"] == ({} if empty else {"python": 1, "rust": 1})
+        assert summary["source_files"] == (0 if empty else 2)
+
+    @pytest.mark.parametrize("threshold", ["0", "1"])
+    def test_analyze_json_rejects_complexity_before_reading_source(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        threshold: str,
+    ) -> None:
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "trailmark",
+                "analyze",
+                str(tmp_path / "missing"),
+                "--json",
+                "--complexity",
+                threshold,
+            ],
+        )
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 2
+        output = capsys.readouterr()
+        assert output.out == ""
+        assert "--json cannot be combined with --complexity" in output.err
+
+    def test_analyze_explicit_json_matches_default_graph(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        (tmp_path / "app.py").write_text("def main():\n    pass\n")
+        argv = ["trailmark", "analyze", str(tmp_path)]
+        monkeypatch.setattr(sys, "argv", argv)
+        main()
+        default_output = capsys.readouterr()
+        monkeypatch.setattr(sys, "argv", [*argv, "--json"])
+        main()
+        explicit_output = capsys.readouterr()
+        assert explicit_output.err == default_output.err == ""
+        assert json.loads(explicit_output.out) == json.loads(default_output.out)
 
     def test_analyze_summary_exact_format(
         self,

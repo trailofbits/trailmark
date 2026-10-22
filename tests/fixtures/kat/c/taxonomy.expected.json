@@ -668,6 +668,7 @@
     }
   },
   "root_path": "taxonomy.c",
+  "schema_version": 1,
   "subgraphs": {},
   "summary": {
     "call_edges": 9,
@@ -688,5 +689,6 @@
     },
     "source_files": 1,
     "total_nodes": 13
-  }
+  },
+  "trailmark_version": "<trailmark-version>"
 }
