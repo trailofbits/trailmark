@@ -22,7 +22,8 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._simple import descendants, first_child_type
+from trailmark.parsers._simple import first_child_type
+from trailmark.parsers._walk import walk_owned
 
 _LOG = logging.getLogger(__name__)
 _BRANCHES = {
@@ -49,18 +50,46 @@ _MUTATORS = {
     "iex",
     "import-module",
     "using",
+    "si",
+    "ni",
+    "ri",
+    "rm",
+    "rmdir",
+    "rd",
+    "del",
+    "erase",
+    "rni",
+    "clear-item",
+    "cli",
+    "clsi",
+    "move-item",
+    "mi",
+    "mv",
+    "copy-item",
+    "cpi",
+    "cp",
 }
 
 
 def _parameters(node: Node) -> tuple[Parameter, ...]:
     result = []
-    for item in descendants(node):
+    boundaries = frozenset(
+        {"script_block_expression", "function_statement", "class_method_definition"}
+    )
+    for item in walk_owned(node, boundaries=boundaries):
         if item.type not in {"script_parameter", "class_method_parameter"}:
             continue
         name = first_child_type(item, {"variable"})
         if name is None:
             continue
-        annotation = next((c for c in descendants(item) if c.type == "type_literal"), None)
+        annotation = next(
+            (
+                c
+                for c in walk_owned(item, boundaries=boundaries | {"script_parameter_default"})
+                if c.type == "type_literal"
+            ),
+            None,
+        )
         default = first_child_type(item, {"script_parameter_default"})
         result.append(
             Parameter(
@@ -117,6 +146,8 @@ class PowerShellParser:
             body: Node,
             params: tuple[Parameter, ...] = (),
             return_type: TypeRef | None = None,
+            *,
+            header: Node | None = None,
         ) -> str:
             ident = f"{owner}:{name}" if owner == module else f"{owner}.{name}"
             if ident in graph.nodes:
@@ -159,6 +190,7 @@ class PowerShellParser:
                         block,
                         _parameters(parameter_source) if parameter_source is not None else (),
                         TypeRef(node_text(annotation).strip("[]")) if annotation else None,
+                        header=header,
                     )
                     parent = current.parent
                     direct = (
@@ -184,7 +216,9 @@ class PowerShellParser:
                 if current.type == "script_block_expression":
                     block = first_child_type(current, {"script_block"})
                     if block is not None:
-                        param_block = first_child_type(block, {"param_block"})
+                        param_block = first_child_type(
+                            current, {"param_block"}
+                        ) or first_child_type(block, {"param_block"})
                         unit(
                             current,
                             ident,
@@ -192,6 +226,9 @@ class PowerShellParser:
                             NodeKind.FUNCTION,
                             block,
                             _parameters(param_block) if param_block else (),
+                            header=param_block
+                            if param_block is not None and param_block.parent == current
+                            else None,
                         )
                     return
                 if current.type in _BRANCHES:
@@ -208,13 +245,15 @@ class PowerShellParser:
                         name_node = current.child_by_field_name("command_name")
                         raw = node_text(name_node).casefold() if name_node else ""
                         operator = first_child_type(current, {"command_invokation_operator"})
-                        if raw in _MUTATORS or (
+                        if raw.rsplit("\\", 1)[-1] in _MUTATORS or (
                             operator is not None and node_text(operator) == "."
                         ):
                             mutated = True
                 for child in current.named_children:
                     scan(child)
 
+            if header is not None:
+                scan(header)
             if kind == NodeKind.CLASS or body == node and node.type != "program":
                 for child in body.named_children:
                     scan(child)

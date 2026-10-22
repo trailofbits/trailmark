@@ -193,6 +193,7 @@
     "languages": [
       "vb"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "vb": 1

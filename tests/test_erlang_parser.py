@@ -108,7 +108,7 @@ class TestErlangParserNodes:
     def test_function_ids_use_module_name(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
-        assert greet.id == "example:greet"
+        assert greet.id == "example:greet/1"
 
 
 class TestErlangParserParameters:
@@ -183,7 +183,7 @@ class TestErlangParserEdges:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
         targets = {e.target_id for e in calls}
-        assert "io:format" in targets
+        assert "io:format/2" in targets
 
     def test_local_call_edge(self) -> None:
         """factorial calling itself should create a call edge."""

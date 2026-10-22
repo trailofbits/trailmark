@@ -25,6 +25,10 @@
       "target": "taxonomy:call_add"
     },
     {
+      "attributes": {
+        "binding_blocked": false,
+        "opcode": "exec"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:call_add",
@@ -37,12 +41,20 @@
       "target": "taxonomy:use_animal"
     },
     {
+      "attributes": {
+        "binding_blocked": false,
+        "opcode": "exec"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:use_animal",
       "target": "taxonomy:call_add"
     },
     {
+      "attributes": {
+        "binding_blocked": false,
+        "opcode": "exec"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:use_animal",
@@ -88,6 +100,9 @@
       "return_type": null
     },
     "taxonomy:add": {
+      "attributes": {
+        "masm_role": "public"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": "[export] Adds two field elements on the stack.",
@@ -106,6 +121,9 @@
       "return_type": null
     },
     "taxonomy:branchy": {
+      "attributes": {
+        "masm_role": "public"
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -158,6 +176,9 @@
       "return_type": null
     },
     "taxonomy:call_add": {
+      "attributes": {
+        "masm_role": "private"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": "Calls into another procedure.",
@@ -176,6 +197,9 @@
       "return_type": null
     },
     "taxonomy:use_animal": {
+      "attributes": {
+        "masm_role": "public"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": "[export]",
@@ -207,6 +231,34 @@
     "functions": 5,
     "languages": [
       "masm"
+    ],
+    "parse_diagnostics": [
+      {
+        "grammar": "masm",
+        "kind": "syntax_error",
+        "language": "masm",
+        "location": {
+          "end_col": 4,
+          "end_line": 4,
+          "file_path": "taxonomy.masm",
+          "start_col": 3,
+          "start_line": 4
+        },
+        "message": "Grammar could not parse this source range"
+      },
+      {
+        "grammar": "masm",
+        "kind": "syntax_error",
+        "language": "masm",
+        "location": {
+          "end_col": 6,
+          "end_line": 6,
+          "file_path": "taxonomy.masm",
+          "start_col": 5,
+          "start_line": 6
+        },
+        "message": "Grammar could not parse this source range"
+      }
     ],
     "proxies": 0,
     "source_file_counts": {

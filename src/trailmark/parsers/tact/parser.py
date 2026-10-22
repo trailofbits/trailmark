@@ -7,9 +7,9 @@ from pathlib import Path
 from tree_sitter import Node, Parser
 from tree_sitter_language_pack import get_language
 
-from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit, NodeKind
+from trailmark.models.nodes import CodeUnit, NodeKind, Parameter, TypeRef
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -20,13 +20,10 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._simple import (
-    add_call_edges,
     child_text,
     collect_branches_and_calls,
-    extract_parameters,
     first_child_type,
     named_children,
-    return_type_after_params,
 )
 
 _EXTENSIONS = (".tact",)
@@ -144,14 +141,38 @@ def _extract_function(
         name=name,
         kind=NodeKind.METHOD if container_id != module_id else NodeKind.FUNCTION,
         location=make_location(node, file_path),
-        parameters=extract_parameters(node),
-        return_type=return_type_after_params(node),
+        parameters=_parameters(node),
+        return_type=TypeRef(node_text(result))
+        if (result := node.child_by_field_name("result")) is not None
+        else None,
         cyclomatic_complexity=compute_complexity(branches),
         branches=tuple(branches),
         attributes=(("tact_role", base_name),),
     )
     add_contains_edge(graph, container_id, func_id)
-    add_call_edges(graph, calls, func_id, module_id, file_path, container_id)
+    for _, site in calls:
+        name_node = site.child_by_field_name("name")
+        receiver = site.child_by_field_name("object")
+        name = node_text(name_node) if name_node is not None else "<unknown>"
+        if site.type == "static_call_expression":
+            target = f"{module_id}:{name}"
+            confidence = EdgeConfidence.CERTAIN
+        elif receiver is not None and receiver.type == "self":
+            target = f"{container_id}.{name}"
+            confidence = EdgeConfidence.CERTAIN
+        else:
+            target = f"{node_text(receiver) if receiver is not None else '?'}.{name}"
+            confidence = EdgeConfidence.UNCERTAIN
+        graph.edges.append(
+            CodeEdge(
+                func_id,
+                target,
+                EdgeKind.CALLS,
+                confidence=confidence,
+                location=make_location(site, file_path),
+                attributes=(("binding_blocked", confidence == EdgeConfidence.UNCERTAIN),),
+            )
+        )
 
 
 def _function_name(node: Node) -> str:
@@ -191,3 +212,29 @@ def _extract_import(node: Node, graph: CodeGraph, module_id: str) -> None:
     if target:
         graph.dependencies.append(target)
         graph.edges.append(CodeEdge(source_id=module_id, target_id=target, kind=EdgeKind.IMPORTS))
+
+
+def _parameters(node: Node) -> tuple[Parameter, ...]:
+    singular = node.child_by_field_name("parameter")
+    parameters = node.child_by_field_name("parameters")
+    items = (
+        [singular]
+        if singular is not None
+        else parameters.named_children
+        if parameters is not None
+        else []
+    )
+    result = []
+    for item in items:
+        if item.type != "parameter":
+            continue
+        name = item.child_by_field_name("name")
+        annotation = item.child_by_field_name("type")
+        if name is not None:
+            result.append(
+                Parameter(
+                    node_text(name),
+                    TypeRef(node_text(annotation)) if annotation is not None else None,
+                )
+            )
+    return tuple(result)

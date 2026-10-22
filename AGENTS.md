@@ -74,7 +74,7 @@ src/trailmark/
     python/        # One subpackage per language
     javascript/
     ...
-  tree_sitter_custom/ # Bundled Circom, Miden Assembly, and Verus grammars
+  tree_sitter_custom/ # Bundled Circom, Miden Assembly, Move, and Verus grammars
   analysis/        # entrypoints, links, proxies, diff, augment, binary, preanalysis
   storage/
     graph_store.py # GraphStore: rustworkx-backed indexed storage

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -16,6 +17,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -27,6 +29,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -75,6 +78,18 @@ class GoParser:
         graph = CodeGraph(language="go", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
+        package = next(
+            (
+                node_text(c).removeprefix("package").strip()
+                for c in tree.root_node.named_children
+                if c.type == "package_clause"
+            ),
+            "",
+        )
+        for ident, unit in graph.nodes.items():
+            graph.nodes[ident] = replace(
+                unit, attributes=(*unit.attributes, ("go_package", package))
+            )
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -315,7 +330,30 @@ def _collect_func_body(
             branches,
             exception_types,
             calls,
+            skip_types=frozenset({"func_literal"}),
         )
+        for expression in walk_owned(body, boundaries=frozenset({"func_literal"})):
+            if expression.type != "type_conversion_expression":
+                continue
+            type_node = expression.child_by_field_name("type")
+            if type_node is not None and type_node.type == "generic_type":
+                name_node = type_node.child_by_field_name("type")
+                if name_node is not None:
+                    name = node_text(name_node)
+                    root = expression
+                    while root.parent is not None:
+                        root = root.parent
+                    types = {
+                        node_text(type_name)
+                        for item in walk_owned(
+                            root,
+                            boundaries=frozenset({"function_declaration", "method_declaration"}),
+                        )
+                        if item.type == "type_spec"
+                        and (type_name := item.child_by_field_name("name")) is not None
+                    }
+                    if name not in types:
+                        calls.append((name, expression))
     return branches, exception_types, calls
 
 
@@ -326,7 +364,7 @@ def _extract_parameters(node: Node) -> list[Parameter]:
         return []
     params: list[Parameter] = []
     for child in params_node.children:
-        if child.type == "parameter_declaration":
+        if child.type in {"parameter_declaration", "variadic_parameter_declaration"}:
             _extract_single_param(child, params)
     return params
 
@@ -336,15 +374,18 @@ def _extract_single_param(
     params: list[Parameter],
 ) -> None:
     """Extract name and type from a parameter_declaration."""
-    name = ""
-    type_ref = None
-    for child in decl.children:
-        if child.type == "identifier" and not name:
-            name = node_text(child)
-        elif child.type in _GO_TYPE_NODES:
-            type_ref = TypeRef(name=node_text(child))
-    if name:
-        params.append(Parameter(name=name, type_ref=type_ref))
+    type_node = decl.child_by_field_name("type")
+    names = decl.children_by_field_name("name")
+    type_text = node_text(type_node) if type_node is not None else ""
+    if decl.type == "variadic_parameter_declaration":
+        type_text = "..." + type_text
+    for name in names or [None]:
+        params.append(
+            Parameter(
+                name=node_text(name) if name is not None else f"$arg{len(params)}",
+                type_ref=TypeRef(type_text) if type_text else None,
+            )
+        )
 
 
 def _extract_return_type(node: Node) -> TypeRef | None:
@@ -392,12 +433,16 @@ def _add_call_edges(
         )
         confidence = _call_confidence(call_name)
         graph.edges.append(
-            CodeEdge(
-                source_id=source_id,
-                target_id=target_id,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            guard_call(
+                CodeEdge(
+                    source_id=source_id,
+                    target_id=target_id,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                ),
+                call_node,
+                graph=graph,
             )
         )
 

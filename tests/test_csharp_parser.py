@@ -321,7 +321,7 @@ class TestCSharpFileScopedNamespace:
         module = next(n for n in graph.nodes.values() if n.kind == NodeKind.MODULE)
         namespace = next(n for n in graph.nodes.values() if n.kind == NodeKind.NAMESPACE)
         dog = next(n for n in graph.nodes.values() if n.name == "Dog")
-        assert dog.id == f"{module.id}:Dog"
+        assert dog.id == f"{namespace.id}.Dog"
         assert dog.location.file_path == path
         assert _contains_count(graph, namespace.id, dog.id) == 1
         assert _contains_count(graph, module.id, dog.id) == 0
@@ -331,7 +331,7 @@ class TestCSharpFileScopedNamespace:
         module = next(n for n in graph.nodes.values() if n.kind == NodeKind.MODULE)
         namespace = next(n for n in graph.nodes.values() if n.kind == NodeKind.NAMESPACE)
         animal = next(n for n in graph.nodes.values() if n.name == "IAnimal")
-        assert animal.id == f"{module.id}:IAnimal"
+        assert animal.id == f"{namespace.id}.IAnimal"
         assert _contains_count(graph, namespace.id, animal.id) == 1
         assert _contains_count(graph, module.id, animal.id) == 0
 

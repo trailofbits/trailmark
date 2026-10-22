@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -25,6 +26,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -114,13 +116,19 @@ def _extract_class(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    container_id: str | None = None,
 ) -> None:
     """Extract a Ruby class definition and its methods."""
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return
     class_name = node_text(name_node)
-    class_id = f"{module_id}:{class_name}"
+    owner = container_id or module_id
+    class_id = (
+        f"{owner}.{class_name.replace(chr(58) * 2, chr(46))}"
+        if container_id
+        else f"{owner}:{class_name.replace(chr(58) * 2, chr(46))}"
+    )
     location = make_location(node, file_path)
 
     class_unit = CodeUnit(
@@ -131,7 +139,7 @@ def _extract_class(
         docstring=_extract_docstring(node),
     )
     graph.nodes[class_id] = class_unit
-    add_contains_edge(graph, module_id, class_id)
+    add_contains_edge(graph, owner, class_id)
 
     _extract_superclass(node, class_id, module_id, graph)
     _visit_class_body(node, file_path, module_id, class_id, graph)
@@ -142,13 +150,15 @@ def _extract_ruby_module(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    container_id: str | None = None,
 ) -> None:
     """Extract a Ruby module definition."""
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return
     mod_name = node_text(name_node)
-    mod_node_id = f"{module_id}:{mod_name}"
+    owner = container_id or module_id
+    mod_node_id = f"{owner}.{mod_name}" if container_id else f"{owner}:{mod_name}"
     location = make_location(node, file_path)
 
     mod_unit = CodeUnit(
@@ -159,26 +169,9 @@ def _extract_ruby_module(
         docstring=_extract_docstring(node),
     )
     graph.nodes[mod_node_id] = mod_unit
-    add_contains_edge(graph, module_id, mod_node_id)
+    add_contains_edge(graph, owner, mod_node_id)
 
-    body = node.child_by_field_name("body")
-    if body is not None:
-        for child in body.children:
-            if child.type == "method":
-                _extract_function(
-                    child,
-                    file_path,
-                    module_id,
-                    mod_node_id,
-                    graph,
-                )
-            elif child.type == "class":
-                _extract_class(
-                    child,
-                    file_path,
-                    module_id,
-                    graph,
-                )
+    _visit_class_body(node, file_path, module_id, mod_node_id, graph)
 
 
 def _extract_superclass_name(superclass: Node) -> str:
@@ -219,20 +212,84 @@ def _visit_class_body(
     module_id: str,
     class_id: str,
     graph: CodeGraph,
+    *,
+    singleton: bool = False,
 ) -> None:
-    """Visit class body to extract methods."""
     body = node.child_by_field_name("body")
     if body is None:
         return
-    for child in body.children:
-        if child.type in ("method", "singleton_method"):
+    superclass = node.child_by_field_name("superclass")
+    controller = (
+        superclass is not None
+        and _extract_superclass_name(superclass).rsplit("::", 1)[-1]
+        in {"ApplicationController", "Base", "API"}
+        and (
+            _extract_superclass_name(superclass) == "ApplicationController"
+            or _extract_superclass_name(superclass).startswith("ActionController::")
+        )
+    )
+    worker = any(
+        child.type == "call"
+        and (method := child.child_by_field_name("method")) is not None
+        and node_text(method) == "include"
+        and (args := child.child_by_field_name("arguments")) is not None
+        and any(
+            node_text(arg) in {"Sidekiq::Worker", "Sidekiq::Job"} for arg in args.named_children
+        )
+        for child in body.named_children
+    )
+    visibility = "public"
+    named_visibility = {}
+    for child in body.named_children:
+        if child.type == "identifier" and node_text(child) in {"private", "protected", "public"}:
+            visibility = node_text(child)
+        elif child.type == "call":
+            method = child.child_by_field_name("method")
+            args = child.child_by_field_name("arguments")
+            if (
+                method is not None
+                and node_text(method) in {"private", "protected", "public"}
+                and args is not None
+            ):
+                for arg in args.named_children:
+                    if arg.type == "simple_symbol":
+                        named_visibility[node_text(arg).removeprefix(":")] = node_text(method)
+        elif child.type in {"method", "singleton_method"}:
             _extract_function(
                 child,
                 file_path,
                 module_id,
                 class_id,
                 graph,
+                singleton=singleton,
+                visibility=visibility,
+                controller=controller,
+                worker=worker,
             )
+        elif child.type == "class":
+            _extract_class(child, file_path, module_id, graph, class_id)
+        elif child.type == "module":
+            _extract_ruby_module(child, file_path, module_id, graph, class_id)
+        elif (
+            child.type == "singleton_class"
+            and (value := child.child_by_field_name("value")) is not None
+            and value.type == "self"
+        ):
+            _visit_class_body(child, file_path, module_id, class_id, graph, singleton=True)
+    owned = {
+        edge.target_id
+        for edge in graph.edges
+        if edge.kind == EdgeKind.CONTAINS and edge.source_id == class_id
+    }
+    for unit in list(graph.nodes.values()):
+        if (
+            unit.id in owned
+            and unit.name in named_visibility
+            and dict(unit.attributes).get("ruby_receiver") == "instance"
+        ):
+            attributes = dict(unit.attributes)
+            attributes["ruby_visibility"] = named_visibility[unit.name]
+            graph.nodes[unit.id] = replace(unit, attributes=tuple(attributes.items()))
 
 
 def _extract_function(
@@ -241,6 +298,11 @@ def _extract_function(
     module_id: str,
     class_id: str | None,
     graph: CodeGraph,
+    *,
+    singleton: bool = False,
+    visibility: str = "public",
+    controller: bool = False,
+    worker: bool = False,
 ) -> None:
     """Extract a Ruby method definition."""
     name_node = node.child_by_field_name("name")
@@ -248,8 +310,9 @@ def _extract_function(
         return
     func_name = node_text(name_node)
 
+    singleton = singleton or node.type == "singleton_method"
     if class_id is not None:
-        func_id = f"{class_id}.{func_name}"
+        func_id = f"{class_id}.{'self.' if singleton else ''}{func_name}"
         kind = NodeKind.METHOD
         container_id = class_id
     else:
@@ -273,6 +336,36 @@ def _extract_function(
             calls,
         )
 
+    if body is not None:
+        bound = {p.name for p in params}
+        for current in walk_owned(
+            body, boundaries=frozenset({"lambda", "method", "singleton_method"})
+        ):
+            if current.type == "assignment":
+                left = current.child_by_field_name("left")
+                if left is not None and left.type == "identifier":
+                    bound.add(node_text(left))
+        for current in walk_owned(
+            body, boundaries=frozenset({"lambda", "method", "singleton_method"})
+        ):
+            if (
+                current.type != "identifier"
+                or node_text(current) in bound
+                or _block_bound(current)
+                or current.parent is None
+            ):
+                continue
+            parent = current.parent
+            if parent.type in {
+                "call",
+                "assignment",
+                "method_parameters",
+                "block_parameters",
+                "lambda_parameters",
+            }:
+                continue
+            calls.append((node_text(current), current))
+        calls.sort(key=lambda call: call[1].start_byte)
     complexity = compute_complexity(branches)
     location = make_location(node, file_path)
 
@@ -287,6 +380,12 @@ def _extract_function(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=_extract_docstring(node),
+        attributes=(
+            ("ruby_receiver", "singleton" if singleton else "instance"),
+            ("ruby_visibility", visibility),
+            ("ruby_controller", controller),
+            ("ruby_worker", worker),
+        ),
     )
     graph.nodes[func_id] = unit
     add_contains_edge(graph, container_id, func_id)
@@ -317,6 +416,13 @@ def _add_call_edges(
             class_id,
         )
         confidence = _call_confidence(call_name)
+        bare = "." not in call_name or call_name.startswith("self.")
+        if class_id is not None and bare:
+            receiver = dict(graph.nodes[func_id].attributes).get("ruby_receiver")
+            prefix = "self." if receiver == "singleton" else ""
+            target_id = f"{class_id}.{prefix}{call_name.removeprefix('self.')}"
+        blocked = class_id is not None and bare
+
         graph.edges.append(
             CodeEdge(
                 source_id=func_id,
@@ -324,6 +430,7 @@ def _add_call_edges(
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
                 location=make_location(call_node, file_path),
+                attributes=(("binding_blocked", blocked),),
             )
         )
 
@@ -361,6 +468,8 @@ def _visit_ruby_body_node(
     calls: list[tuple[str, Node]],
 ) -> None:
     """Visit a single node in a Ruby method body."""
+    if node.type in {"lambda", "method", "singleton_method", "class", "module"}:
+        return
     if node.type in _BRANCH_NODE_TYPES:
         condition = _extract_condition_text(node)
         branches.append(
@@ -442,6 +551,20 @@ def _extract_ruby_call_name(node: Node) -> str:
     return method_name
 
 
+def _block_bound(site: Node) -> bool:
+    current = site.parent
+    while current is not None and current.type not in {"method", "singleton_method"}:
+        if current.type in {"do_block", "block", "lambda"}:
+            parameters = current.child_by_field_name("parameters")
+            if parameters is not None and any(
+                child.type == "identifier" and node_text(child) == node_text(site)
+                for child in walk_owned(parameters)
+            ):
+                return True
+        current = current.parent
+    return False
+
+
 def _extract_parameters(node: Node) -> list[Parameter]:
     """Extract parameters from a Ruby method definition."""
     params_node = node.child_by_field_name("parameters")
@@ -456,6 +579,20 @@ def _extract_parameters(node: Node) -> list[Parameter]:
             param = _parse_optional_parameter(child)
             if param is not None:
                 params.append(param)
+        elif child.type in {
+            "splat_parameter",
+            "hash_splat_parameter",
+            "block_parameter",
+            "keyword_parameter",
+        }:
+            name = child.child_by_field_name("name")
+            value = child.child_by_field_name("value")
+            if name is not None:
+                params.append(
+                    Parameter(node_text(name), default=node_text(value) if value else None)
+                )
+        elif child.type == "forward_parameter":
+            params.append(Parameter("..."))
     return params
 
 

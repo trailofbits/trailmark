@@ -93,6 +93,18 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/entrypoint-patterns.md", "`pub proc foo` declarations"),
+    (
+        "docs/skills-compatibility.md",
+        "The release tag, pyproject version, runtime version, "
+        "changelog heading and wheel metadata must agree.",
+    ),
+    ("docs/parser-coverage.md", "Erlang callable IDs include arity: `module:function/2`."),
+    ("docs/parser-coverage.md", "singleton methods use `file:Class.self.method`."),
+    ("docs/parser-coverage.md", "Trait bodies and inherited receivers are not yet extracted"),
+    ("docs/parser-coverage.md", "Logical rules have potential `calls` edges to their clauses"),
+    ("docs/parser-coverage.md", "Constructor patterns do not create calls."),
+    ("docs/installation.md", "Move, and Verus ship as C sources"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
     ("CONTRIBUTING.md", "CI tests Python 3.12 through 3.15."),
@@ -127,6 +139,11 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/cli.md", "Both sides must inspect source files"),
     ("docs/python-api.md", "allow_empty=True"),
     ("docs/python-api.md", "CodeGraph.source_file_counts"),
+    ("docs/python-api.md", "CodeGraph.parse_diagnostics"),
+    ("docs/cli.md", "--strict"),
+    ("docs/augmenting.md", "originalUriBaseIds"),
+    ("docs/languages.md", "Thrift IDs use source-file identity"),
+    ("docs/entrypoints.md", "run_ticktock"),
     ("docs/python-api.md", "parameter_types"),
     ("docs/python-api.md", "parameter_defaults"),
     ("docs/python-api.md", "source_coverage"),
@@ -582,3 +599,33 @@ def _read_requires_python(pyproject_data: dict[str, object]) -> str:
     value = project.get("requires-python")
     assert isinstance(value, str), "requires-python is missing or not a string"
     return value
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [
+        "`file:factory.hidden`",
+        "`binding_blocked`",
+        "TSX grammar",
+        "`unsafe(no_mangle)`",
+        "source-offset",
+        "`$argN`",
+        "lexical package",
+        "`_ENV`",
+        "quoting constructors",
+        "relation/routine namespaces",
+        "`abi(embed_v0)`",
+        "property tests, benchmarks",
+        "destructured arguments",
+        "soft casts",
+        "labeled switch",
+        "`procref`",
+        "`pub proc`",
+        "Bash 5.3",
+        "`coproc`",
+        "`method_id`",
+        "`#declaration`",
+    ],
+)
+def test_parser_coverage_contracts(marker: str) -> None:
+    assert marker in _flat("docs/parser-coverage.md")

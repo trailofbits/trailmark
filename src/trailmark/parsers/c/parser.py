@@ -16,6 +16,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -26,6 +27,8 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._declarations import add_callable, add_type, callable_scope
+from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -67,7 +70,8 @@ class CParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="c", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_module(tree.root_node, file_path, module_id, graph)
+        with callable_scope(graph):
+            _visit_module(tree.root_node, file_path, module_id, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -174,7 +178,11 @@ def _extract_struct(
         return
     struct_id = f"{module_id}:{struct_name}"
     existing = graph.nodes.get(struct_id)
-    if existing is not None and node.child_by_field_name("body") is None:
+    if (
+        existing is not None
+        and existing.kind == NodeKind.STRUCT
+        and node.child_by_field_name("body") is None
+    ):
         return
     location = make_location(node, file_path)
 
@@ -184,8 +192,8 @@ def _extract_struct(
         kind=NodeKind.STRUCT,
         location=location,
     )
-    graph.nodes[struct_id] = unit
-    if existing is None:
+    add_type(graph, unit)
+    if existing is None or existing.kind != NodeKind.STRUCT:
         add_contains_edge(graph, module_id, struct_id)
 
 
@@ -210,7 +218,7 @@ def _extract_enum(
         kind=NodeKind.ENUM,
         location=location,
     )
-    graph.nodes[enum_id] = unit
+    add_type(graph, unit)
     add_contains_edge(graph, module_id, enum_id)
 
 
@@ -261,10 +269,28 @@ def _extract_function(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,
+        attributes=(
+            (
+                "internal_linkage",
+                any(
+                    c.type == "storage_class_specifier" and node_text(c) == "static"
+                    for c in node.named_children
+                ),
+            ),
+        ),
     )
-    graph.nodes[func_id] = unit
+    func_id = add_callable(graph, unit)
     add_contains_edge(graph, module_id, func_id)
 
+    if body is not None:
+        recorded = {site.id for _, site in calls}
+        for site in walk_owned(body):
+            function = (
+                site.child_by_field_name("function") if site.type == "call_expression" else None
+            )
+            if function is not None and site.id not in recorded:
+                calls.append((node_text(function), site))
+        calls.sort(key=lambda call: call[1].start_byte)
     _add_call_edges(calls, func_id, module_id, file_path, graph)
 
 
@@ -279,13 +305,22 @@ def _add_call_edges(
     for call_name, call_node in calls:
         target_id = _resolve_call_target(call_name, module_id)
         confidence = _call_confidence(call_name)
+        indirect = "(" in call_name or "*" in call_name
+        if indirect:
+            target_id = f"{func_id}.$indirect.{call_name}"
+            confidence = EdgeConfidence.UNCERTAIN
         graph.edges.append(
-            CodeEdge(
-                source_id=func_id,
-                target_id=target_id,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            guard_call(
+                CodeEdge(
+                    source_id=func_id,
+                    target_id=target_id,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                    attributes=(("binding_blocked", True),) if indirect else (),
+                ),
+                call_node,
+                graph=graph,
             )
         )
 

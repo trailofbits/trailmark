@@ -250,6 +250,9 @@
       "return_type": null
     },
     "taxonomy:Animal.Animal@54_4": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -278,6 +281,9 @@
       "return_type": null
     },
     "taxonomy:Animal.Animal@55_4": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -296,6 +302,9 @@
       "return_type": null
     },
     "taxonomy:Animal.describe": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -336,6 +345,9 @@
       "return_type": null
     },
     "taxonomy:Dog.Dog": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -373,6 +385,9 @@
       "return_type": null
     },
     "taxonomy:Dog.bark": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -423,6 +438,9 @@
       }
     },
     "taxonomy:Dog.greet": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -473,6 +491,9 @@
       "return_type": null
     },
     "taxonomy:Greeter.Greeter": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -523,6 +544,9 @@
       ]
     },
     "taxonomy:add": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -564,6 +588,9 @@
       }
     },
     "taxonomy:branchy": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -678,6 +705,9 @@
       }
     },
     "taxonomy:use_animal": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -725,6 +755,7 @@
     "languages": [
       "cpp"
     ],
+    "parse_diagnostics": [],
     "proxies": 3,
     "source_file_counts": {
       "cpp": 1

@@ -1,0 +1,6 @@
+syntax = "proto3";
+package audit.ordinary;
+import "common.proto";
+message Request { audit.shared.Common value = 1; }
+message Response { bool ok = 1; }
+service Control { rpc Check (Request) returns (Response); }

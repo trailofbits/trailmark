@@ -38,6 +38,7 @@ from trailmark.models.nodes import (
     SourceLocation,
     TypeRef,
 )
+from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -50,6 +51,8 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._declarations import bind_lexical_calls
+from trailmark.parsers._walk import walk_owned
 
 _EXTENSIONS = (".dart",)
 
@@ -96,6 +99,7 @@ class DartParser:
         graph = CodeGraph(language="dart", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
+        bind_lexical_calls(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -174,7 +178,12 @@ def _walk_siblings(
             # Abstract method in a class body — wraps either a
             # method_signature or function_signature without a body.
             for member in node.children:
-                if member.type in {"method_signature", "function_signature"}:
+                if member.type in {
+                    "method_signature",
+                    "function_signature",
+                    "constructor_signature",
+                    "factory_constructor_signature",
+                }:
                     _extract_function_from_signature(
                         member,
                         None,
@@ -230,15 +239,29 @@ def _extract_function_from_signature(
     container_id: str,
     pending_annotations: list[Node],
     graph: CodeGraph,
+    *,
+    name_override: str | None = None,
 ) -> None:
     """Pair a signature with its body (if present) into a CodeUnit."""
     inner = _unwrap_method_signature(signature)
     name_node = _function_name_node(inner)
-    if name_node is None:
+    if name_node is None and name_override is None:
         return
-    func_name = node_text(name_node)
-    is_method = container_id != module_id
-    func_id = f"{container_id}.{func_name}" if is_method else f"{container_id}:{func_name}"
+    constructor = inner.type in {"constructor_signature", "factory_constructor_signature"}
+    func_name = (
+        ".".join(node_text(c) for c in inner.named_children if c.type == "identifier")
+        if constructor
+        else name_override or (node_text(name_node) if name_node is not None else "")
+    )
+    is_method = container_id != module_id and graph.nodes[container_id].kind not in {
+        NodeKind.FUNCTION,
+        NodeKind.METHOD,
+    }
+    func_id = (
+        f"{container_id}.{func_name}"
+        if container_id != module_id
+        else f"{container_id}:{func_name}"
+    )
 
     params = _extract_parameters(inner)
     return_type = _extract_return_type(inner)
@@ -246,6 +269,12 @@ def _extract_function_from_signature(
     span_end = body if body is not None else signature
 
     branches, exception_types, calls = _collect_func_body(body, file_path)
+    initializers = first_child_by_type(signature, "initializers")
+    if initializers is not None:
+        extra_branches, extra_exceptions, extra_calls = _collect_func_body(initializers, file_path)
+        branches = extra_branches + branches
+        exception_types = extra_exceptions + exception_types
+        calls = extra_calls + calls
     complexity = compute_complexity(branches)
 
     location = make_location(signature, file_path)
@@ -264,6 +293,7 @@ def _extract_function_from_signature(
         type_parameters=extract_type_parameters(inner),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
+        attributes=(("dart_constructor", constructor),),
     )
     graph.nodes[func_id] = unit
     add_contains_edge(graph, container_id, func_id)
@@ -273,13 +303,45 @@ def _extract_function_from_signature(
     for ann in pending_annotations:
         _ = ann  # kept for readability; detection happens via source scan
     _ = span_end
+    if body is not None:
+        for nested in walk_owned(
+            body, boundaries=frozenset({"function_expression", "lambda_expression"})
+        ):
+            if nested.type in {"function_expression", "lambda_expression"}:
+                parameters = nested.child_by_field_name("parameters")
+                nested_body = nested.child_by_field_name("body")
+                if parameters is not None:
+                    name_node = _function_name_node(parameters)
+                    name = (
+                        node_text(name_node)
+                        if name_node is not None
+                        else f"$lambda@{nested.start_point.row + 1}_{nested.start_point.column}"
+                    )
+                    _extract_function_from_signature(
+                        parameters,
+                        nested_body,
+                        file_path,
+                        module_id,
+                        func_id,
+                        [],
+                        graph,
+                        name_override=name,
+                    )
     _add_call_edges(calls, func_id, file_path, graph)
 
 
 def _unwrap_method_signature(node: Node) -> Node:
     """Return the inner function_signature inside a method_signature wrapper."""
     if node.type == "method_signature":
-        inner = first_child_by_type(node, "function_signature")
+        inner = next(
+            (
+                c
+                for c in node.named_children
+                if c.type
+                in {"function_signature", "constructor_signature", "factory_constructor_signature"}
+            ),
+            None,
+        )
         if inner is not None:
             return inner
     return node
@@ -305,7 +367,11 @@ def _function_name_node(signature: Node) -> Node | None:
 
 def _extract_parameters(signature: Node) -> list[Parameter]:
     """Extract parameters from a function_signature's formal_parameter_list."""
-    plist = first_child_by_type(signature, "formal_parameter_list")
+    plist = (
+        signature
+        if signature.type == "formal_parameter_list"
+        else first_child_by_type(signature, "formal_parameter_list")
+    )
     if plist is None:
         return []
     params: list[Parameter] = []
@@ -367,6 +433,7 @@ def _collect_func_body(
             branches,
             exception_types,
             calls,
+            skip_types=frozenset({"function_expression", "lambda_expression"}),
         )
         _collect_dart_calls(body, calls)
     return branches, exception_types, calls
@@ -382,9 +449,11 @@ def _collect_dart_calls(body: Node, calls: list[tuple[str, Node]]) -> None:
     ``identifier`` + ``selector`` + ``identifier`` + ... with the final
     selector holding the argument_part.
     """
-    stack: list[Node] = list(body.children)
-    while stack:
-        node = stack.pop()
+    for node in walk_owned(
+        body, boundaries=frozenset({"function_expression", "lambda_expression"})
+    ):
+        if node.type in {"function_expression", "lambda_expression"}:
+            continue
         # Check each pair of adjacent children inside this node for the
         # "callee identifier -> arguments-bearing selector" pattern.
         children = node.children
@@ -396,7 +465,6 @@ def _collect_dart_calls(body: Node, calls: list[tuple[str, Node]]) -> None:
             name = _resolve_dart_callee(children, idx)
             if name:
                 calls.append((name, child))
-        stack.extend(children)
 
 
 def _selector_has_arguments(selector: Node) -> bool:
@@ -416,7 +484,7 @@ def _resolve_dart_callee(children: list[Node], selector_idx: int) -> str:
     i = selector_idx - 1
     while i >= 0:
         prev = children[i]
-        if prev.type == "identifier":
+        if prev.type in {"identifier", "this", "super"}:
             parts.append(node_text(prev))
             i -= 1
             continue
@@ -440,6 +508,8 @@ def _selector_identifier(selector: Node) -> str:
     for child in selector.children:
         if child.type == "identifier":
             return node_text(child)
+        if child.type == "unconditional_assignable_selector":
+            return _selector_identifier(child)
     return ""
 
 
@@ -452,12 +522,17 @@ def _add_call_edges(
     for call_name, call_node in calls:
         confidence = EdgeConfidence.CERTAIN if "." not in call_name else EdgeConfidence.INFERRED
         graph.edges.append(
-            CodeEdge(
-                source_id=source_id,
-                target_id=call_name,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            guard_call(
+                CodeEdge(
+                    source_id=source_id,
+                    target_id=call_name,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                    attributes=(("bare_name", call_name),) if call_name.isidentifier() else (),
+                ),
+                call_node,
+                graph=graph,
             )
         )
 

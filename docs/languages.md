@@ -307,3 +307,24 @@ Integer. Instance Main methods are excluded, including lowercase `main`.
 Generated application-framework entrypoints require overrides. The packaged
 grammar has gaps, including generic method syntax; syntax errors produce an
 incomplete-graph warning even for some valid VB.NET programs.
+
+## Schema frontends and FunC/Sway declarations
+
+Proto retains nested messages/enums, map fields and oneof members; IDs include
+lexical owners, and public imports retain the actual filename. GraphQL honors
+explicit schema root mappings and SDL extension fields in single-file and
+directory parses. List/non-null wrappers remain recursive TypeRefs so named
+leaf types retain dependency edges. Thrift IDs use source-file identity instead
+of the first target-language namespace; namespaces remain metadata. Container
+arguments and declared throws are represented as type references.
+
+FunC dot/tilde method variants retain specialized declarations and bare fallback
+semantics. Function-valued parameters and locals block unrelated same-name
+binding. Getters use `method_id` metadata and `run_ticktock` is a reserved
+entrypoint; a `get_` prefix alone no longer makes a private function callable.
+Sway ABI entrypoints use declaration metadata, including implemented methods;
+generic impl methods retain their own type containers. Implemented ABI signatures
+are retained with a `#declaration` suffix alongside concrete method bodies.
+
+See [Parser coverage and declaration identity](parser-coverage.md) for callable
+ownership, conservative binding, schema identity changes and pinned grammar limits.

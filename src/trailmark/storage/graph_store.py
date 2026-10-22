@@ -9,6 +9,7 @@ from trailmark.models.annotations import (
     AnnotationKind,
     EntrypointTag,
 )
+from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.lookup import resolve_node_id
@@ -37,6 +38,10 @@ class GraphStore:
     def source_file_counts(self) -> dict[str, int]:
         """Return inspected source-file counts by selected parser language."""
         return dict(self._graph.source_file_counts)
+
+    def parse_diagnostics(self) -> list[ParseDiagnostic]:
+        """Return source analysis diagnostics as immutable model objects."""
+        return list(self._graph.parse_diagnostics)
 
     def rebuild_index(self) -> None:
         """Rebuild all rustworkx indexes after graph nodes or edges change."""

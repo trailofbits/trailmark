@@ -236,7 +236,7 @@ class TestPHPNamespace:
         graph = _parse_namespace()
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         ns_edges = [
-            e for e in contains if "App\\Services" in e.source_id or "App\\Services" in e.target_id
+            e for e in contains if "App.Services" in e.source_id or "App.Services" in e.target_id
         ]
         assert len(ns_edges) >= 1
 

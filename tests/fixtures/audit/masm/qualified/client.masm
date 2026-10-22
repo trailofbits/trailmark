@@ -1,0 +1,10 @@
+use acme::remote
+proc check
+    nop
+end
+proc caller
+    exec.remote::check
+end
+begin
+    exec.caller
+end

@@ -8,6 +8,7 @@ from trailmark.models.annotations import (
     EntrypointTag,
     TrustLevel,
 )
+from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
@@ -40,6 +41,7 @@ __all__ = [
     "NodeKind",
     "NodeOrigin",
     "Parameter",
+    "ParseDiagnostic",
     "SourceLocation",
     "TrustLevel",
     "TypeParameter",

@@ -10,37 +10,37 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Taxonomy",
-      "target": "taxonomy:IGreeter"
+      "target": "taxonomy:Taxonomy.IGreeter"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:IGreeter",
-      "target": "taxonomy:IGreeter.Greet"
-    },
-    {
-      "confidence": "certain",
-      "kind": "contains",
-      "source": "taxonomy:Taxonomy",
-      "target": "taxonomy:Status"
+      "source": "taxonomy:Taxonomy.IGreeter",
+      "target": "taxonomy:Taxonomy.IGreeter.Greet"
     },
     {
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Taxonomy",
-      "target": "taxonomy:Math"
+      "target": "taxonomy:Taxonomy.Status"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Math",
-      "target": "taxonomy:Math.Add"
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.Math"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Math",
-      "target": "taxonomy:Math.Branchy"
+      "source": "taxonomy:Taxonomy.Math",
+      "target": "taxonomy:Taxonomy.Math.Add"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy.Math",
+      "target": "taxonomy:Taxonomy.Math.Branchy"
     },
     {
       "attributes": {
@@ -48,14 +48,14 @@
       },
       "confidence": "inferred",
       "kind": "calls",
-      "source": "taxonomy:Math.Branchy",
+      "source": "taxonomy:Taxonomy.Math.Branchy",
       "target": "proxy.unresolved:int.Parse"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Math",
-      "target": "taxonomy:Math.FetchAsync"
+      "source": "taxonomy:Taxonomy.Math",
+      "target": "taxonomy:Taxonomy.Math.FetchAsync"
     },
     {
       "attributes": {
@@ -63,62 +63,62 @@
       },
       "confidence": "inferred",
       "kind": "calls",
-      "source": "taxonomy:Math.FetchAsync",
+      "source": "taxonomy:Taxonomy.Math.FetchAsync",
       "target": "proxy.unresolved:Task.Yield"
     },
     {
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Taxonomy",
-      "target": "taxonomy:Animal"
+      "target": "taxonomy:Taxonomy.Animal"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Animal",
-      "target": "taxonomy:Animal.Animal"
+      "source": "taxonomy:Taxonomy.Animal",
+      "target": "taxonomy:Taxonomy.Animal.Animal"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Animal",
-      "target": "taxonomy:Animal.Describe"
+      "source": "taxonomy:Taxonomy.Animal",
+      "target": "taxonomy:Taxonomy.Animal.Describe"
     },
     {
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Taxonomy",
-      "target": "taxonomy:Dog"
+      "target": "taxonomy:Taxonomy.Dog"
     },
     {
       "confidence": "inferred",
       "kind": "inherits",
-      "source": "taxonomy:Dog",
-      "target": "taxonomy:Animal"
+      "source": "taxonomy:Taxonomy.Dog",
+      "target": "taxonomy:Taxonomy.Animal"
     },
     {
       "confidence": "inferred",
       "kind": "implements",
-      "source": "taxonomy:Dog",
-      "target": "taxonomy:IGreeter"
+      "source": "taxonomy:Taxonomy.Dog",
+      "target": "taxonomy:Taxonomy.IGreeter"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Dog",
-      "target": "taxonomy:Dog.Dog"
+      "source": "taxonomy:Taxonomy.Dog",
+      "target": "taxonomy:Taxonomy.Dog.Dog"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Dog",
-      "target": "taxonomy:Dog.Bark"
+      "source": "taxonomy:Taxonomy.Dog",
+      "target": "taxonomy:Taxonomy.Dog.Bark"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Dog",
-      "target": "taxonomy:Dog.Greet"
+      "source": "taxonomy:Taxonomy.Dog",
+      "target": "taxonomy:Taxonomy.Dog.Greet"
     }
   ],
   "language": "csharp",
@@ -187,12 +187,30 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:Animal": {
+    "taxonomy:Taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Animal",
+      "id": "taxonomy:Taxonomy",
+      "kind": "namespace",
+      "location": {
+        "end_col": 1,
+        "end_line": 108,
+        "file_path": "taxonomy.cs",
+        "start_col": 0,
+        "start_line": 7
+      },
+      "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.Animal": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.Animal",
       "kind": "class",
       "location": {
         "end_col": 5,
@@ -205,12 +223,12 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:Animal.Animal": {
+    "taxonomy:Taxonomy.Animal.Animal": {
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Animal.Animal",
+      "id": "taxonomy:Taxonomy.Animal.Animal",
       "kind": "method",
       "location": {
         "end_col": 9,
@@ -233,12 +251,12 @@
       ],
       "return_type": null
     },
-    "taxonomy:Animal.Describe": {
+    "taxonomy:Taxonomy.Animal.Describe": {
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Animal.Describe",
+      "id": "taxonomy:Taxonomy.Animal.Describe",
       "kind": "method",
       "location": {
         "end_col": 9,
@@ -255,12 +273,12 @@
         "name": "string"
       }
     },
-    "taxonomy:Dog": {
+    "taxonomy:Taxonomy.Dog": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Dog",
+      "id": "taxonomy:Taxonomy.Dog",
       "kind": "class",
       "location": {
         "end_col": 5,
@@ -273,7 +291,7 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:Dog.Bark": {
+    "taxonomy:Taxonomy.Dog.Bark": {
       "branches": [
         {
           "complexity_contribution": 1,
@@ -296,7 +314,7 @@
           "name": "InvalidOperationException"
         }
       ],
-      "id": "taxonomy:Dog.Bark",
+      "id": "taxonomy:Taxonomy.Dog.Bark",
       "kind": "method",
       "location": {
         "end_col": 9,
@@ -323,12 +341,12 @@
         "name": "string"
       }
     },
-    "taxonomy:Dog.Dog": {
+    "taxonomy:Taxonomy.Dog.Dog": {
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Dog.Dog",
+      "id": "taxonomy:Taxonomy.Dog.Dog",
       "kind": "method",
       "location": {
         "end_col": 9,
@@ -360,12 +378,12 @@
       ],
       "return_type": null
     },
-    "taxonomy:Dog.Greet": {
+    "taxonomy:Taxonomy.Dog.Greet": {
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Dog.Greet",
+      "id": "taxonomy:Taxonomy.Dog.Greet",
       "kind": "method",
       "location": {
         "end_col": 9,
@@ -392,12 +410,12 @@
         "name": "string"
       }
     },
-    "taxonomy:IGreeter": {
+    "taxonomy:Taxonomy.IGreeter": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:IGreeter",
+      "id": "taxonomy:Taxonomy.IGreeter",
       "kind": "interface",
       "location": {
         "end_col": 5,
@@ -410,12 +428,12 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:IGreeter.Greet": {
+    "taxonomy:Taxonomy.IGreeter.Greet": {
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:IGreeter.Greet",
+      "id": "taxonomy:Taxonomy.IGreeter.Greet",
       "kind": "method",
       "location": {
         "end_col": 34,
@@ -442,12 +460,12 @@
         "name": "string"
       }
     },
-    "taxonomy:Math": {
+    "taxonomy:Taxonomy.Math": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Math",
+      "id": "taxonomy:Taxonomy.Math",
       "kind": "class",
       "location": {
         "end_col": 5,
@@ -460,12 +478,12 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:Math.Add": {
+    "taxonomy:Taxonomy.Math.Add": {
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Math.Add",
+      "id": "taxonomy:Taxonomy.Math.Add",
       "kind": "method",
       "location": {
         "end_col": 9,
@@ -501,7 +519,7 @@
         "name": "int"
       }
     },
-    "taxonomy:Math.Branchy": {
+    "taxonomy:Taxonomy.Math.Branchy": {
       "branches": [
         {
           "complexity_contribution": 1,
@@ -579,7 +597,7 @@
           "name": "InvalidOperationException"
         }
       ],
-      "id": "taxonomy:Math.Branchy",
+      "id": "taxonomy:Taxonomy.Math.Branchy",
       "kind": "method",
       "location": {
         "end_col": 9,
@@ -615,12 +633,12 @@
         "name": "int"
       }
     },
-    "taxonomy:Math.FetchAsync": {
+    "taxonomy:Taxonomy.Math.FetchAsync": {
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Math.FetchAsync",
+      "id": "taxonomy:Taxonomy.Math.FetchAsync",
       "kind": "method",
       "location": {
         "end_col": 9,
@@ -653,12 +671,12 @@
         "name": "Task"
       }
     },
-    "taxonomy:Status": {
+    "taxonomy:Taxonomy.Status": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Status",
+      "id": "taxonomy:Taxonomy.Status",
       "kind": "enum",
       "location": {
         "end_col": 5,
@@ -668,24 +686,6 @@
         "start_line": 14
       },
       "name": "Status",
-      "parameters": [],
-      "return_type": null
-    },
-    "taxonomy:Taxonomy": {
-      "branches": [],
-      "cyclomatic_complexity": null,
-      "docstring": null,
-      "exception_types": [],
-      "id": "taxonomy:Taxonomy",
-      "kind": "namespace",
-      "location": {
-        "end_col": 1,
-        "end_line": 108,
-        "file_path": "taxonomy.cs",
-        "start_col": 0,
-        "start_line": 7
-      },
-      "name": "Taxonomy",
       "parameters": [],
       "return_type": null
     }
@@ -704,6 +704,7 @@
     "languages": [
       "c_sharp"
     ],
+    "parse_diagnostics": [],
     "proxies": 2,
     "source_file_counts": {
       "c_sharp": 1

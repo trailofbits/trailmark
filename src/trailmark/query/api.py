@@ -43,6 +43,7 @@ class QueryEngine:
         *,
         detect_entrypoints_: bool = True,
         allow_empty: bool = False,
+        strict: bool = False,
     ) -> QueryEngine:
         """Parse a directory and return a ready-to-query engine.
 
@@ -60,7 +61,9 @@ class QueryEngine:
         with. Pass ``detect_entrypoints_=False`` to skip it (e.g. when the
         caller wants to drive detection separately).
         """
-        graph = _parse_api.parse_directory(path, language=language, allow_empty=allow_empty)
+        graph = _parse_api.parse_directory(
+            path, language=language, allow_empty=allow_empty, strict=strict
+        )
         if detect_entrypoints_:
             graph.entrypoints.update(detect_entrypoints(graph, path))
         store = GraphStore(graph)
@@ -329,7 +332,16 @@ class QueryEngine:
             "languages": list(source_file_counts),
             "source_files": sum(source_file_counts.values()),
             "source_file_counts": source_file_counts,
+            "parse_diagnostics": self.parse_diagnostics(),
         }
+
+    def parse_diagnostics(self) -> list[dict[str, Any]]:
+        """Report grammar errors and explicitly unsupported source constructs.
+
+        An empty list means no diagnostic was recorded, not that every language
+        feature was modeled. Inspected-file counts remain independent.
+        """
+        return [asdict(item) for item in self._store.parse_diagnostics()]
 
     def unresolved_calls(self, name: str | None = None) -> list[dict[str, Any]]:
         """Report unresolved call sites, including raw targets and source spans.

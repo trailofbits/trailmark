@@ -89,7 +89,7 @@ def materialize_type_use_edges(graph: CodeGraph) -> None:
     new_edges: list[CodeEdge] = []
     for unit in graph.nodes.values():
         for type_ref in _iter_unit_types(unit):
-            target_id = _resolve_type_ref(type_ref, type_index)
+            target_id = _resolve_type_ref(type_ref, type_index, unit.id)
             if target_id is None:
                 continue
             key = (unit.id, target_id, EdgeKind.TYPE_USES)
@@ -165,7 +165,13 @@ def _type_index(graph: CodeGraph) -> dict[str, str | None]:
     for node_id, node in graph.nodes.items():
         if node.kind not in _TYPE_KINDS:
             continue
-        for key in {node_id, node.name, node_id.rsplit(":", 1)[-1], node_id.rsplit(".", 1)[-1]}:
+        for key in {
+            node_id,
+            node_id.replace(":", ".", 1),
+            node.name,
+            node_id.rsplit(":", 1)[-1],
+            node_id.rsplit(".", 1)[-1],
+        }:
             existing = index.get(key)
             if existing is None and key in index:
                 continue
@@ -179,8 +185,17 @@ def _type_index(graph: CodeGraph) -> dict[str, str | None]:
 def _resolve_type_ref(
     type_ref: TypeRef,
     type_index: dict[str, str | None],
+    owner_id: str = "",
 ) -> str | None:
     candidates = [type_ref.name]
+    if owner_id and not type_ref.module:
+        module, _, path = owner_id.partition(":")
+        parts = path.split(".")
+        local = [
+            f"{module}:{'.'.join(parts[:depth])}.{type_ref.name}"
+            for depth in range(len(parts), 0, -1)
+        ]
+        candidates = local + [f"{module}:{type_ref.name}"] + candidates
     if type_ref.module:
         candidates.insert(0, f"{type_ref.module}.{type_ref.name}")
         candidates.insert(0, f"{type_ref.module}:{type_ref.name}")

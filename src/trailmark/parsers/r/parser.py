@@ -161,12 +161,26 @@ class RParser:
             if node.type == "call":
                 calls.append((caller, scope, node))
                 callee = node.child_by_field_name("function")
+                raw = _name(callee) if callee is not None else ""
+                builtin = raw.removeprefix("base:::").removeprefix("base::")
                 if (
                     callee is not None
-                    and callee.type == "identifier"
-                    and _name(callee) in _MUTATORS
+                    and (callee.type == "identifier" or raw.startswith(("base::", "base:::")))
+                    and builtin in _MUTATORS
                 ):
                     mutated = True
+                if builtin in {"quote", "expression", "alist", "substitute"}:
+                    lookup = scope
+                    shadowed = False
+                    while lookup:
+                        if bindings.get((lookup, raw)):
+                            shadowed = True
+                            break
+                        lookup = parents.get(lookup, "")
+                    if raw.startswith(("base::", "base:::")) or (
+                        callee is not None and callee.type == "identifier" and not shadowed
+                    ):
+                        return
             for child in node.named_children:
                 scan(child, scope, caller)
 
@@ -199,7 +213,7 @@ class RParser:
             target = None
             if not mutated and len(candidates) == 1:
                 candidate, available = candidates[0]
-                if caller != script or available <= call.start_byte:
+                if (scope != caller and caller != script) or available <= call.start_byte:
                     target = candidate
             if (
                 callee.type == "identifier"

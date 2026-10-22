@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from collections.abc import Iterator
 from pathlib import Path
 
 import tree_sitter_sql
@@ -27,6 +28,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._declarations import add_callable, add_type, callable_scope
 
 _EXTENSIONS = (".sql",)
 _DECLARATIONS: dict[str, NodeKind] = {
@@ -37,19 +39,6 @@ _DECLARATIONS: dict[str, NodeKind] = {
     "create_function": NodeKind.FUNCTION,
     "create_procedure": NodeKind.PROCEDURE,
 }
-_PROCEDURE = re.compile(
-    r"\bCREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+"
-    r"(?:(?P<schema>[A-Za-z_][\w$]*)\.)?(?P<name>[A-Za-z_][\w$]*)\s*\(",
-    re.IGNORECASE,
-)
-_RELATION_REFERENCE = re.compile(
-    r"\b(?:FROM|JOIN|UPDATE|INTO)\s+"
-    r"(?:(?P<schema>[A-Za-z_][\w$]*)\.)?(?P<name>[A-Za-z_][\w$]*)",
-    re.IGNORECASE,
-)
-_NEXT_CREATE = re.compile(
-    r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:SCHEMA|TABLE|VIEW|FUNCTION|PROCEDURE)\b", re.IGNORECASE
-)
 
 
 class SQLParser:
@@ -71,11 +60,13 @@ class SQLParser:
         graph = CodeGraph(language="sql", root_path=file_path)
         module_id = module_id_from_path(file_path)
         add_module_node(tree.root_node, file_path, module_id, graph)
-        for node in _walk(tree.root_node):
-            kind = _DECLARATIONS.get(node.type)
-            if kind is not None:
-                _extract_declaration(node, kind, file_path, module_id, graph)
-        _extract_procedures(source, file_path, module_id, graph)
+        with callable_scope(graph):
+            for node in _walk(tree.root_node):
+                kind = _DECLARATIONS.get(node.type)
+                if kind is not None:
+                    _extract_declaration(node, kind, file_path, module_id, graph)
+            _extract_procedures(source, file_path, module_id, graph)
+        _link_cross_file_sql_dependencies(graph)
         if materialize_dependencies:
             _materialize_sql_dependency_targets(graph, file_path)
         return graph
@@ -112,20 +103,29 @@ def _extract_declaration(
         schema_id = f"{module_id}:{schema}"
         if schema_id in graph.nodes:
             container_id = schema_id
-    else:
-        unit_id = _disambiguate_sql_id(graph, unit_id, kind)
 
     parameters = (
         _routine_parameters(node) if kind in {NodeKind.FUNCTION, NodeKind.PROCEDURE} else ()
     )
-    graph.nodes[unit_id] = CodeUnit(
+    existing = graph.nodes.get(unit_id)
+    if (
+        kind not in {NodeKind.FUNCTION, NodeKind.PROCEDURE}
+        and existing is not None
+        and existing.kind not in {NodeKind.FUNCTION, NodeKind.PROCEDURE, kind}
+    ):
+        unit_id = _disambiguate_sql_id(graph, unit_id, kind)
+    unit = CodeUnit(
         id=unit_id,
         name=name,
         kind=kind,
         location=make_location(node, file_path),
         parameters=parameters,
-        attributes=(("sql_schema", schema),) if schema else (),
+        attributes=(("sql_schema", schema or ""),),
     )
+    if kind in {NodeKind.FUNCTION, NodeKind.PROCEDURE}:
+        unit_id = _add_routine(graph, unit)
+    else:
+        add_type(graph, unit)
     add_contains_edge(graph, container_id, unit_id)
 
     if kind in {NodeKind.VIEW, NodeKind.FUNCTION, NodeKind.PROCEDURE}:
@@ -166,7 +166,15 @@ def _routine_parameters(node: Node) -> tuple[Parameter, ...]:
             continue
         name = node_text(named[0])
         type_ref = TypeRef(node_text(named[1])) if len(named) > 1 else None
-        result.append(Parameter(name=name, type_ref=type_ref))
+        default = next(
+            (
+                node_text(named[index + 1])
+                for index, item in enumerate(named[:-1])
+                if item.type == "keyword_default"
+            ),
+            None,
+        )
+        result.append(Parameter(name=name, type_ref=type_ref, default=default))
     return tuple(result)
 
 
@@ -232,113 +240,106 @@ def _disambiguate_sql_id(graph: CodeGraph, unit_id: str, kind: NodeKind) -> str:
 
 
 def _sql_reference_id(graph: CodeGraph, module_id: str, schema: str | None, name: str) -> str:
-    unit_id = _sql_id(module_id, schema, name)
-    if graph.nodes.get(unit_id, None) is not None:
-        for kind in (NodeKind.TABLE, NodeKind.VIEW):
-            disambiguated = f"{unit_id}#{kind.value}"
-            if disambiguated in graph.nodes:
-                return disambiguated
-    return unit_id
+    # Relation identity is independent of the callable namespace. Matching is
+    # repeated after all declarations are known, including later files.
+    return _sql_id(module_id, schema, name)
 
 
-def _extract_procedures(
-    source: bytes,
-    file_path: str,
-    module_id: str,
-    graph: CodeGraph,
-) -> None:
-    """Recover PostgreSQL procedures unsupported by the permissive grammar."""
+def _extract_procedures(source: bytes, file_path: str, module_id: str, graph: CodeGraph) -> None:
+    """Recover procedures from actual top-level statements, never quoted text."""
     text = source.decode("utf-8", errors="replace")
-    scan_text = _mask_sql_comments(text)
-    matches = list(_PROCEDURE.finditer(scan_text))
-    for match_index, match in enumerate(matches):
-        schema = match.group("schema")
-        name = match.group("name")
-        unit_id = _sql_id(module_id, schema, name)
-        if unit_id in graph.nodes:
+    for tokens in _statements(text):
+        words = [token[0].upper() for token in tokens[:5]]
+        offset = 3 if words[:3] == ["CREATE", "OR", "REPLACE"] else 1
+        if (
+            not words
+            or words[0] != "CREATE"
+            or len(tokens) <= offset
+            or words[offset] != "PROCEDURE"
+        ):
             continue
-        start_line = text.count("\n", 0, match.start()) + 1
-        container_id = f"{module_id}:{schema}" if schema else module_id
-        if container_id not in graph.nodes:
-            container_id = module_id
-        graph.nodes[unit_id] = CodeUnit(
-            id=unit_id,
-            name=name,
-            kind=NodeKind.PROCEDURE,
-            location=SourceLocation(file_path, start_line, start_line),
-            attributes=(("sql_schema", schema),) if schema else (),
+        cursor = offset + 1
+        if cursor >= len(tokens):
+            continue
+        name = tokens[cursor][0]
+        schema = None
+        cursor += 1
+        if cursor + 1 < len(tokens) and tokens[cursor][0] == ".":
+            schema, name = name, tokens[cursor + 1][0]
+            cursor += 2
+        if cursor >= len(tokens) or tokens[cursor][0] != "(":
+            continue
+        depth, end_params = 0, cursor
+        for index in range(cursor, len(tokens)):
+            if tokens[index][0] == "(":
+                depth += 1
+            elif tokens[index][0] == ")":
+                depth -= 1
+                if depth == 0:
+                    end_params = index
+                    break
+        parameters = _recovered_parameters(tokens[cursor + 1 : end_params])
+        start, end = tokens[0][1], tokens[-1][2]
+        location = SourceLocation(
+            file_path,
+            text.count("\n", 0, start) + 1,
+            text.count("\n", 0, end) + 1,
+            start - text.rfind("\n", 0, start) - 1,
+            end - text.rfind("\n", 0, end) - 1,
         )
-        add_contains_edge(graph, container_id, unit_id)
-        next_procedure = (
-            matches[match_index + 1].start() if match_index + 1 < len(matches) else len(text)
+        base = _sql_id(module_id, schema, name)
+        # The grammar may gain native procedure support in a later version.
+        if any(
+            unit.kind == NodeKind.PROCEDURE and unit.location.start_line == location.start_line
+            for unit in graph.nodes.values()
+        ):
+            continue
+        unit_id = _add_routine(
+            graph,
+            CodeUnit(
+                id=base,
+                name=name,
+                kind=NodeKind.PROCEDURE,
+                location=location,
+                parameters=parameters,
+                attributes=(("sql_schema", schema or ""),),
+            ),
         )
-        next_declaration = _NEXT_CREATE.search(scan_text, match.end())
-        end = min(
-            next_procedure,
-            next_declaration.start() if next_declaration is not None else len(text),
-        )
-        for reference in _RELATION_REFERENCE.finditer(scan_text, match.end(), end):
-            target_id = _sql_reference_id(
-                graph, module_id, reference.group("schema"), reference.group("name")
-            )
-            graph.edges.append(
-                CodeEdge(
-                    source_id=unit_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CORRESPONDS_TO,
-                    confidence=EdgeConfidence.INFERRED,
-                    attributes=(("relationship", "sql_dependency"),),
+        container = f"{module_id}:{schema}" if schema else module_id
+        add_contains_edge(graph, container if container in graph.nodes else module_id, unit_id)
+        body = tokens[end_params + 1 :]
+        # Dollar/single quoted AS bodies are SQL at one deeper lexical level.
+        for index, token in enumerate(body):
+            if token[0].upper() == "AS" and index + 1 < len(body):
+                literal = body[index + 1][0]
+                tag = _dollar_quote_tag(literal, 0)
+                if tag:
+                    body = list(_tokens(literal[len(tag) : -len(tag)]))
+                elif literal.startswith("'"):
+                    body = list(_tokens(literal[1:-1].replace("''", "'")))
+                break
+        seen: set[str] = set()
+        for index, token in enumerate(body[:-1]):
+            if token[0].upper() not in {"FROM", "JOIN", "UPDATE", "INTO"}:
+                continue
+            target_name = body[index + 1][0]
+            if re.fullmatch(_IDENTIFIER, target_name) is None:
+                continue
+            target_schema = None
+            if index + 3 < len(body) and body[index + 2][0] == ".":
+                target_schema, target_name = target_name, body[index + 3][0]
+            target = _sql_reference_id(graph, module_id, target_schema, target_name)
+            if target not in seen:
+                seen.add(target)
+                graph.edges.append(
+                    CodeEdge(
+                        unit_id,
+                        target,
+                        EdgeKind.CORRESPONDS_TO,
+                        confidence=EdgeConfidence.INFERRED,
+                        attributes=(("relationship", "sql_dependency"),),
+                    )
                 )
-            )
-
-
-def _mask_sql_comments(text: str) -> str:
-    chars = list(text)
-    index = 0
-    dollar_quote: str | None = None
-    while index < len(chars):
-        if dollar_quote is not None:
-            index, dollar_quote = _advance_dollar_quote(text, index, dollar_quote)
-        elif _starts_line_comment(text, index):
-            index = _mask_until_line_end(chars, index)
-        elif text.startswith("/*", index):
-            index = _mask_block_comment(chars, index)
-        else:
-            dollar_quote = _dollar_quote_tag(text, index)
-            index += len(dollar_quote) if dollar_quote else 1
-    return "".join(chars)
-
-
-def _advance_dollar_quote(text: str, index: int, tag: str) -> tuple[int, str | None]:
-    if text.startswith(tag, index):
-        return index + len(tag), None
-    return index + 1, tag
-
-
-def _starts_line_comment(text: str, index: int) -> bool:
-    return text.startswith("--", index)
-
-
-def _mask_until_line_end(chars: list[str], index: int) -> int:
-    while index < len(chars) and chars[index] != "\n":
-        chars[index] = " "
-        index += 1
-    return index
-
-
-def _mask_block_comment(chars: list[str], index: int) -> int:
-    chars[index] = " "
-    chars[index + 1] = " "
-    index += 2
-    while index < len(chars):
-        if index + 1 < len(chars) and chars[index] == "*" and chars[index + 1] == "/":
-            chars[index] = " "
-            chars[index + 1] = " "
-            return index + 2
-        if chars[index] != "\n":
-            chars[index] = " "
-        index += 1
-    return index
 
 
 def _dollar_quote_tag(text: str, index: int) -> str | None:
@@ -364,23 +365,51 @@ def _materialize_sql_dependency_targets(graph: CodeGraph, file_path: str) -> Non
 
 
 def _link_cross_file_sql_dependencies(graph: CodeGraph) -> None:
-    by_qualified_name: dict[str, list[str]] = {}
+    by_name: dict[tuple[str, str], list[str]] = {}
     for node_id, unit in graph.nodes.items():
-        if unit.kind not in {NodeKind.TABLE, NodeKind.VIEW, NodeKind.FUNCTION, NodeKind.PROCEDURE}:
+        if unit.kind not in {NodeKind.TABLE, NodeKind.VIEW}:
             continue
-        schema = dict(unit.attributes).get("sql_schema")
-        qualified = f"{schema}.{unit.name}" if schema else unit.name
-        by_qualified_name.setdefault(qualified, []).append(node_id)
-
+        schema = str(dict(unit.attributes).get("sql_schema", ""))
+        by_name.setdefault((_identifier(schema), _identifier(unit.name)), []).append(node_id)
     rewritten: list[CodeEdge] = []
     for edge in graph.edges:
-        if edge.kind != EdgeKind.CORRESPONDS_TO or edge.target_id in graph.nodes:
+        if edge.kind != EdgeKind.CORRESPONDS_TO:
             rewritten.append(edge)
             continue
-        qualified = edge.target_id.rsplit(":", 1)[-1]
-        matches = by_qualified_name.get(qualified, [])
+        attributes = dict(edge.attributes)
+        qualified = str(
+            attributes.get(
+                "sql_reference", edge.target_id.rsplit(":", 1)[-1].removesuffix("#relation")
+            )
+        )
+        pieces = re.findall(_IDENTIFIER, qualified)
+        key = (
+            (_identifier(pieces[-2]) if len(pieces) > 1 else "", _identifier(pieces[-1]))
+            if pieces
+            else ("", "")
+        )
+        matches = by_name.get(key, [])
+        local = [
+            candidate
+            for candidate in matches
+            if candidate.split(":", 1)[0] == edge.source_id.split(":", 1)[0]
+        ]
+        candidates = local or matches
+        attributes["sql_reference"] = qualified
+        unresolved = edge.target_id
+        existing = graph.nodes.get(unresolved)
+        if existing is not None and existing.kind not in {
+            NodeKind.TABLE,
+            NodeKind.VIEW,
+            NodeKind.PROXY,
+        }:
+            unresolved += "#relation"
         rewritten.append(
-            dataclasses.replace(edge, target_id=matches[0]) if len(matches) == 1 else edge
+            dataclasses.replace(
+                edge,
+                target_id=candidates[0] if len(candidates) == 1 else unresolved,
+                attributes=tuple(attributes.items()),
+            )
         )
     graph.edges = rewritten
 
@@ -393,3 +422,141 @@ def _walk(root: Node) -> list[Node]:
         result.append(node)
         stack.extend(reversed(node.named_children))
     return result
+
+
+_IDENTIFIER = r'"(?:[^"\n]|"")+"|[A-Za-z_][\w$]*'
+
+
+def _identifier(raw: str) -> str:
+    return (
+        raw[1:-1].replace('""', '"') if raw.startswith('"') and raw.endswith('"') else raw.lower()
+    )
+
+
+def _add_routine(graph: CodeGraph, unit: CodeUnit) -> str:
+    signature = ",".join(
+        _identifier(parameter.type_ref.name if parameter.type_ref else parameter.name)
+        for parameter in unit.parameters
+    )
+    schema = dict(unit.attributes).get("sql_schema", "")
+    for old in list(graph.nodes.values()):
+        attributes = dict(old.attributes)
+        if (
+            old.kind == unit.kind
+            and _identifier(old.name) == _identifier(unit.name)
+            and _identifier(str(attributes.get("sql_schema", ""))) == _identifier(str(schema))
+            and attributes.get("sql_signature") == signature
+        ):
+            graph.nodes[old.id] = dataclasses.replace(
+                unit, id=old.id, attributes=(*unit.attributes, ("sql_signature", signature))
+            )
+            graph.edges[:] = [
+                edge
+                for edge in graph.edges
+                if edge.source_id != old.id
+                and not (edge.kind == EdgeKind.CONTAINS and edge.target_id == old.id)
+            ]
+            return old.id
+    return add_callable(
+        graph,
+        dataclasses.replace(unit, attributes=(*unit.attributes, ("sql_signature", signature))),
+    )
+
+
+def _tokens(text: str) -> Iterator[tuple[str, int, int]]:
+    """Yield lexical tokens and character spans; skip nested SQL comments."""
+    index = 0
+    while index < len(text):
+        if text[index].isspace():
+            index += 1
+            continue
+        start = index
+        if text.startswith("--", index):
+            end = text.find("\n", index)
+            index = len(text) if end < 0 else end + 1
+            continue
+        if text.startswith("/*", index):
+            depth, index = 1, index + 2
+            while index < len(text) and depth:
+                if text.startswith("/*", index):
+                    depth, index = depth + 1, index + 2
+                elif text.startswith("*/", index):
+                    depth, index = depth - 1, index + 2
+                else:
+                    index += 1
+            continue
+        tag = _dollar_quote_tag(text, index) if text[index] == "$" else None
+        if tag:
+            end = text.find(tag, index + len(tag))
+            index = len(text) if end < 0 else end + len(tag)
+        elif text[index] in "'\"":
+            quote, index = text[index], index + 1
+            while index < len(text):
+                if text[index] == quote:
+                    index += 1
+                    if index >= len(text) or text[index] != quote:
+                        break
+                elif text[index] == "\\" and quote == "'":
+                    index += 1
+                index += 1
+        else:
+            match = re.match(r"[A-Za-z_][\w$]*|[0-9]+(?:\.[0-9]+)?", text[index:])
+            index += len(match.group(0)) if match else 1
+        yield text[start:index], start, index
+
+
+def _statements(text: str) -> Iterator[list[tuple[str, int, int]]]:
+    statement = []
+    parentheses, atomic = 0, 0
+    previous = ""
+    for token in _tokens(text):
+        value = token[0].upper()
+        statement.append(token)
+        if value == "(":
+            parentheses += 1
+        elif value == ")":
+            parentheses -= 1
+        elif value == "ATOMIC" and previous == "BEGIN":
+            atomic += 1
+        elif value == "END" and atomic:
+            atomic -= 1
+        if value == ";" and parentheses == 0 and atomic == 0:
+            yield statement
+            statement = []
+        previous = value
+    if statement:
+        yield statement
+
+
+def _recovered_parameters(tokens: list[tuple[str, int, int]]) -> tuple[Parameter, ...]:
+    parts: list[list[str]] = [[]]
+    depth = 0
+    for lexeme, _, _ in tokens:
+        if lexeme == "," and depth == 0:
+            parts.append([])
+        else:
+            parts[-1].append(lexeme)
+        if lexeme in {"(", "["}:
+            depth += 1
+        elif lexeme in {")", "]"}:
+            depth -= 1
+    result = []
+    for index, words in enumerate(parts):
+        if not words:
+            continue
+        if words[0].upper() in {"IN", "OUT", "INOUT", "VARIADIC"}:
+            words = words[1:]
+        if not words:
+            continue
+        default = None
+        for position, word in enumerate(words):
+            if word.upper() in {"DEFAULT", "="}:
+                default = " ".join(words[position + 1 :])
+                words = words[:position]
+                break
+        if not words:
+            continue
+        name = words[0] if len(words) > 1 else f"$arg{index}"
+        type_name = " ".join(words[1:] if len(words) > 1 else words)
+        result.append(Parameter(name, TypeRef(type_name), default=default))
+    return tuple(result)

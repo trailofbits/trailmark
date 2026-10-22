@@ -221,7 +221,11 @@ def test_bare_overload_confidence_respects_the_callers_container(
     assert calls["identity:outside"].confidence == EdgeConfidence.UNCERTAIN
     assert calls["identity:D.inside"].confidence == EdgeConfidence.UNCERTAIN
     assert calls["identity:C.inside"].confidence == EdgeConfidence.CERTAIN
-    assert all(e.target_id == "f" for e in calls.values())
+    assert calls["identity:C.inside"].target_id == "identity:C.f"
+    assert all(
+        calls[source].target_id not in graph.nodes
+        for source in ("identity:outside", "identity:D.inside")
+    )
 
 
 def test_solidity_structs_and_enums_belong_to_their_declaring_contract(tmp_path: Path) -> None:
@@ -415,7 +419,18 @@ def test_types_and_callables_share_a_name_without_overwriting_each_other(
     assert len(callables) == callable_count
     assert all(node.id.startswith(f"{case.type_id}@") for node in callables)
     for node, marker in zip(callables, ("first", "second")[:callable_count], strict=True):
-        calls = [e for e in graph.edges if e.source_id == node.id and e.kind == EdgeKind.CALLS]
+        calls = [
+            e
+            for e in graph.edges
+            if e.source_id == node.id
+            and e.kind == EdgeKind.CALLS
+            and "constructor_type" not in dict(e.attributes)
+        ]
+        if case.extension == ".java":
+            assert any(
+                e.source_id == node.id and "constructor_type" in dict(e.attributes)
+                for e in graph.edges
+            )
         assert len(calls) == 1
         assert calls[0].target_id.rsplit(":", 1)[-1].rsplit(".", 1)[-1] == marker
     for node_id in (case.type_id, *(node.id for node in callables)):

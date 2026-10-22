@@ -11,15 +11,15 @@
   },
   "exceptions": [
     {
-      "fingerprint": "ac90945c6fb2b00a1611f021c4ba45ed0b3a534e3d65423645b3f0734872f603",
-      "source_hash": "6e1bf06a3e7769ee9efff2f3571b9cd120dd88bdc2a627919e9fbd1549c0ef8f",
+      "fingerprint": "f551eb89c77d46fda9075c67560e296561644504b1430d1540f3e41d115e3ad5",
+      "source_hash": "d061f4e0b30fae2572b0c250a7d8c43d39f373425cc8647f32841aa47eb0cbce",
       "path": "src/trailmark/parsers/rust/_scopes.py",
       "function": "<module>",
       "line": 60,
       "operator": "boolean",
       "original": "True",
       "mutated": "False",
-      "reason": "Equivalent in the parser workflow: each private resolution context is constructed with its field values, read only, and never returned to callers. dataclasses.replace creates new context objects rather than assigning fields. Changing dataclass field immutability leaves graph construction and resolution results identical. NativeGrammar configuration immutability is separately tested and is not exempted."
+      "reason": "Equivalent in the parser workflow: each private resolution context is constructed with its field values, read only, and never returned to callers. dataclasses.replace creates new context objects rather than assigning fields. Changing dataclass field immutability leaves graph construction and resolution results identical. NativeGrammar configuration immutability is separately tested and is not exempted. Re-reviewed after lexical binding guards: those guards inspect edge attributes and use the existing read-only context; neither they nor any resolution caller rebind its fields."
     },
     {
       "fingerprint": "4d331456cfd656a1715473a544dc9eb6da9ca261d7f299be379160ac98bd743e",
@@ -33,15 +33,15 @@
       "reason": "Equivalent for parser-produced call locations: a call starts at an expression token, never at the enclosing block opening-brace token. Equality with block.start_point cannot occur. The upper boundary is observably different for a call adjacent to the closing brace and has a regression test."
     },
     {
-      "fingerprint": "1dc60bad1c2da24cd50a097e5cf7bbbf8c427283311f5a889393bbe4ef752470",
-      "source_hash": "d5e457a6fb5739039556caa759b7148b94760ee1422924f51f69eea5790b2505",
+      "fingerprint": "94fda0cb67a61981229b44fffc4d6c1f99cc9f8118eb074374f5affc2d64d52b",
+      "source_hash": "ce7d84d7043a5369d4afe18049d34e3a3368176239bf1c09194f366e45d352eb",
       "path": "src/trailmark/parsers/_common.py",
       "function": "<module>",
-      "line": 50,
+      "line": 51,
       "operator": "boolean",
       "original": "True",
       "mutated": "False",
-      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, installed in a private ContextVar, read only by module_id_from_path/parse_directory, and reset in finally. directory_sources yields None, never the record; no field assignments, hashing, equality checks, or serialization consume it. Frozen guards field rebinding only; nested map mutation is possible in both variants and parser consumers do neither. The independent core review checked call sites and tested the mutable-decorator variant against directory parsing. Existing semantic tests verify IDs, ownership, header linking, collision expansion, and package modules rather than asserting this private decorator implementation. Re-reviewed after adding source-file coverage: the new code mutates only the merged CodeGraph and a local file counter; the private planning record remains read-only and does not escape."
+      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, installed in a private ContextVar, read only by module_id_from_path/parse_directory, and reset in finally. directory_sources yields None, never the record; no field assignments, hashing, equality checks, or serialization consume it. Frozen guards field rebinding only; nested map mutation is possible in both variants and parser consumers do neither. The independent core review checked call sites and tested the mutable-decorator variant against directory parsing. Existing semantic tests verify IDs, ownership, header linking, collision expansion, and package modules rather than asserting this private decorator implementation. Re-reviewed after adding source-file coverage and frontend diagnostics/binding filters: those paths mutate only graph data and local counters; the private planning record remains read-only and does not escape."
     }
   ],
   "legacy_policy": "These functions match the pre-PR base f7e19d3. Their existing mutation outcomes are reported but not gated until their AST changes. New functions and changed functions in the scoped files are gated automatically.",

@@ -452,6 +452,9 @@
       "return_type": null
     },
     "taxonomy:Greeter.greet": {
+      "attributes": {
+        "declaration_only": true
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -466,8 +469,22 @@
         "start_line": 12
       },
       "name": "greet",
-      "parameters": [],
-      "return_type": null
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "string"
+      }
     },
     "taxonomy:Status": {
       "branches": [],
@@ -759,6 +776,7 @@
     "languages": [
       "typescript"
     ],
+    "parse_diagnostics": [],
     "proxies": 3,
     "source_file_counts": {
       "typescript": 1

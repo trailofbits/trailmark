@@ -66,6 +66,10 @@ def _check_distribution_metadata() -> None:
     if not any(str(path).endswith("tree_sitter_custom/verus/LICENSE") for path in trailmark_files):
         msg = "trailmark distribution does not include the vendored Verus grammar license"
         raise RuntimeError(msg)
+    if not any(str(path).endswith("tree_sitter_custom/move/LICENSE") for path in trailmark_files):
+        raise RuntimeError(
+            "trailmark distribution does not include the bundled Move grammar license"
+        )
     binaries = [str(p) for p in trailmark_files if str(p).endswith((".so", ".pyd", ".dylib"))]
     if binaries:
         raise RuntimeError(

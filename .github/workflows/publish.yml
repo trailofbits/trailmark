@@ -25,8 +25,12 @@ jobs:
         with:
           python-version: "3.13"
 
+      - run: python tests/release_preflight.py --tag "$GITHUB_REF_NAME"
+
       - run: npm ci
       - run: uv build
+
+      - run: python tests/release_preflight.py --tag "$GITHUB_REF_NAME" --dist dist
 
       - run: uv venv /tmp/trailmark-release && uv pip install --python /tmp/trailmark-release dist/*.whl
 

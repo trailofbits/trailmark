@@ -1,0 +1,3 @@
+syntax = "proto3";
+package audit.shared;
+message Common { string value = 1; }

@@ -48,17 +48,23 @@ class _Function:
     body: Node | None
     defaults: tuple[Node, ...] = ()
     return_type: TypeRef | None = None
+    binding_names: tuple[str, ...] = ()
+    receiver: Parameter | None = None
 
 
-def _parameters(items: list[Node]) -> tuple[tuple[Parameter, ...], tuple[Node, ...]]:
+def _parameters(
+    items: list[Node],
+) -> tuple[tuple[Parameter, ...], tuple[Node, ...], tuple[str, ...]]:
     result = []
     defaults = []
+    bindings = []
     for item in items:
         default = None
         if item.type == "assignment":
             default = item.named_children[-1]
             defaults.append(default)
             item = item.named_children[0]
+        bindings.extend(_bound_names(item))
         variadic = item.type == "splat_expression"
         if variadic and item.named_children:
             item = item.named_children[0]
@@ -76,7 +82,7 @@ def _parameters(items: list[Node]) -> tuple[tuple[Parameter, ...], tuple[Node, .
                 node_text(default) if default is not None else None,
             )
         )
-    return tuple(result), tuple(defaults)
+    return tuple(result), tuple(defaults), tuple(bindings)
 
 
 def _definition(node: Node) -> _Function | None:
@@ -90,8 +96,10 @@ def _definition(node: Node) -> _Function | None:
         )
         body = first_child_type(node, {"block"})
         if signature is not None and signature.type == "argument_list":
-            params, defaults = _parameters(signature.named_children)
-            return _Function(f"<lambda>@{node.start_byte}", params, body, defaults)
+            params, defaults, bindings = _parameters(signature.named_children)
+            return _Function(
+                f"<lambda>@{node.start_byte}", params, body, defaults, binding_names=bindings
+            )
     elif node.type == "assignment" and len(node.named_children) >= 2:
         signature = node.named_children[0]
         body = node.named_children[-1]
@@ -103,8 +111,10 @@ def _definition(node: Node) -> _Function | None:
             signature = body
     elif node.type == "do_clause":
         body = first_child_type(node, {"block"})
-        params, defaults = _parameters([c for c in node.named_children if c != body])
-        return _Function(f"<lambda>@{node.start_byte}", params, body, defaults)
+        params, defaults, bindings = _parameters([c for c in node.named_children if c != body])
+        return _Function(
+            f"<lambda>@{node.start_byte}", params, body, defaults, binding_names=bindings
+        )
     elif node.type == "arrow_function_expression":
         signature = node
     else:
@@ -114,9 +124,13 @@ def _definition(node: Node) -> _Function | None:
     if signature.type == "arrow_function_expression":
         arguments = signature.named_children[0]
         items = arguments.named_children if arguments.type == "argument_list" else [arguments]
-        params, defaults = _parameters(items)
+        params, defaults, bindings = _parameters(items)
         return _Function(
-            name or f"<lambda>@{node.start_byte}", params, signature.named_children[-1], defaults
+            name or f"<lambda>@{node.start_byte}",
+            params,
+            signature.named_children[-1],
+            defaults,
+            binding_names=bindings,
         )
     return_type = None
     while (
@@ -129,11 +143,30 @@ def _definition(node: Node) -> _Function | None:
     if signature.type != "call_expression" or not signature.named_children:
         return None
     callee = signature.named_children[0]
-    if callee.type not in {"identifier", "operator", "field_expression"}:
+    receiver = None
+    receiver_node = callee
+    while receiver_node.type == "parenthesized_expression" and receiver_node.named_children:
+        receiver_node = receiver_node.named_children[0]
+    if receiver_node.type == "typed_expression" and len(receiver_node.named_children) == 2:
+        receiver = Parameter(
+            node_text(receiver_node.named_children[0]),
+            TypeRef(node_text(receiver_node.named_children[1])),
+        )
+    elif callee.type not in {"identifier", "operator", "field_expression"}:
         return None
     arguments = first_child_type(signature, {"argument_list"})
-    params, defaults = _parameters(arguments.named_children if arguments else [])
-    return _Function(node_text(callee), params, body, defaults, return_type)
+    params, defaults, bindings = _parameters(arguments.named_children if arguments else [])
+    if receiver is not None and receiver.type_ref is not None:
+        return _Function(
+            f"{receiver.type_ref.name}.__call__",
+            (receiver, *params),
+            body,
+            defaults,
+            return_type,
+            (receiver.name, *bindings),
+            receiver,
+        )
+    return _Function(node_text(callee), params, body, defaults, return_type, bindings)
 
 
 def _transparent(node: Node) -> bool:
@@ -145,6 +178,20 @@ def _owned(roots: list[Node]) -> Iterator[Node]:
     stack = list(reversed(roots))
     while stack:
         node = stack.pop()
+        if node.type in {"quote_expression", "quote_statement"}:
+            # Only interpolation at this quotation level runs while constructing Expr data.
+            pending = [(child, 1) for child in reversed(node.named_children)]
+            while pending:
+                quoted, depth = pending.pop()
+                if quoted.type in {"quote_expression", "quote_statement"}:
+                    depth += 1
+                elif quoted.type == "interpolation_expression":
+                    depth -= 1
+                    if depth == 0:
+                        yield from _owned(quoted.named_children)
+                        continue
+                pending.extend((child, depth) for child in reversed(quoted.named_children))
+            continue
         yield node
         if (
             node.type in _CONTAINERS
@@ -174,7 +221,7 @@ def _bound_names(node: Node) -> Iterator[str]:
         yield node_text(node)
     elif node.type in {"typed_expression", "splat_expression"} and node.named_children:
         yield from _bound_names(node.named_children[0])
-    elif node.type in {"open_tuple", "tuple_expression"}:
+    elif node.type in {"open_tuple", "tuple_expression", "argument_list"}:
         for child in node.named_children:
             yield from _bound_names(child)
 
@@ -275,20 +322,28 @@ class JuliaParser:
                 graph.nodes[ident] = CodeUnit(
                     id=ident,
                     name=definition.name.rsplit(".", 1)[-1],
-                    kind=NodeKind.FUNCTION,
+                    kind=NodeKind.METHOD if definition.receiver is not None else NodeKind.FUNCTION,
                     location=make_location(node, file_path),
+                    attributes=(("julia_receiver_type", definition.receiver.type_ref.name),)
+                    if definition.receiver is not None and definition.receiver.type_ref is not None
+                    else (),
                     parameters=definition.parameters,
                     return_type=definition.return_type,
                 )
-                add_contains_edge(graph, owner, ident)
+                receiver_owner = owner
+                if definition.receiver is not None and definition.receiver.type_ref is not None:
+                    candidate = child_id(owner, definition.receiver.type_ref.name)
+                    if candidate in graph.nodes:
+                        receiver_owner = candidate
+                add_contains_edge(graph, receiver_owner, ident)
                 parents[ident] = owner
                 definition_ends[ident] = node.end_byte
-                if not definition.name.startswith("<lambda>"):
+                if definition.receiver is None and not definition.name.startswith("<lambda>"):
                     bindings[owner, definition.name].append(ident)
                     if not _definite(node, roots):
                         bindings[owner, definition.name].append(None)
-                for parameter in definition.parameters:
-                    bindings[ident, parameter.name.removesuffix("...")].append(None)
+                for bound_name in definition.binding_names:
+                    bindings[ident, bound_name].append(None)
                 bodies = list(definition.defaults)
                 if definition.body is not None:
                     bodies.append(definition.body)

@@ -1,0 +1,24 @@
+int helper(int x) { return x + 1; }
+(int, int) tensor((int, int) pair) { return pair; }
+[int, int] tuple_pair([int, int] pair) { return pair; }
+forall X -> X identity(X value) { return value; }
+int unnamed(int x, int) { return x; }
+int infer(x) { return x + 1; }
+int branchy(int x) {
+  if (x > 0) { x = helper(x); } else { x = helper(0); }
+  while (x < 10) { x = helper(x); }
+  repeat (2) { x = helper(x); }
+  do { x = helper(x); } until (x > 15);
+  try { x = helper(x); } catch (arg, code) { x = helper(x); }
+  return x;
+}
+() recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure { helper(msg_value); }
+() recv_external(slice in_msg_body) impure { helper(0); }
+() run_ticktock(int is_tock) impure { helper(is_tock); }
+int balance() method_id { return helper(0); }
+int explicit_balance() method_id(65536) { return helper(0); }
+int get_private() { return helper(0); }
+int operators(int x, int y) {
+  ifnot (x) { x = helper(y); } elseifnot (y) { x = helper(x); }
+  return (x / y) + (x % y) + (~ x);
+}

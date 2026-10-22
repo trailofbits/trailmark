@@ -1,0 +1,11 @@
+const ROUNDS = 2
+pub(package) proc modern(a: felt) -> felt
+    if.false
+        nop
+    else
+        nop
+    end
+    repeat.ROUNDS
+        nop
+    end
+end

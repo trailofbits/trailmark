@@ -130,6 +130,7 @@ def _extract_procedure(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=_prepend_visibility(visibility, docstring),
+        attributes=(("masm_role", "public" if visibility == "pub" else "private"),),
     )
     graph.nodes[proc_id] = unit
     add_contains_edge(graph, module_id, proc_id)
@@ -159,6 +160,7 @@ def _extract_entrypoint(
         branches=tuple(branches),
         docstring=docstring,
         origin=NodeOrigin.SYNTHETIC,
+        attributes=(("masm_role", "program"),),
     )
     graph.nodes[entry_id] = unit
     add_contains_edge(graph, module_id, entry_id)
@@ -294,6 +296,9 @@ def _walk_body(
                 )
             )
         if child.type == "invoke":
+            opcode = child.child_by_field_name("kind")
+            if opcode is not None and node_text(opcode) == "procref":
+                continue
             name = _invoke_target(child)
             if name:
                 calls.append((name, child))
@@ -349,7 +354,9 @@ def _add_call_edges(
         if not segments:
             continue
         target_name = segments[-1]
-        target_id = f"{module_id}:{target_name}"
+        qualified = "::" in call_name
+        target_id = call_name if qualified else f"{module_id}:{target_name}"
+        opcode = call_node.child_by_field_name("kind")
         graph.edges.append(
             CodeEdge(
                 source_id=source_id,
@@ -359,5 +366,9 @@ def _add_call_edges(
                 if len(segments) == 1
                 else EdgeConfidence.INFERRED,
                 location=make_location(call_node, file_path),
+                attributes=(
+                    ("opcode", node_text(opcode) if opcode is not None else ""),
+                    ("binding_blocked", qualified),
+                ),
             )
         )

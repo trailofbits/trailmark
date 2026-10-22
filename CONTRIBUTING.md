@@ -128,6 +128,11 @@ Trailmark has a parse layer followed by a three-layer analysis stack:
 `README.md` is the landing page and the PyPI description. Reference material
 lives in `docs/`:
 
+`docs/parser-coverage.md` covers callable ownership, declaration identity changes,
+and pinned grammar limitations. Update its contract checks in `tests/test_docs.py`
+when these behaviors change.
+
+
 | File | Covers |
 | --- | --- |
 | `docs/cli.md` | Subcommands, flags, output formats |
@@ -149,3 +154,5 @@ behavior changes, update the guide and the matching test in the same change.
 
 Links in `README.md` use absolute `https://github.com/trailofbits/trailmark/blob/main/...`
 URLs so they work on PyPI; links between files in `docs/` are relative.
+
+Skills integration gates and release preflight are described in [skills compatibility](docs/skills-compatibility.md).

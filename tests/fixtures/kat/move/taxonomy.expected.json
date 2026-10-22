@@ -8,17 +8,15 @@
     },
     {
       "confidence": "certain",
-      "kind": "imports",
-      "source": "taxonomy:0x1::taxonomy",
-      "target": "0x1::string"
-    },
-    {
-      "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:0x1::taxonomy",
       "target": "taxonomy:0x1::taxonomy:main"
     },
     {
+      "attributes": {
+        "binding_blocked": true,
+        "move_target": "helper"
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:0x1::taxonomy:main",
@@ -59,17 +57,22 @@
       "id": "taxonomy:0x1::taxonomy",
       "kind": "module",
       "location": {
-        "end_col": 0,
-        "end_line": 11,
+        "end_col": 1,
+        "end_line": 10,
         "file_path": "taxonomy.move",
         "start_col": 0,
         "start_line": 1
       },
-      "name": "taxonomy",
+      "name": "0x1::taxonomy",
       "parameters": [],
       "return_type": null
     },
     "taxonomy:0x1::taxonomy:helper": {
+      "attributes": {
+        "move_entry": false,
+        "move_public": false,
+        "move_symbol": "0x1::taxonomy::helper"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -88,6 +91,11 @@
       "return_type": null
     },
     "taxonomy:0x1::taxonomy:main": {
+      "attributes": {
+        "move_entry": true,
+        "move_public": true,
+        "move_symbol": "0x1::taxonomy::main"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -106,7 +114,11 @@
         {
           "default": null,
           "name": "account",
-          "type_ref": null
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "&signer"
+          }
         }
       ],
       "return_type": null
@@ -126,6 +138,7 @@
     "languages": [
       "move"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "move": 1

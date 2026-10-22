@@ -11,6 +11,7 @@ from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import BranchInfo, Parameter, TypeRef
 from trailmark.parsers._common import make_location, node_text
+from trailmark.parsers._walk import walk_owned
 
 
 def named_children(node: Node) -> list[Node]:
@@ -157,13 +158,16 @@ def collect_branches_and_calls(
     *,
     branch_types: set[str] | frozenset[str],
     call_types: set[str] | frozenset[str],
+    skip_types: frozenset[str] = frozenset(),
 ) -> tuple[list[BranchInfo], list[tuple[str, Node]]]:
     """Collect branch metadata and direct call expressions under ``body``."""
     branches: list[BranchInfo] = []
     calls: list[tuple[str, Node]] = []
     if body is None:
         return branches, calls
-    for node in descendants(body):
+    for node in walk_owned(body, boundaries=skip_types):
+        if node != body and node.type in skip_types:
+            continue
         if node.type in branch_types:
             branches.append(
                 BranchInfo(

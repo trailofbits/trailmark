@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -9,7 +10,7 @@ from tree_sitter_language_pack import get_language
 
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit, NodeKind, TypeRef
+from trailmark.models.nodes import CodeUnit, NodeKind, Parameter, TypeRef
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -25,6 +26,7 @@ from trailmark.parsers._simple import (
     named_children,
     return_type_after_params,
 )
+from trailmark.parsers._types import schema_type
 
 _EXTENSIONS = (".thrift",)
 
@@ -43,8 +45,13 @@ class ThriftParser:
         source = Path(file_path).read_bytes()
         tree = self._parser.parse(source)
         graph = CodeGraph(language="thrift", root_path=file_path)
-        module_id = _namespace_id(tree.root_node) or module_id_from_path(file_path)
+        module_id = module_id_from_path(file_path)
         _visit_root(tree.root_node, file_path, module_id, graph)
+        namespace = _namespace_id(tree.root_node)
+        if namespace:
+            graph.nodes[module_id] = replace(
+                graph.nodes[module_id], attributes=(("target_namespace", namespace),)
+            )
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -113,7 +120,7 @@ def _field_type(node: Node) -> TypeRef | None:
     type_node = first_child_type(node, frozenset({"type"}))
     if type_node is None:
         return None
-    return TypeRef(name=node_text(type_node))
+    return schema_type(node_text(type_node))
 
 
 def _extract_service(node: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:
@@ -138,13 +145,27 @@ def _extract_function(node: Node, file_path: str, service_id: str, graph: CodeGr
     if not name:
         return
     func_id = f"{service_id}.{name}"
+    throws = first_child_type(node, frozenset({"throws"}))
+    exceptions = (
+        tuple(param.type_ref for param in extract_parameters(throws) if param.type_ref is not None)
+        if throws is not None
+        else ()
+    )
     graph.nodes[func_id] = CodeUnit(
         id=func_id,
         name=name,
         kind=NodeKind.METHOD,
         location=make_location(node, file_path),
-        parameters=extract_parameters(node),
+        parameters=tuple(
+            Parameter(
+                name=param.name,
+                type_ref=schema_type(param.type_ref.name) if param.type_ref else None,
+                default=param.default,
+            )
+            for param in extract_parameters(node)
+        ),
         return_type=_field_type(node),
+        exception_types=tuple(schema_type(ref.name) for ref in exceptions),
         attributes=(("schema_role", "service_function"),),
     )
     add_contains_edge(graph, service_id, func_id)

@@ -75,6 +75,9 @@ def _callable_base(
 ) -> str | None:
     if edge.target_id in declarations.ids:
         return edge.target_id
+    for base, ids in declarations.ids.items():
+        if edge.target_id in ids:
+            return base
     # Kotlin and Swift emit bare names. Check the caller's own declarations
     # before module functions, without inferring receiver or argument types.
     if any(separator in edge.target_id for separator in (":", ".", "->")):
@@ -93,6 +96,8 @@ def _callable_base(
 def _repair_call_target(
     edge: CodeEdge, declarations: _Declarations, owners: dict[str, str]
 ) -> CodeEdge:
+    if dict(edge.attributes).get("binding_blocked"):
+        return edge
     base = _callable_base(edge, declarations, owners)
     if base is None:
         return edge
@@ -114,7 +119,14 @@ def _repair_call_target(
         # The base may now name a type. Keep unresolved overload calls from
         # becoming calls to that type merely because its ID exists.
         target_id = f"{base}@overload"
-    return replace(edge, target_id=target_id, confidence=EdgeConfidence.UNCERTAIN)
+    return replace(
+        edge,
+        target_id=target_id,
+        confidence=EdgeConfidence.UNCERTAIN,
+        attributes=(*edge.attributes, ("binding_blocked", True))
+        if constructor_ambiguity
+        else edge.attributes,
+    )
 
 
 def _positioned_id(unit: CodeUnit, base: str) -> str:
@@ -185,7 +197,12 @@ def resolve_local_method_calls(graph: CodeGraph) -> None:
         owner = owners.get(edge.source_id)
         module = edge.source_id.split(":", 1)[0]
         prefix = module + ":"
-        if edge.kind == EdgeKind.CALLS and owner is not None and edge.target_id.startswith(prefix):
+        if (
+            edge.kind == EdgeKind.CALLS
+            and owner is not None
+            and edge.target_id.startswith(prefix)
+            and not dict(edge.attributes).get("binding_blocked")
+        ):
             name = edge.target_id[len(prefix) :]
             candidates = methods.get((owner, name), [])
             if len(candidates) == 1:
@@ -194,5 +211,42 @@ def resolve_local_method_calls(graph: CodeGraph) -> None:
                 edge = replace(
                     edge, target_id=f"{owner}.{name}", confidence=EdgeConfidence.UNCERTAIN
                 )
+        edges.append(edge)
+    graph.edges[:] = edges
+
+
+def bind_lexical_calls(graph: CodeGraph) -> None:
+    """Bind explicitly marked bare calls within their nearest extracted owner."""
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    declarations: dict[tuple[str, str], list[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind in {NodeKind.FUNCTION, NodeKind.METHOD} and unit.id in owners:
+            declarations.setdefault((owners[unit.id], unit.name), []).append(unit.id)
+    edges = []
+    for edge in graph.edges:
+        attributes = dict(edge.attributes)
+        name = attributes.get("bare_name")
+        if (
+            edge.kind == EdgeKind.CALLS
+            and isinstance(name, str)
+            and not attributes.get("binding_blocked")
+        ):
+            owner = edge.source_id
+            seen = set()
+            while owner and owner not in seen:
+                seen.add(owner)
+                candidates = declarations.get((owner, name), [])
+                if candidates:
+                    edge = replace(
+                        edge,
+                        target_id=candidates[0]
+                        if len(candidates) == 1
+                        else f"{owner}.{name}@overload",
+                        confidence=EdgeConfidence.CERTAIN
+                        if len(candidates) == 1
+                        else EdgeConfidence.UNCERTAIN,
+                    )
+                    break
+                owner = owners.get(owner, "")
         edges.append(edge)
     graph.edges[:] = edges

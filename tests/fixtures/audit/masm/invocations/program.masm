@@ -1,0 +1,28 @@
+proc held
+    nop
+end
+proc executed
+    nop
+end
+proc referenced_only
+    procref.held
+    dropw
+end
+proc dynamic_only
+    push.0
+    dynexec
+end
+proc dynamic_call_only
+    push.0
+    dyncall
+end
+proc kernel_user
+    syscall.kernel_service
+end
+proc direct
+    exec.executed
+    call.executed
+end
+begin
+    exec.direct
+end

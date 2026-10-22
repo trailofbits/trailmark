@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -57,6 +58,7 @@ class CairoParser:
         graph = CodeGraph(language="cairo", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
+        _resolve_lexical_calls(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -121,13 +123,16 @@ def _extract_mod(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    *,
+    owner_id: str | None = None,
 ) -> None:
     """Extract a mod item, using CONTRACT kind for starknet contracts."""
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return
     mod_name = node_text(name_node)
-    mod_id = f"{module_id}:{mod_name}"
+    parent_id = owner_id or module_id
+    mod_id = _child_id(parent_id, mod_name, module_id)
     kind = NodeKind.CONTRACT if _has_contract_attr(node) else NodeKind.MODULE
     docstring = _extract_docstring(node)
 
@@ -139,7 +144,7 @@ def _extract_mod(
         docstring=docstring,
     )
     graph.nodes[mod_id] = unit
-    add_contains_edge(graph, module_id, mod_id)
+    add_contains_edge(graph, parent_id, mod_id)
 
     body = node.child_by_field_name("body")
     if body is None:
@@ -164,6 +169,10 @@ def _visit_mod_body_child(
         _extract_enum_in(child, file_path, module_id, mod_id, graph)
     elif child.type == "impl_item":
         _extract_impl_in(child, file_path, module_id, mod_id, graph)
+    elif child.type == "trait_item":
+        _extract_trait(child, file_path, module_id, graph, owner_id=mod_id)
+    elif child.type == "mod_item":
+        _extract_mod(child, file_path, module_id, graph, owner_id=mod_id)
     elif child.type == "use_declaration":
         _extract_import(child, graph)
 
@@ -183,13 +192,15 @@ def _extract_trait(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    *,
+    owner_id: str | None = None,
 ) -> None:
     """Extract a trait definition and its method signatures."""
     name_node = node.child_by_field_name("name")
     if name_node is None:
         return
     trait_name = node_text(name_node)
-    trait_id = f"{module_id}:{trait_name}"
+    trait_id = _child_id(owner_id or module_id, trait_name, module_id)
     docstring = _extract_docstring(node)
 
     unit = CodeUnit(
@@ -200,7 +211,7 @@ def _extract_trait(
         docstring=docstring,
     )
     graph.nodes[trait_id] = unit
-    add_contains_edge(graph, module_id, trait_id)
+    add_contains_edge(graph, owner_id or module_id, trait_id)
 
     body = node.child_by_field_name("body")
     if body is None:
@@ -243,7 +254,7 @@ def _extract_struct_impl(
     if name_node is None:
         return
     struct_name = node_text(name_node)
-    struct_id = f"{module_id}:{struct_name}"
+    struct_id = _child_id(container_id, struct_name, module_id)
     docstring = _extract_docstring(node)
 
     unit = CodeUnit(
@@ -290,7 +301,7 @@ def _extract_enum_impl(
     if name_node is None:
         return
     enum_name = node_text(name_node)
-    enum_id = f"{module_id}:{enum_name}"
+    enum_id = _child_id(container_id, enum_name, module_id)
     docstring = _extract_docstring(node)
 
     unit = CodeUnit(
@@ -336,9 +347,26 @@ def _extract_impl_core(
     impl_name = _get_impl_name(node)
     if not impl_name:
         return
-    type_id = f"{module_id}:{impl_name}"
+    owner_id = container_id or module_id
+    type_id = _child_id(owner_id, impl_name, module_id)
+    graph.nodes[type_id] = CodeUnit(
+        id=type_id,
+        name=impl_name,
+        kind=NodeKind.NAMESPACE,
+        location=make_location(node, file_path),
+        attributes=(("cairo_impl", True),),
+    )
+    add_contains_edge(graph, owner_id, type_id)
 
     _add_implements_edge(node, type_id, module_id, graph)
+    exposed = False
+    previous = node.prev_named_sibling
+    while previous is not None and previous.type == "attribute_item":
+        if "abi(embed_v0)" in "".join(node_text(previous).split()):
+            exposed = (
+                container_id is not None and graph.nodes[container_id].kind == NodeKind.CONTRACT
+            )
+        previous = previous.prev_named_sibling
 
     body = _find_child_by_type(node, "block")
     if body is None:
@@ -346,6 +374,13 @@ def _extract_impl_core(
     for child in body.children:
         if child.type == "function_definition":
             _extract_function(child, file_path, module_id, type_id, graph)
+            if exposed:
+                method_id = f"{type_id}.{_get_function_name(child)}"
+                method = graph.nodes.get(method_id)
+                if method is not None:
+                    graph.nodes[method_id] = replace(
+                        method, attributes=(*method.attributes, ("cairo_abi", True))
+                    )
 
 
 def _get_impl_name(node: Node) -> str:
@@ -598,3 +633,44 @@ def _find_child_by_type(node: Node, type_name: str) -> Node | None:
         if child.type == type_name:
             return child
     return None
+
+
+def _child_id(owner: str, name: str, module: str) -> str:
+    return f"{owner}:{name}" if owner == module else f"{owner}.{name}"
+
+
+def _resolve_lexical_calls(graph: CodeGraph) -> None:
+    owners = {
+        edge.target_id: edge.source_id for edge in graph.edges if edge.kind == EdgeKind.CONTAINS
+    }
+    edges = []
+    for edge in graph.edges:
+        module, _, raw = edge.target_id.partition(":")
+        if (
+            edge.kind == EdgeKind.CALLS
+            and module == edge.source_id.partition(":")[0]
+            and raw
+            and "." not in raw
+        ):
+            source = graph.nodes[edge.source_id]
+            if any(parameter.name == raw for parameter in source.parameters):
+                edge = replace(
+                    edge,
+                    target_id=f"{edge.source_id}.$binding.{raw}",
+                    confidence=EdgeConfidence.UNCERTAIN,
+                    attributes=(("binding_blocked", True),),
+                )
+            else:
+                owner = owners.get(edge.source_id)
+                while owner in graph.nodes:
+                    unit = graph.nodes[owner]
+                    candidate = f"{owner}.{raw}"
+                    if (
+                        unit.kind in {NodeKind.MODULE, NodeKind.CONTRACT}
+                        and candidate in graph.nodes
+                    ):
+                        edge = replace(edge, target_id=candidate)
+                        break
+                    owner = owners.get(owner)
+        edges.append(edge)
+    graph.edges[:] = edges

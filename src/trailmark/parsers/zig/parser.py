@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ast
 import logging
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -88,7 +90,7 @@ class _Extractor:
                 name_node = var.child_by_field_name("variable_type_function")
                 if name_node is None:
                     continue
-                name = node_text(name_node)
+                name = _identifier(node_text(name_node))
                 self.bindings[owner].add(name)
                 # Only an immediate initializer container, not a container returned
                 # by a function or a comptime expression, owns this declaration.
@@ -121,21 +123,25 @@ class _Extractor:
         name_node = proto.child_by_field_name("function")
         if name_node is None:
             return
-        name = node_text(name_node)
+        name = _identifier(node_text(name_node))
         ident = self.child_id(owner, name)
         params_node = first_child_type(proto, {"ParamDeclList"})
         parameters: list[Parameter] = []
         if params_node is not None:
-            for param in params_node.named_children:
+            for index, param in enumerate(params_node.named_children):
                 param_name = param.child_by_field_name("parameter")
                 param_type = first_child_type(param, {"ParamType"})
-                if param_name is not None:
+                if param_name is not None or param_type is not None:
                     parameters.append(
                         Parameter(
-                            node_text(param_name),
+                            _identifier(node_text(param_name))
+                            if param_name is not None
+                            else f"$arg{index}",
                             TypeRef(node_text(param_type)) if param_type else None,
                         )
                     )
+                elif node_text(param).strip() == "...":
+                    parameters.append(Parameter("..."))
         result_parts: list[str] = []
         after_params = False
         for child in proto.children:
@@ -165,6 +171,7 @@ class _Extractor:
             ("zig_public", previous is not None and previous.type == "pub"),
             ("zig_export", any(n.type == "export" for n in decl.children)),
             ("zig_extern", any(n.type == "extern" for n in decl.children)),
+            ("variadic", any(p.name == "..." for p in parameters)),
         )
         self.graph.nodes[ident] = CodeUnit(
             id=ident,
@@ -207,7 +214,10 @@ class _Extractor:
                     )
 
     def resolve(self, raw: str, owner: str, shadows: set[str]) -> tuple[str | None, bool]:
-        parts = raw.split(".")
+        parts = _path_parts(raw)
+        if not parts:
+            return None, True
+        raw = ".".join(parts)
         if parts[0] in shadows or raw.startswith("@"):
             return None, parts[0] in shadows
         scope = owner
@@ -232,11 +242,14 @@ class _Extractor:
                 if node.type == "VarDecl":
                     binding = node.child_by_field_name("variable_type_function")
                     if binding is not None:
-                        shadows.add(node_text(binding))
+                        shadows.add(_identifier(node_text(binding)))
                 elif node.type in {"Payload", "PtrPayload", "PtrIndexPayload", "PtrListPayload"}:
                     shadows.update(
-                        node_text(n) for n in descendants(node) if n.type == "IDENTIFIER"
+                        _identifier(node_text(n))
+                        for n in descendants(node)
+                        if n.type == "IDENTIFIER"
                     )
+            recovery = body.has_error
             for node in _body_nodes(body):
                 if node.type != "FnCallArguments" or node.parent is None:
                     continue
@@ -245,6 +258,8 @@ class _Extractor:
                     parent = parent.parent
                 raw = node_text(parent)[: node.start_byte - parent.start_byte].strip()
                 target, bound = self.resolve(raw, owner, shadows)
+                if recovery:
+                    target, bound = None, True
                 # Dotted identities prevent the directory heuristic from binding
                 # a callback or unknown receiver to an unrelated free function.
                 unresolved = (
@@ -259,6 +274,10 @@ class _Extractor:
                         EdgeKind.CALLS,
                         confidence=EdgeConfidence.CERTAIN if target else EdgeConfidence.UNCERTAIN,
                         location=make_location(node, self.path),
+                        attributes=(
+                            ("binding_blocked", bound and target is None),
+                            ("syntax_recovery", recovery),
+                        ),
                     )
                 )
 
@@ -272,3 +291,22 @@ def _body_nodes(body: Node) -> Iterator[Node]:
             continue
         yield node
         stack.extend(reversed(node.named_children))
+
+
+def _identifier(raw: str) -> str:
+    if raw.startswith('@"'):
+        try:
+            raw = ast.literal_eval(raw[1:])
+        except (ValueError, SyntaxError):
+            return raw
+    return raw.replace("\\", "\\\\").replace(".", "\\.")
+
+
+def _path_parts(raw: str) -> list[str]:
+    """Use identifier tokens so whitespace and quoted dots do not split names."""
+    tokens = re.findall(r'@"(?:\\.|[^"\\])*"|@[A-Za-z_]\w*|[A-Za-z_]\w*|\.', raw)
+    if re.sub(r'@"(?:\\.|[^"\\])*"|@[A-Za-z_]\w*|[A-Za-z_]\w*|\.|\s+', "", raw):
+        return []
+    if not tokens or any(part != "." for part in tokens[1::2]):
+        return []
+    return [_identifier(token) for token in tokens[::2]]

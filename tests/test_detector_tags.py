@@ -116,7 +116,9 @@ class TestJavaDetectorTags:
     )
     def test_servlet_method_tag(self, tmp_path: Path, method: str) -> None:
         (tmp_path / "C.java").write_text(
-            f"class C extends HttpServlet {{\n    public void {method}() {{}}\n}}\n",
+            "import jakarta.servlet.http.*;\n"
+            f"class C extends HttpServlet {{\n    public void {method}("
+            "HttpServletRequest req, HttpServletResponse resp) {}\n}\n",
         )
         ep = _by_name(tmp_path, "java", f".{method}")
         assert ep["kind"] == "api"

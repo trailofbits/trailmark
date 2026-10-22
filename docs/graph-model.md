@@ -157,8 +157,10 @@ IDs have the form `module:function`, `module:Class`, or `module:Class.method`.
   type keeps the base ID.
 - **Rust local items** keep their enclosing function in the ID, and repeated
   local names gain a byte-offset suffix. See [Rust](languages.md#rust-and-verus).
-- **Declared package and namespace IDs** (for example, Protobuf and Thrift
-  packages) are not renamed. An unresolved collision between languages raises
+- **Declared package IDs** (for example, Protobuf packages) are not renamed.
+  Thrift uses source-file module identity; target-language namespaces are
+  metadata and never merge declarations from independent IDL files.
+  An unresolved collision between languages raises
   `ValueError` rather than merging unrelated nodes.
 
 Position-based suffixes change when code above the declaration changes, so

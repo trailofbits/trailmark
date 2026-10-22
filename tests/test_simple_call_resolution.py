@@ -56,6 +56,10 @@ def test_qualified_calls_do_not_bind_to_local_namesakes(
     graph = _parse_valid(tmp_path, language, suffix, source)
     calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
 
+    if language == "rego":
+        qualified_caller = next(e.target_id for e in calls if e.source_id == qualified_caller)
+        local_caller = next(e.target_id for e in calls if e.source_id == local_caller)
+        calls = [e for e in calls if not dict(e.attributes).get("rego_clause")]
     assert len(calls) == 2
     unresolved = next(edge for edge in calls if dict(edge.attributes).get("raw_target") == raw)
     assert unresolved.source_id == qualified_caller
@@ -87,8 +91,15 @@ def test_tact_foreign_receiver_does_not_bind_to_receiver_named_method(tmp_path: 
     assert graph.nodes[unresolved.target_id].origin == NodeOrigin.PROXY
     assert unresolved.confidence == EdgeConfidence.UNCERTAIN
     local_calls = [edge for edge in calls if edge.target_id == "sample:C.transfer"]
-    assert len(local_calls) == 2
+    assert len(local_calls) == 1
     assert all(edge.confidence == EdgeConfidence.CERTAIN for edge in local_calls)
+    bare = next(
+        edge
+        for edge in calls
+        if edge.target_id != local_calls[0].target_id and edge is not unresolved
+    )
+    assert graph.nodes[bare.target_id].origin == NodeOrigin.PROXY
+    assert graph.nodes[bare.target_id].name.endswith(":transfer")
 
 
 @pytest.mark.parametrize(

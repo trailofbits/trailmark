@@ -57,10 +57,10 @@ one wins.
 | Aiken | validator `mint`, `spend`, `withdraw`, `publish`, `vote`, `propose`, and explicit `else` handlers |
 | Cairo / StarkNet | `#[external]`, `#[view]`, `#[l1_handler]`, `#[constructor]` |
 | Circom | `component main`, represented as a synthetic `main` function tagged `user_input`, `untrusted_external`, `high` |
-| Miden Assembly | `export.<name>` procedures |
+| Miden Assembly | `begin` program blocks and `pub proc <name>` procedures |
 | Move | `public` and `entry` functions |
 | Tact | contract `init`, `receive`, `external`, and `bounced` handlers |
-| Func | `recv_internal`, `recv_external`, and `get_*` functions |
+| Func | `recv_internal`, `recv_external`, `run_ticktock`, and functions declared with `method_id` |
 | Sway | `pub fn` functions and ABI methods |
 | Proto | service RPCs |
 | Thrift | service functions |

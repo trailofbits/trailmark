@@ -41,6 +41,7 @@
     },
     {
       "attributes": {
+        "bare_name": "RuntimeException",
         "raw_target": "RuntimeException"
       },
       "confidence": "certain",
@@ -80,6 +81,7 @@
     },
     {
       "attributes": {
+        "bare_name": "RuntimeException",
         "raw_target": "RuntimeException"
       },
       "confidence": "certain",
@@ -635,6 +637,7 @@
     "languages": [
       "kotlin"
     ],
+    "parse_diagnostics": [],
     "proxies": 3,
     "source_file_counts": {
       "kotlin": 1

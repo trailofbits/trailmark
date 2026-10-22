@@ -1,0 +1,5 @@
+extend type Query { deleteUser(id: ID!): Boolean }
+extend type User { name: String }
+extend input Filter { role: Role }
+extend interface Named { alias: String }
+extend enum Role { ADMIN }

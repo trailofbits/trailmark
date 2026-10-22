@@ -1,0 +1,7 @@
+@locals(4)
+pub proc api
+    nop
+end
+proc private_helper
+    nop
+end

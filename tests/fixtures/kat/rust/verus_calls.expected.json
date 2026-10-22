@@ -302,6 +302,7 @@
     "languages": [
       "rust"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "rust": 1

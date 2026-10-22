@@ -76,6 +76,10 @@
   "language": "graphql",
   "nodes": {
     "taxonomy": {
+      "attributes": {
+        "graphql_mutation_root": "Mutation",
+        "graphql_query_root": "Query"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -94,6 +98,10 @@
       "return_type": null
     },
     "taxonomy:LoginResult": {
+      "attributes": {
+        "graphql_extension": false,
+        "graphql_type": "LoginResult"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -131,12 +139,22 @@
       "name": "ok",
       "parameters": [],
       "return_type": {
-        "generic_args": [],
+        "generic_args": [
+          {
+            "generic_args": [],
+            "module": null,
+            "name": "Boolean"
+          }
+        ],
         "module": null,
-        "name": "Boolean"
+        "name": "Boolean!"
       }
     },
     "taxonomy:Mutation": {
+      "attributes": {
+        "graphql_extension": false,
+        "graphql_type": "Mutation"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -177,9 +195,15 @@
           "default": null,
           "name": "token",
           "type_ref": {
-            "generic_args": [],
+            "generic_args": [
+              {
+                "generic_args": [],
+                "module": null,
+                "name": "String"
+              }
+            ],
             "module": null,
-            "name": "String"
+            "name": "String!"
           }
         }
       ],
@@ -190,6 +214,10 @@
       }
     },
     "taxonomy:Query": {
+      "attributes": {
+        "graphql_extension": false,
+        "graphql_type": "Query"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -230,9 +258,15 @@
           "default": null,
           "name": "id",
           "type_ref": {
-            "generic_args": [],
+            "generic_args": [
+              {
+                "generic_args": [],
+                "module": null,
+                "name": "ID"
+              }
+            ],
             "module": null,
-            "name": "ID"
+            "name": "ID!"
           }
         }
       ],
@@ -243,6 +277,10 @@
       }
     },
     "taxonomy:User": {
+      "attributes": {
+        "graphql_extension": false,
+        "graphql_type": "User"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -280,9 +318,15 @@
       "name": "id",
       "parameters": [],
       "return_type": {
-        "generic_args": [],
+        "generic_args": [
+          {
+            "generic_args": [],
+            "module": null,
+            "name": "ID"
+          }
+        ],
         "module": null,
-        "name": "ID"
+        "name": "ID!"
       }
     },
     "taxonomy:User.name": {
@@ -323,6 +367,7 @@
     "languages": [
       "graphql"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "graphql": 1

@@ -9,82 +9,243 @@
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy",
-      "target": "taxonomy:Animal"
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.Greeter"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Animal",
-      "target": "taxonomy:Animal.initialize"
+      "source": "taxonomy:Taxonomy.Greeter",
+      "target": "taxonomy:Taxonomy.Greeter.greet"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "raw_target": "taxonomy:Taxonomy.Greeter.raise"
+      },
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.Greeter.greet",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.Greeter.raise"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Animal",
-      "target": "taxonomy:Animal.describe"
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.self.add"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy",
-      "target": "taxonomy:Dog"
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.self.branchy"
+    },
+    {
+      "attributes": {
+        "binding_blocked": false,
+        "raw_target": "(0...value).each"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.self.branchy",
+      "target": "proxy.unresolved:_0...value_.each"
+    },
+    {
+      "attributes": {
+        "binding_blocked": false,
+        "raw_target": "i.even?"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.self.branchy",
+      "target": "proxy.unresolved:i.even_"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "raw_target": "taxonomy:Taxonomy.self.Integer"
+      },
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.self.branchy",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.self.Integer"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "raw_target": "taxonomy:Taxonomy.self.raise"
+      },
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.self.branchy",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.self.raise"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy.Animal",
+      "target": "taxonomy:Taxonomy.Animal.initialize"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy.Animal",
+      "target": "taxonomy:Taxonomy.Animal.describe"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.Dog"
     },
     {
       "confidence": "inferred",
       "kind": "inherits",
-      "source": "taxonomy:Dog",
-      "target": "taxonomy:Animal"
+      "source": "taxonomy:Taxonomy.Dog",
+      "target": "taxonomy:Taxonomy.Animal"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Dog",
-      "target": "taxonomy:Dog.initialize"
+      "source": "taxonomy:Taxonomy.Dog",
+      "target": "taxonomy:Taxonomy.Dog.initialize"
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:super"
+        "binding_blocked": true,
+        "raw_target": "taxonomy:Taxonomy.Dog.super"
       },
       "confidence": "certain",
       "kind": "calls",
-      "source": "taxonomy:Dog.initialize",
-      "target": "proxy.unresolved:taxonomy:super"
+      "source": "taxonomy:Taxonomy.Dog.initialize",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.Dog.super"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Dog",
-      "target": "taxonomy:Dog.bark"
+      "source": "taxonomy:Taxonomy.Dog",
+      "target": "taxonomy:Taxonomy.Dog.bark"
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:raise"
+        "binding_blocked": true,
+        "raw_target": "taxonomy:Taxonomy.Dog.raise"
       },
       "confidence": "certain",
       "kind": "calls",
-      "source": "taxonomy:Dog.bark",
-      "target": "proxy.unresolved:taxonomy:raise"
+      "source": "taxonomy:Taxonomy.Dog.bark",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.Dog.raise"
     },
     {
       "confidence": "certain",
       "kind": "contains",
-      "source": "taxonomy:Dog",
-      "target": "taxonomy:Dog.greet"
+      "source": "taxonomy:Taxonomy.Dog",
+      "target": "taxonomy:Taxonomy.Dog.greet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.self.use_animal"
+    },
+    {
+      "attributes": {
+        "binding_blocked": false,
+        "raw_target": "d.bark"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.self.use_animal",
+      "target": "proxy.unresolved:d.bark"
     }
   ],
   "language": "ruby",
   "nodes": {
-    "proxy.unresolved:taxonomy:raise": {
+    "proxy.unresolved:_0...value_.each": {
       "attributes": {
         "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:raise"
+        "raw_symbol": "(0...value).each"
       },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:raise",
+      "id": "proxy.unresolved:_0...value_.each",
+      "kind": "proxy",
+      "location": {
+        "end_col": 7,
+        "end_line": 25,
+        "file_path": "taxonomy.rb",
+        "start_col": 4,
+        "start_line": 23
+      },
+      "name": "(0...value).each",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:d.bark": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "d.bark"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:d.bark",
+      "kind": "proxy",
+      "location": {
+        "end_col": 17,
+        "end_line": 71,
+        "file_path": "taxonomy.rb",
+        "start_col": 4,
+        "start_line": 71
+      },
+      "name": "d.bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:i.even_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "i.even?"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:i.even_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 27,
+        "end_line": 24,
+        "file_path": "taxonomy.rb",
+        "start_col": 20,
+        "start_line": 24
+      },
+      "name": "i.even?",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Taxonomy.Dog.raise": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Taxonomy.Dog.raise"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.Dog.raise",
       "kind": "proxy",
       "location": {
         "end_col": 22,
@@ -93,21 +254,21 @@
         "start_col": 6,
         "start_line": 61
       },
-      "name": "taxonomy:raise",
+      "name": "taxonomy:Taxonomy.Dog.raise",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
     },
-    "proxy.unresolved:taxonomy:super": {
+    "proxy.unresolved:taxonomy:Taxonomy.Dog.super": {
       "attributes": {
         "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:super"
+        "raw_symbol": "taxonomy:Taxonomy.Dog.super"
       },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:super",
+      "id": "proxy.unresolved:taxonomy:Taxonomy.Dog.super",
       "kind": "proxy",
       "location": {
         "end_col": 17,
@@ -116,7 +277,76 @@
         "start_col": 6,
         "start_line": 55
       },
-      "name": "taxonomy:super",
+      "name": "taxonomy:Taxonomy.Dog.super",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Taxonomy.Greeter.raise": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Taxonomy.Greeter.raise"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.Greeter.raise",
+      "kind": "proxy",
+      "location": {
+        "end_col": 31,
+        "end_line": 8,
+        "file_path": "taxonomy.rb",
+        "start_col": 6,
+        "start_line": 8
+      },
+      "name": "taxonomy:Taxonomy.Greeter.raise",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Taxonomy.self.Integer": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Taxonomy.self.Integer"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.self.Integer",
+      "kind": "proxy",
+      "location": {
+        "end_col": 19,
+        "end_line": 30,
+        "file_path": "taxonomy.rb",
+        "start_col": 6,
+        "start_line": 30
+      },
+      "name": "taxonomy:Taxonomy.self.Integer",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Taxonomy.self.raise": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Taxonomy.self.raise"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.self.raise",
+      "kind": "proxy",
+      "location": {
+        "end_col": 22,
+        "end_line": 32,
+        "file_path": "taxonomy.rb",
+        "start_col": 6,
+        "start_line": 32
+      },
+      "name": "taxonomy:Taxonomy.self.raise",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
@@ -139,12 +369,30 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:Animal": {
+    "taxonomy:Taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": "Comprehensive Ruby feature taxonomy fixture.",
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 3,
+        "end_line": 73,
+        "file_path": "taxonomy.rb",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.Animal": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Animal",
+      "id": "taxonomy:Taxonomy.Animal",
       "kind": "class",
       "location": {
         "end_col": 5,
@@ -157,12 +405,18 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:Animal.describe": {
+    "taxonomy:Taxonomy.Animal.describe": {
+      "attributes": {
+        "ruby_controller": false,
+        "ruby_receiver": "instance",
+        "ruby_visibility": "public",
+        "ruby_worker": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Animal.describe",
+      "id": "taxonomy:Taxonomy.Animal.describe",
       "kind": "method",
       "location": {
         "end_col": 7,
@@ -175,12 +429,18 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:Animal.initialize": {
+    "taxonomy:Taxonomy.Animal.initialize": {
+      "attributes": {
+        "ruby_controller": false,
+        "ruby_receiver": "instance",
+        "ruby_visibility": "public",
+        "ruby_worker": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Animal.initialize",
+      "id": "taxonomy:Taxonomy.Animal.initialize",
       "kind": "method",
       "location": {
         "end_col": 7,
@@ -199,12 +459,12 @@
       ],
       "return_type": null
     },
-    "taxonomy:Dog": {
+    "taxonomy:Taxonomy.Dog": {
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Dog",
+      "id": "taxonomy:Taxonomy.Dog",
       "kind": "class",
       "location": {
         "end_col": 5,
@@ -217,7 +477,13 @@
       "parameters": [],
       "return_type": null
     },
-    "taxonomy:Dog.bark": {
+    "taxonomy:Taxonomy.Dog.bark": {
+      "attributes": {
+        "ruby_controller": false,
+        "ruby_receiver": "instance",
+        "ruby_visibility": "public",
+        "ruby_worker": false
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -234,7 +500,7 @@
       "cyclomatic_complexity": 2,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Dog.bark",
+      "id": "taxonomy:Taxonomy.Dog.bark",
       "kind": "method",
       "location": {
         "end_col": 7,
@@ -253,12 +519,18 @@
       ],
       "return_type": null
     },
-    "taxonomy:Dog.greet": {
+    "taxonomy:Taxonomy.Dog.greet": {
+      "attributes": {
+        "ruby_controller": false,
+        "ruby_receiver": "instance",
+        "ruby_visibility": "public",
+        "ruby_worker": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Dog.greet",
+      "id": "taxonomy:Taxonomy.Dog.greet",
       "kind": "method",
       "location": {
         "end_col": 7,
@@ -277,12 +549,18 @@
       ],
       "return_type": null
     },
-    "taxonomy:Dog.initialize": {
+    "taxonomy:Taxonomy.Dog.initialize": {
+      "attributes": {
+        "ruby_controller": false,
+        "ruby_receiver": "instance",
+        "ruby_visibility": "public",
+        "ruby_worker": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Dog.initialize",
+      "id": "taxonomy:Taxonomy.Dog.initialize",
       "kind": "method",
       "location": {
         "end_col": 7,
@@ -306,22 +584,236 @@
       ],
       "return_type": null
     },
-    "taxonomy:Taxonomy": {
+    "taxonomy:Taxonomy.Greeter": {
       "branches": [],
       "cyclomatic_complexity": null,
-      "docstring": "Comprehensive Ruby feature taxonomy fixture.",
+      "docstring": null,
       "exception_types": [],
-      "id": "taxonomy:Taxonomy",
+      "id": "taxonomy:Taxonomy.Greeter",
       "kind": "module",
       "location": {
-        "end_col": 3,
-        "end_line": 73,
+        "end_col": 5,
+        "end_line": 10,
         "file_path": "taxonomy.rb",
-        "start_col": 0,
-        "start_line": 3
+        "start_col": 2,
+        "start_line": 6
       },
-      "name": "Taxonomy",
+      "name": "Greeter",
       "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.Greeter.greet": {
+      "attributes": {
+        "ruby_controller": false,
+        "ruby_receiver": "instance",
+        "ruby_visibility": "public",
+        "ruby_worker": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "NotImplementedError"
+        }
+      ],
+      "id": "taxonomy:Taxonomy.Greeter.greet",
+      "kind": "method",
+      "location": {
+        "end_col": 7,
+        "end_line": 9,
+        "file_path": "taxonomy.rb",
+        "start_col": 4,
+        "start_line": 7
+      },
+      "name": "greet",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.self.add": {
+      "attributes": {
+        "ruby_controller": false,
+        "ruby_receiver": "singleton",
+        "ruby_visibility": "public",
+        "ruby_worker": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.self.add",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 14,
+        "file_path": "taxonomy.rb",
+        "start_col": 2,
+        "start_line": 12
+      },
+      "name": "add",
+      "parameters": [
+        {
+          "default": null,
+          "name": "a",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.self.branchy": {
+      "attributes": {
+        "ruby_controller": false,
+        "ruby_receiver": "singleton",
+        "ruby_visibility": "public",
+        "ruby_worker": false
+      },
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "value > 0",
+          "location": {
+            "end_col": 7,
+            "end_line": 22,
+            "file_path": "taxonomy.rb",
+            "start_col": 4,
+            "start_line": 18
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "if",
+          "location": {
+            "end_col": 6,
+            "end_line": 18,
+            "file_path": "taxonomy.rb",
+            "start_col": 4,
+            "start_line": 18
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "if",
+          "location": {
+            "end_col": 19,
+            "end_line": 24,
+            "file_path": "taxonomy.rb",
+            "start_col": 17,
+            "start_line": 24
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "total > 100",
+          "location": {
+            "end_col": 7,
+            "end_line": 28,
+            "file_path": "taxonomy.rb",
+            "start_col": 4,
+            "start_line": 26
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "while",
+          "location": {
+            "end_col": 9,
+            "end_line": 26,
+            "file_path": "taxonomy.rb",
+            "start_col": 4,
+            "start_line": 26
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "rescue",
+          "location": {
+            "end_col": 22,
+            "end_line": 32,
+            "file_path": "taxonomy.rb",
+            "start_col": 4,
+            "start_line": 31
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "rescue",
+          "location": {
+            "end_col": 10,
+            "end_line": 31,
+            "file_path": "taxonomy.rb",
+            "start_col": 4,
+            "start_line": 31
+          }
+        }
+      ],
+      "cyclomatic_complexity": 8,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.self.branchy",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 34,
+        "file_path": "taxonomy.rb",
+        "start_col": 2,
+        "start_line": 16
+      },
+      "name": "branchy",
+      "parameters": [
+        {
+          "default": null,
+          "name": "value",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "mode",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.self.use_animal": {
+      "attributes": {
+        "ruby_controller": false,
+        "ruby_receiver": "singleton",
+        "ruby_visibility": "public",
+        "ruby_worker": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.self.use_animal",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 72,
+        "file_path": "taxonomy.rb",
+        "start_col": 2,
+        "start_line": 70
+      },
+      "name": "use_animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "d",
+          "type_ref": null
+        }
+      ],
       "return_type": null
     }
   },
@@ -329,20 +821,21 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 2,
+    "call_edges": 8,
     "classes": 2,
     "dependencies": [],
     "entrypoints": 0,
-    "functions": 5,
+    "functions": 9,
     "languages": [
       "ruby"
     ],
-    "proxies": 2,
+    "parse_diagnostics": [],
+    "proxies": 8,
     "source_file_counts": {
       "ruby": 1
     },
     "source_files": 1,
-    "total_nodes": 11
+    "total_nodes": 22
   },
   "trailmark_version": "<trailmark-version>"
 }

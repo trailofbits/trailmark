@@ -109,6 +109,7 @@ count (default 20) and must be positive; zero or a negative value raises
 | `complexity_hotspots(threshold=10)` | Functions with cyclomatic complexity &ge; `threshold` |
 | `functions_that_raise(exception_name)` | Functions whose parser-detected exception types include `exception_name` |
 | `summary()` | Total nodes; function, class, and proxy counts; call-edge count; dependencies; entrypoint count; selected languages and inspected source-file counts |
+| `parse_diagnostics()` | Grammar errors and explicitly unsupported constructs, with language, grammar, source span, kind and message |
 
 ### Types
 
@@ -265,3 +266,17 @@ with older releases can check `trailmark.__version__` or probe with `hasattr()`.
 | 0.3.0 | `trailmark.parse` (`parse_file`, `parse_directory`, `detect_languages`, `supported_languages`) |
 | 0.4.0 | `connect_subgraphs`, `subgraph_edges`, `generic_parameters`, `type_references`, `augment_binary`, proxy nodes |
 | 0.7.0 | `state_read_by`, `state_written_by`, `readers_of`, `writers_of`, `unresolved_calls`, `call_resolution`; `replace_existing` on the finding importers; keyword-only `max_depth` on `paths_between`; directory `allow_empty`, source-file coverage in summaries and diffs, and the expanded structural diff fields above |
+
+## Source analysis diagnostics
+
+`CodeGraph.parse_diagnostics` contains immutable `ParseDiagnostic` records.
+`GraphStore.parse_diagnostics()` returns a copy; `QueryEngine.parse_diagnostics()`
+returns JSON-serializable dictionaries. The exported summary includes the same
+`parse_diagnostics` array. Each record identifies its language, grammar, source
+location, diagnostic kind and message. Directory merges preserve diagnostics
+from every inspected file independently of `source_file_counts`.
+
+Pass `strict=True` to `parse_file`, `parse_directory` or
+`QueryEngine.from_directory` to reject graphs with diagnostics. Valid empty
+files remain valid. An empty diagnostic list means no problem was recorded;
+it does not establish complete language coverage or compiler validation.

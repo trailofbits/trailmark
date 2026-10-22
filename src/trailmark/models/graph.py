@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from trailmark.models.annotations import Annotation, AnnotationKind, EntrypointTag
+from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.nodes import CodeUnit, NodeKind
 
@@ -26,6 +27,7 @@ class CodeGraph:
     language: str = ""
     root_path: str = ""
     source_file_counts: dict[str, int] = field(default_factory=dict)
+    parse_diagnostics: list[ParseDiagnostic] = field(default_factory=list)
 
     def unresolved_calls(self) -> list[CodeEdge]:
         """Return calls with missing targets or explicit unresolved proxies."""
@@ -72,6 +74,9 @@ class CodeGraph:
         """Merge another graph into this one."""
         self.nodes.update(other.nodes)
         self.edges.extend(other.edges)
+        for diagnostic in other.parse_diagnostics:
+            if diagnostic not in self.parse_diagnostics:
+                self.parse_diagnostics.append(diagnostic)
         for node_id, anns in other.annotations.items():
             self.annotations.setdefault(node_id, []).extend(anns)
         self.entrypoints.update(other.entrypoints)

@@ -1,0 +1,6 @@
+proc helper
+    nop
+end
+begin
+    exec.helper
+end

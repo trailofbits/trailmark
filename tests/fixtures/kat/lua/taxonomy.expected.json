@@ -323,6 +323,7 @@
     "languages": [
       "lua"
     ],
+    "parse_diagnostics": [],
     "proxies": 3,
     "source_file_counts": {
       "lua": 1

@@ -1,0 +1,5 @@
+library(utils)
+require("stats")
+source("helpers.R")
+library(dynamic, character.only = TRUE)
+caller <- function(library) library(fake)

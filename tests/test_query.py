@@ -510,6 +510,7 @@ class TestQueryEngineSummary:
             "languages",
             "source_files",
             "source_file_counts",
+            "parse_diagnostics",
         }
 
     def test_summary_with_classes(self) -> None:

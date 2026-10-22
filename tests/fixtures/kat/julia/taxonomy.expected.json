@@ -511,6 +511,7 @@
     "languages": [
       "julia"
     ],
+    "parse_diagnostics": [],
     "proxies": 3,
     "source_file_counts": {
       "julia": 1

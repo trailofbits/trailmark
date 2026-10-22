@@ -55,18 +55,30 @@
       "target": "std"
     },
     {
+      "attributes": {
+        "binding_blocked": false,
+        "syntax_recovery": false
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:Server.handle",
       "target": "taxonomy:helper"
     },
     {
+      "attributes": {
+        "binding_blocked": false,
+        "syntax_recovery": false
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:main",
       "target": "taxonomy:helper"
     },
     {
+      "attributes": {
+        "binding_blocked": false,
+        "syntax_recovery": false
+      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:process",
@@ -158,6 +170,7 @@
     },
     "taxonomy:Server.handle": {
       "attributes": {
+        "variadic": false,
         "zig_export": false,
         "zig_extern": false,
         "zig_public": true
@@ -216,6 +229,7 @@
     },
     "taxonomy:external_fn": {
       "attributes": {
+        "variadic": false,
         "zig_export": false,
         "zig_extern": true,
         "zig_public": false
@@ -253,6 +267,7 @@
     },
     "taxonomy:helper": {
       "attributes": {
+        "variadic": false,
         "zig_export": false,
         "zig_extern": false,
         "zig_public": false
@@ -290,6 +305,7 @@
     },
     "taxonomy:main": {
       "attributes": {
+        "variadic": false,
         "zig_export": false,
         "zig_extern": false,
         "zig_public": true
@@ -317,6 +333,7 @@
     },
     "taxonomy:process": {
       "attributes": {
+        "variadic": false,
         "zig_export": true,
         "zig_extern": false,
         "zig_public": false
@@ -367,6 +384,7 @@
     "languages": [
       "zig"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "zig": 1

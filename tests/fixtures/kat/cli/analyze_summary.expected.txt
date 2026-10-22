@@ -7,3 +7,4 @@ Dependencies: json, collections, typing
 Entrypoints: 0
 Languages: python
 Source files: 1
+Parse diagnostics: 0

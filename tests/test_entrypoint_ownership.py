@@ -97,9 +97,9 @@ def test_attributes_do_not_tag_neighbouring_functions(
 def test_python_does_not_inherit_markers_from_class_or_body(tmp_path: Path, source: str) -> None:
     (tmp_path / "app.py").write_text(source)
     engine = QueryEngine.from_directory(str(tmp_path), language="python")
-    # Nested functions are not emitted by this frontend; their decorators
-    # must not mark the enclosing function as an entrypoint.
-    assert engine.attack_surface() == []
+    # Nested decorators belong only to the nested declaration.
+    expected = {"app:outer.nested"} if "def nested" in source else set()
+    assert {entry["node_id"] for entry in engine.attack_surface()} == expected
 
 
 def test_python_multiline_decorator_and_long_stack(tmp_path: Path) -> None:

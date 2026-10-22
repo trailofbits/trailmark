@@ -19,6 +19,39 @@
       "target": "Taxonomy:Animal.describe"
     },
     {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "init",
+        "raw_target": "[super init]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Animal.initWithName:",
+      "target": "proxy.unresolved:_super_init_"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "copy",
+        "raw_target": "[name copy]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Animal.initWithName:",
+      "target": "proxy.unresolved:_name_copy_"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "stringWithFormat:",
+        "raw_target": "[NSString stringWithFormat:]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Animal.describe",
+      "target": "proxy.unresolved:_NSString_stringWithFormat:_"
+    },
+    {
       "confidence": "certain",
       "kind": "contains",
       "source": "Taxonomy",
@@ -37,10 +70,65 @@
       "target": "Taxonomy:Dog.bark:error:"
     },
     {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "initWithName:",
+        "raw_target": "[super initWithName:]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Dog.initWithName:breed:",
+      "target": "proxy.unresolved:_super_initWithName:_"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "copy",
+        "raw_target": "[breed copy]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Dog.initWithName:breed:",
+      "target": "proxy.unresolved:_breed_copy_"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "errorWithDomain:code:userInfo:",
+        "raw_target": "[NSError errorWithDomain:code:userInfo:]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Dog.bark:error:",
+      "target": "proxy.unresolved:_NSError_errorWithDomain:code:userInfo:_"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "stringWithFormat:",
+        "raw_target": "[NSString stringWithFormat:]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Dog.bark:error:",
+      "target": "proxy.unresolved:_NSString_stringWithFormat:_"
+    },
+    {
       "confidence": "certain",
       "kind": "contains",
       "source": "Taxonomy:Dog",
       "target": "Taxonomy:Dog.greet:"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "stringWithFormat:",
+        "raw_target": "[NSString stringWithFormat:]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Dog.greet:",
+      "target": "proxy.unresolved:_NSString_stringWithFormat:_"
     },
     {
       "confidence": "certain",
@@ -55,10 +143,32 @@
       "target": "Taxonomy:branchy"
     },
     {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "integerValue",
+        "raw_target": "[mode integerValue]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:branchy",
+      "target": "proxy.unresolved:_mode_integerValue_"
+    },
+    {
       "confidence": "certain",
       "kind": "contains",
       "source": "Taxonomy",
       "target": "Taxonomy:use_animal"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "objc_selector": "bark:error:",
+        "raw_target": "[d bark:error:]"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:use_animal",
+      "target": "proxy.unresolved:_d_bark:error:_"
     },
     {
       "attributes": {
@@ -510,13 +620,197 @@
         "module": null,
         "name": "NSString"
       }
+    },
+    "proxy.unresolved:_NSError_errorWithDomain:code:userInfo:_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "[NSError errorWithDomain:code:userInfo:]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:_NSError_errorWithDomain:code:userInfo:_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 78,
+        "end_line": 52,
+        "file_path": "Taxonomy.m",
+        "start_col": 21,
+        "start_line": 52
+      },
+      "name": "[NSError errorWithDomain:code:userInfo:]",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:_NSString_stringWithFormat:_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "[NSString stringWithFormat:]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:_NSString_stringWithFormat:_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 76,
+        "end_line": 29,
+        "file_path": "Taxonomy.m",
+        "start_col": 11,
+        "start_line": 29
+      },
+      "name": "[NSString stringWithFormat:]",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:_breed_copy_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "[breed copy]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:_breed_copy_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 29,
+        "end_line": 44,
+        "file_path": "Taxonomy.m",
+        "start_col": 17,
+        "start_line": 44
+      },
+      "name": "[breed copy]",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:_d_bark:error:_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "[d bark:error:]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:_d_bark:error:_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 33,
+        "end_line": 89,
+        "file_path": "Taxonomy.m",
+        "start_col": 11,
+        "start_line": 89
+      },
+      "name": "[d bark:error:]",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:_mode_integerValue_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "[mode integerValue]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:_mode_integerValue_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 42,
+        "end_line": 83,
+        "file_path": "Taxonomy.m",
+        "start_col": 23,
+        "start_line": 83
+      },
+      "name": "[mode integerValue]",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:_name_copy_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "[name copy]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:_name_copy_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 27,
+        "end_line": 22,
+        "file_path": "Taxonomy.m",
+        "start_col": 16,
+        "start_line": 22
+      },
+      "name": "[name copy]",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:_super_initWithName:_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "[super initWithName:]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:_super_initWithName:_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 36,
+        "end_line": 41,
+        "file_path": "Taxonomy.m",
+        "start_col": 11,
+        "start_line": 41
+      },
+      "name": "[super initWithName:]",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:_super_init_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "[super init]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:_super_init_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 23,
+        "end_line": 20,
+        "file_path": "Taxonomy.m",
+        "start_col": 11,
+        "start_line": 20
+      },
+      "name": "[super init]",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
     }
   },
   "root_path": "Taxonomy.m",
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 0,
+    "call_edges": 10,
     "classes": 2,
     "dependencies": [
       "Foundation"
@@ -526,12 +820,13 @@
     "languages": [
       "objc"
     ],
-    "proxies": 0,
+    "parse_diagnostics": [],
+    "proxies": 8,
     "source_file_counts": {
       "objc": 1
     },
     "source_files": 1,
-    "total_nodes": 11
+    "total_nodes": 19
   },
   "trailmark_version": "<trailmark-version>"
 }

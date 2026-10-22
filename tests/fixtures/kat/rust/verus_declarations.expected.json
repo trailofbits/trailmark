@@ -402,6 +402,7 @@
     "languages": [
       "rust"
     ],
+    "parse_diagnostics": [],
     "proxies": 1,
     "source_file_counts": {
       "rust": 1

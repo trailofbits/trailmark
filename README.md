@@ -64,9 +64,12 @@ lists what each published release includes, and the CLI and Python API guides
 note the version that added each newer feature.
 
 Most grammars are downloaded and cached on first use. The bundled Circom, Miden
-Assembly, and Verus grammars are compiled on first use, which needs a C
+Assembly, Move, and Verus grammars are compiled on first use, which needs a C
 compiler. See [Installation](https://github.com/trailofbits/trailmark/blob/main/docs/installation.md)
 for offline machines, TLS-inspecting proxies, and building from a checkout.
+
+Skills integrators: see [v0.7 compatibility](https://github.com/trailofbits/trailmark/blob/main/docs/skills-compatibility.md)
+for schema, identity, state, and reachability checks.
 
 ## Quick start
 
@@ -264,6 +267,7 @@ other per-language behavior.
 | [Findings and preanalysis](https://github.com/trailofbits/trailmark/blob/main/docs/augmenting.md) | SARIF, weAudit, binary call graphs, annotations, preanalysis passes |
 | [Call resolution](https://github.com/trailofbits/trailmark/blob/main/docs/call-resolution.md) | Measuring unresolved calls and what they mean for reachability |
 | [Language notes](https://github.com/trailofbits/trailmark/blob/main/docs/languages.md) | Rust and Verus, Solidity state, TypeScript, SQL, C-family headers |
+| [Parser coverage](https://github.com/trailofbits/trailmark/blob/main/docs/parser-coverage.md) | Callable ownership, declaration identity and grammar limits |
 | [Installation](https://github.com/trailofbits/trailmark/blob/main/docs/installation.md) | Grammar caches, offline installs, bundled grammars, Nix, checkouts |
 | [Changelog](https://github.com/trailofbits/trailmark/blob/main/CHANGELOG.md) | What changed in each release |
 

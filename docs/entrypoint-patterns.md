@@ -898,17 +898,17 @@ end
 
 ### Exported procedures
 
-`export.foo` declarations make procedures callable from other modules.
+`pub proc foo` declarations make procedures callable from other modules.
 
 ```masm
-export.verify
+pub proc verify
     # ...
 end
 ```
 
 - **Scope:** procedure
 - **Kind:** `api` · **Trust:** `untrusted_external` · **Asset:** `medium`
-- **Pattern:** `^\s*export\.([A-Za-z_]\w*)`.
+- **Pattern:** parser-owned public-procedure visibility metadata.
 
 ---
 

@@ -14,8 +14,23 @@
     },
     {
       "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth:allow",
+      "target": "example.auth:allow.$clause@taxonomy_5_0"
+    },
+    {
+      "attributes": {
+        "rego_clause": true
+      },
+      "confidence": "inferred",
       "kind": "calls",
       "source": "example.auth:allow",
+      "target": "example.auth:allow.$clause@taxonomy_5_0"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "example.auth:allow.$clause@taxonomy_5_0",
       "target": "example.auth:helper"
     },
     {
@@ -27,8 +42,38 @@
     {
       "confidence": "certain",
       "kind": "contains",
+      "source": "example.auth:deny",
+      "target": "example.auth:deny.$clause@taxonomy_9_0"
+    },
+    {
+      "attributes": {
+        "rego_clause": true
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "example.auth:deny",
+      "target": "example.auth:deny.$clause@taxonomy_9_0"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
       "source": "example.auth",
       "target": "example.auth:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "example.auth:helper",
+      "target": "example.auth:helper.$clause@taxonomy_13_0"
+    },
+    {
+      "attributes": {
+        "rego_clause": true
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "example.auth:helper",
+      "target": "example.auth:helper.$clause@taxonomy_13_0"
     }
   ],
   "language": "rego",
@@ -52,6 +97,25 @@
       "return_type": null
     },
     "example.auth:allow": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:allow",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 7,
+        "file_path": "taxonomy.rego",
+        "start_col": 0,
+        "start_line": 5
+      },
+      "name": "allow",
+      "origin": "synthetic",
+      "parameters": [],
+      "return_type": null
+    },
+    "example.auth:allow.$clause@taxonomy_5_0": {
       "branches": [
         {
           "complexity_contribution": 1,
@@ -68,7 +132,7 @@
       "cyclomatic_complexity": 2,
       "docstring": null,
       "exception_types": [],
-      "id": "example.auth:allow",
+      "id": "example.auth:allow.$clause@taxonomy_5_0",
       "kind": "function",
       "location": {
         "end_col": 1,
@@ -77,11 +141,30 @@
         "start_col": 0,
         "start_line": 5
       },
-      "name": "allow",
+      "name": "$clause",
       "parameters": [],
       "return_type": null
     },
     "example.auth:deny": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:deny",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 11,
+        "file_path": "taxonomy.rego",
+        "start_col": 0,
+        "start_line": 9
+      },
+      "name": "deny",
+      "origin": "synthetic",
+      "parameters": [],
+      "return_type": null
+    },
+    "example.auth:deny.$clause@taxonomy_9_0": {
       "branches": [
         {
           "complexity_contribution": 1,
@@ -98,7 +181,7 @@
       "cyclomatic_complexity": 2,
       "docstring": null,
       "exception_types": [],
-      "id": "example.auth:deny",
+      "id": "example.auth:deny.$clause@taxonomy_9_0",
       "kind": "function",
       "location": {
         "end_col": 1,
@@ -107,11 +190,36 @@
         "start_col": 0,
         "start_line": 9
       },
-      "name": "deny",
+      "name": "$clause",
       "parameters": [],
       "return_type": null
     },
     "example.auth:helper": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "example.auth:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 15,
+        "file_path": "taxonomy.rego",
+        "start_col": 0,
+        "start_line": 13
+      },
+      "name": "helper",
+      "origin": "synthetic",
+      "parameters": [
+        {
+          "default": null,
+          "name": "action",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "example.auth:helper.$clause@taxonomy_13_0": {
       "branches": [
         {
           "complexity_contribution": 1,
@@ -128,7 +236,7 @@
       "cyclomatic_complexity": 2,
       "docstring": null,
       "exception_types": [],
-      "id": "example.auth:helper",
+      "id": "example.auth:helper.$clause@taxonomy_13_0",
       "kind": "function",
       "location": {
         "end_col": 1,
@@ -137,7 +245,7 @@
         "start_col": 0,
         "start_line": 13
       },
-      "name": "helper",
+      "name": "$clause",
       "parameters": [
         {
           "default": null,
@@ -152,22 +260,23 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 1,
+    "call_edges": 4,
     "classes": 0,
     "dependencies": [
       "future.keywords.if"
     ],
     "entrypoints": 0,
-    "functions": 3,
+    "functions": 6,
     "languages": [
       "rego"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "rego": 1
     },
     "source_files": 1,
-    "total_nodes": 4
+    "total_nodes": 7
   },
   "trailmark_version": "<trailmark-version>"
 }

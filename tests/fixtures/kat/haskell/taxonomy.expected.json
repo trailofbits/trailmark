@@ -31,91 +31,199 @@
       "target": "taxonomy:add"
     },
     {
+      "attributes": {
+        "raw_target": "taxonomy:+"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:add",
+      "target": "proxy.unresolved:taxonomy:_"
+    },
+    {
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy",
       "target": "taxonomy:branchy"
     },
     {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:branchy.reduce"
+    },
+    {
       "attributes": {
-        "raw_target": "taxonomy:negate"
+        "raw_target": "taxonomy:>"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:branchy.reduce",
+      "target": "proxy.unresolved:taxonomy:___e7f791c1765a6fe9"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "haskell_declaration_col": 4,
+        "haskell_declaration_line": 30,
+        "haskell_declaration_name": "reduce"
       },
       "confidence": "certain",
       "kind": "calls",
+      "source": "taxonomy:branchy.reduce",
+      "target": "taxonomy:branchy.reduce"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:div"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:branchy.reduce",
+      "target": "proxy.unresolved:taxonomy:div"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
       "source": "taxonomy:branchy",
+      "target": "taxonomy:branchy.positive"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:>"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:branchy.positive",
+      "target": "proxy.unresolved:taxonomy:___e7f791c1765a6fe9"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:branchy.negative"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:<"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:branchy.negative",
+      "target": "proxy.unresolved:taxonomy:___07ed9309b589652e"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:negate"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:branchy.negative",
       "target": "proxy.unresolved:taxonomy:negate"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:branchy.total"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:+"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:branchy.total",
+      "target": "proxy.unresolved:taxonomy:_"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:+"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:branchy.total",
+      "target": "proxy.unresolved:taxonomy:_"
     },
     {
       "attributes": {
         "raw_target": "taxonomy:sum"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
-      "source": "taxonomy:branchy",
+      "source": "taxonomy:branchy.total",
       "target": "proxy.unresolved:taxonomy:sum"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:-"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:branchy.total",
+      "target": "proxy.unresolved:taxonomy:-"
     },
     {
       "attributes": {
         "raw_target": "taxonomy:even"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
-      "source": "taxonomy:branchy",
+      "source": "taxonomy:branchy.total",
       "target": "proxy.unresolved:taxonomy:even"
     },
     {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:branchy",
+      "target": "taxonomy:branchy.reduced"
+    },
+    {
       "attributes": {
-        "raw_target": "taxonomy:reduce"
+        "binding_blocked": true,
+        "haskell_declaration_col": 4,
+        "haskell_declaration_line": 30,
+        "haskell_declaration_name": "reduce"
       },
       "confidence": "certain",
       "kind": "calls",
-      "source": "taxonomy:branchy",
-      "target": "proxy.unresolved:taxonomy:reduce"
+      "source": "taxonomy:branchy.reduced",
+      "target": "taxonomy:branchy.reduce"
     },
     {
       "attributes": {
         "raw_target": "taxonomy:readMaybe"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:branchy",
       "target": "proxy.unresolved:taxonomy:readMaybe"
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:Just"
-      },
-      "confidence": "certain",
-      "kind": "calls",
-      "source": "taxonomy:branchy",
-      "target": "proxy.unresolved:taxonomy:Just"
-    },
-    {
-      "attributes": {
         "raw_target": "taxonomy:Right"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:branchy",
       "target": "proxy.unresolved:taxonomy:Right"
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:Left"
+        "raw_target": "taxonomy:+"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "proxy.unresolved:taxonomy:Left"
+      "target": "proxy.unresolved:taxonomy:_"
     },
     {
       "attributes": {
-        "raw_target": "taxonomy:reduce"
+        "raw_target": "taxonomy:Left"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:branchy",
-      "target": "proxy.unresolved:taxonomy:reduce"
+      "target": "proxy.unresolved:taxonomy:Left"
     },
     {
       "confidence": "certain",
@@ -137,18 +245,36 @@
     },
     {
       "attributes": {
+        "raw_target": "taxonomy:++"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:describe",
+      "target": "proxy.unresolved:taxonomy:___ca7393983007ba01"
+    },
+    {
+      "attributes": {
         "raw_target": "taxonomy:animalName"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:describe",
       "target": "proxy.unresolved:taxonomy:animalName"
     },
     {
       "attributes": {
+        "raw_target": "taxonomy:++"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:describe",
+      "target": "proxy.unresolved:taxonomy:___ca7393983007ba01"
+    },
+    {
+      "attributes": {
         "raw_target": "taxonomy:animalSpecies"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:describe",
       "target": "proxy.unresolved:taxonomy:animalSpecies"
@@ -181,7 +307,7 @@
       "attributes": {
         "raw_target": "taxonomy:Left"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:bark",
       "target": "proxy.unresolved:taxonomy:Left"
@@ -190,16 +316,25 @@
       "attributes": {
         "raw_target": "taxonomy:Right"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:bark",
       "target": "proxy.unresolved:taxonomy:Right"
     },
     {
       "attributes": {
+        "raw_target": "taxonomy:++"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:bark",
+      "target": "proxy.unresolved:taxonomy:___ca7393983007ba01"
+    },
+    {
+      "attributes": {
         "raw_target": "taxonomy:animalName"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:bark",
       "target": "proxy.unresolved:taxonomy:animalName"
@@ -208,7 +343,7 @@
       "attributes": {
         "raw_target": "taxonomy:dogBase"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:bark",
       "target": "proxy.unresolved:taxonomy:dogBase"
@@ -227,9 +362,18 @@
     },
     {
       "attributes": {
+        "raw_target": "taxonomy:++"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Dog.greet",
+      "target": "proxy.unresolved:taxonomy:___ca7393983007ba01"
+    },
+    {
+      "attributes": {
         "raw_target": "taxonomy:animalName"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:Dog.greet",
       "target": "proxy.unresolved:taxonomy:animalName"
@@ -238,10 +382,19 @@
       "attributes": {
         "raw_target": "taxonomy:dogBase"
       },
-      "confidence": "certain",
+      "confidence": "uncertain",
       "kind": "calls",
       "source": "taxonomy:Dog.greet",
       "target": "proxy.unresolved:taxonomy:dogBase"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:++"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Dog.greet",
+      "target": "proxy.unresolved:taxonomy:___ca7393983007ba01"
     },
     {
       "confidence": "certain",
@@ -303,25 +456,25 @@
   ],
   "language": "haskell",
   "nodes": {
-    "proxy.unresolved:taxonomy:Just": {
+    "proxy.unresolved:taxonomy:-": {
       "attributes": {
         "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:Just"
+        "raw_symbol": "taxonomy:-"
       },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
       "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:Just",
+      "id": "proxy.unresolved:taxonomy:-",
       "kind": "proxy",
       "location": {
-        "end_col": 19,
-        "end_line": 27,
+        "end_col": 65,
+        "end_line": 24,
         "file_path": "taxonomy.hs",
-        "start_col": 8,
-        "start_line": 27
+        "start_col": 56,
+        "start_line": 24
       },
-      "name": "taxonomy:Just",
+      "name": "taxonomy:-",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
@@ -372,6 +525,98 @@
       "parameters": [],
       "return_type": null
     },
+    "proxy.unresolved:taxonomy:_": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:+"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:_",
+      "kind": "proxy",
+      "location": {
+        "end_col": 15,
+        "end_line": 18,
+        "file_path": "taxonomy.hs",
+        "start_col": 10,
+        "start_line": 18
+      },
+      "name": "taxonomy:+",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:___07ed9309b589652e": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:<"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:___07ed9309b589652e",
+      "kind": "proxy",
+      "location": {
+        "end_col": 29,
+        "end_line": 23,
+        "file_path": "taxonomy.hs",
+        "start_col": 20,
+        "start_line": 23
+      },
+      "name": "taxonomy:<",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:___ca7393983007ba01": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:++"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:___ca7393983007ba01",
+      "kind": "proxy",
+      "location": {
+        "end_col": 55,
+        "end_line": 44,
+        "file_path": "taxonomy.hs",
+        "start_col": 13,
+        "start_line": 44
+      },
+      "name": "taxonomy:++",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:___e7f791c1765a6fe9": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:>"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:___e7f791c1765a6fe9",
+      "kind": "proxy",
+      "location": {
+        "end_col": 15,
+        "end_line": 31,
+        "file_path": "taxonomy.hs",
+        "start_col": 8,
+        "start_line": 31
+      },
+      "name": "taxonomy:>",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "proxy.unresolved:taxonomy:animalName": {
       "attributes": {
         "proxy_kind": "unresolved",
@@ -414,6 +659,29 @@
         "start_line": 44
       },
       "name": "taxonomy:animalSpecies",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:div": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:div"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:div",
+      "kind": "proxy",
+      "location": {
+        "end_col": 35,
+        "end_line": 31,
+        "file_path": "taxonomy.hs",
+        "start_col": 26,
+        "start_line": 31
+      },
+      "name": "taxonomy:div",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
@@ -506,29 +774,6 @@
         "start_line": 26
       },
       "name": "taxonomy:readMaybe",
-      "origin": "proxy",
-      "parameters": [],
-      "return_type": null
-    },
-    "proxy.unresolved:taxonomy:reduce": {
-      "attributes": {
-        "proxy_kind": "unresolved",
-        "raw_symbol": "taxonomy:reduce"
-      },
-      "branches": [],
-      "cyclomatic_complexity": null,
-      "docstring": null,
-      "exception_types": [],
-      "id": "proxy.unresolved:taxonomy:reduce",
-      "kind": "proxy",
-      "location": {
-        "end_col": 28,
-        "end_line": 25,
-        "file_path": "taxonomy.hs",
-        "start_col": 16,
-        "start_line": 25
-      },
-      "name": "taxonomy:reduce",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
@@ -844,31 +1089,9 @@
             "start_col": 8,
             "start_line": 28
           }
-        },
-        {
-          "complexity_contribution": 1,
-          "condition": "n > 100",
-          "location": {
-            "end_col": 15,
-            "end_line": 31,
-            "file_path": "taxonomy.hs",
-            "start_col": 8,
-            "start_line": 31
-          }
-        },
-        {
-          "complexity_contribution": 1,
-          "condition": "otherwise",
-          "location": {
-            "end_col": 17,
-            "end_line": 32,
-            "file_path": "taxonomy.hs",
-            "start_col": 8,
-            "start_line": 32
-          }
         }
       ],
-      "cyclomatic_complexity": 5,
+      "cyclomatic_complexity": 3,
       "docstring": null,
       "exception_types": [],
       "id": "taxonomy:branchy",
@@ -906,6 +1129,125 @@
         "module": null,
         "name": "Either String Int"
       }
+    },
+    "taxonomy:branchy.negative": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:branchy.negative",
+      "kind": "function",
+      "location": {
+        "end_col": 54,
+        "end_line": 23,
+        "file_path": "taxonomy.hs",
+        "start_col": 6,
+        "start_line": 23
+      },
+      "name": "negative",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:branchy.positive": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:branchy.positive",
+      "kind": "function",
+      "location": {
+        "end_col": 47,
+        "end_line": 22,
+        "file_path": "taxonomy.hs",
+        "start_col": 6,
+        "start_line": 22
+      },
+      "name": "positive",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:branchy.reduce": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "n > 100",
+          "location": {
+            "end_col": 15,
+            "end_line": 31,
+            "file_path": "taxonomy.hs",
+            "start_col": 8,
+            "start_line": 31
+          }
+        },
+        {
+          "complexity_contribution": 1,
+          "condition": "otherwise",
+          "location": {
+            "end_col": 17,
+            "end_line": 32,
+            "file_path": "taxonomy.hs",
+            "start_col": 8,
+            "start_line": 32
+          }
+        }
+      ],
+      "cyclomatic_complexity": 3,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:branchy.reduce",
+      "kind": "function",
+      "location": {
+        "end_col": 21,
+        "end_line": 32,
+        "file_path": "taxonomy.hs",
+        "start_col": 4,
+        "start_line": 30
+      },
+      "name": "reduce",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:branchy.reduced": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:branchy.reduced",
+      "kind": "function",
+      "location": {
+        "end_col": 28,
+        "end_line": 25,
+        "file_path": "taxonomy.hs",
+        "start_col": 6,
+        "start_line": 25
+      },
+      "name": "reduced",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:branchy.total": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:branchy.total",
+      "kind": "function",
+      "location": {
+        "end_col": 75,
+        "end_line": 24,
+        "file_path": "taxonomy.hs",
+        "start_col": 6,
+        "start_line": 24
+      },
+      "name": "total",
+      "parameters": [],
+      "return_type": null
     },
     "taxonomy:constant": {
       "branches": [],
@@ -1071,23 +1413,24 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 19,
+    "call_edges": 32,
     "classes": 0,
     "dependencies": [
       "Data.Maybe",
       "Text.Read"
     ],
     "entrypoints": 0,
-    "functions": 10,
+    "functions": 15,
     "languages": [
       "haskell"
     ],
-    "proxies": 11,
+    "parse_diagnostics": [],
+    "proxies": 15,
     "source_file_counts": {
       "haskell": 1
     },
     "source_files": 1,
-    "total_nodes": 26
+    "total_nodes": 35
   },
   "trailmark_version": "<trailmark-version>"
 }

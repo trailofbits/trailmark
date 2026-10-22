@@ -171,7 +171,7 @@ class TestNewLanguageEntrypoints:
             "example.auth:Auth.Login",
         }
         assert {ep["node_id"] for ep in thrift.attack_surface()} == {
-            "example.auth:Auth.login",
+            "auth:Auth.login",
         }
         assert {ep["node_id"] for ep in graphql.attack_surface()} == {
             "schema:Query.user",
@@ -691,8 +691,8 @@ class TestErlang:
         engine = QueryEngine.from_directory(str(tmp_path), language="erlang")
         surface = engine.attack_surface()
         exported_names = {ep["node_id"].split(":", 1)[-1] for ep in surface}
-        assert "login" in exported_names, surface
-        assert "logout" in exported_names, surface
+        assert "login/2" in exported_names, surface
+        assert "logout/1" in exported_names, surface
         assert "internal_only" not in exported_names, surface
 
 

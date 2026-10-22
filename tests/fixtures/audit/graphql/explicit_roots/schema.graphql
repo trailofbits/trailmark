@@ -1,0 +1,6 @@
+schema { query: RootQuery mutation: RootMutation subscription: RootSubscription }
+type RootQuery { user(id: ID!): User legacy: Query }
+type RootMutation { deleteUser(id: ID!): Boolean }
+type RootSubscription { userChanged: User }
+type Query { internalOnly: String }
+type User { id: ID! }

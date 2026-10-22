@@ -25,6 +25,8 @@ PUBLIC_GUIDES = {
     "docs/languages.md",
     "docs/links.md",
     "docs/python-api.md",
+    "docs/parser-coverage.md",
+    "docs/skills-compatibility.md",
 }
 
 

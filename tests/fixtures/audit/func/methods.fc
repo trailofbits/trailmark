@@ -1,0 +1,22 @@
+int helper(int x) { return x + 1; }
+int .helper(int x) { return x + 2; }
+(int, ()) ~helper(int x) { return (x + 3, ()); }
+int bare(int x) { return helper(x); }
+int dotted(int x) { return x.helper(); }
+int modifying(int x) { x~helper(); return x; }
+int simple(int x) { return x - 1; }
+int dot_fallback(int x) { return x.simple(); }
+(int, int) load_custom(int x) { return (x + 1, x); }
+int mod_fallback(int x) { return x~load_custom(); }
+int asm_add(int a, int b) asm "ADD";
+int asm_caller(int x) { return asm_add(x, 1); }
+int apply(int -> int helper, int x) { return helper(x); }
+int callback_local(int x) { var helper = simple; return helper(x); }
+int scoped(int x) {
+  { var helper = simple; x = helper(x); }
+  return helper(x);
+}
+int .only_dot(int x) { return x; }
+(int, ()) ~only_mod(int x) { return (x, ()); }
+int dotted_only(int x) { return x.only_dot(); }
+int modifying_only(int x) { x~only_mod(); return x; }

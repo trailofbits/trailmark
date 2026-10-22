@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from trailmark.analysis.proxies import ensure_proxy_nodes
+from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
@@ -228,7 +229,7 @@ def collect_body_info(
     Uses an explicit stack instead of recursion to avoid stack overflow
     on deeply nested ASTs from untrusted source files.
     """
-    stack: list[Node] = list(reversed(body.children))
+    stack: list[Node] = [body]
     while stack:
         node = stack.pop()
         if node.type in skip_types:
@@ -336,6 +337,22 @@ def add_module_node(
         location=module_loc,
     )
     graph.nodes[module_id] = module_unit
+    if root.has_error:
+        from trailmark.parsers._walk import walk_owned
+
+        for node in walk_owned(root, named_only=False):
+            if node.type == "ERROR" or node.is_missing:
+                diagnostic = ParseDiagnostic(
+                    language="c_sharp" if graph.language == "csharp" else graph.language,
+                    grammar=graph.language,
+                    location=make_location(node, file_path),
+                    kind="missing_syntax" if node.is_missing else "syntax_error",
+                    message=f"Missing {node.type}"
+                    if node.is_missing
+                    else "Grammar could not parse this source range",
+                )
+                if diagnostic not in graph.parse_diagnostics:
+                    graph.parse_diagnostics.append(diagnostic)
 
 
 def add_contains_edge(
@@ -508,15 +525,22 @@ def link_cross_file_calls(graph: CodeGraph, *, eligible_ids: set[str] | None = N
     exact targets are retained; overloaded and ambiguous names stay unresolved.
     A unique name across files is a heuristic, so its confidence is inferred.
     """
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
     name_to_ids: dict[str, list[str]] = {}
     for node_id, unit in graph.nodes.items():
-        if unit.kind == NodeKind.FUNCTION and (eligible_ids is None or node_id in eligible_ids):
+        owner = graph.nodes.get(owners.get(node_id, ""))
+        if (
+            unit.kind == NodeKind.FUNCTION
+            and (eligible_ids is None or node_id in eligible_ids)
+            and (owner is None or owner.kind not in {NodeKind.FUNCTION, NodeKind.METHOD})
+        ):
             name_to_ids.setdefault(unit.name, []).append(node_id)
     new_edges: list[CodeEdge] = []
     for edge in graph.edges:
         if (
             edge.kind != EdgeKind.CALLS
             or edge.target_id in graph.nodes
+            or dict(edge.attributes).get("binding_blocked")
             or (eligible_ids is not None and edge.source_id not in eligible_ids)
         ):
             new_edges.append(edge)
@@ -526,7 +550,25 @@ def link_cross_file_calls(graph: CodeGraph, *, eligible_ids: set[str] | None = N
         if "::" in target or "->" in target or "." in bare_name:
             new_edges.append(edge)
             continue
-        candidates = name_to_ids.get(bare_name, [])
+        source = graph.nodes.get(edge.source_id)
+        candidates = [
+            candidate
+            for candidate in name_to_ids.get(bare_name, [])
+            if not dict(graph.nodes[candidate].attributes).get("internal_linkage")
+            or source is not None
+            and source.location.file_path == graph.nodes[candidate].location.file_path
+        ]
+        if source is not None and "go_package" in dict(source.attributes):
+            source = graph.nodes.get(edge.source_id)
+            if source is not None:
+                candidates = [
+                    candidate
+                    for candidate in candidates
+                    if Path(graph.nodes[candidate].location.file_path).parent
+                    == Path(source.location.file_path).parent
+                    and dict(graph.nodes[candidate].attributes).get("go_package")
+                    == dict(source.attributes).get("go_package")
+                ]
         if len(candidates) == 1:
             edge = dataclasses.replace(
                 edge,

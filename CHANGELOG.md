@@ -2,6 +2,20 @@
 
 ## 0.7.0 (unreleased)
 
+- Correct declaration ownership, lexical binding, call-site extraction, signatures,
+  and entrypoint metadata across the 39 language frontends. See
+  [parser coverage](docs/parser-coverage.md) for syntax limits and ID changes,
+  including Erlang arity, Ruby singleton methods, Objective-C class methods,
+  namespaces, local callables and Rego clauses.
+- Expose structured parse diagnostics separately from inspected source counts.
+  Python `strict=True` and CLI `--strict` reject diagnostics, including explicitly
+  skipped Verus and unsupported Rego syntax. A clean tree is not proof of coverage.
+- Resolve SARIF run artifact indices and chained URI bases before finding matching.
+- Bundle a pinned Move grammar to distinguish explicit generic applications from
+  comparisons and retain qualified call symbols.
+- Check release tag, package/runtime versions, and built wheel metadata before
+  publishing. Document the v0.7 skills compatibility validation checklist.
+
 - Bash frontend: shell functions, script command sites, branches, literal source
   dependencies, and conservative local call inference.
 

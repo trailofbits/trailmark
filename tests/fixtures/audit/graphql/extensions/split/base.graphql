@@ -1,0 +1,5 @@
+type Query { user(id: ID!): User }
+type User { id: ID! }
+input Filter { active: Boolean }
+interface Named { name: String }
+enum Role { USER }

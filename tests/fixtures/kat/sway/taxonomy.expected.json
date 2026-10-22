@@ -22,6 +22,12 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Wallet",
+      "target": "taxonomy:Wallet.deposit#declaration"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Wallet",
       "target": "taxonomy:Wallet.deposit"
     },
     {
@@ -76,6 +82,9 @@
       "return_type": null
     },
     "taxonomy:Wallet": {
+      "attributes": {
+        "sway_abi": true
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -94,6 +103,9 @@
       "return_type": null
     },
     "taxonomy:Wallet.deposit": {
+      "attributes": {
+        "sway_abi": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -121,7 +133,41 @@
       ],
       "return_type": null
     },
+    "taxonomy:Wallet.deposit#declaration": {
+      "attributes": {
+        "declaration_only": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Wallet.deposit#declaration",
+      "kind": "method",
+      "location": {
+        "end_col": 28,
+        "end_line": 4,
+        "file_path": "taxonomy.sw",
+        "start_col": 4,
+        "start_line": 4
+      },
+      "name": "deposit",
+      "parameters": [
+        {
+          "default": null,
+          "name": "amount",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u64"
+          }
+        }
+      ],
+      "return_type": null
+    },
     "taxonomy:helper": {
+      "attributes": {
+        "sway_abi": false
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -174,16 +220,17 @@
     "classes": 0,
     "dependencies": [],
     "entrypoints": 0,
-    "functions": 2,
+    "functions": 3,
     "languages": [
       "sway"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "sway": 1
     },
     "source_files": 1,
-    "total_nodes": 5
+    "total_nodes": 6
   },
   "trailmark_version": "<trailmark-version>"
 }

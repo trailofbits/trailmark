@@ -87,6 +87,7 @@ def build_engine(
     language: str,
     *,
     allow_empty: bool = False,
+    strict: bool = False,
 ) -> QueryEngine:
     """Construct a QueryEngine, exiting with guidance on failure."""
     try:
@@ -98,7 +99,9 @@ def build_engine(
         )
         sys.exit(1)
     try:
-        return QueryEngine.from_directory(target, language=language, allow_empty=allow_empty)
+        return QueryEngine.from_directory(
+            target, language=language, allow_empty=allow_empty, strict=strict
+        )
     except (ValueError, OSError) as exc:
         print(f"trailmark: error: {exc}", file=sys.stderr)
         sys.exit(2)
@@ -512,6 +515,9 @@ def add_diagram_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--target", "-t", required=True, help="Directory to analyze")
     parser.add_argument("--language", "-l", default="python", help="Source language")
     parser.add_argument(
+        "--strict", action="store_true", help="Reject source analysis with parse diagnostics"
+    )
+    parser.add_argument(
         "--allow-empty",
         action="store_true",
         help="Allow an existing directory with zero matching source files",
@@ -578,7 +584,9 @@ def render_diagram(engine: QueryEngine, args: argparse.Namespace) -> str:
 def main(argv: list[str] | None = None) -> int:
     """Entry point: parse args, build graph, emit diagram."""
     args = parse_args(argv)
-    engine = build_engine(args.target, args.language, allow_empty=args.allow_empty)
+    engine = build_engine(
+        args.target, args.language, allow_empty=args.allow_empty, strict=args.strict
+    )
     print(render_diagram(engine, args))
     return 0
 

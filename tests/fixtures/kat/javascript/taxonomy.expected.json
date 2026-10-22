@@ -556,6 +556,7 @@
     "languages": [
       "javascript"
     ],
+    "parse_diagnostics": [],
     "proxies": 3,
     "source_file_counts": {
       "javascript": 1

@@ -15,3 +15,9 @@ This product bundles the following third-party components:
   Copyright (c) 2017 Maxim Sokolov
   Licensed under the MIT License
   https://github.com/secure-foundations/tree-sitter-verus
+
+- Move grammar (src/trailmark/tree_sitter_custom/move/)
+  Copyright (c) The Move Contributors
+  Licensed under the Apache License, Version 2.0
+  https://github.com/MystenLabs/sui/tree/f3fd7754ebe506e2a8b1cb4e0ddb45be3e5eb6c1/external-crates/move/tooling/tree-sitter
+  Trailmark adds inline modifiers and Aptos-style function-type return syntax.

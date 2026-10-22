@@ -20,7 +20,8 @@
     },
     {
       "attributes": {
-        "relationship": "sql_dependency"
+        "relationship": "sql_dependency",
+        "sql_reference": "audit.events"
       },
       "confidence": "certain",
       "kind": "corresponds_to",
@@ -35,7 +36,8 @@
     },
     {
       "attributes": {
-        "relationship": "sql_dependency"
+        "relationship": "sql_dependency",
+        "sql_reference": "audit.events"
       },
       "confidence": "certain",
       "kind": "corresponds_to",
@@ -64,6 +66,9 @@
       "return_type": null
     },
     "taxonomy:audit": {
+      "attributes": {
+        "sql_schema": ""
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -83,7 +88,8 @@
     },
     "taxonomy:audit.event_count": {
       "attributes": {
-        "sql_schema": "audit"
+        "sql_schema": "audit",
+        "sql_signature": ""
       },
       "branches": [],
       "cyclomatic_complexity": null,
@@ -157,6 +163,7 @@
     "languages": [
       "sql"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "sql": 1

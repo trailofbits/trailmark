@@ -300,6 +300,7 @@
     "languages": [
       "perl"
     ],
+    "parse_diagnostics": [],
     "proxies": 2,
     "source_file_counts": {
       "perl": 1

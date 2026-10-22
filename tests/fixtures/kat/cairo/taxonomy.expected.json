@@ -27,6 +27,12 @@
     {
       "confidence": "certain",
       "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:AnimalImpl"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
       "source": "taxonomy:AnimalImpl",
       "target": "taxonomy:AnimalImpl.describe"
     },
@@ -132,6 +138,27 @@
         "start_line": 8
       },
       "name": "Animal",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:AnimalImpl": {
+      "attributes": {
+        "cairo_impl": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:AnimalImpl",
+      "kind": "namespace",
+      "location": {
+        "end_col": 1,
+        "end_line": 27,
+        "file_path": "taxonomy.cairo",
+        "start_col": 0,
+        "start_line": 23
+      },
+      "name": "AnimalImpl",
       "parameters": [],
       "return_type": null
     },
@@ -494,12 +521,27 @@
     "languages": [
       "cairo"
     ],
+    "parse_diagnostics": [
+      {
+        "grammar": "cairo",
+        "kind": "syntax_error",
+        "language": "cairo",
+        "location": {
+          "end_col": 29,
+          "end_line": 67,
+          "file_path": "taxonomy.cairo",
+          "start_col": 19,
+          "start_line": 67
+        },
+        "message": "Grammar could not parse this source range"
+      }
+    ],
     "proxies": 0,
     "source_file_counts": {
       "cairo": 1
     },
     "source_files": 1,
-    "total_nodes": 12
+    "total_nodes": 13
   },
   "trailmark_version": "<trailmark-version>"
 }

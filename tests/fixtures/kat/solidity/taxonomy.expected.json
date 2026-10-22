@@ -769,6 +769,7 @@
     "languages": [
       "solidity"
     ],
+    "parse_diagnostics": [],
     "proxies": 1,
     "source_file_counts": {
       "solidity": 1

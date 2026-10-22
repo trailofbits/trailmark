@@ -16,6 +16,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -27,6 +28,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -45,6 +47,7 @@ _BRANCH_NODE_TYPES = frozenset(
 _THROW_TYPES = frozenset({"raise_statement"})
 
 _EXTENSIONS = (".py",)
+_CALLABLE_BOUNDARIES = frozenset({"function_definition", "class_definition", "lambda"})
 
 
 class PythonParser:
@@ -186,6 +189,8 @@ def _extract_function(
     module_id: str,
     class_id: str | None,
     graph: CodeGraph,
+    *,
+    owner_id: str | None = None,
 ) -> None:
     """Extract a function or method definition."""
     name_node = node.child_by_field_name("name")
@@ -193,7 +198,11 @@ def _extract_function(
         return
     func_name = node_text(name_node)
 
-    if class_id is not None:
+    if owner_id is not None:
+        func_id = f"{owner_id}.{func_name}"
+        kind = NodeKind.FUNCTION
+        container_id = owner_id
+    elif class_id is not None:
         func_id = f"{class_id}.{func_name}"
         kind = NodeKind.METHOD
         container_id = class_id
@@ -202,7 +211,7 @@ def _extract_function(
         kind = NodeKind.FUNCTION
         container_id = module_id
 
-    params = _extract_parameters(node)
+    params = _extract_parameters(node, method=class_id is not None and owner_id is None)
     return_type = _extract_return_type(node)
     body = node.child_by_field_name("body")
 
@@ -220,6 +229,7 @@ def _extract_function(
             branches,
             exception_types,
             calls,
+            skip_types=_CALLABLE_BOUNDARIES,
         )
 
     complexity = compute_complexity(branches)
@@ -243,6 +253,11 @@ def _extract_function(
 
     add_contains_edge(graph, container_id, func_id)
 
+    if body is not None:
+        for nested in walk_owned(body, boundaries=_CALLABLE_BOUNDARIES):
+            if nested.type == "function_definition":
+                _extract_function(nested, file_path, module_id, class_id, graph, owner_id=func_id)
+
     for call_name, call_node in calls:
         target_id = _resolve_call_target(
             call_name,
@@ -255,17 +270,21 @@ def _extract_function(
             else EdgeConfidence.INFERRED
         )
         graph.edges.append(
-            CodeEdge(
-                source_id=func_id,
-                target_id=target_id,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            guard_call(
+                CodeEdge(
+                    source_id=func_id,
+                    target_id=target_id,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                ),
+                call_node,
+                graph=graph,
             )
         )
 
 
-def _extract_parameters(node: Node) -> list[Parameter]:
+def _extract_parameters(node: Node, *, method: bool = False) -> list[Parameter]:
     """Extract parameters from a function definition."""
     params_node = node.child_by_field_name("parameters")
     if params_node is None:
@@ -275,8 +294,9 @@ def _extract_parameters(node: Node) -> list[Parameter]:
     for child in params_node.children:
         if child.type == "identifier":
             name = node_text(child)
-            if name != "self" and name != "cls":
-                params.append(Parameter(name=name))
+            params.append(Parameter(name=name))
+        elif child.type in {"list_splat_pattern", "dictionary_splat_pattern"}:
+            params.append(Parameter(name=node_text(child).lstrip("*")))
         elif child.type == "typed_parameter":
             name = _param_name_from_typed(child)
             type_ref = _type_from_annotation(child)
@@ -293,6 +313,14 @@ def _extract_parameters(node: Node) -> list[Parameter]:
                     default=default,
                 )
             )
+    decorators = node.parent
+    static = (
+        decorators is not None
+        and decorators.type == "decorated_definition"
+        and any(node_text(child).strip() == "@staticmethod" for child in decorators.named_children)
+    )
+    if method and not static and params and params[0].name in {"self", "cls"}:
+        params.pop(0)
     return params
 
 
@@ -301,6 +329,8 @@ def _param_name_from_typed(node: Node) -> str:
     for child in node.children:
         if child.type == "identifier":
             return node_text(child)
+        if child.type in {"list_splat_pattern", "dictionary_splat_pattern"}:
+            return node_text(child).lstrip("*")
     return ""
 
 

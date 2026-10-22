@@ -293,6 +293,7 @@ module.exports = grammar({
     // -- [ Expressions ] --
     _expression: $ => choice(
       $.identifier,
+      $.discard_expression,
       $.int_literal,
       $.array_expression,
       $.tuple_expression,
@@ -455,6 +456,8 @@ module.exports = grammar({
     _semicolon: $ => ';',
 
     identifier: $ => token(/[$_]*[a-zA-Z][a-zA-Z$_0-9]*/),
+
+    discard_expression: $ => '_',
 
     int_literal: $ => /\d+/,
 

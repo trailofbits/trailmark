@@ -46,6 +46,17 @@
       "target": "proxy.unresolved:Integer.parseInt"
     },
     {
+      "attributes": {
+        "binding_blocked": true,
+        "constructor_type": "RuntimeException",
+        "raw_target": "Taxonomy:Taxonomy.branchy.$constructor.RuntimeException"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Taxonomy.branchy",
+      "target": "proxy.unresolved:Taxonomy:Taxonomy.branchy.$constructor.RuntimeException"
+    },
+    {
       "confidence": "certain",
       "kind": "contains",
       "source": "Taxonomy:Taxonomy",
@@ -88,10 +99,31 @@
       "target": "Taxonomy:Taxonomy.Dog.Dog"
     },
     {
+      "attributes": {
+        "binding_blocked": true,
+        "constructor_type": "super"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "Taxonomy:Taxonomy.Dog.Dog",
+      "target": "Taxonomy:Taxonomy.Animal.Animal"
+    },
+    {
       "confidence": "certain",
       "kind": "contains",
       "source": "Taxonomy:Taxonomy.Dog",
       "target": "Taxonomy:Taxonomy.Dog.bark"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "constructor_type": "RuntimeException",
+        "raw_target": "Taxonomy:Taxonomy.Dog.bark.$constructor.RuntimeException"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "Taxonomy:Taxonomy.Dog.bark",
+      "target": "proxy.unresolved:Taxonomy:Taxonomy.Dog.bark.$constructor.RuntimeException"
     },
     {
       "confidence": "certain",
@@ -145,6 +177,9 @@
       "return_type": null
     },
     "Taxonomy:Taxonomy": {
+      "attributes": {
+        "java_servlet_base": false
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -163,6 +198,9 @@
       "return_type": null
     },
     "Taxonomy:Taxonomy.Animal": {
+      "attributes": {
+        "java_servlet_base": false
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -181,6 +219,10 @@
       "return_type": null
     },
     "Taxonomy:Taxonomy.Animal.Animal": {
+      "attributes": {
+        "java_private": false,
+        "java_static": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -209,6 +251,10 @@
       "return_type": null
     },
     "Taxonomy:Taxonomy.Animal.describe": {
+      "attributes": {
+        "java_private": false,
+        "java_static": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -231,6 +277,9 @@
       }
     },
     "Taxonomy:Taxonomy.Dog": {
+      "attributes": {
+        "java_servlet_base": false
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -249,6 +298,10 @@
       "return_type": null
     },
     "Taxonomy:Taxonomy.Dog.Dog": {
+      "attributes": {
+        "java_private": false,
+        "java_static": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -286,6 +339,10 @@
       "return_type": null
     },
     "Taxonomy:Taxonomy.Dog.bark": {
+      "attributes": {
+        "java_private": false,
+        "java_static": false
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -336,6 +393,10 @@
       }
     },
     "Taxonomy:Taxonomy.Dog.greet": {
+      "attributes": {
+        "java_private": false,
+        "java_static": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -368,6 +429,9 @@
       }
     },
     "Taxonomy:Taxonomy.Greeter": {
+      "attributes": {
+        "java_servlet_base": false
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -386,6 +450,10 @@
       "return_type": null
     },
     "Taxonomy:Taxonomy.Greeter.greet": {
+      "attributes": {
+        "java_private": false,
+        "java_static": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -418,6 +486,9 @@
       }
     },
     "Taxonomy:Taxonomy.Status": {
+      "attributes": {
+        "java_servlet_base": false
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -436,6 +507,10 @@
       "return_type": null
     },
     "Taxonomy:Taxonomy.add": {
+      "attributes": {
+        "java_private": false,
+        "java_static": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -477,6 +552,10 @@
       }
     },
     "Taxonomy:Taxonomy.branchy": {
+      "attributes": {
+        "java_private": false,
+        "java_static": true
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -591,6 +670,10 @@
       }
     },
     "Taxonomy:Taxonomy.useAnimal": {
+      "attributes": {
+        "java_private": false,
+        "java_static": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -645,6 +728,52 @@
       "parameters": [],
       "return_type": null
     },
+    "proxy.unresolved:Taxonomy:Taxonomy.Dog.bark.$constructor.RuntimeException": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "Taxonomy:Taxonomy.Dog.bark.$constructor.RuntimeException"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:Taxonomy:Taxonomy.Dog.bark.$constructor.RuntimeException",
+      "kind": "proxy",
+      "location": {
+        "end_col": 54,
+        "end_line": 69,
+        "file_path": "Taxonomy.java",
+        "start_col": 22,
+        "start_line": 69
+      },
+      "name": "Taxonomy:Taxonomy.Dog.bark.$constructor.RuntimeException",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:Taxonomy:Taxonomy.branchy.$constructor.RuntimeException": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "Taxonomy:Taxonomy.branchy.$constructor.RuntimeException"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:Taxonomy:Taxonomy.branchy.$constructor.RuntimeException",
+      "kind": "proxy",
+      "location": {
+        "end_col": 50,
+        "end_line": 41,
+        "file_path": "Taxonomy.java",
+        "start_col": 18,
+        "start_line": 41
+      },
+      "name": "Taxonomy:Taxonomy.branchy.$constructor.RuntimeException",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "proxy.unresolved:d.bark": {
       "attributes": {
         "proxy_kind": "unresolved",
@@ -673,7 +802,7 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 2,
+    "call_edges": 5,
     "classes": 3,
     "dependencies": [
       "java"
@@ -683,12 +812,13 @@
     "languages": [
       "java"
     ],
-    "proxies": 2,
+    "parse_diagnostics": [],
+    "proxies": 4,
     "source_file_counts": {
       "java": 1
     },
     "source_files": 1,
-    "total_nodes": 17
+    "total_nodes": 19
   },
   "trailmark_version": "<trailmark-version>"
 }

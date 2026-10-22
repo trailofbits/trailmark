@@ -1,0 +1,196 @@
+# Parser coverage and declaration identity
+
+Trailmark graphs describe extracted declarations and call sites. File counts
+measure inspected source files. They do not establish complete language coverage,
+execution, dataflow, exploitability, or dead code. Check `parse_diagnostics()`
+when interpreting results; `strict=True` and CLI `--strict` reject incomplete
+syntax analysis. Valid empty files remain valid inputs.
+
+## Callable ownership and binding
+
+Python nested `def` and `async def` declarations have owner-qualified IDs such as
+`file:factory.hidden`. Their calls, branches and exceptions belong to the nested
+function. Creating or returning that function adds no invocation edge. Variadic
+parameters retain names and annotations; `self` and `cls` are omitted only as
+actual method receivers, and retained in free functions and static methods.
+
+JavaScript and TypeScript retain nested functions, arrows, anonymous callbacks,
+class-field arrows, object methods, CommonJS handler assignments, and anonymous
+default exports. Anonymous IDs contain source positions. Moving a declaration
+can change its ID. Registration and acquisition of a callable do not establish
+its execution. Concise bodies include their root call or conditional. TypeScript
+uses the TSX grammar for `.tsx`; interface methods retain signature metadata.
+Unknown receiver writes and conditional writes invalidate concrete-constructor
+inference; expired block-local declarations do not affect an outer receiver.
+
+Lexical callable parameters and locals prevent binding to unrelated same-name
+functions. Such calls remain uncertain proxies with `binding_blocked` metadata,
+including after directory linking. This guard does not infer callback values or
+reproduce a compiler's full alias, overload, or control-flow analysis.
+
+Rust and Verus preserve repeated same-name impl methods with source-offset
+suffixes instead of combining their bodies. Ambiguous trait and concrete generic
+impl dispatch remains unresolved. Declaration-owned `unsafe(no_mangle)` and
+`unsafe(export_name = "symbol")` attributes expose Rust 2024 entrypoints.
+
+Go retains grouped, variadic, function-typed and unnamed parameters. Unnamed
+slots use `$argN`; variadic types retain `...`. Explicit single-type generic
+calls are distinguished from locally declared generic type conversions.
+Unqualified directory call inference stays within the source directory.
+
+PHP namespace owners appear in declaration IDs, including semicolon namespaces;
+namespace separators become dots. Closures and arrows own their calls and body
+metadata. First-class `(...)` acquisition contributes no call; argument unpacking
+still does. Nullsafe and scoped calls retain sites. Local `self`, named-class and
+unambiguous `parent` targets can resolve; late-static dispatch stays uncertain.
+
+Perl qualified subroutine names determine symbol ownership while body/default
+lookup retains the lexical package. Signature defaults retain calls and nested
+anonymous subroutines. Bareword statements are calls only when a preceding
+subroutine declaration establishes their classification.
+
+Lua assignments to lexical locals never create global candidates. A custom or
+reassigned `_ENV` blocks free-name global inference and unproven `require`
+imports, while explicit lexical bindings remain available. R local assignments
+respect source order; statically qualified base environment mutators invalidate
+inference. Known unshadowed base quoting constructors are opaque to execution
+walking. Arbitrary R nonstandard evaluation remains outside this model.
+
+## Schema and security-language frontends
+
+Proto nested declarations use owner-qualified IDs and retain map/oneof fields.
+GraphQL schema mappings determine operation roots; extensions retain fields and
+recursive list/non-null wrappers retain named type relationships. Thrift uses
+source-file IDs, preserves target namespaces as metadata, and retains recursive
+container types and declared exceptions. These schema graphs contain no runtime
+call edges.
+
+SQL retains overloads and separate relation/routine namespaces. Colliding routine
+IDs gain source-position suffixes. Relation matching folds unquoted PostgreSQL
+identifiers to lowercase and preserves quoted case. Recovered procedure bodies
+exclude comments, strings and later statements. SQL dependencies are
+`corresponds_to` edges, not runtime calls; search paths are not evaluated.
+
+Cairo module, trait, impl, struct and enum IDs retain their owners. Impl namespaces
+are explicit containment nodes. Concrete methods of contract `abi(embed_v0)`
+implementations are exposed entrypoints; private helpers remain private.
+
+Aiken parameter labels do not replace local binding names. Unapplied captures
+such as `helper(_, 1)` do not imply immediate execution; pipeline application
+retains its helper call. The pinned grammar does not fully support property
+tests, benchmarks, destructured arguments, or soft casts. These constructs can
+produce diagnostics and incomplete declarations/calls.
+
+Zig identifier matching handles quoted names and whitespace around dots. Unnamed
+extern slots use `$argN`; `...` and a `variadic` attribute preserve variadic
+signatures. The pinned grammar rejects some current destructuring and labeled
+switch syntax. Calls from a body with syntax recovery remain unresolved, and
+strict mode rejects its diagnostics. A complete Zig version range is not claimed.
+
+Miden `exec`, `call`, and `syscall` edges carry opcode metadata. `procref` acquires
+a procedure hash and contributes no execution call. Qualified library targets
+retain their paths as unresolved proxies when unavailable. `begin` program
+blocks and `pub proc` declarations are entrypoints. The bundled grammar does not
+cover all recent Miden syntax, including some visibility and branch forms.
+
+Bash command effects use statically decoded words without shell evaluation.
+Quoted/escaped mutation builtins invalidate inference. Reserved `time` preserves
+the timed call. Named `coproc` compound bodies retain enclosing function spans
+and command ownership. Bash 5.3 `${ command; }` and `${| command; }` substitutions
+remain grammar limitations and can produce diagnostics.
+
+FunC specialized dot/tilde declarations, bare fallbacks and callable shadowing are
+retained. `method_id` identifies getters; `get_` alone does not. Sway ABI exposure
+uses declaration metadata; generic impl methods retain their owners, and an
+implemented ABI signature remains available with a `#declaration` suffix.
+
+PowerShell recognizes known built-in mutator aliases and module-qualified mutators
+when suppressing stale binding inference. Function header defaults and param-block
+defaults retain calls; default scriptblocks have separate bodies and signatures.
+Arbitrary aliases and session state still require runtime information.
+
+VB.NET accessor units retain property index parameters, getter types and Shared
+context. Fields and property parameters shadow type/method names case-insensitively.
+Array ranks on parameter names are retained, including `Main(args() As String)`.
+
+Julia destructured arguments bind their lexical leaf names without flattening the
+signature. Quoted syntax is data; only interpolation at the current quote level
+contributes calls. Long and short callable-struct methods have receiver metadata
+and separate bodies; callable-object dispatch remains uncertain. Macro expansion
+and grammar recovery can still leave graphs incomplete.
+
+C tag and callable namespaces retain both declarations when names coincide.
+Indirect pointer calls remain uncertain. C/C++ static definitions and C++ anonymous
+namespace functions are excluded from cross-file free-function fallback. Header
+export annotations currently need to be repeated on extracted definitions; matching
+prototype attributes through preprocessing/includes is not implemented.
+
+C++ namespaces qualify declaration IDs, including file-local `$anonymous` owners.
+Lambdas and local classes own their bodies; lambda capture initializers stay with
+the enclosing function. C# namespaces also qualify type IDs; local functions and
+lambdas have separate owners. Generic and conditional-access calls are retained.
+
+Java lambdas and local/anonymous classes own deferred bodies. Explicit construction
+and constructor chaining have located edges; unknown or overloaded constructors
+remain proxies. Servlet entrypoints require servlet ancestry, an instance method,
+a void return and request/response parameters.
+
+Swift extensions retain methods and attach to an unambiguous extracted type without
+replacing its kind or source location. Local functions and closures own their bodies.
+Kotlin recursively extracts nested and companion containers. Both prefer known
+lexical methods over same-named free functions and preserve uncertain callable values.
+
+Objective-C message sends retain complete selectors as uncertain calls. Class
+methods use `module:Class.+selector` IDs; instance methods retain
+`module:Class.selector`. Blocks have separate source-position owners.
+Dart constructors use `module:Class.Class` and `module:Class.Class.named` IDs.
+Constructor initializers and arrow bodies retain calls, and deferred local bodies
+have separate owners. These syntax edges do not imply runtime dispatch inference.
+
+Circom include linking follows literal include paths and their transitive closure.
+Ambiguous included template/function names remain unresolved. Main-component
+arguments retain nested calls; anonymous-component `_` discard syntax is supported.
+Circom 2.2 bus declarations remain unsupported and produce diagnostics.
+
+Move uses the bundled Move grammar pinned to MystenLabs/sui commit
+`f3fd7754ebe506e2a8b1cb4e0ddb45be3e5eb6c1`, with small syntax additions recorded in
+`NOTICE`. Tests cover Aptos-style inline callbacks and generic application, multiple
+explicit module declarations, and Sui 2024-style structs. This is fixture coverage,
+not a compiler-version compatibility guarantee. Address blocks remain unsupported
+and produce diagnostics. Qualified/address/alias targets retain their symbols;
+unknown callback values remain uncertain. Lambdas and macro expansion do not have
+complete body or value-flow coverage.
+
+Tact distinguishes static global calls from `self` member calls. Receiver parameters
+and optional/map/bounced signature types are retained. Trait bodies and inherited
+receivers are not yet extracted; inherited attack surface is consequently incomplete.
+
+Rego keeps logical rule IDs such as `policy:allow` and separate source-position
+clause IDs such as `policy:allow.$clause@file_3_0`. Logical rules have potential
+`calls` edges to their clauses, marked `rego_clause`; these represent policy
+alternatives, not a runtime evaluation sequence. Calls and branches belong to the
+individual clause. Defaults and clauses in different files remain separate.
+The pinned grammar rejects nested reference rule heads and some qualified calls;
+inline-if call syntax that is split without an ERROR node is explicitly diagnosed.
+
+Ruby namespaces qualify nested type/method IDs. Instance methods use
+`file:Class.method`; singleton methods use `file:Class.self.method`. Bare method
+reads retain vcall sites while known parameters, local variables, and block
+parameters remain values. Rails actions and Sidekiq `perform` entrypoints require
+public instance-method metadata; private and singleton helpers are excluded.
+Runtime metaprogramming, reopened class inheritance, and lambda-body coverage remain
+limited.
+
+Erlang callable IDs include arity: `module:function/2`. Specs, clauses, export/import
+tables and call targets use the same identity. Anonymous fun bodies have distinct
+source-position owners; acquiring `fun module:name/arity` adds no invocation edge.
+Qualified and imported calls preserve their module, and variable targets remain
+uncertain. OTP callback invocation and higher-order target recovery are not inferred.
+
+Haskell local where/let declarations have owner-qualified IDs and separate body
+metrics. Function/lambda/case binders prevent unrelated global binding. Parenthesized,
+qualified, backtick and operator applications retain sites. `$` remains an ordinary
+potentially shadowed operator call; no automatic function application lowering is
+claimed. Constructor patterns do not create calls. Typeclass default bodies,
+applied-type instance bodies, Template Haskell expansion and typeclass dispatch
+remain incomplete.

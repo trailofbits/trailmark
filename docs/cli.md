@@ -179,3 +179,11 @@ Prints `trailmark X.Y.Z`.
 
 `trailmark diagram` was added in 0.4.0, and `trailmark analyze --resolution` in
 0.7.0. Every other subcommand and flag has been available since 0.2.2.
+
+## Strict source analysis
+
+All source-analysis commands accept `--strict` to reject grammar errors and
+explicitly unsupported constructs. The default retains partial graphs and
+reports `parse_diagnostics` in the summary and JSON graph export. Source-file
+counts measure inspection, independently of successful feature extraction.
+An empty diagnostic list does not establish complete language coverage.

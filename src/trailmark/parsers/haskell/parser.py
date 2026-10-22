@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -51,6 +52,7 @@ class HaskellParser:
         graph = CodeGraph(language="haskell", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
+        _link_lexical_calls(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -325,8 +327,15 @@ def _create_function_node(
     """Create a new function node for the first equation."""
     if container_id is not None:
         func_id = f"{container_id}.{name}"
-        kind = NodeKind.METHOD
+        owner_unit = graph.nodes.get(container_id)
+        kind = (
+            NodeKind.FUNCTION
+            if owner_unit and owner_unit.kind in (NodeKind.FUNCTION, NodeKind.METHOD)
+            else NodeKind.METHOD
+        )
         owner = container_id
+        if func_id in graph.nodes:
+            func_id += f"@{node.start_point.row + 1}_{node.start_point.column}"
     else:
         func_id = f"{module_id}:{name}"
         kind = NodeKind.FUNCTION
@@ -356,6 +365,7 @@ def _create_function_node(
     add_contains_edge(graph, owner, func_id)
     seen_funcs[name] = func_id
 
+    _extract_locals(node, func_id, module_id, file_path, graph)
     _add_call_edges(calls, func_id, module_id, container_id, file_path, graph)
 
 
@@ -394,6 +404,7 @@ def _merge_function_equation(
         branches=tuple(new_branches),
         docstring=existing.docstring,
     )
+    _extract_locals(node, func_id, module_id, file_path, graph)
     _add_call_edges(calls, func_id, module_id, container_id, file_path, graph)
 
 
@@ -402,14 +413,30 @@ def _merge_function_equation(
 
 def _get_sig_name(node: Node) -> str:
     """Get the function name from a type signature node."""
-    var = _find_child_by_type(node, "variable")
-    return node_text(var) if var is not None else ""
+    name = node.child_by_field_name("name")
+    if name is not None:
+        return _callee_name(name)
+    for child in node.named_children:
+        if child.type in ("variable", "prefix_id"):
+            return _callee_name(child)
+        if child.type == "infix":
+            operator = child.child_by_field_name("operator")
+            return _callee_name(operator) if operator is not None else ""
+    return ""
 
 
 def _get_func_name(node: Node) -> str:
     """Get the function name from a function equation node."""
-    var = _find_child_by_type(node, "variable")
-    return node_text(var) if var is not None else ""
+    name = node.child_by_field_name("name")
+    if name is not None:
+        return _callee_name(name)
+    for child in node.named_children:
+        if child.type in ("variable", "prefix_id"):
+            return _callee_name(child)
+        if child.type == "infix":
+            operator = child.child_by_field_name("operator")
+            return _callee_name(operator) if operator is not None else ""
+    return ""
 
 
 def _extract_sig_types(
@@ -488,7 +515,8 @@ def _collect_branches(
 ) -> list[BranchInfo]:
     """Collect all branch points from a function equation."""
     branches: list[BranchInfo] = []
-    _walk_branches(node, file_path, branches)
+    for match in _matches(node):
+        _walk_branches(match, file_path, branches)
     return branches
 
 
@@ -498,6 +526,8 @@ def _walk_branches(
     branches: list[BranchInfo],
 ) -> None:
     """Recursively find branch nodes (case alternatives, guards)."""
+    if node.type in {"local_binds", "function", "bind", "patterns", "signature"}:
+        return
     if node.type in _BRANCH_NODE_TYPES:
         branches.append(
             BranchInfo(
@@ -505,7 +535,7 @@ def _walk_branches(
                 condition=_branch_condition(node),
             )
         )
-    for child in node.children:
+    for child in _expression_children(node):
         _walk_branches(child, file_path, branches)
 
 
@@ -523,7 +553,8 @@ def _branch_condition(node: Node) -> str:
 def _collect_calls(node: Node) -> list[tuple[str, Node]]:
     """Collect all function application calls from a node."""
     calls: list[tuple[str, Node]] = []
-    _walk_calls(node, calls)
+    for match in _matches(node):
+        _walk_calls(match, calls)
     return calls
 
 
@@ -532,13 +563,25 @@ def _walk_calls(
     calls: list[tuple[str, Node]],
 ) -> None:
     """Recursively find apply nodes and extract call targets."""
+    if node.type in {"local_binds", "function", "bind", "patterns", "signature"}:
+        return
+    if node.type == "infix":
+        operator = node.child_by_field_name("operator")
+        if operator is not None:
+            name = _callee_name(operator)
+            if name:
+                calls.append((name, node))
+        for child in _expression_children(node):
+            if child != operator:
+                _walk_calls(child, calls)
+        return
     if node.type == "apply":
         name = _apply_callee(node)
         if name:
             calls.append((name, node))
         _walk_apply_args(node, calls)
         return
-    for child in node.children:
+    for child in _expression_children(node):
         _walk_calls(child, calls)
 
 
@@ -561,9 +604,131 @@ def _apply_callee(node: Node) -> str:
     current = node
     while current.type == "apply" and current.child_count > 0:
         current = current.children[0]
-    if current.type in ("variable", "constructor"):
-        return node_text(current)
+    return _callee_name(current)
+
+
+def _matches(node: Node) -> list[Node]:
+    return [child for child in node.named_children if child.type == "match"]
+
+
+def _expression_children(node: Node) -> list[Node]:
+    # Patterns use the same apply/infix grammar as expressions. They bind names;
+    # traversing them as expressions would invent constructor calls.
+    pattern = node.child_by_field_name("pattern")
+    return [child for child in node.named_children if child != pattern]
+
+
+def _callee_name(node: Node) -> str:
+    if node.type in {"parens", "prefix_id", "infix_id"}:
+        return _callee_name(node.named_children[0]) if node.named_children else ""
+    if node.type in {"variable", "constructor", "operator", "qualified"}:
+        return node_text(node)
     return ""
+
+
+def _pattern_variables(node: Node | None) -> set[str]:
+    if node is None:
+        return set()
+    if node.type == "variable":
+        return {node_text(node)}
+    return {name for child in node.named_children for name in _pattern_variables(child)}
+
+
+def _local_declarations(group: Node) -> list[Node]:
+    return [child for child in group.named_children if child.type in {"function", "bind"}]
+
+
+def _lexical_binding(site: Node, name: str) -> Node | None:
+    if "." in name:
+        return None
+    current: Node | None = site
+    while current is not None:
+        if current.type in {"function", "lambda", "alternative"}:
+            patterns = current.child_by_field_name("patterns")
+            if patterns is None:
+                patterns = _find_child_by_type(current, "patterns")
+            if current.type == "alternative":
+                patterns = current.child_by_field_name("pattern")
+            if name in _pattern_variables(patterns):
+                return patterns
+            if current.type == "function":
+                head = next((c for c in current.named_children if c.type == "infix"), None)
+                if head is not None:
+                    variables = set().union(
+                        *(
+                            _pattern_variables(c)
+                            for c in head.named_children
+                            if c != head.child_by_field_name("operator")
+                        )
+                    )
+                    if name in variables:
+                        return head
+        group = current.child_by_field_name("binds")
+        if group is not None and group.type == "local_binds":
+            for declaration in _local_declarations(group):
+                if _get_func_name(declaration) == name:
+                    return declaration
+        current = current.parent
+    return None
+
+
+def _extract_locals(
+    root: Node,
+    owner: str,
+    module_id: str,
+    file_path: str,
+    graph: CodeGraph,
+) -> None:
+    pending = list(root.named_children)
+    while pending:
+        node = pending.pop()
+        if node.type == "local_binds":
+            signatures = {
+                _get_sig_name(child): child
+                for child in node.named_children
+                if child.type == "signature"
+            }
+            seen: dict[str, str] = {}
+            for declaration in _local_declarations(node):
+                _extract_function(
+                    declaration,
+                    file_path,
+                    module_id,
+                    owner,
+                    signatures,
+                    seen,
+                    graph,
+                )
+        elif node.type not in {"function", "bind", "signature", "patterns"}:
+            pending.extend(node.named_children)
+
+
+def _link_lexical_calls(graph: CodeGraph) -> None:
+    declarations = {
+        (
+            unit.location.file_path,
+            unit.location.start_line,
+            unit.location.start_col,
+            unit.name,
+        ): unit.id
+        for unit in graph.nodes.values()
+        if unit.kind in {NodeKind.FUNCTION, NodeKind.METHOD}
+    }
+    for index, edge in enumerate(graph.edges):
+        if edge.kind == EdgeKind.CALLS and edge.target_id not in graph.nodes:
+            graph.edges[index] = replace(edge, confidence=EdgeConfidence.UNCERTAIN)
+        attrs = dict(edge.attributes)
+        if "haskell_declaration_line" not in attrs or edge.location is None:
+            continue
+        key = (
+            edge.location.file_path,
+            attrs["haskell_declaration_line"],
+            attrs["haskell_declaration_col"],
+            attrs["haskell_declaration_name"],
+        )
+        target = declarations.get(key)
+        if target is not None:
+            graph.edges[index] = replace(edge, target_id=target, confidence=EdgeConfidence.CERTAIN)
 
 
 # ── Edge helpers ────────────────────────────────────────────────────
@@ -581,6 +746,21 @@ def _add_call_edges(
     for call_name, call_node in calls:
         target_id = _resolve_call_target(call_name, module_id, container_id)
         confidence = _call_confidence(call_name)
+        binding = _lexical_binding(call_node, call_name)
+        attributes: tuple[tuple[str, object], ...] = ()
+        if binding is not None:
+            target_id = f"{source_id}.$binding.{call_name}"
+            confidence = EdgeConfidence.UNCERTAIN
+            attributes = (("binding_blocked", True),)
+            if binding.type in ("function", "bind"):
+                attributes += (
+                    ("haskell_declaration_line", binding.start_point.row + 1),
+                    ("haskell_declaration_col", binding.start_point.column),
+                    ("haskell_declaration_name", call_name),
+                )
+        elif "." in call_name or call_name == "$":
+            confidence = EdgeConfidence.UNCERTAIN
+            attributes = (("binding_blocked", True),)
         graph.edges.append(
             CodeEdge(
                 source_id=source_id,
@@ -588,6 +768,7 @@ def _add_call_edges(
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
                 location=make_location(call_node, file_path),
+                attributes=attributes,
             )
         )
 

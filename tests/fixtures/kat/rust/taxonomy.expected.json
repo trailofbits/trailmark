@@ -809,6 +809,7 @@
     "languages": [
       "rust"
     ],
+    "parse_diagnostics": [],
     "proxies": 5,
     "source_file_counts": {
       "rust": 1

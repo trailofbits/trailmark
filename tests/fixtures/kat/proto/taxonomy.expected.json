@@ -235,6 +235,7 @@
     "languages": [
       "proto"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "proto": 1

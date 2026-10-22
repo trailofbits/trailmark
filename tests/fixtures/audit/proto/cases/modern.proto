@@ -1,0 +1,5 @@
+edition = "2023";
+package audit.modern;
+message Request { string token = 1; }
+message Response { bool ok = 1; }
+service Modern { rpc Check (Request) returns (Response); }

@@ -1,0 +1,24 @@
+use acme::remote
+const ROUNDS = 2
+@locals(4)
+proc helper
+    nop
+end
+proc owner(a: felt) -> felt
+    if.true
+        exec.helper
+    else
+        nop
+    end
+    push.0
+    while.true
+        push.0
+    end
+    repeat.2
+        nop
+    end
+end
+begin
+    push.1
+    exec.owner
+end

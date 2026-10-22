@@ -32,6 +32,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -44,7 +45,13 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._declarations import add_callable, add_type, callable_scope
+from trailmark.parsers._declarations import (
+    add_callable,
+    add_type,
+    bind_lexical_calls,
+    callable_scope,
+)
+from trailmark.parsers._walk import walk_owned
 
 _EXTENSIONS = (".kt", ".kts")
 
@@ -93,6 +100,7 @@ class KotlinParser:
         module_id = module_id_from_path(file_path)
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
+        bind_lexical_calls(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -137,13 +145,14 @@ def _extract_class_like(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    container_id: str | None = None,
 ) -> None:
     """Extract a Kotlin class / interface / data class / object."""
     name_node = first_child_by_type(node, "type_identifier")
-    if name_node is None:
+    if name_node is None and node.type != "companion_object":
         return
-    class_name = node_text(name_node)
-    class_id = f"{module_id}:{class_name}"
+    class_name = node_text(name_node) if name_node is not None else "Companion"
+    class_id = f"{container_id}.{class_name}" if container_id else f"{module_id}:{class_name}"
     kind = _kotlin_class_kind(node)
     unit = CodeUnit(
         id=class_id,
@@ -153,7 +162,7 @@ def _extract_class_like(
         type_parameters=extract_type_parameters(node),
     )
     add_type(graph, unit)
-    add_contains_edge(graph, module_id, class_id)
+    add_contains_edge(graph, container_id or module_id, class_id)
 
     body = first_child_by_type(node, "class_body")
     if body is None:
@@ -163,6 +172,8 @@ def _extract_class_like(
     for member in body.children:
         if member.type == "function_declaration":
             _extract_function(member, file_path, module_id, class_id, graph)
+        elif member.type in {"class_declaration", "object_declaration", "companion_object"}:
+            _extract_class_like(member, file_path, module_id, graph, class_id)
 
 
 def _kotlin_class_kind(node: Node) -> NodeKind:
@@ -196,18 +207,27 @@ def _extract_function(
     module_id: str,
     container_id: str,
     graph: CodeGraph,
+    *,
+    name_override: str | None = None,
 ) -> None:
     """Extract a Kotlin function (top-level or method)."""
     name_node = first_child_by_type(node, "simple_identifier")
-    if name_node is None:
+    if name_node is None and name_override is None:
         return
-    func_name = node_text(name_node)
-    is_method = container_id != module_id
-    func_id = f"{container_id}.{func_name}" if is_method else f"{container_id}:{func_name}"
+    func_name = name_override or (node_text(name_node) if name_node is not None else "")
+    nested = graph.nodes[container_id].kind in {NodeKind.FUNCTION, NodeKind.METHOD}
+    is_method = container_id != module_id and not nested
+    func_id = (
+        f"{container_id}.{func_name}"
+        if container_id != module_id
+        else f"{container_id}:{func_name}"
+    )
 
     params = _extract_parameters(node)
     return_type = _extract_return_type(node)
     body = first_child_by_type(node, "function_body")
+    if node.type == "lambda_literal":
+        body = first_child_by_type(node, "statements")
 
     branches, exception_types, calls = _collect_func_body(body, file_path)
     complexity = compute_complexity(branches)
@@ -227,6 +247,28 @@ def _extract_function(
     func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
 
+    if body is not None:
+        for deferred in walk_owned(
+            body,
+            boundaries=frozenset(
+                {
+                    "function_declaration",
+                    "lambda_literal",
+                    "class_declaration",
+                    "object_declaration",
+                }
+            ),
+        ):
+            if deferred.type in {"function_declaration", "lambda_literal"}:
+                name = first_child_by_type(deferred, "simple_identifier")
+                nested_name = (
+                    node_text(name)
+                    if deferred.type == "function_declaration" and name is not None
+                    else f"$lambda@{deferred.start_point.row + 1}_{deferred.start_point.column}"
+                )
+                _extract_function(
+                    deferred, file_path, module_id, func_id, graph, name_override=nested_name
+                )
     _add_call_edges(calls, func_id, file_path, graph)
 
 
@@ -287,6 +329,14 @@ def _collect_func_body(
             branches,
             exception_types,
             calls,
+            skip_types=frozenset(
+                {
+                    "function_declaration",
+                    "lambda_literal",
+                    "class_declaration",
+                    "object_declaration",
+                }
+            ),
         )
     return branches, exception_types, calls
 
@@ -300,12 +350,17 @@ def _add_call_edges(
     for call_name, call_node in calls:
         confidence = EdgeConfidence.CERTAIN if "." not in call_name else EdgeConfidence.INFERRED
         graph.edges.append(
-            CodeEdge(
-                source_id=source_id,
-                target_id=call_name,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            guard_call(
+                CodeEdge(
+                    source_id=source_id,
+                    target_id=call_name,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                    attributes=(("bare_name", call_name),) if call_name.isidentifier() else (),
+                ),
+                call_node,
+                graph=graph,
             )
         )
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -30,7 +31,7 @@ from trailmark.parsers._simple import (
 )
 
 _EXTENSIONS = (".sw",)
-_BRANCH_TYPES = frozenset({"if_expression", "match_expression", "match_branch"})
+_BRANCH_TYPES = frozenset({"if_expression", "match_expression", "match_branch", "while_expression"})
 _CALL_TYPES = frozenset({"call_expression", "abi_call_expression"})
 
 
@@ -81,6 +82,7 @@ def _extract_abi(node: Node, file_path: str, module_id: str, graph: CodeGraph) -
         name=name,
         kind=NodeKind.INTERFACE,
         location=make_location(node, file_path),
+        attributes=(("sway_abi", True),),
     )
     add_contains_edge(graph, module_id, abi_id)
     body = first_child_type(node, frozenset({"declaration_list"}))
@@ -92,14 +94,32 @@ def _extract_abi(node: Node, file_path: str, module_id: str, graph: CodeGraph) -
 
 
 def _extract_impl(node: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:
-    names = [node_text(child) for child in named_children(node) if child.type == "type_identifier"]
-    container_id = f"{module_id}:{names[0]}" if names else module_id
+    owner = node.child_by_field_name("type")
+    trait = node.child_by_field_name("trait")
+    if owner is not None and owner.type == "generic_type":
+        owner = owner.child_by_field_name("type")
+    owner_name = node_text(owner) if owner is not None else ""
+    trait_name = node_text(trait) if trait is not None else ""
+    name = trait_name or owner_name
+    container_id = f"{module_id}:{name}" if name else module_id
+    abi = owner_name == "Contract" or (
+        container_id in graph.nodes
+        and dict(graph.nodes[container_id].attributes).get("sway_abi") is True
+    )
+    if container_id != module_id and container_id not in graph.nodes:
+        graph.nodes[container_id] = CodeUnit(
+            id=container_id,
+            name=name,
+            kind=NodeKind.CONTRACT if owner_name == "Contract" else NodeKind.STRUCT,
+            location=make_location(node, file_path),
+        )
+        add_contains_edge(graph, module_id, container_id)
     body = first_child_type(node, frozenset({"declaration_list"}))
     if body is None:
         return
     for child in named_children(body):
         if child.type == "function_item":
-            _extract_function(child, file_path, module_id, container_id, graph)
+            _extract_function(child, file_path, module_id, container_id, graph, abi=abi)
 
 
 def _extract_struct(
@@ -140,6 +160,7 @@ def _extract_signature(
         location=make_location(node, file_path),
         parameters=extract_parameters(node),
         return_type=return_type_after_params(node),
+        attributes=(("sway_abi", True),),
     )
     add_contains_edge(graph, container_id, method_id)
 
@@ -150,11 +171,20 @@ def _extract_function(
     module_id: str,
     container_id: str,
     graph: CodeGraph,
+    *,
+    abi: bool = False,
 ) -> None:
     name = child_text(node, frozenset({"identifier"}))
     if not name:
         return
     func_id = f"{container_id}.{name}" if container_id != module_id else f"{module_id}:{name}"
+    previous = graph.nodes.get(func_id)
+    if previous is not None and dict(previous.attributes).get("sway_abi"):
+        declaration_id = f"{func_id}#declaration"
+        graph.nodes[declaration_id] = replace(
+            previous, id=declaration_id, attributes=(("declaration_only", True),)
+        )
+        add_contains_edge(graph, container_id, declaration_id)
     body = first_child_type(node, frozenset({"block"}))
     branches, calls = collect_branches_and_calls(
         body,
@@ -171,6 +201,7 @@ def _extract_function(
         return_type=return_type_after_params(node),
         cyclomatic_complexity=compute_complexity(branches),
         branches=tuple(branches),
+        attributes=(("sway_abi", abi),),
     )
     add_contains_edge(graph, container_id, func_id)
     for call in calls:

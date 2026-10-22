@@ -286,6 +286,7 @@
     "languages": [
       "r"
     ],
+    "parse_diagnostics": [],
     "proxies": 3,
     "source_file_counts": {
       "r": 1

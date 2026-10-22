@@ -52,6 +52,9 @@
       "return_type": null
     },
     "taxonomy:get_balance": {
+      "attributes": {
+        "func_method_id": "method_id"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -169,6 +172,7 @@
     "languages": [
       "func"
     ],
+    "parse_diagnostics": [],
     "proxies": 0,
     "source_file_counts": {
       "func": 1

@@ -1,0 +1,10 @@
+type Query {
+  optional: User
+  required: User!
+  list: [User]
+  strictList: [User!]!
+  matrix: [[User!]!]!
+  users(ids: [ID!]!, filter: [Filter!]! = [{enabled: true}]): [User!]!
+}
+input Filter { enabled: Boolean = true }
+type User { id: ID! }

@@ -1,0 +1,1 @@
+helper() { printf "replacement\n"; }

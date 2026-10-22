@@ -32,6 +32,7 @@
     },
     {
       "attributes": {
+        "bare_name": "Int",
         "raw_target": "Int"
       },
       "confidence": "certain",
@@ -41,6 +42,7 @@
     },
     {
       "attributes": {
+        "bare_name": "NSError",
         "raw_target": "NSError"
       },
       "confidence": "certain",
@@ -74,6 +76,7 @@
     },
     {
       "attributes": {
+        "bare_name": "NSError",
         "raw_target": "NSError"
       },
       "confidence": "certain",
@@ -321,7 +324,7 @@
       "parameters": [
         {
           "default": null,
-          "name": "_",
+          "name": "other",
           "type_ref": {
             "generic_args": [],
             "module": null,
@@ -371,7 +374,7 @@
       "parameters": [
         {
           "default": null,
-          "name": "_",
+          "name": "name",
           "type_ref": {
             "generic_args": [],
             "module": null,
@@ -421,7 +424,7 @@
       "parameters": [
         {
           "default": null,
-          "name": "_",
+          "name": "a",
           "type_ref": {
             "generic_args": [],
             "module": null,
@@ -430,7 +433,7 @@
         },
         {
           "default": null,
-          "name": "_",
+          "name": "b",
           "type_ref": {
             "generic_args": [],
             "module": null,
@@ -570,7 +573,7 @@
       "parameters": [
         {
           "default": null,
-          "name": "_",
+          "name": "d",
           "type_ref": {
             "generic_args": [],
             "module": null,
@@ -599,6 +602,7 @@
     "languages": [
       "swift"
     ],
+    "parse_diagnostics": [],
     "proxies": 3,
     "source_file_counts": {
       "swift": 1

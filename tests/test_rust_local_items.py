@@ -320,7 +320,7 @@ fn second() { struct Guard; impl Drop for Guard { fn drop(&mut self) { second_ef
             "struct M; impl M { fn try_lock(&self) -> bool { true }"
             "fn lock_internal(&self, try_lock: impl FnOnce() -> bool) -> bool { try_lock() } }",
             "M.lock_internal",
-            "resolution:try_lock",
+            "resolution:M.lock_internal.$binding.try_lock",
         ),
         (
             "fn dangerous() {} fn helper() { dangerous(); } struct S;"

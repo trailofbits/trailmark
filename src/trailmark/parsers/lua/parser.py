@@ -131,10 +131,21 @@ class _Extractor:
                         target = binding.target
                         if target:
                             confidence = EdgeConfidence.CERTAIN
-                elif raw not in global_writes and len(self.globals.get(raw, [])) == 1:
+                elif (
+                    call_scope.lookup("_ENV", node.start_byte) is None
+                    and "_ENV" not in global_writes
+                    and raw not in global_writes
+                    and len(self.globals.get(raw, [])) == 1
+                ):
                     target = self.globals[raw][0]
                     confidence = EdgeConfidence.INFERRED
-                elif raw == "require" and raw not in global_writes and raw not in self.globals:
+                elif (
+                    call_scope.lookup("_ENV", node.start_byte) is None
+                    and "_ENV" not in global_writes
+                    and raw == "require"
+                    and raw not in global_writes
+                    and raw not in self.globals
+                ):
                     self.import_node(node)
             # Always qualify unresolved Lua calls: a unique function in another
             # file is insufficient evidence about Lua globals or receiver tables.
@@ -222,7 +233,11 @@ class _Extractor:
                 self.writes.append((raw, node.start_byte, scope))
             else:
                 self.globals.setdefault(raw, []).append(ident)
-        elif raw_name is not None and "." not in normalized:
+        elif (
+            raw_name is not None
+            and "." not in normalized
+            and scope.lookup(raw, node.start_byte) is None
+        ):
             self.globals.setdefault(raw, []).append(ident)
         child_scope = _Scope(scope)
         for parameter in params:

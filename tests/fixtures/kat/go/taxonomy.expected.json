@@ -231,6 +231,9 @@
       "return_type": null
     },
     "taxonomy": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -249,6 +252,9 @@
       "return_type": null
     },
     "taxonomy:Add": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -272,6 +278,15 @@
             "module": null,
             "name": "int"
           }
+        },
+        {
+          "default": null,
+          "name": "b",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
         }
       ],
       "return_type": {
@@ -281,6 +296,9 @@
       }
     },
     "taxonomy:Animal": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -299,6 +317,9 @@
       "return_type": null
     },
     "taxonomy:Animal.Describe": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -321,6 +342,9 @@
       }
     },
     "taxonomy:Branchy": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -429,6 +453,9 @@
       }
     },
     "taxonomy:Dog": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -447,6 +474,9 @@
       "return_type": null
     },
     "taxonomy:Dog.Bark": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -491,6 +521,9 @@
       }
     },
     "taxonomy:Dog.Greet": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -523,6 +556,9 @@
       }
     },
     "taxonomy:Greeter": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -541,6 +577,9 @@
       "return_type": null
     },
     "taxonomy:NewAnimal": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -573,6 +612,9 @@
       }
     },
     "taxonomy:NewDog": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -596,6 +638,15 @@
             "module": null,
             "name": "string"
           }
+        },
+        {
+          "default": null,
+          "name": "breed",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
         }
       ],
       "return_type": {
@@ -605,6 +656,9 @@
       }
     },
     "taxonomy:UseAnimal": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -653,6 +707,7 @@
     "languages": [
       "go"
     ],
+    "parse_diagnostics": [],
     "proxies": 4,
     "source_file_counts": {
       "go": 1

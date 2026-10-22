@@ -26,6 +26,16 @@
     },
     {
       "attributes": {
+        "raw_target": "int.parse"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "proxy.unresolved:int.parse"
+    },
+    {
+      "attributes": {
+        "bare_name": "StateError",
         "raw_target": "StateError"
       },
       "confidence": "certain",
@@ -49,6 +59,12 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Animal",
+      "target": "taxonomy:Animal.Animal"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Animal",
       "target": "taxonomy:Animal.describe"
     },
     {
@@ -61,10 +77,17 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy:Dog",
+      "target": "taxonomy:Dog.Dog"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Dog",
       "target": "taxonomy:Dog.bark"
     },
     {
       "attributes": {
+        "bare_name": "StateError",
         "raw_target": "StateError"
       },
       "confidence": "certain",
@@ -83,6 +106,15 @@
       "kind": "contains",
       "source": "taxonomy",
       "target": "taxonomy:useAnimal"
+    },
+    {
+      "attributes": {
+        "raw_target": "d.bark"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:useAnimal",
+      "target": "proxy.unresolved:d.bark"
     },
     {
       "attributes": {
@@ -115,6 +147,52 @@
         "start_line": 31
       },
       "name": "StateError",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:d.bark": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "d.bark"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:d.bark",
+      "kind": "proxy",
+      "location": {
+        "end_col": 46,
+        "end_line": 66,
+        "file_path": "taxonomy.dart",
+        "start_col": 33,
+        "start_line": 66
+      },
+      "name": "d.bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:int.parse": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "int.parse"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:int.parse",
+      "kind": "proxy",
+      "location": {
+        "end_col": 26,
+        "end_line": 29,
+        "file_path": "taxonomy.dart",
+        "start_col": 20,
+        "start_line": 29
+      },
+      "name": "int.parse",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
@@ -155,7 +233,37 @@
       "parameters": [],
       "return_type": null
     },
+    "taxonomy:Animal.Animal": {
+      "attributes": {
+        "dart_constructor": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Animal.Animal",
+      "kind": "method",
+      "location": {
+        "end_col": 19,
+        "end_line": 43,
+        "file_path": "taxonomy.dart",
+        "start_col": 2,
+        "start_line": 43
+      },
+      "name": "Animal",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
     "taxonomy:Animal.describe": {
+      "attributes": {
+        "dart_constructor": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -195,7 +303,41 @@
       "parameters": [],
       "return_type": null
     },
+    "taxonomy:Dog.Dog": {
+      "attributes": {
+        "dart_constructor": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Dog.Dog",
+      "kind": "method",
+      "location": {
+        "end_col": 3,
+        "end_line": 53,
+        "file_path": "taxonomy.dart",
+        "start_col": 2,
+        "start_line": 51
+      },
+      "name": "Dog",
+      "parameters": [
+        {
+          "default": null,
+          "name": "name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "String"
+          }
+        }
+      ],
+      "return_type": null
+    },
     "taxonomy:Dog.bark": {
+      "attributes": {
+        "dart_constructor": false
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -230,6 +372,9 @@
       }
     },
     "taxonomy:Dog.greet": {
+      "attributes": {
+        "dart_constructor": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -280,6 +425,9 @@
       "return_type": null
     },
     "taxonomy:Greeter.greet": {
+      "attributes": {
+        "dart_constructor": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -312,6 +460,9 @@
       }
     },
     "taxonomy:add": {
+      "attributes": {
+        "dart_constructor": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -353,6 +504,9 @@
       }
     },
     "taxonomy:branchy": {
+      "attributes": {
+        "dart_constructor": false
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -461,6 +615,9 @@
       }
     },
     "taxonomy:fetchAsync": {
+      "attributes": {
+        "dart_constructor": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -493,6 +650,9 @@
       }
     },
     "taxonomy:useAnimal": {
+      "attributes": {
+        "dart_constructor": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -529,20 +689,21 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 2,
+    "call_edges": 4,
     "classes": 3,
     "dependencies": [],
     "entrypoints": 0,
-    "functions": 8,
+    "functions": 10,
     "languages": [
       "dart"
     ],
-    "proxies": 1,
+    "parse_diagnostics": [],
+    "proxies": 3,
     "source_file_counts": {
       "dart": 1
     },
     "source_files": 1,
-    "total_nodes": 13
+    "total_nodes": 17
   },
   "trailmark_version": "<trailmark-version>"
 }

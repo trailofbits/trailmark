@@ -435,6 +435,7 @@ class TestAnalyzeCommand:
             "languages",
             "source_files",
             "source_file_counts",
+            "parse_diagnostics",
         }
         # Nodes is a dict, edges is a list
         assert isinstance(data["nodes"], dict)
@@ -530,7 +531,7 @@ class TestAnalyzeCommand:
         ):
             main()
         lines = mock_out.getvalue().strip().split("\n")
-        assert len(lines) == 9
+        assert len(lines) == 10
         # Verify exact line format with exact string matching
         assert lines[0] == "Nodes: 3"
         assert lines[1] == "  Functions: 1"
@@ -541,6 +542,7 @@ class TestAnalyzeCommand:
         assert lines[6] == "Entrypoints: 0"
         assert lines[7] == "Languages: python"
         assert lines[8] == "Source files: 1"
+        assert lines[9] == "Parse diagnostics: 0"
 
     def test_analyze_summary_with_dependencies(
         self,

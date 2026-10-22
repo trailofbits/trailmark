@@ -16,6 +16,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -27,6 +28,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._ecmascript import discover_callables
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -62,11 +64,13 @@ class TypeScriptParser:
 
     def __init__(self) -> None:
         self._parser = Parser(get_language("typescript"))
+        self._tsx_parser = Parser(get_language("tsx"))
 
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single TypeScript file into a CodeGraph."""
         source = Path(file_path).read_bytes()
-        tree = self._parser.parse(source)
+        parser = self._tsx_parser if Path(file_path).suffix.lower() == ".tsx" else self._parser
+        tree = parser.parse(source)
         graph = CodeGraph(language="typescript", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
@@ -92,6 +96,22 @@ def _visit_module(
     add_module_node(root, file_path, module_id, graph)
     for child in root.children:
         _visit_top_level_node(child, file_path, module_id, graph)
+    discover_callables(
+        root,
+        file_path,
+        module_id,
+        graph,
+        lambda node, name, owner, method: _extract_function(
+            node,
+            file_path,
+            module_id,
+            owner if method else None,
+            graph,
+            name_override=name,
+            owner_id=owner,
+            is_method=method,
+        ),
+    )
 
 
 def _visit_top_level_node(
@@ -237,6 +257,7 @@ def _extract_function_expr(
             branches,
             exception_types,
             calls,
+            skip_types=_FUNCTION_SCOPE_TYPES,
         )
 
     complexity = compute_complexity(branches)
@@ -504,6 +525,10 @@ def _extract_interface_member(
         name=member_name,
         kind=NodeKind.METHOD,
         location=location,
+        parameters=tuple(_extract_parameters(node)),
+        return_type=_extract_return_type(node),
+        type_parameters=extract_type_parameters(node),
+        attributes=(("declaration_only", True),),
     )
     graph.nodes[member_id] = member_unit
     add_contains_edge(graph, iface_id, member_id)
@@ -565,6 +590,7 @@ def _extract_method(
             branches,
             exception_types,
             calls,
+            skip_types=_FUNCTION_SCOPE_TYPES,
         )
 
     complexity = compute_complexity(branches)
@@ -602,14 +628,26 @@ def _extract_function(
     module_id: str,
     class_id: str | None,
     graph: CodeGraph,
+    *,
+    name_override: str | None = None,
+    owner_id: str | None = None,
+    is_method: bool = False,
 ) -> None:
     """Extract a function or generator function declaration."""
     name_node = node.child_by_field_name("name")
-    if name_node is None:
+    if name_node is None and name_override is None:
         return
-    func_name = node_text(name_node)
+    func_name = (
+        name_override
+        if name_override is not None
+        else (node_text(name_node) if name_node is not None else "")
+    )
 
-    if class_id is not None:
+    if owner_id is not None:
+        func_id = f"{owner_id}.{func_name}" if owner_id != module_id else f"{module_id}:{func_name}"
+        kind = NodeKind.METHOD if is_method else NodeKind.FUNCTION
+        container_id = owner_id
+    elif class_id is not None:
         func_id = f"{class_id}.{func_name}"
         kind = NodeKind.METHOD
         container_id = class_id
@@ -636,6 +674,7 @@ def _extract_function(
             branches,
             exception_types,
             calls,
+            skip_types=_FUNCTION_SCOPE_TYPES,
         )
 
     complexity = compute_complexity(branches)
@@ -843,12 +882,16 @@ def _add_call_edges(
             target_id = _resolve_call_target(call_name, module_id, class_id)
         confidence = _call_confidence(call_name)
         graph.edges.append(
-            CodeEdge(
-                source_id=source_id,
-                target_id=target_id,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            guard_call(
+                CodeEdge(
+                    source_id=source_id,
+                    target_id=target_id,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                ),
+                call_node,
+                graph=graph,
             )
         )
 
@@ -882,16 +925,49 @@ def _nearest_function_scope(node: Node) -> Node | None:
 
 
 def _latest_receiver_assignment(scope: Node, call_node: Node, receiver: str) -> str | None:
-    latest: tuple[int, str] | None = None
+    latest: str | None = None
+    ancestors: set[Node] = set()
+    current = call_node.parent
+    while current is not None:
+        ancestors.add(current)
+        current = current.parent
     for node in _walk_nodes(scope):
         if node.start_byte >= call_node.start_byte:
             continue
         if _nearest_function_scope(node) != scope:
             continue
-        concrete_class = _receiver_assignment_class(node, receiver)
-        if concrete_class is not None:
-            latest = (node.start_byte, concrete_class)
-    return latest[1] if latest is not None else None
+        field = {"variable_declarator": "name", "assignment_expression": "left"}.get(node.type)
+        assigned = node.child_by_field_name(field) if field is not None else None
+        if assigned is None or node_text(assigned) != receiver:
+            continue
+        parent = node.parent
+        conditional = False
+        visible = True
+        while parent is not None and parent != scope:
+            if (
+                node.type == "variable_declarator"
+                and parent.type == "statement_block"
+                and parent not in ancestors
+            ):
+                visible = False
+                break
+            if (
+                parent.type
+                in {
+                    "if_statement",
+                    "switch_case",
+                    "for_statement",
+                    "while_statement",
+                    "ternary_expression",
+                    "catch_clause",
+                }
+                and parent not in ancestors
+            ):
+                conditional = True
+            parent = parent.parent
+        if visible:
+            latest = None if conditional else _receiver_assignment_class(node, receiver)
+    return latest
 
 
 def _receiver_assignment_class(node: Node, receiver: str) -> str | None:

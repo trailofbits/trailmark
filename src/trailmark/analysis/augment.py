@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, cast
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 from trailmark.models.annotations import Annotation, AnnotationKind
 from trailmark.models.graph import CodeGraph
@@ -121,6 +121,7 @@ def augment_from_sarif(
                 result,
                 tool_name,
                 graph,
+                run,
             )
             if node_ids:
                 matched += 1
@@ -330,6 +331,7 @@ def _process_sarif_result(
     result: dict[str, Any],
     tool_name: str,
     graph: CodeGraph,
+    run: dict[str, Any],
 ) -> set[str]:
     """Map a single SARIF result to graph nodes and annotate them.
 
@@ -342,7 +344,7 @@ def _process_sarif_result(
 
     for loc in locations:
         phys = loc.get("physicalLocation", {})
-        node_ids = _nodes_from_physical_location(phys, graph)
+        node_ids = _nodes_from_physical_location(phys, graph, run)
         all_node_ids.update(node_ids)
 
     _annotate_nodes(graph, all_node_ids, description, source)
@@ -352,10 +354,11 @@ def _process_sarif_result(
 def _nodes_from_physical_location(
     phys: dict[str, Any],
     graph: CodeGraph,
+    run: dict[str, Any],
 ) -> list[str]:
     """Resolve a SARIF physicalLocation to overlapping graph nodes."""
     artifact = phys.get("artifactLocation", {})
-    uri = artifact.get("uri", "")
+    uri = _artifact_uri(artifact, run)
     if not uri:
         return []
 
@@ -368,6 +371,45 @@ def _nodes_from_physical_location(
         return []
 
     return _find_overlapping_nodes(graph, rel_path, start_line, end_line)
+
+
+def _artifact_uri(
+    artifact: dict[str, Any], run: dict[str, Any], seen: frozenset[str] = frozenset()
+) -> str | None:
+    """Resolve SARIF artifact indices and chained URI bases without guessing.
+
+    An unknown/cyclic base or invalid artifact index remains unmatched. In
+    particular, never discard a base and silently reinterpret its URI relative
+    to the analysis root.
+    """
+    uri = artifact.get("uri")
+    if uri is None:
+        index = artifact.get("index")
+        artifacts = run.get("artifacts", [])
+        if (
+            type(index) is not int
+            or not isinstance(artifacts, list)
+            or not 0 <= index < len(artifacts)
+            or f"index:{index}" in seen
+        ):
+            return None
+        record = artifacts[index]
+        if not isinstance(record, dict) or not isinstance(record.get("location"), dict):
+            return None
+        return _artifact_uri(record["location"], run, seen | {f"index:{index}"})
+    if not isinstance(uri, str):
+        return None
+    base_id = artifact.get("uriBaseId")
+    if base_id is None or urlparse(uri).scheme:
+        return uri
+    bases = run.get("originalUriBaseIds", {})
+    if not isinstance(base_id, str) or base_id in seen or not isinstance(bases, dict):
+        return None
+    base = bases.get(base_id)
+    if not isinstance(base, dict):
+        return None
+    base_uri = _artifact_uri(base, run, seen | {base_id})
+    return urljoin(base_uri, uri) if base_uri else None
 
 
 def _add_to_subgraphs(

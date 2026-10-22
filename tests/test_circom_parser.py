@@ -203,7 +203,7 @@ class TestCircomParserEdges:
 class TestCircomParserDependencies:
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
-        assert "poseidon" in graph.dependencies
+        assert "circomlib/poseidon.circom" in graph.dependencies
 
 
 class TestCircomParseDirectory:

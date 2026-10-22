@@ -91,7 +91,9 @@ _RS_HTTP_ATTR = re.compile(
 _RS_ASYNC_MAIN_ATTR = re.compile(r"^\s*#\[\s*\w+::main\s*\]\s*$")
 
 # Rust FFI export: #[no_mangle] or `pub extern "C" fn`
-_RS_NO_MANGLE = re.compile(r"^\s*#\[\s*no_mangle\s*\]\s*$")
+_RS_NO_MANGLE = re.compile(
+    r'^\s*#\[\s*(?:unsafe\s*\(\s*)?(?:no_mangle|export_name\s*=\s*"[^"\\]*(?:\\.[^"\\]*)*")\s*\)?\s*\]\s*$'
+)
 _RS_EXTERN_C_FN = re.compile(r"\bpub\s+(?:unsafe\s+)?extern\s+\"C\"\s+fn\b")
 
 # JS/TS — NestJS method decorators: @Get(), @Post(), @Put(), @Delete(), @Patch(),
@@ -271,7 +273,7 @@ def _detect_framework_entrypoints(graph: CodeGraph) -> dict[str, EntrypointTag]:
         if not path:
             continue
 
-        tag = _detect_for_unit(cache, unit, path)
+        tag = _detect_for_unit(cache, unit, path, graph)
         if tag is not None:
             result[node_id] = tag
     _annotate_overridden_solidity_entrypoints(graph, result)
@@ -282,6 +284,7 @@ def _detect_for_unit(
     cache: _SourceCache,
     unit: CodeUnit,
     path: str,
+    graph: CodeGraph,
 ) -> EntrypointTag | None:
     extension = Path(path).suffix.lower()
     if extension == ".py":
@@ -307,7 +310,7 @@ def _detect_for_unit(
     if extension in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
         return _detect_js_ts(cache, unit, path)
     if extension == ".java":
-        return _detect_java(cache, unit, path)
+        return _detect_java(cache, unit, path, servlet_callback=_java_servlet_callback(graph, unit))
     if extension == ".cs":
         return _detect_csharp(cache, unit, path)
     if extension == ".php":
@@ -575,10 +578,50 @@ def _detect_nextjs_route(unit: CodeUnit, path: str) -> EntrypointTag | None:
     return None
 
 
+def _java_servlet_callback(graph: CodeGraph, unit: CodeUnit) -> bool:
+    if (
+        unit.kind != NodeKind.METHOD
+        or dict(unit.attributes).get("java_static")
+        or dict(unit.attributes).get("java_private")
+        or len(unit.parameters) != 2
+        or unit.return_type is None
+        or unit.return_type.name != "void"
+    ):
+        return False
+    types = [
+        p.type_ref.name.rsplit(".", 1)[-1] if p.type_ref is not None else ""
+        for p in unit.parameters
+    ]
+    if types != ["HttpServletRequest", "HttpServletResponse"]:
+        return False
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    bases: dict[str, list[str]] = {}
+    for edge in graph.edges:
+        if edge.kind == EdgeKind.INHERITS:
+            bases.setdefault(edge.source_id, []).append(edge.target_id)
+    pending = [owners.get(unit.id, "")]
+    seen = set()
+    while pending:
+        owner = pending.pop()
+        if owner in seen:
+            continue
+        seen.add(owner)
+        declaration = graph.nodes.get(owner)
+        if (
+            declaration is not None
+            and dict(declaration.attributes).get("java_servlet_base") is True
+        ):
+            return True
+        pending.extend(bases.get(owner, ()))
+    return False
+
+
 def _detect_java(
     cache: _SourceCache,
     unit: CodeUnit,
     path: str,
+    *,
+    servlet_callback: bool = False,
 ) -> EntrypointTag | None:
     decorators = cache.declarations.decorators(unit)
     for line in decorators:
@@ -604,7 +647,15 @@ def _detect_java(
                 asset_value=AssetValue.MEDIUM,
             )
     # Servlet convention: method names doGet/doPost/... on an HttpServlet.
-    if unit.name in {"doGet", "doPost", "doPut", "doDelete", "doHead", "doOptions", "doTrace"}:
+    if servlet_callback and unit.name in {
+        "doGet",
+        "doPost",
+        "doPut",
+        "doDelete",
+        "doHead",
+        "doOptions",
+        "doTrace",
+    }:
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
@@ -660,6 +711,13 @@ def _detect_cairo(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
+    if dict(unit.attributes).get("cairo_abi") is True:
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Cairo/StarkNet embedded ABI method",
+            asset_value=AssetValue.HIGH,
+        )
     decorators = cache.declarations.decorators(unit)
     for line in decorators:
         if _CAIRO_CONTRACT_ATTR.match(line):
@@ -694,8 +752,16 @@ def _detect_masm(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
+    role = _unit_attr(unit, "masm_role")
+    if role == "program":
+        return EntrypointTag(
+            kind=EntrypointKind.USER_INPUT,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Miden Assembly program begin block",
+            asset_value=AssetValue.HIGH,
+        )
     signature = cache.line(path, unit.location.start_line) or ""
-    if _MASM_EXPORT.match(signature):
+    if role == "public" or _MASM_EXPORT.match(signature):
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
@@ -730,10 +796,7 @@ def _detect_erlang(
     path: str,
 ) -> EntrypointTag | None:
     """Mark any function listed in -export([...]) as an entrypoint."""
-    exported = _erlang_exported_names(cache, path)
-    if not exported:
-        return None
-    if unit.name in exported:
+    if dict(unit.attributes).get("erlang_exported") is True:
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.SEMI_TRUSTED_EXTERNAL,
@@ -867,27 +930,21 @@ def _detect_ruby(
     ``include Sidekiq::Job``. Their ``perform`` method handles queue
     messages — only that one method is tagged per worker class.
     """
-    controllers = cache.ruby_rails_controller_classes(path)
-    workers = cache.ruby_sidekiq_worker_classes(path)
-    if not controllers and not workers:
-        return None
-
-    # Node IDs look like "module:ClassName.method" for methods, or just
-    # "module:ClassName" for the class itself. Only tag method nodes.
-    if unit.kind.value != "method":
-        return None
-    node_id = unit.id
-    if ":" not in node_id or "." not in node_id:
-        return None
-    class_part = node_id.split(":", 1)[1].split(".", 1)[0]
-    if class_part in controllers:
+    attributes = dict(unit.attributes)
+    instance = attributes.get("ruby_receiver") == "instance"
+    if (
+        instance
+        and attributes.get("ruby_controller") is True
+        and attributes.get("ruby_visibility") == "public"
+        and unit.name != "initialize"
+    ):
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
             description="Rails controller action",
             asset_value=AssetValue.HIGH,
         )
-    if class_part in workers and unit.name == "perform":
+    if instance and attributes.get("ruby_worker") is True and unit.name == "perform":
         return EntrypointTag(
             kind=EntrypointKind.THIRD_PARTY,
             trust_level=TrustLevel.SEMI_TRUSTED_EXTERNAL,
@@ -954,8 +1011,10 @@ def _detect_move(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    signature = cache.signature_block(path, unit.location.start_line) or ""
-    if unit.kind.value == "function" and (" entry " in signature or "public" in signature):
+    attributes = dict(unit.attributes)
+    if unit.kind.value == "function" and (
+        attributes.get("move_entry") or attributes.get("move_public")
+    ):
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
@@ -978,7 +1037,9 @@ def _detect_tact(unit: CodeUnit) -> EntrypointTag | None:
 
 
 def _detect_func(unit: CodeUnit) -> EntrypointTag | None:
-    if unit.name in {"recv_internal", "recv_external"} or unit.name.startswith("get_"):
+    if unit.name in {"recv_internal", "recv_external", "run_ticktock"} or "func_method_id" in dict(
+        unit.attributes
+    ):
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
@@ -1001,11 +1062,7 @@ def _detect_sway(
             description="Sway public function",
             asset_value=AssetValue.HIGH,
         )
-    if (
-        unit.kind.value == "method"
-        and re.search(r"\bfn\s+\w+\s*\(", signature)
-        and ";" in signature
-    ):
+    if unit.kind.value == "method" and dict(unit.attributes).get("sway_abi") is True:
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,

@@ -87,6 +87,11 @@ def resolve_inherited_method_calls(graph: CodeGraph) -> None:
         owner = owners.get(unit.id)
         if unit.kind == NodeKind.METHOD and owner is not None:
             methods.setdefault((owner, unit.name), []).append(unit)
+    states = {
+        (owners.get(unit.id), unit.name)
+        for unit in graph.nodes.values()
+        if unit.kind == NodeKind.STATE_VARIABLE
+    }
     inherited_methods = {
         key: [
             unit
@@ -101,7 +106,11 @@ def resolve_inherited_method_calls(graph: CodeGraph) -> None:
     edges = []
     for edge in graph.edges:
         owner = owners.get(edge.source_id)
-        if edge.kind != EdgeKind.CALLS or owner not in bases:
+        if (
+            edge.kind != EdgeKind.CALLS
+            or owner not in bases
+            or dict(edge.attributes).get("binding_blocked")
+        ):
             edges.append(edge)
             continue
         if owner not in ancestors:
@@ -124,6 +133,20 @@ def resolve_inherited_method_calls(graph: CodeGraph) -> None:
         elif edge.target_id.startswith(prefix):
             name = edge.target_id[len(prefix) :]
         if name and not any(separator in name for separator in (":", ".", "->", "@")):
+            if any((base, name) in states for base in ancestors[owner] | {owner}):
+                edges.append(
+                    replace(
+                        edge,
+                        target_id=f"{edge.source_id}.$binding.{name}",
+                        confidence=EdgeConfidence.UNCERTAIN,
+                        attributes=(
+                            *edge.attributes,
+                            ("binding_blocked", True),
+                            ("binding_reason", "inherited_state_value"),
+                        ),
+                    )
+                )
+                continue
             key = (owner, name)
             if key not in cache:
                 cache[key] = _inherited_candidates(

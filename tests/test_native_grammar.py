@@ -39,7 +39,7 @@ def test_native_grammar_configuration_is_immutable(tmp_path: Path, field: str) -
         setattr(grammar, field, None)
 
 
-@pytest.mark.parametrize("name", ["circom", "masm", "verus"])
+@pytest.mark.parametrize("name", ["circom", "masm", "move", "verus"])
 def test_bundled_manifest_includes_every_compiled_source_and_header(name: str) -> None:
     from importlib import import_module
 

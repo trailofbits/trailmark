@@ -35,6 +35,11 @@ Proxy and binary nodes are never matched. Relative and absolute analysis roots
 match the same findings. Findings that overlap no node are counted as
 unmatched.
 
+SARIF artifact indices resolve through the run's `artifacts` array. Relative
+URIs with `uriBaseId` resolve through chained `originalUriBaseIds` before source
+matching. Unknown or cyclic bases and invalid indices remain unmatched rather
+than binding to a same-named file under the analysis root.
+
 | Input | Annotation | `source` | Subgraphs created |
 | --- | --- | --- | --- |
 | SARIF 2.1.0 result | `finding`, described as `[LEVEL] ruleId: message (tool)` | `sarif:<tool>` | `sarif:<level>` (default level `warning`), `sarif:<tool>` |

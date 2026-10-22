@@ -10,6 +10,7 @@ from pathlib import Path
 from tree_sitter import Language, Node, Parser, Range, Tree
 from tree_sitter_language_pack import get_language
 
+from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
@@ -20,6 +21,7 @@ from trailmark.models.nodes import (
     SourceLocation,
     TypeRef,
 )
+from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -100,7 +102,7 @@ class RustParser:
         while stack:
             child, module_id, container_id = stack.pop()
             if child.type == "macro_invocation" and has_verus:
-                tree = self._parse_macro(source, child, file_path)
+                tree = self._parse_macro(source, child, file_path, graph)
                 declarations = _declarations_in(tree.root_node) if tree is not None else []
             else:
                 self._record_use(child, module_id, container_id, graph)
@@ -109,7 +111,7 @@ class RustParser:
                 )
                 self._record_declaration(child, module_id, container_id)
                 if child.type == "function_item":
-                    _warn_hidden_verus(child, file_path, "inside a function body")
+                    _warn_hidden_verus(child, file_path, "inside a function body", graph)
             stack.extend((nested, module_id, container_id) for nested in reversed(declarations))
 
     def _record_use(
@@ -130,13 +132,15 @@ class RustParser:
         }:
             self._declarations[container] = node
 
-    def _parse_macro(self, source: bytes, node: Node, file_path: str) -> Tree | None:
+    def _parse_macro(
+        self, source: bytes, node: Node, file_path: str, graph: CodeGraph | None = None
+    ) -> Tree | None:
         if _enclosing_function(node) is not None:
             return None
         name = _macro_name(node)
         if name is not None and node_text(name) == "verus":
-            return self._parse_verus_block(source, node, file_path)
-        _warn_hidden_verus(node, file_path, "inside an opaque macro")
+            return self._parse_verus_block(source, node, file_path, graph)
+        _warn_hidden_verus(node, file_path, "inside an opaque macro", graph)
         return None
 
     def _load_verus_parser(self) -> Parser | None:
@@ -156,26 +160,32 @@ class RustParser:
                 _LOGGER.warning("Could not load the Verus grammar; skipping verus! blocks: %s", exc)
         return self._verus_parser
 
-    def _parse_verus_block(self, source: bytes, node: Node, file_path: str) -> Tree | None:
+    def _parse_verus_block(
+        self, source: bytes, node: Node, file_path: str, graph: CodeGraph | None = None
+    ) -> Tree | None:
         """Parse one block independently so error recovery cannot consume its neighbors."""
         token_tree = next(
             (child for child in node.named_children if child.type == "token_tree"), None
         )
         opening = token_tree.child(0) if token_tree is not None else None
         if opening is None or opening.type != "{":
-            _warn_skipped(node, file_path, "unsupported Verus delimiter; expected braces")
+            _warn_skipped(node, file_path, "unsupported Verus delimiter; expected braces", graph)
             return None
         parser = self._load_verus_parser()
         if parser is None:
+            _record_skipped(node, file_path, "Verus grammar unavailable", graph)
             return None
         name = _macro_name(node)
         start = name if name is not None else node
         parser.included_ranges = [
             Range(start.start_point, node.end_point, start.start_byte, node.end_byte)
         ]
-        tree = parser.parse(_mask_unsupported_verus(source, node, file_path))
+        masked = _mask_unsupported_verus(source, node, file_path)
+        if masked != source:
+            _record_skipped(node, file_path, "unsupported nested Verus delimiter", graph)
+        tree = parser.parse(masked)
         if tree.root_node.has_error:
-            _warn_skipped(node, file_path, "Verus syntax errors; graph may be incomplete")
+            _warn_skipped(node, file_path, "Verus syntax errors; graph may be incomplete", graph)
         return tree
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -274,18 +284,34 @@ def _verus_token_trees(root: Node) -> list[tuple[Node, Node]]:
     return invocations
 
 
-def _warn_skipped(node: Node, file_path: str, reason: str) -> None:
+def _warn_skipped(node: Node, file_path: str, reason: str, graph: CodeGraph | None = None) -> None:
     _LOGGER.warning(
         "%s:%d:%d: %s", file_path, node.start_point.row + 1, node.start_point.column + 1, reason
     )
+    _record_skipped(node, file_path, reason, graph)
 
 
-def _warn_hidden_verus(node: Node, file_path: str, reason: str) -> None:
+def _record_skipped(node: Node, file_path: str, reason: str, graph: CodeGraph | None) -> None:
+    if graph is not None:
+        graph.parse_diagnostics.append(
+            ParseDiagnostic(
+                "rust",
+                "verus",
+                make_location(node, file_path),
+                "unsupported_syntax",
+                reason,
+            )
+        )
+
+
+def _warn_hidden_verus(
+    node: Node, file_path: str, reason: str, graph: CodeGraph | None = None
+) -> None:
     if b"verus" not in (node.text or b""):
         return
     invocations = _verus_token_trees(node)
     if invocations:
-        _warn_skipped(invocations[0][0], file_path, f"skipping Verus declarations {reason}")
+        _warn_skipped(invocations[0][0], file_path, f"skipping Verus declarations {reason}", graph)
 
 
 def _visit_top_level_node(
@@ -477,7 +503,7 @@ def _scoped_id(node: Node, name: str, module: str, owner: str | None, graph: Cod
     node_id = f"{owner}.{name}"
     existing = graph.nodes.get(node_id)
     local = _is_function(owner, graph) or "." in owner.partition(":")[2]
-    if local and existing is not None:
+    if existing is not None and (local or existing.kind in {NodeKind.FUNCTION, NodeKind.METHOD}):
         start = (existing.location.start_line - 1, existing.location.start_col)
         if start != node.start_point:
             return f"{node_id}@{node.start_byte}"
@@ -710,12 +736,16 @@ def _add_call_edges(
         )
         confidence = _call_confidence(call_name)
         graph.edges.append(
-            CodeEdge(
-                source_id=source_id,
-                target_id=target_id,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            guard_call(
+                CodeEdge(
+                    source_id=source_id,
+                    target_id=target_id,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                ),
+                call_node,
+                graph=graph,
             )
         )
 

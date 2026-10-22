@@ -87,7 +87,9 @@ def _block_start(node: Node) -> int:
 
 
 def _resolve_edge(edge: CodeEdge, context: _Resolution) -> CodeEdge:
-    if edge.kind not in {EdgeKind.CALLS, EdgeKind.IMPLEMENTS}:
+    if edge.kind not in {EdgeKind.CALLS, EdgeKind.IMPLEMENTS} or dict(edge.attributes).get(
+        "binding_blocked"
+    ):
         return edge
     prefix = f"{edge.source_id.partition(':')[0]}:"
     if edge.target_id.startswith(prefix):
@@ -114,11 +116,13 @@ def _member_target(
         if _visible(context.declarations[node_id], location)
     ]
     # An inner block shadows a declaration with the same name in an outer block.
-    return (
-        max(candidates, key=lambda node_id: _block_start(context.declarations[node_id]))
-        if candidates
-        else None
-    )
+    if not candidates:
+        return None
+    nearest = max(_block_start(context.declarations[node_id]) for node_id in candidates)
+    candidates = [
+        node_id for node_id in candidates if _block_start(context.declarations[node_id]) == nearest
+    ]
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def _binding_name(node_id: str, graph: CodeGraph, declarations: dict[str, Node]) -> str:

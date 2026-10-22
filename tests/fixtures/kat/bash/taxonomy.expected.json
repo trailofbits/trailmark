@@ -200,6 +200,7 @@
     "languages": [
       "bash"
     ],
+    "parse_diagnostics": [],
     "proxies": 2,
     "source_file_counts": {
       "bash": 1

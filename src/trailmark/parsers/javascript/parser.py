@@ -16,6 +16,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -26,6 +27,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._ecmascript import discover_callables
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -45,6 +47,11 @@ _THROW_TYPES = frozenset({"throw_statement"})
 _FUNCTION_DECL_TYPES = frozenset({"function_declaration", "generator_function_declaration"})
 
 _FUNCTION_EXPR_TYPES = frozenset({"arrow_function", "function", "function_expression"})
+_FUNCTION_SCOPE_TYPES = (
+    _FUNCTION_DECL_TYPES
+    | _FUNCTION_EXPR_TYPES
+    | frozenset({"method_definition", "class_declaration", "class"})
+)
 
 _EXTENSIONS = (".js", ".jsx", ".mjs", ".cjs")
 
@@ -88,6 +95,22 @@ def _visit_module(
     add_module_node(root, file_path, module_id, graph)
     for child in root.children:
         _visit_top_level_node(child, file_path, module_id, graph)
+    discover_callables(
+        root,
+        file_path,
+        module_id,
+        graph,
+        lambda node, name, owner, method: _extract_function(
+            node,
+            file_path,
+            module_id,
+            owner if method else None,
+            graph,
+            name_override=name,
+            owner_id=owner,
+            is_method=method,
+        ),
+    )
 
 
 def _visit_top_level_node(
@@ -228,6 +251,7 @@ def _extract_function_expr(
             branches,
             exception_types,
             calls,
+            skip_types=_FUNCTION_SCOPE_TYPES,
         )
 
     complexity = compute_complexity(branches)
@@ -366,6 +390,7 @@ def _extract_method(
             branches,
             exception_types,
             calls,
+            skip_types=_FUNCTION_SCOPE_TYPES,
         )
 
     complexity = compute_complexity(branches)
@@ -401,14 +426,26 @@ def _extract_function(
     module_id: str,
     class_id: str | None,
     graph: CodeGraph,
+    *,
+    name_override: str | None = None,
+    owner_id: str | None = None,
+    is_method: bool = False,
 ) -> None:
     """Extract a function or generator function declaration."""
     name_node = node.child_by_field_name("name")
-    if name_node is None:
+    if name_node is None and name_override is None:
         return
-    func_name = node_text(name_node)
+    func_name = (
+        name_override
+        if name_override is not None
+        else (node_text(name_node) if name_node is not None else "")
+    )
 
-    if class_id is not None:
+    if owner_id is not None:
+        func_id = f"{owner_id}.{func_name}" if owner_id != module_id else f"{module_id}:{func_name}"
+        kind = NodeKind.METHOD if is_method else NodeKind.FUNCTION
+        container_id = owner_id
+    elif class_id is not None:
         func_id = f"{class_id}.{func_name}"
         kind = NodeKind.METHOD
         container_id = class_id
@@ -434,6 +471,7 @@ def _extract_function(
             branches,
             exception_types,
             calls,
+            skip_types=_FUNCTION_SCOPE_TYPES,
         )
 
     complexity = compute_complexity(branches)
@@ -547,12 +585,16 @@ def _add_call_edges(
         )
         confidence = _call_confidence(call_name)
         graph.edges.append(
-            CodeEdge(
-                source_id=source_id,
-                target_id=target_id,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            guard_call(
+                CodeEdge(
+                    source_id=source_id,
+                    target_id=target_id,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                ),
+                call_node,
+                graph=graph,
             )
         )
 

@@ -88,6 +88,7 @@ class PerlParser:
         parents: dict[str, str] = {}
         calls: list[tuple[str, str, Node]] = []
         branches: dict[str, list[BranchInfo]] = defaultdict(list)
+        declared: dict[tuple[str, str], list[int]] = defaultdict(list)
         mutated = False
 
         def package_owner(package: str, site: Node) -> str:
@@ -114,6 +115,13 @@ class PerlParser:
                 )
 
         def function(node: Node, package: str, caller: str) -> None:
+            declaration_name = node.child_by_field_name("name")
+            if declaration_name is not None:
+                raw = node_text(declaration_name)
+                declaration_package, declaration_name_text = (
+                    raw.rsplit("::", 1) if "::" in raw else (package, raw)
+                )
+                declared[declaration_package, declaration_name_text].append(node.start_byte)
             body = node.child_by_field_name("body")
             if body is None:
                 return  # Forward declarations do not create duplicate implementations.
@@ -145,7 +153,15 @@ class PerlParser:
                 lexical[caller, name].append(ident)
             elif not anonymous:
                 bindings[target_package, name].append(ident)
-            scan_children(body, target_package, ident)
+            signature = first_child_type(node, {"signature"})
+            if signature is not None:
+                for parameter in signature.named_children:
+                    default = parameter.child_by_field_name("default")
+                    if default is not None:
+                        scan(default, package, ident)
+            # A qualified declaration changes symbol ownership, not the lexical
+            # package in which its body and defaults were compiled.
+            scan_children(body, package, ident)
 
         def scan_children(node: Node, package: str, caller: str) -> None:
             current_package = package
@@ -194,6 +210,12 @@ class PerlParser:
                 "eval_expression",
             }:
                 calls.append((caller, package, node))
+            if (
+                node.type == "expression_statement"
+                and len(node.named_children) == 1
+                and node.named_children[0].type == "bareword"
+            ):
+                calls.append((caller, package, node.named_children[0]))
             if node.type == "use_statement":
                 name_node = node.child_by_field_name("module")
                 if name_node is not None:
@@ -221,8 +243,15 @@ class PerlParser:
                     unit, branches=tuple(owned), cyclomatic_complexity=1 + len(owned)
                 )
         for caller, package, call in calls:
-            name_node = call.child_by_field_name("function")
+            name_node = call if call.type == "bareword" else call.child_by_field_name("function")
             raw = node_text(name_node).lstrip("&") if name_node else node_text(call.children[0])
+            if call.type == "bareword":
+                target_package, name = raw.rsplit("::", 1) if "::" in raw else (package, raw)
+                if not any(
+                    position < call.start_byte
+                    for position in declared.get((target_package, name), [])
+                ):
+                    continue
             target = None
             if (
                 not mutated

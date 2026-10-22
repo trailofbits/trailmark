@@ -66,12 +66,9 @@ class CircomParser:
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
         """Parse all .circom files under dir_path."""
-        return parse_directory(
-            self.parse_file,
-            "circom",
-            dir_path,
-            _EXTENSIONS,
-        )
+        graph = parse_directory(self.parse_file, "circom", dir_path, _EXTENSIONS)
+        _link_includes(graph)
+        return graph
 
 
 def _visit_module(
@@ -191,19 +188,8 @@ def _extract_main_component(
     add_contains_edge(graph, module_id, main_id)
 
     value = node.child_by_field_name("value")
-    if value is not None and value.type == "call_expression":
-        call_name = _circom_call_name(value)
-        if call_name:
-            target_id = f"{module_id}:{call_name}"
-            graph.edges.append(
-                CodeEdge(
-                    source_id=main_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CALLS,
-                    confidence=EdgeConfidence.CERTAIN,
-                    location=make_location(value, file_path),
-                )
-            )
+    if value is not None:
+        _add_call_edges(_collect_calls(value), main_id, module_id, file_path, graph)
 
 
 def _extract_include(node: Node, graph: CodeGraph) -> None:
@@ -212,7 +198,7 @@ def _extract_include(node: Node, graph: CodeGraph) -> None:
     if source is None:
         return
     raw = node_text(source).strip("\"'")
-    dep = raw.rsplit("/", maxsplit=1)[-1].removesuffix(".circom")
+    dep = raw
     if dep and dep not in graph.dependencies:
         graph.dependencies.append(dep)
 
@@ -320,5 +306,64 @@ def _add_call_edges(
                 kind=EdgeKind.CALLS,
                 confidence=EdgeConfidence.CERTAIN,
                 location=make_location(call_node, file_path),
+                attributes=(("circom_dependency", True), ("binding_blocked", True)),
             )
         )
+
+
+def _link_includes(graph: CodeGraph) -> None:
+    """Resolve template/function symbols only within explicit include closures."""
+    from dataclasses import replace
+
+    from trailmark.parsers._walk import walk_owned
+
+    files = {
+        Path(n.location.file_path).resolve()
+        for n in graph.nodes.values()
+        if n.kind == NodeKind.MODULE
+    }
+    includes: dict[Path, set[Path]] = {}
+    parser = CircomParser()
+    for path in files:
+        root = parser._parser.parse(path.read_bytes()).root_node
+        includes[path] = set()
+        for node in walk_owned(root):
+            if node.type == "include_directive":
+                source = node.child_by_field_name("source")
+                if source is not None:
+                    target = (path.parent / node_text(source).strip("\"'")).resolve()
+                    if target in files:
+                        includes[path].add(target)
+    edges = []
+    for edge in graph.edges:
+        if edge.kind != EdgeKind.CALLS or not dict(edge.attributes).get("circom_dependency"):
+            edges.append(edge)
+            continue
+        source = graph.nodes[edge.source_id]
+        visible = set()
+        pending = [Path(source.location.file_path).resolve()]
+        while pending:
+            path = pending.pop()
+            if path not in visible:
+                visible.add(path)
+                pending.extend(includes.get(path, ()))
+        raw = dict(edge.attributes).get("raw_target", edge.target_id)
+        name = str(raw).rsplit(":", 1)[-1]
+        candidates = [
+            n.id
+            for n in graph.nodes.values()
+            if n.kind in {NodeKind.TEMPLATE, NodeKind.FUNCTION}
+            and n.name == name
+            and Path(n.location.file_path).resolve() in visible
+        ]
+        if len(candidates) == 1:
+            edge = replace(edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED)
+        elif candidates:
+            edge = replace(
+                edge,
+                target_id=f"{edge.source_id}.$ambiguous.{name}",
+                confidence=EdgeConfidence.UNCERTAIN,
+                attributes=edge.attributes + (("binding_blocked", True),),
+            )
+        edges.append(edge)
+    graph.edges[:] = edges

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
 from tree_sitter_language_pack import get_language
 
-from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, TypeRef
+from trailmark.parsers._bindings import lexical_declaration
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -20,7 +22,6 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._simple import (
-    add_call_edges,
     collect_branches_and_calls,
     extract_parameters,
     first_child_type,
@@ -51,7 +52,26 @@ class FuncParser:
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
-        return parse_directory(self.parse_file, "func", dir_path, _EXTENSIONS)
+        graph = parse_directory(self.parse_file, "func", dir_path, _EXTENSIONS)
+        edges = []
+        for edge in graph.edges:
+            variant = dict(edge.attributes).get("func_variant")
+            candidates = [
+                unit.id
+                for unit in graph.nodes.values()
+                if unit.kind == NodeKind.FUNCTION and unit.name == variant
+            ]
+            if edge.kind == EdgeKind.CALLS and len(candidates) == 1:
+                edge = replace(
+                    edge,
+                    target_id=candidates[0],
+                    confidence=EdgeConfidence.CERTAIN
+                    if candidates[0].split(":")[0] == edge.source_id.split(":")[0]
+                    else EdgeConfidence.INFERRED,
+                )
+            edges.append(edge)
+        graph.edges[:] = edges
+        return graph
 
 
 def _visit_root(root: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:
@@ -76,6 +96,7 @@ def _extract_function(node: Node, file_path: str, module_id: str, graph: CodeGra
         branch_types=_BRANCH_TYPES,
         call_types=_CALL_TYPES,
     )
+    method_id = first_child_type(node, frozenset({"method_id"}))
     graph.nodes[func_id] = CodeUnit(
         id=func_id,
         name=name,
@@ -85,9 +106,64 @@ def _extract_function(node: Node, file_path: str, module_id: str, graph: CodeGra
         return_type=_return_type(node),
         cyclomatic_complexity=compute_complexity(branches),
         branches=tuple(branches),
+        attributes=(("func_method_id", node_text(method_id)),) if method_id is not None else (),
     )
     add_contains_edge(graph, module_id, func_id)
-    add_call_edges(graph, calls, func_id, module_id, file_path)
+    _add_calls(graph, calls, func_id, module_id, file_path, node)
+
+
+def _add_calls(
+    graph: CodeGraph,
+    calls: list[tuple[str, Node]],
+    func_id: str,
+    module_id: str,
+    file_path: str,
+    declaration: Node,
+) -> None:
+    root = declaration.parent
+    declared: set[str] = set()
+    if root is not None:
+        for child in root.named_children:
+            name_node = child.child_by_field_name("name")
+            if child.type == "function_definition" and name_node is not None:
+                declared.add(node_text(name_node))
+    for name, call in calls:
+        attributes: tuple[tuple[str, str | bool], ...] = ()
+        confidence = EdgeConfidence.CERTAIN
+        if call.type == "method_call":
+            method = call.child_by_field_name("method_name")
+            name = node_text(method) if method is not None else name
+            prefix = "~" if node_text(call).lstrip().startswith("~") else "."
+            variant = prefix + name
+            attributes = (("func_variant", variant),)
+            if variant in declared:
+                name = variant
+        elif (
+            lexical_declaration(
+                call,
+                name,
+                scopes=frozenset({"function_definition", "block_statement"}),
+                declarations=(
+                    ("parameter_declaration", "name"),
+                    ("variable_declaration", "variable"),
+                ),
+            )
+            is not None
+        ):
+            attributes = (("binding_blocked", True), ("binding_reason", "lexical_callable"))
+            name = f"{func_id}.$binding.{name}"
+            confidence = EdgeConfidence.UNCERTAIN
+        target = name if ":" in name else f"{module_id}:{name}"
+        graph.edges.append(
+            CodeEdge(
+                source_id=func_id,
+                target_id=target,
+                kind=EdgeKind.CALLS,
+                confidence=confidence,
+                location=make_location(call, file_path),
+                attributes=attributes,
+            )
+        )
 
 
 def _return_type(node: Node) -> TypeRef | None:

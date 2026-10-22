@@ -115,7 +115,7 @@ def supported_languages() -> tuple[str, ...]:
     return _SUPPORTED_LANGUAGES
 
 
-def parse_file(path: str, language: str | None = None) -> CodeGraph:
+def parse_file(path: str, language: str | None = None, *, strict: bool = False) -> CodeGraph:
     """Parse a single file into a raw ``CodeGraph``.
 
     Args:
@@ -131,10 +131,13 @@ def parse_file(path: str, language: str | None = None) -> CodeGraph:
     graph = _get_parser(resolved_language).parse_file(str(file_path))
     graph.source_file_counts = {resolved_language: 1}
     link_type_relationships(graph)
+    _check_diagnostics(graph, strict=strict)
     return ensure_proxy_nodes(graph)
 
 
-def parse_directory(path: str, language: str = "python", *, allow_empty: bool = False) -> CodeGraph:
+def parse_directory(
+    path: str, language: str = "python", *, allow_empty: bool = False, strict: bool = False
+) -> CodeGraph:
     """Parse a directory into a raw ``CodeGraph``.
 
     ``language`` accepts a specific language name (e.g. ``"python"``),
@@ -158,7 +161,17 @@ def parse_directory(path: str, language: str = "python", *, allow_empty: bool = 
             "(--allow-empty in the CLI) for an intentional empty input."
         )
         raise ValueError(msg)
+    _check_diagnostics(graph, strict=strict)
     return graph
+
+
+def _check_diagnostics(graph: CodeGraph, *, strict: bool) -> None:
+    if strict and graph.parse_diagnostics:
+        first = graph.parse_diagnostics[0]
+        raise ValueError(
+            f"Incomplete source analysis: {len(graph.parse_diagnostics)} diagnostic(s); "
+            f"{first.location.file_path}:{first.location.start_line}: {first.message}"
+        )
 
 
 def detect_languages(path: str) -> list[str]:

@@ -17,6 +17,7 @@ from trailmark.models.nodes import (
     TypeRef,
 )
 from trailmark.parsers._binding import resolve_inherited_method_calls
+from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -33,6 +34,7 @@ from trailmark.parsers._declarations import (
     callable_scope,
     resolve_local_method_calls,
 )
+from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.solidity._state import (
     StorageTypes,
     add_state_access_edges,
@@ -299,6 +301,31 @@ def _extract_function(
     body = node.child_by_field_name("body")
 
     branches, exception_types, calls = _collect_func_body(body, file_path)
+    # Modifier/base-constructor arguments execute under the using declaration.
+    for header in node.named_children:
+        if header != body and header.type in {"modifier_invocation", "base_constructor_invocation"}:
+            calls.extend(_collect_func_body(header, file_path)[2])
+    if body is not None:
+        recorded = {site.id for _, site in calls}
+        for site in walk_owned(body):
+            if site.type != "call_expression":
+                continue
+            function = site.child_by_field_name("function")
+            while (
+                function is not None
+                and function.type == "expression"
+                and len(function.named_children) == 1
+            ):
+                function = function.named_children[0]
+            if (
+                function is not None
+                and function.type == "struct_expression"
+                and site.id not in recorded
+            ):
+                underlying = function.child_by_field_name("type")
+                if underlying is not None:
+                    calls.append((node_text(underlying), site))
+    calls.sort(key=lambda call: call[1].start_byte)
     complexity = compute_complexity(branches)
     docstring = _extract_docstring(node)
 
@@ -446,12 +473,16 @@ def _add_call_edges(
         target_id = _resolve_call_target(call_name, module_id)
         confidence = _call_confidence(call_name)
         graph.edges.append(
-            CodeEdge(
-                source_id=source_id,
-                target_id=target_id,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            guard_call(
+                CodeEdge(
+                    source_id=source_id,
+                    target_id=target_id,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                ),
+                call_node,
+                graph=graph,
             )
         )
 

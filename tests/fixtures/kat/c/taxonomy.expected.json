@@ -256,6 +256,9 @@
       "return_type": null
     },
     "taxonomy:add": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -297,6 +300,9 @@
       }
     },
     "taxonomy:animal_describe": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -347,6 +353,9 @@
       }
     },
     "taxonomy:animal_init": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -388,6 +397,9 @@
       }
     },
     "taxonomy:branchy": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -496,6 +508,9 @@
       }
     },
     "taxonomy:dog_bark": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -567,6 +582,9 @@
       }
     },
     "taxonomy:dog_init": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -617,6 +635,9 @@
       }
     },
     "taxonomy:use_animal": {
+      "attributes": {
+        "internal_linkage": false
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -683,6 +704,7 @@
     "languages": [
       "c"
     ],
+    "parse_diagnostics": [],
     "proxies": 3,
     "source_file_counts": {
       "c": 1

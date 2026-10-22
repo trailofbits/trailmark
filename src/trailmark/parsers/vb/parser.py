@@ -22,6 +22,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._simple import first_child_type
+from trailmark.parsers._walk import walk_owned
 
 _LOG = logging.getLogger(__name__)
 _TYPES = {
@@ -64,7 +65,16 @@ def _parameters(node: Node) -> tuple[Parameter, ...]:
             result.append(
                 Parameter(
                     _name(name),
-                    TypeRef(node_text(annotation)) if annotation else None,
+                    TypeRef(
+                        node_text(annotation)
+                        + "".join(
+                            node_text(rank)
+                            for rank in item.named_children
+                            if rank.type == "array_rank_specifier"
+                        )
+                    )
+                    if annotation
+                    else None,
                     node_text(default) if default else None,
                 )
             )
@@ -91,7 +101,8 @@ class VisualBasicParser:
         module = module_id_from_path(file_path)
         graph = CodeGraph(language=self.language, root_path=file_path)
         add_module_node(root, file_path, module, graph)
-        declarations: list[tuple[Node, str, str]] = []
+        declarations: list[tuple[Node, str, str, Node | None]] = []
+        member_shadows: dict[str, set[str]] = defaultdict(set)
         methods: dict[tuple[str, str], list[str]] = defaultdict(list)
         containers: dict[str, set[str]] = defaultdict(set)
         calls: list[tuple[str, str, Node, Node, set[str], bool]] = []
@@ -124,7 +135,14 @@ class VisualBasicParser:
                 return
             if node.type in {"method_declaration", "constructor_declaration"}:
                 name_node = node.child_by_field_name("name")
-                declarations.append((node, owner, _name(name_node) if name_node else "New"))
+                declarations.append((node, owner, _name(name_node) if name_node else "New", None))
+                return
+            if node.type == "field_declaration":
+                for item in walk_owned(node):
+                    if item.type == "variable_declarator":
+                        member_shadows[owner].update(
+                            _name(n).casefold() for n in item.children_by_field_name("name")
+                        )
                 return
             if node.type == "property_declaration":
                 name_node = node.child_by_field_name("name")
@@ -136,6 +154,7 @@ class VisualBasicParser:
                                     accessor,
                                     owner,
                                     f"{_name(name_node)}.{accessor.type.split('_')[0]}",
+                                    node,
                                 )
                             )
                 return
@@ -158,7 +177,7 @@ class VisualBasicParser:
                 collect(child, owner)
 
         collect(root, module)
-        counts = Counter((owner, name.casefold()) for _, owner, name in declarations)
+        counts = Counter((owner, name.casefold()) for _, owner, name, _ in declarations)
 
         def function(
             node: Node,
@@ -168,11 +187,19 @@ class VisualBasicParser:
             kind: NodeKind = NodeKind.METHOD,
             inherited_shadows: set[str] | None = None,
             inherited_static: bool = False,
+            property_node: Node | None = None,
         ) -> None:
-            params = _parameters(node)
+            params = (
+                _parameters(property_node) + _parameters(node)
+                if property_node is not None
+                else _parameters(node)
+            )
             annotation = node.child_by_field_name("return_type")
+            if property_node is not None and node.type == "get_accessor":
+                clause = first_child_type(property_node, {"as_clause"})
+                annotation = clause.child_by_field_name("type") if clause is not None else None
             return_type = TypeRef(node_text(annotation)) if annotation is not None else None
-            modifiers = node.child_by_field_name("modifiers")
+            modifiers = (property_node or node).child_by_field_name("modifiers")
             flags = node_text(modifiers).casefold().split() if modifiers is not None else []
             is_static = (
                 inherited_static
@@ -199,7 +226,11 @@ class VisualBasicParser:
                 and "async" not in flags
                 and not node.has_error
             )
-            shadows = set(inherited_shadows or ()) | {p.name.casefold() for p in params}
+            shadows = (
+                set(inherited_shadows or ())
+                | member_shadows.get(owner, set())
+                | {p.name.casefold() for p in params}
+            )
             pending = list(node.named_children)
             while pending:
                 current = pending.pop()
@@ -291,11 +322,11 @@ class VisualBasicParser:
             )
 
         callable_owners: dict[str, str] = {}
-        for node, owner, name in declarations:
+        for node, owner, name, property_node in declarations:
             ident = child_id(owner, name)
             if counts[owner, name.casefold()] > 1 or ident in graph.nodes:
                 ident += f"@{node.start_point.row + 1}_{node.start_point.column}"
-            function(node, ident, owner, name)
+            function(node, ident, owner, name, property_node=property_node)
             methods[owner, name.casefold()].append(ident)
         for caller, container, site, callee, shadows, is_static in calls:
             raw = node_text(callee)

@@ -113,7 +113,7 @@ def _extract_message(
     name = child_text(node, frozenset({"message_name"}))
     if not name:
         return
-    message_id = f"{module_id}:{name}"
+    message_id = f"{module_id}:{name}" if container_id == module_id else f"{container_id}.{name}"
     graph.nodes[message_id] = CodeUnit(
         id=message_id,
         name=name,
@@ -125,21 +125,36 @@ def _extract_message(
     if body is None:
         return
     for child in named_children(body):
-        if child.type == "field":
+        if child.type in {"field", "map_field"}:
             _extract_field(child, file_path, message_id, graph)
+        elif child.type == "oneof":
+            group = child_text(child, frozenset({"identifier"}))
+            for member in named_children(child):
+                if member.type == "oneof_field":
+                    _extract_field(member, file_path, message_id, graph, oneof=group)
+        elif child.type == "message":
+            _extract_message(child, file_path, module_id, message_id, graph)
+        elif child.type == "enum":
+            _extract_enum(child, file_path, module_id, message_id, graph)
 
 
-def _extract_field(node: Node, file_path: str, message_id: str, graph: CodeGraph) -> None:
+def _extract_field(
+    node: Node, file_path: str, message_id: str, graph: CodeGraph, *, oneof: str = ""
+) -> None:
     name = child_text(node, frozenset({"identifier"}))
     type_node = first_child_type(node, frozenset({"type", "message_or_enum_type"}))
     field_id = f"{message_id}.{name}"
+    type_ref = TypeRef(name=clean_type_name(node_text(type_node))) if type_node else None
+    if node.type == "map_field" and type_ref is not None:
+        key = child_text(node, frozenset({"key_type"}))
+        type_ref = TypeRef(name="map", generic_args=(TypeRef(name=key), type_ref))
     graph.nodes[field_id] = CodeUnit(
         id=field_id,
         name=name,
         kind=NodeKind.METHOD,
         location=make_location(node, file_path),
-        return_type=TypeRef(name=clean_type_name(node_text(type_node))) if type_node else None,
-        attributes=(("schema_role", "field"),),
+        return_type=type_ref,
+        attributes=(("schema_role", "field"),) + ((("oneof", oneof),) if oneof else ()),
     )
     add_contains_edge(graph, message_id, field_id)
 
@@ -154,7 +169,7 @@ def _extract_enum(
     name = child_text(node, frozenset({"enum_name", "identifier"}))
     if not name:
         return
-    enum_id = f"{module_id}:{name}"
+    enum_id = f"{module_id}:{name}" if container_id == module_id else f"{container_id}.{name}"
     graph.nodes[enum_id] = CodeUnit(
         id=enum_id,
         name=name,
@@ -165,7 +180,8 @@ def _extract_enum(
 
 
 def _extract_import(node: Node, graph: CodeGraph, module_id: str) -> None:
-    target = node_text(node).removeprefix("import").strip().strip(";").strip("\"'")
+    path = node.child_by_field_name("path")
+    target = node_text(path).strip("\"'") if path is not None else ""
     if target:
         graph.dependencies.append(target)
         graph.edges.append(CodeEdge(source_id=module_id, target_id=target, kind=EdgeKind.IMPORTS))

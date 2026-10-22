@@ -58,7 +58,8 @@ def _parameters(node: Node) -> tuple[Parameter, ...]:
     result: list[Parameter] = []
     if params is not None:
         for item in params.named_children:
-            name = first_child_type(item, {"identifier"})
+            names = [child for child in item.named_children if child.type == "identifier"]
+            name = names[-1] if names else None
             type_node = first_child_type(item, {"type_definition", "function_type", "tuple_type"})
             if name is not None:
                 result.append(
@@ -237,6 +238,16 @@ class _Extractor:
                     callee = None
                     if node.type == "call" and node.named_children:
                         callee = node.named_children[0]
+                        arguments = first_child_type(node, {"call_arguments"})
+                        capture = arguments is not None and any(
+                            node_text(argument).strip() == "_"
+                            for argument in arguments.named_children
+                        )
+                        parent = node.parent
+                        while parent is not None and parent.type == "expression":
+                            parent = parent.parent
+                        if capture and (parent is None or parent.type != "pipeline"):
+                            continue
                     elif node.type == "pipeline" and node.named_children:
                         rhs = node.named_children[-1]
                         while rhs.type == "expression" and len(rhs.named_children) == 1:

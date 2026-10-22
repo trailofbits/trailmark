@@ -238,6 +238,7 @@
     "languages": [
       "powershell"
     ],
+    "parse_diagnostics": [],
     "proxies": 2,
     "source_file_counts": {
       "powershell": 1

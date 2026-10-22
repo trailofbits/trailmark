@@ -166,6 +166,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     for command in (analyze, diff_cmd, entrypoints, augment):
         command.add_argument(
+            "--strict", action="store_true", help="Reject source analysis with parse diagnostics"
+        )
+        command.add_argument(
             "--allow-empty",
             action="store_true",
             help="Allow an existing directory with zero matching source files",
@@ -210,6 +213,7 @@ def _run_analyze(args: argparse.Namespace) -> None:
         args.path,
         language=args.language,
         allow_empty=args.allow_empty,
+        strict=args.strict,
     )
 
     if args.resolution:
@@ -237,6 +241,7 @@ def _print_summary(engine: QueryEngine) -> None:
     print(f"Entrypoints: {summary['entrypoints']}")
     print(f"Languages: {', '.join(summary['languages'])}")
     print(f"Source files: {summary['source_files']}")
+    print(f"Parse diagnostics: {len(summary['parse_diagnostics'])}")
 
 
 def _print_complexity(engine: QueryEngine, threshold: int) -> None:
@@ -260,6 +265,7 @@ def _run_augment(args: argparse.Namespace) -> None:
         args.path,
         language=args.language,
         allow_empty=args.allow_empty,
+        strict=args.strict,
     )
     summary_stream = sys.stderr if args.json else sys.stdout
 
@@ -277,7 +283,9 @@ def _run_augment(args: argparse.Namespace) -> None:
 
 def _run_diagram(args: argparse.Namespace) -> None:
     """Execute the diagram subcommand."""
-    engine = build_engine(args.target, args.language, allow_empty=args.allow_empty)
+    engine = build_engine(
+        args.target, args.language, allow_empty=args.allow_empty, strict=args.strict
+    )
     print(render_diagram(engine, args))
 
 
@@ -300,7 +308,7 @@ def _print_augment_result(
 def _run_entrypoints(args: argparse.Namespace) -> None:
     """Execute the entrypoints subcommand."""
     engine = QueryEngine.from_directory(
-        args.path, language=args.language, allow_empty=args.allow_empty
+        args.path, language=args.language, allow_empty=args.allow_empty, strict=args.strict
     )
     surface = engine.attack_surface()
 
@@ -330,10 +338,10 @@ def _run_diff(args: argparse.Namespace) -> None:
     from trailmark.analysis.diff import format_diff
 
     before_engine = _load_diff_side(
-        args.before, args.language, args.repo, allow_empty=args.allow_empty
+        args.before, args.language, args.repo, allow_empty=args.allow_empty, strict=args.strict
     )
     after_engine = _load_diff_side(
-        args.after, args.language, args.repo, allow_empty=args.allow_empty
+        args.after, args.language, args.repo, allow_empty=args.allow_empty, strict=args.strict
     )
     diff = after_engine.diff_against(before_engine)
 
@@ -349,6 +357,7 @@ def _load_diff_side(
     repo: str,
     *,
     allow_empty: bool = False,
+    strict: bool = False,
 ) -> QueryEngine:
     """Build a QueryEngine for a path or git ref."""
     from trailmark.analysis.diff import git_worktree
@@ -356,9 +365,11 @@ def _load_diff_side(
     candidate = Path(side)
     if candidate.exists() or candidate.is_absolute() or side.endswith("/"):
         return QueryEngine.from_directory(
-            str(candidate), language=language, allow_empty=allow_empty
+            str(candidate), language=language, allow_empty=allow_empty, strict=strict
         )
 
     repo_path = Path(repo).resolve()
     with git_worktree(repo_path, side) as worktree:
-        return QueryEngine.from_directory(str(worktree), language=language, allow_empty=allow_empty)
+        return QueryEngine.from_directory(
+            str(worktree), language=language, allow_empty=allow_empty, strict=strict
+        )

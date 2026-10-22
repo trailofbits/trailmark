@@ -1,0 +1,30 @@
+syntax = "proto3";
+package audit.api;
+import public "common.proto";
+message Request {
+  string token = 1;
+  repeated string scopes = 2;
+  optional string note = 3;
+  message Item { string value = 1; }
+  enum Kind { KIND_UNSPECIFIED = 0; KIND_SECRET = 1; }
+  Item item = 4;
+  Kind kind = 5;
+  oneof credential {
+    string password = 6;
+    bytes proof = 7;
+  }
+  map<string, audit.shared.Common> extras = 8;
+}
+message Response {
+  bool ok = 1;
+  message Item { int64 id = 1; }
+  Item item = 2;
+}
+message Item { bytes unrelated = 1; }
+enum Status { STATUS_UNSPECIFIED = 0; STATUS_OK = 1; }
+service Gateway {
+  rpc Unary (Request) returns (Response);
+  rpc Upload (stream Request) returns (Response);
+  rpc Download (Request) returns (stream Response);
+  rpc Chat (stream Request) returns (stream Response);
+}
