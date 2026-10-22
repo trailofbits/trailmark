@@ -38,6 +38,7 @@ PARSER_FIXTURES: list[tuple[str, str]] = [
     ("haskell", "taxonomy"),
     ("java", "Taxonomy"),
     ("javascript", "taxonomy"),
+    ("julia", "taxonomy"),
     ("kotlin", "taxonomy"),
     ("lua", "taxonomy"),
     ("masm", "taxonomy"),

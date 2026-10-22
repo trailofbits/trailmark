@@ -57,6 +57,10 @@
   and duplicate entries, and an empty list raises `ValueError`. Node-ID
   collisions between languages raise `ValueError` instead of merging unrelated
   nodes (#86).
+- Add a Julia frontend for `.jl` files: modules, types, long/short functions,
+  closures, signatures, branches, imports, and conservative local calls.
+  Multiple-dispatch candidates remain separate and unresolved; opaque macros
+  warn instead of inventing expansions.
 - `paths_between()` gains a keyword-only `max_depth=20`. `max_depth` now counts
   edges in `paths_between()`, `entrypoint_paths_to()`, and
   `connect_subgraphs()`; the latter two previously stopped one edge short.

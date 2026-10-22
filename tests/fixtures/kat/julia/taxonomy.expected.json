@@ -1,0 +1,522 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:<script>"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.<script>"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.Shape"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.Box"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.leaf"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.choose@8_0"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.choose@15_0"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.callback"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.main"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy.main",
+      "target": "taxonomy:Taxonomy.main.<lambda>@372"
+    },
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "LinearAlgebra"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.choose@8_0",
+      "target": "taxonomy:Taxonomy.leaf"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:Taxonomy.choose@15_0.<dynamic>.length"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.choose@15_0",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.choose@15_0._dynamic_.length"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.callback",
+      "target": "taxonomy:Taxonomy.leaf"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.main.<lambda>@372",
+      "target": "taxonomy:Taxonomy.leaf"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:Taxonomy.main.<dynamic>.choose"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.main",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.main._dynamic_.choose"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:Taxonomy.main.<dynamic>.map"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.main",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.main._dynamic_.map"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.main",
+      "target": "taxonomy:Taxonomy.callback"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.<script>",
+      "target": "taxonomy:Taxonomy.main"
+    }
+  ],
+  "language": "julia",
+  "nodes": {
+    "proxy.unresolved:taxonomy:Taxonomy.choose@15_0._dynamic_.length": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Taxonomy.choose@15_0.<dynamic>.length"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.choose@15_0._dynamic_.length",
+      "kind": "proxy",
+      "location": {
+        "end_col": 29,
+        "end_line": 15,
+        "file_path": "taxonomy.jl",
+        "start_col": 20,
+        "start_line": 15
+      },
+      "name": "taxonomy:Taxonomy.choose@15_0.<dynamic>.length",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Taxonomy.main._dynamic_.choose": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Taxonomy.main.<dynamic>.choose"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.main._dynamic_.choose",
+      "kind": "proxy",
+      "location": {
+        "end_col": 20,
+        "end_line": 19,
+        "file_path": "taxonomy.jl",
+        "start_col": 8,
+        "start_line": 19
+      },
+      "name": "taxonomy:Taxonomy.main.<dynamic>.choose",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Taxonomy.main._dynamic_.map": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Taxonomy.main.<dynamic>.map"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.main._dynamic_.map",
+      "kind": "proxy",
+      "location": {
+        "end_col": 7,
+        "end_line": 23,
+        "file_path": "taxonomy.jl",
+        "start_col": 4,
+        "start_line": 21
+      },
+      "name": "taxonomy:Taxonomy.main.<dynamic>.map",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 28,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:<script>": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:<script>",
+      "kind": "function",
+      "location": {
+        "end_col": 0,
+        "end_line": 28,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "<script>",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy",
+      "kind": "namespace",
+      "location": {
+        "end_col": 3,
+        "end_line": 27,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.<script>": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.<script>",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 27,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "<script>",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.Box": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.Box",
+      "kind": "struct",
+      "location": {
+        "end_col": 3,
+        "end_line": 6,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 4
+      },
+      "name": "Box",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.Shape": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.Shape",
+      "kind": "interface",
+      "location": {
+        "end_col": 23,
+        "end_line": 3,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "Shape",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.callback": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.callback",
+      "kind": "function",
+      "location": {
+        "end_col": 23,
+        "end_line": 16,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 16
+      },
+      "name": "callback",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.choose@15_0": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.choose@15_0",
+      "kind": "function",
+      "location": {
+        "end_col": 29,
+        "end_line": 15,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 15
+      },
+      "name": "choose",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "String"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.choose@8_0": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "x > 0",
+          "location": {
+            "end_col": 7,
+            "end_line": 13,
+            "file_path": "taxonomy.jl",
+            "start_col": 4,
+            "start_line": 9
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.choose@8_0",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 14,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 8
+      },
+      "name": "choose",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Int"
+          }
+        },
+        {
+          "default": "0",
+          "name": "fallback",
+          "type_ref": null
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Int"
+      }
+    },
+    "taxonomy:Taxonomy.leaf": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.leaf",
+      "kind": "function",
+      "location": {
+        "end_col": 23,
+        "end_line": 7,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 7
+      },
+      "name": "leaf",
+      "parameters": [
+        {
+          "default": "1",
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Int"
+      }
+    },
+    "taxonomy:Taxonomy.main": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "for_statement",
+          "location": {
+            "end_col": 7,
+            "end_line": 20,
+            "file_path": "taxonomy.jl",
+            "start_col": 4,
+            "start_line": 18
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.main",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 25,
+        "file_path": "taxonomy.jl",
+        "start_col": 0,
+        "start_line": 17
+      },
+      "name": "main",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.main.<lambda>@372": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.main.<lambda>@372",
+      "kind": "function",
+      "location": {
+        "end_col": 7,
+        "end_line": 23,
+        "file_path": "taxonomy.jl",
+        "start_col": 16,
+        "start_line": 21
+      },
+      "name": "<lambda>@372",
+      "parameters": [
+        {
+          "default": null,
+          "name": "item",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.jl",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 8,
+    "classes": 0,
+    "dependencies": [
+      "LinearAlgebra"
+    ],
+    "entrypoints": 0,
+    "functions": 8,
+    "languages": [
+      "julia"
+    ],
+    "proxies": 3,
+    "source_file_counts": {
+      "julia": 1
+    },
+    "source_files": 1,
+    "total_nodes": 15
+  },
+  "trailmark_version": "<trailmark-version>"
+}

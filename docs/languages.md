@@ -10,6 +10,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Zig](#zig)
 - [Solidity persistent state](#solidity-persistent-state)
 - [Aiken](#aiken)
+- [Julia](call-resolution.md#julia)
 - [TypeScript](#typescript)
 - [Lua](#lua)
 - [SQL](#sql)

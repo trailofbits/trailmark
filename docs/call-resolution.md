@@ -127,3 +127,30 @@ returned value. Given `make() -> Result<Engine, ()>`, the chain
 
 See [Rust and Verus](languages.md#rust-and-verus) for the scoping rules that do
 resolve.
+
+## Julia
+
+The `.jl` frontend extracts modules, structs, abstract and primitive types,
+long and short function definitions, typed/default/variadic parameters, explicit
+return types, branches, and `using`/`import` dependencies. A synthetic
+`file:<script>` function owns top-level calls; module bodies have their own
+script node. Anonymous functions and `do` blocks own their calls and branches.
+
+Multiple dispatch is not inferred. Every same-name method survives with an
+`@line_column` ID suffix, and calls to that name stay uncertain. A unique,
+unshadowed lexical function can resolve as `inferred`; script calls must follow
+its declaration. Conditional definitions and parameter/local/loop bindings block
+inference. Nested modules do not inherit enclosing module bindings. Qualified,
+broadcast, constructor, callable-object, imported/aliased, and cross-file calls
+remain uncertain proxies. These are syntax-based candidates, not Julia compiler
+resolution or a guarantee about runtime dispatch.
+
+Literal `include("helpers.jl")` paths become dependencies. Interpolated or
+computed paths do not. `include`, `include_string`, `eval`, and explicit global
+mutation disable local inference throughout the file. No Julia code is executed.
+The parser traverses `@inline` and `@noinline` wrappers. Other macro calls warn
+that expansion was skipped and disable local inference; their bodies and macro
+definitions are not expanded. Generated methods, implicit constructors, compiler
+entrypoints, and operator desugaring are not invented. A missing edge is not proof
+of dead code. `main` follows the generic entrypoint rule; script execution needs
+an entrypoint override. Syntax errors warn that the graph may be incomplete.

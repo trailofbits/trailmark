@@ -168,6 +168,9 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "An absent edge is not proof"),
     ("docs/languages.md", "storage aliases"),
     ("docs/languages.md", "Other language parsers do not yet emit state-access edges"),
+    # Julia dispatch and macro limits
+    ("docs/call-resolution.md", "Multiple dispatch is not inferred"),
+    ("docs/call-resolution.md", "Anonymous functions and `do` blocks own their calls"),
     # Query semantics
     ("docs/python-api.md", "Path queries return distinct node-ID sequences"),
     ("docs/python-api.md", "exact node ID first"),
