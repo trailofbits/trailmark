@@ -140,6 +140,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/python-api.md", "Unversioned exports from older releases"),
     ("docs/python-api.md", "does not version parser behavior"),
     ("docs/languages.md", "Sourcing or `eval` disables local inference"),
+    ("docs/languages.md", "Function redirects and non-brace function bodies"),
     # Rust and Verus
     ("README.md", "`verus!` blocks"),
     ("docs/languages.md", "brace-delimited blocks"),

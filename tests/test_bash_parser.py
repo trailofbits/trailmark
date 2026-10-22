@@ -47,6 +47,10 @@ def test_script_functions_substitutions_and_ownership(tmp_path: Path) -> None:
         "helper() { :; }; unset -f helper; helper",
         'helper() { :; }; eval "$CODE"; helper',
         "helper() { :; }; source ./other.sh; helper",
+        'helper() { :; }; builtin eval "$CODE"; helper',
+        "helper() { :; }; command -p source ./other.sh; helper",
+        "helper() { :; }; command source ./other.sh -v; helper",
+        "helper() { :; }; builtin unset -f helper; helper",
     ],
 )
 def test_runtime_bindings_stay_uncertain(tmp_path: Path, source: str) -> None:
@@ -73,11 +77,76 @@ def test_dynamic_and_external_commands_do_not_bind_across_files(tmp_path: Path) 
 
 
 def test_literal_source_dependencies_and_query_paths(tmp_path: Path) -> None:
-    path = _file(tmp_path, "source ./one.sh\n. 'two.sh'\n. \"$DIR/three.sh\"\n")
+    path = _file(
+        tmp_path,
+        "source ./one.sh\n. 'two.sh'\n. \"$DIR/three.sh\"\nsource *.sh\nsource ~/four.sh\n",
+    )
     assert parse_file(str(path)).dependencies == ["./one.sh", "two.sh"]
     path.write_text("helper() { :; }\nmain() { helper; }\nmain\n")
     engine = QueryEngine.from_directory(str(tmp_path), language="bash")
     assert {e["node_id"] for e in engine.attack_surface()} == {"sample:main"}
+    assert engine.entrypoint_paths_to("helper")
+
+
+def test_function_body_can_be_a_conditional_and_own_redirects(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "helper() { :; }\nmain() if helper; then helper; fi >$(helper)\nmain\n",
+    )
+    graph = parse_file(str(path))
+    assert graph.nodes["sample:main"].cyclomatic_complexity == 2
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len([e for e in calls if e.source_id == "sample:main"]) == 3
+    assert all(e.target_id == "sample:helper" for e in calls if e.source_id == "sample:main")
+    assert [e.target_id for e in calls if e.source_id == "sample:<script>"] == ["sample:main"]
+
+
+def test_builtin_inspection_does_not_execute_and_shadowed_source_is_not_import(
+    tmp_path: Path,
+) -> None:
+    path = _file(
+        tmp_path,
+        "source() { :; }\nsource fake.sh\nbuiltin source real.sh\n",
+    )
+    assert parse_file(str(path)).dependencies == ["real.sh"]
+    path.write_text("helper() { :; }\ncommand -v eval\nmain() { helper; }\n")
+    graph = parse_file(str(path))
+    assert any(
+        e.kind == EdgeKind.CALLS
+        and e.source_id == "sample:main"
+        and e.target_id == "sample:helper"
+        and e.confidence == EdgeConfidence.INFERRED
+        for e in graph.edges
+    )
+
+
+def test_repeated_and_nested_definitions_keep_separate_bodies(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "helper() { first; }\nhelper() { second; }\n"
+        "outer() { inner() { if true; then third; fi; }; fourth; }\n",
+    )
+    graph = parse_file(str(path))
+    helpers = [u for u in graph.nodes.values() if u.name == "helper"]
+    assert len(helpers) == 2 and len({u.id for u in helpers}) == 2
+    assert graph.nodes["sample:outer.inner"].cyclomatic_complexity == 2
+    assert graph.nodes["sample:outer"].cyclomatic_complexity == 1
+    outer_calls = [
+        e for e in graph.edges if e.kind == EdgeKind.CALLS and e.source_id == "sample:outer"
+    ]
+    assert len(outer_calls) == 1 and "fourth" in outer_calls[0].target_id
+
+
+def test_script_entrypoint_override_reaches_helper(tmp_path: Path) -> None:
+    _file(tmp_path, "helper() { :; }\nhelper\n")
+    config = tmp_path / ".trailmark"
+    config.mkdir()
+    (config / "entrypoints.toml").write_text(
+        '[[entrypoint]]\nnode = "sample:<script>"\nkind = "user_input"\n'
+        'trust = "untrusted_external"\n'
+    )
+    engine = QueryEngine.from_directory(str(tmp_path), language="auto")
+    assert {e["node_id"] for e in engine.attack_surface()} == {"sample:<script>"}
     assert engine.entrypoint_paths_to("helper")
 
 

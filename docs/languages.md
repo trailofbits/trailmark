@@ -25,7 +25,11 @@ Unique top-level functions declared before a script call resolve as `inferred`;
 function bodies can also refer to those declarations. Conditional, nested or
 repeated definitions, aliases, dynamic commands, external programs, path calls,
 and cross-file names stay uncertain proxies. Sourcing or `eval` disables local
-inference throughout that file because it can change command bindings.
+inference throughout that file because it can change command bindings. This
+also applies through `builtin` and `command`; `command -v/-V` only inspects names.
+Literal source dependencies are omitted when a same-file function or alias
+shadows the source command. Function redirects and non-brace function bodies
+retain their calls and branches under the function.
 `command helper` records a call to the command builtin, not to a shell function.
 No shell code is executed. `main` follows the generic entrypoint rule; script
 execution needs an entrypoint override. Extensionless scripts need explicit

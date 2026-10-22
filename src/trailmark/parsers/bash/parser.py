@@ -34,11 +34,40 @@ _BRANCHES = {
 
 
 def _literal(node: Node) -> str | None:
-    if node.type in {"word", "raw_string"}:
-        return node_text(node).strip("'")
+    if node.type == "word":
+        text = node_text(node)
+        return None if any(c in text for c in "\\*?[]~") else text
+    if node.type == "raw_string":
+        return node_text(node)[1:-1]
     if node.type == "string" and all(c.type == "string_content" for c in node.named_children):
         return node_text(node)[1:-1]
     return None
+
+
+def _invocation(command: Node) -> tuple[str, list[Node], bool]:
+    """Unwrap builtin selectors for effects, while retaining the actual call site."""
+    name = command.child_by_field_name("name")
+    raw = node_text(name) if name is not None else ""
+    args = list(command.children_by_field_name("argument"))
+    forced_builtin = False
+    while raw in {"command", "builtin"} and args:
+        wrapper = raw
+        while args:
+            flag = _literal(args[0])
+            if flag == "--":
+                args.pop(0)
+                break
+            if wrapper != "command" or not flag or not re.fullmatch(r"-[pVv]+", flag):
+                break
+            args.pop(0)
+            # `command -v/-V` only inspects names; it does not invoke them.
+            if "v" in flag or "V" in flag:
+                return "", [], False
+        if not args:
+            break
+        raw = _literal(args.pop(0)) or ""
+        forced_builtin = True
+    return raw, args, forced_builtin
 
 
 class BashParser:
@@ -63,6 +92,7 @@ class BashParser:
         add_module_node(root, file_path, module, graph)
         names: dict[str, list[tuple[str, int, bool]]] = defaultdict(list)
         commands: list[tuple[str, Node]] = []
+        imports: list[tuple[str, Node, str, bool]] = []
         mutations: set[str] = set()
         dynamic_mutation = False
 
@@ -103,9 +133,7 @@ class BashParser:
                             dynamic_mutation = True
                 if current.type == "command":
                     commands.append((ident, current))
-                    command = current.child_by_field_name("name")
-                    raw = node_text(command) if command else ""
-                    args = current.children_by_field_name("argument")
+                    raw, args, forced_builtin = _invocation(current)
                     if raw in {"eval", "source", "."}:
                         dynamic_mutation = True
                     if raw in {"alias", "unalias", "unset", "enable"}:
@@ -117,22 +145,16 @@ class BashParser:
                                 mutations.add(literal.split("=", 1)[0])
                     if raw in {"source", "."} and args:
                         dependency = _literal(args[0])
-                        if dependency and dependency not in graph.dependencies:
-                            graph.dependencies.append(dependency)
-                            graph.edges.append(
-                                CodeEdge(
-                                    module,
-                                    dependency,
-                                    EdgeKind.IMPORTS,
-                                    location=make_location(current, file_path),
-                                )
-                            )
+                        if dependency:
+                            imports.append((dependency, current, raw, forced_builtin))
                 for child in current.named_children:
                     scan(child)
 
-            # The program itself is a body; a function's braces are a body too.
-            for child in body.named_children:
-                scan(child)
+            scan(body)
+            # Function-definition redirects execute when the function is called.
+            # Their substitutions belong to that function, not the script.
+            for redirect in node.children_by_field_name("redirect"):
+                scan(redirect)
             graph.nodes[ident] = CodeUnit(
                 id=ident,
                 name=name,
@@ -144,6 +166,19 @@ class BashParser:
             add_contains_edge(graph, owner, ident)
 
         unit(root, module, "<script>", root)
+        for dependency, site, raw, forced_builtin in imports:
+            if not forced_builtin and (raw in names or raw in mutations):
+                continue
+            if dependency not in graph.dependencies:
+                graph.dependencies.append(dependency)
+                graph.edges.append(
+                    CodeEdge(
+                        module,
+                        dependency,
+                        EdgeKind.IMPORTS,
+                        location=make_location(site, file_path),
+                    )
+                )
         script = f"{module}:<script>"
         for owner, command in commands:
             callee = command.child_by_field_name("name")
