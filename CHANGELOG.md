@@ -11,6 +11,9 @@
   Python `strict=True` and CLI `--strict` reject diagnostics, including explicitly
   skipped Verus and unsupported Rego syntax. A clean tree is not proof of coverage.
 - Resolve SARIF run artifact indices and chained URI bases before finding matching.
+- Recover bounded C source spans around block macros with explicit diagnostics,
+  retain declaration-macro identities and aliases, and infer callbacks through
+  unambiguous file-local constant designated tables.
 - Bundle a pinned Move grammar to distinguish explicit generic applications from
   comparisons and retain qualified call symbols.
 - Check release tag, package/runtime versions, and built wheel metadata before

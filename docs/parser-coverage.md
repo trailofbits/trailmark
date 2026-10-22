@@ -125,6 +125,30 @@ namespace functions are excluded from cross-file free-function fallback. Header
 export annotations currently need to be repeated on extracted definitions; matching
 prototype attributes through preprocessing/includes is not implemented.
 
+C can recover a balanced physical function body around bare block macros while
+preserving byte offsets and the original syntax diagnostics. Recovered functions
+carry `parse_incomplete` and `syntax_recovered` attributes; their calls remain
+uncertain. This is source-span recovery, not preprocessing or a model of nonlocal
+control flow. Conditional preprocessor branches and unbalanced bodies are not
+recovered as one configuration.
+
+Single-identifier declaration macros can recover a concrete function signature
+from unambiguous definitions in the file or literal quoted headers. Simple token
+pasting is supported; include lookup and expansion are bounded. The concrete
+symbol becomes the callable ID, with `macro_wrapper`, `source_alias`, and
+`expansion_alias` attributes preserving its source spelling. Conditional,
+redefined, recursive, variadic, or stringifying wrappers can remain symbolic
+`WRAPPER(name)` declarations with diagnostics and uncertain, unbound calls.
+Unavailable macro definitions cannot establish compiled names. Repeated unknown
+declarations retain separate source-position IDs and body ownership.
+
+C callback inference is limited to file-local `static const` objects with direct
+designated function initializers. It binds by object and field, records
+`callback_table` / `callback_field`, and uses inferred confidence. Mutable or
+conditional tables, positional initializers, unknown pointers, and shadowed
+receivers remain uncertain. This does not select build configurations or infer
+general callback dataflow. Incomplete callers do not infer callback-table targets.
+
 C++ namespaces qualify declaration IDs, including file-local `$anonymous` owners.
 Lambdas and local classes own their bodies; lambda capture initializers stay with
 the enclosing function. C# namespaces also qualify type IDs; local functions and

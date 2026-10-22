@@ -104,6 +104,9 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/parser-coverage.md", "Trait bodies and inherited receivers are not yet extracted"),
     ("docs/parser-coverage.md", "Logical rules have potential `calls` edges to their clauses"),
     ("docs/parser-coverage.md", "Constructor patterns do not create calls."),
+    ("docs/parser-coverage.md", "`parse_incomplete` and `syntax_recovered` attributes"),
+    ("docs/parser-coverage.md", "`macro_wrapper`, `source_alias`, and `expansion_alias`"),
+    ("docs/parser-coverage.md", "file-local `static const` objects"),
     ("docs/installation.md", "Move, and Verus ship as C sources"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),

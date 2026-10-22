@@ -7,9 +7,11 @@ from pathlib import Path
 from tree_sitter import Node, Parser
 from tree_sitter_language_pack import get_language
 
+from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
+    Attribute,
     BranchInfo,
     CodeUnit,
     NodeKind,
@@ -29,6 +31,9 @@ from trailmark.parsers._common import (
 )
 from trailmark.parsers._declarations import add_callable, add_type, callable_scope
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.c._callbacks import resolve_constant_callbacks
+from trailmark.parsers.c._macros import DeclarationMacros
+from trailmark.parsers.c._recovery import recover_bodies
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -68,10 +73,18 @@ class CParser:
         """Parse a single C file into a CodeGraph."""
         source = Path(file_path).read_bytes()
         tree = self._parser.parse(source)
+        original = tree.root_node
+        tree, recovered = recover_bodies(source, tree, self._parser)
+        macros = DeclarationMacros(original, file_path, self._parser)
         graph = CodeGraph(language="c", root_path=file_path)
         module_id = module_id_from_path(file_path)
         with callable_scope(graph):
-            _visit_module(tree.root_node, file_path, module_id, graph)
+            add_module_node(original, file_path, module_id, graph)
+            for child in tree.root_node.children:
+                visit_c_declaration(
+                    child, file_path, module_id, graph, macros=macros, recovered=recovered
+                )
+        resolve_constant_callbacks(tree.root_node, module_id, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -82,18 +95,6 @@ class CParser:
             dir_path,
             _EXTENSIONS,
         )
-
-
-def _visit_module(
-    root: Node,
-    file_path: str,
-    module_id: str,
-    graph: CodeGraph,
-) -> None:
-    """Walk the top-level of a C module."""
-    add_module_node(root, file_path, module_id, graph)
-    for child in root.children:
-        visit_c_declaration(child, file_path, module_id, graph)
 
 
 _PREPROC_CONTAINER_TYPES = frozenset(
@@ -112,10 +113,20 @@ def visit_c_declaration(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    *,
+    macros: DeclarationMacros | None = None,
+    recovered: frozenset[int] = frozenset(),
 ) -> None:
     """Dispatch a single top-level C node."""
     if child.type == "function_definition":
-        _extract_function(child, file_path, module_id, graph)
+        _extract_function(
+            child,
+            file_path,
+            module_id,
+            graph,
+            macros=macros,
+            recovered=child.start_byte in recovered,
+        )
     elif child.type == "preproc_include":
         _extract_include(child, graph)
     elif child.type in ("type_definition", "declaration"):
@@ -126,7 +137,9 @@ def visit_c_declaration(
         _extract_enum(child, file_path, module_id, graph)
     elif child.type in _PREPROC_CONTAINER_TYPES:
         for nested in child.children:
-            visit_c_declaration(nested, file_path, module_id, graph)
+            visit_c_declaration(
+                nested, file_path, module_id, graph, macros=macros, recovered=recovered
+            )
 
 
 def _extract_type_def(
@@ -227,15 +240,25 @@ def _extract_function(
     file_path: str,
     module_id: str,
     graph: CodeGraph,
+    *,
+    macros: DeclarationMacros | None = None,
+    recovered: bool = False,
 ) -> None:
     """Extract a C function definition."""
-    func_name = _get_function_name(node)
+    signature = macros.signature(node) if macros is not None else None
+    wrapper = macros.wrapper(node) if macros is not None else None
+    declaration = signature.declaration if signature is not None else node
+    func_name = signature.name if signature is not None else _get_function_name(node)
+    if wrapper is not None and signature is None:
+        func_name = f"{wrapper[0]}({wrapper[1]})"
     if not func_name:
         return
     func_id = f"{module_id}:{func_name}"
 
-    params = _extract_parameters(node)
-    return_type = _extract_return_type(node)
+    params = _extract_parameters(declaration)
+    return_type = _extract_return_type(declaration)
+    if wrapper is not None and signature is None:
+        params, return_type = [], None
     body = node.child_by_field_name("body")
 
     branches: list[BranchInfo] = []
@@ -258,6 +281,55 @@ def _extract_function(
     location = make_location(node, file_path)
     docstring = _extract_docstring(node)
 
+    attributes: list[Attribute] = [
+        (
+            "internal_linkage",
+            any(
+                c.type == "storage_class_specifier" and node_text(c) == "static"
+                for source_node in (node, declaration)
+                for c in source_node.named_children
+            ),
+        )
+    ]
+    if signature is not None:
+        attributes.extend(
+            [
+                ("macro_wrapper", signature.wrapper),
+                ("source_alias", signature.source_alias),
+                ("expansion_alias", signature.name),
+            ]
+        )
+    elif wrapper is not None:
+        attributes.extend(
+            [
+                ("macro_wrapper", wrapper[0]),
+                ("source_alias", wrapper[1]),
+                ("macro_signature_unresolved", True),
+            ]
+        )
+        graph.parse_diagnostics.append(
+            ParseDiagnostic(
+                "c",
+                "c",
+                location,
+                "unsupported_syntax",
+                "Declaration macro could not be expanded to one unambiguous function signature",
+            )
+        )
+    if recovered or node.has_error or wrapper is not None and signature is None:
+        attributes.append(("parse_incomplete", True))
+    if recovered:
+        attributes.append(("syntax_recovered", True))
+        graph.parse_diagnostics.append(
+            ParseDiagnostic(
+                "c",
+                "c",
+                location,
+                "syntax_recovery",
+                "Recovered a balanced physical function body around unexpanded block macros; "
+                "preprocessor control flow is not modeled",
+            )
+        )
     unit = CodeUnit(
         id=func_id,
         name=func_name,
@@ -269,15 +341,7 @@ def _extract_function(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,
-        attributes=(
-            (
-                "internal_linkage",
-                any(
-                    c.type == "storage_class_specifier" and node_text(c) == "static"
-                    for c in node.named_children
-                ),
-            ),
-        ),
+        attributes=tuple(attributes),
     )
     func_id = add_callable(graph, unit)
     add_contains_edge(graph, module_id, func_id)
@@ -291,7 +355,16 @@ def _extract_function(
             if function is not None and site.id not in recorded:
                 calls.append((node_text(function), site))
         calls.sort(key=lambda call: call[1].start_byte)
-    _add_call_edges(calls, func_id, module_id, file_path, graph)
+    _add_call_edges(
+        calls,
+        func_id,
+        module_id,
+        file_path,
+        graph,
+        recovered=recovered,
+        incomplete=node.has_error,
+        unknown_signature=wrapper is not None and signature is None,
+    )
 
 
 def _add_call_edges(
@@ -300,6 +373,10 @@ def _add_call_edges(
     module_id: str,
     file_path: str,
     graph: CodeGraph,
+    *,
+    recovered: bool = False,
+    incomplete: bool = False,
+    unknown_signature: bool = False,
 ) -> None:
     """Create CALLS edges from collected call expressions."""
     for call_name, call_node in calls:
@@ -309,15 +386,22 @@ def _add_call_edges(
         if indirect:
             target_id = f"{func_id}.$indirect.{call_name}"
             confidence = EdgeConfidence.UNCERTAIN
+        if unknown_signature:
+            target_id = f"{func_id}.$macro.{call_name}"
         graph.edges.append(
             guard_call(
                 CodeEdge(
                     source_id=func_id,
                     target_id=target_id,
                     kind=EdgeKind.CALLS,
-                    confidence=confidence,
+                    confidence=EdgeConfidence.UNCERTAIN
+                    if recovered or incomplete or unknown_signature
+                    else confidence,
                     location=make_location(call_node, file_path),
-                    attributes=(("binding_blocked", True),) if indirect else (),
+                    attributes=(
+                        *((("binding_blocked", True),) if indirect or unknown_signature else ()),
+                        *((("syntax_recovered", True),) if recovered else ()),
+                    ),
                 ),
                 call_node,
                 graph=graph,
@@ -328,7 +412,7 @@ def _add_call_edges(
 def _call_confidence(call_name: str) -> EdgeConfidence:
     """Determine confidence for a C call expression."""
     if "." in call_name or "->" in call_name:
-        return EdgeConfidence.INFERRED
+        return EdgeConfidence.UNCERTAIN
     return EdgeConfidence.CERTAIN
 
 
