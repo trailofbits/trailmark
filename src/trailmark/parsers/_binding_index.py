@@ -32,6 +32,8 @@ class ScopeIndex:
         self.scopes: dict[int, _Scope] = {}
         self.names: set[str] = set()
         self.callback_names: set[str] = set()
+        self._class_scopes: set[int] = set()
+        self._python = scopes == frozenset({"function_definition", "lambda"})
         self._build(root, scopes, dict(fields))
 
     def _build(self, root: Node, scopes: frozenset[str], fields: dict[str, str]) -> None:
@@ -52,17 +54,25 @@ class ScopeIndex:
             # A function's name belongs to its enclosing scope, not its body.
             if owner is not None and node != root:
                 self._declaration(node, owner, fields)
-            if node.type in scopes:
-                parameters = _callback_parameters(node)
-                self.callback_names.update(parameters)
-                self.scopes[node.id] = _Scope(owner, callback_parameters=parameters)
-                owner = node.id
+            if node.type in scopes or self._python and node.type == "class_definition":
+                owner = self._new_scope(node, owner)
             self.owners[node.id] = owner
             self._directives(node, owner)
             pending.extend((child, owner) for child in reversed(node.named_children))
         for scope in self.scopes.values():
             for nodes in scope.declarations.values():
                 nodes.sort(key=lambda node: node.end_byte)
+
+    def _new_scope(self, node: Node, owner: int | None) -> int:
+        if self._python and node.type in {"function_definition", "lambda"}:
+            while owner in self._class_scopes:
+                owner = self.scopes[owner].parent
+        if self._python and node.type == "class_definition":
+            self._class_scopes.add(node.id)
+        parameters = _callback_parameters(node)
+        self.callback_names.update(parameters)
+        self.scopes[node.id] = _Scope(owner, callback_parameters=parameters)
+        return node.id
 
     def _directives(self, node: Node, owner: int | None) -> None:
         if owner is not None and node.type in {"global_statement", "nonlocal_statement"}:

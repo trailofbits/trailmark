@@ -37,7 +37,8 @@ including after directory linking. This guard does not infer callback values or
 reproduce a compiler's full alias, overload, or control-flow analysis. Scope
 indexes preserve language declaration order: Rust, Go and Kotlin initializers can
 call the previous same-name binding. Python function names bind in their enclosing
-scope; class methods do not shadow module functions. Java variables and parameters
+scope; methods in module-level and function-local classes do not shadow module
+functions or leak their names into an enclosing function. Java variables and parameters
 occupy a separate namespace and do not block method calls.
 
 Rust and Verus preserve repeated same-name impl methods with source-offset

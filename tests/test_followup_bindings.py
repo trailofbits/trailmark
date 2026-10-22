@@ -243,3 +243,26 @@ def test_unextracted_callback_parameters_do_not_bind_globals(
     blocked = [e for e in calls if e.target_id.endswith("$binding.validate")]
     assert len(blocked) == 1
     assert blocked[0].confidence == EdgeConfidence.UNCERTAIN
+
+
+def test_python_local_class_methods_do_not_leak_into_function_scope(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        "case.py",
+        "def process(): pass\n"
+        "def factory():\n"
+        " class Local:\n"
+        "  def process(self): return process()\n"
+        " return process()\n",
+    )
+    for owner in ["case:factory", "case:factory.Local.process"]:
+        calls = [
+            e
+            for e in graph.edges
+            if e.kind == EdgeKind.CALLS
+            and e.source_id == owner
+            and not dict(e.attributes).get("deferred")
+        ]
+        assert [(e.target_id, e.confidence) for e in calls] == [
+            ("case:process", EdgeConfidence.CERTAIN),
+        ]
