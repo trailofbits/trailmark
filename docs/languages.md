@@ -13,6 +13,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [TypeScript](#typescript)
 - [Lua](#lua)
 - [SQL](#sql)
+- [PowerShell](#powershell)
 - [C, C++, and Objective-C headers](#c-c-and-objective-c-headers)
 
 ## Bash
@@ -209,6 +210,22 @@ functions, and procedures, plus `corresponds_to` edges from routines and views
 to the objects they reference. It is not a SQL dialect validator and does not
 analyze query semantics. The SQL grammar ships as the `tree-sitter-sql` wheel
 dependency, so it does not use the shared grammar cache.
+
+## PowerShell
+
+The `.ps1`/`.psm1` frontend extracts functions, filters, classes and methods,
+header and `param` parameters, type annotations/defaults, branches, literal
+`Import-Module`/`using module` dependencies, and command/pipeline calls.
+`file:<script>` owns top-level execution; anonymous script blocks own their
+bodies with byte-offset IDs. Repeated declarations also gain offset suffixes.
+Unique lexical function names resolve case-insensitively as `inferred`, respecting
+script declaration order. Scoped names, receiver/static method dispatch, aliases,
+call operators and callbacks remain uncertain proxies. Alias/function-provider
+mutation, imports, dot-sourcing and expression evaluation disable local inference
+throughout the file. Dynamic scoping, module exports and session state are not
+evaluated, and manifests (`.psd1`) are not auto-detected. Script execution and host
+callbacks need entrypoint overrides; exact lowercase `main` uses the generic
+rule. Syntax errors warn that the graph may be incomplete.
 
 ## C, C++, and Objective-C headers
 

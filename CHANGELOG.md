@@ -36,6 +36,8 @@
 - Add `trailmark analyze --resolution`, `QueryEngine.call_resolution()`, and
   `QueryEngine.unresolved_calls(name=None)` for counting and inspecting
   unresolved call sites. Document Rust call-resolution limits (#85).
+- Add a PowerShell frontend for scripts/modules, functions, filters, classes,
+  script blocks, typed parameters, dependencies and conservative command calls.
 - Keep overloads in Solidity, C++, Java, C#, Kotlin, and Swift as separate
   nodes. Colliding callable IDs gain an `@line_column` suffix; a type that
   shares a callable's ID keeps the base ID. Calls that need overload resolution

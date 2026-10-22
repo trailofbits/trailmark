@@ -1,0 +1,249 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:<script>"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Get-Value"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Select-Thing"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:main"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:Get-Value.<dynamic>.Write-Output"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Get-Value",
+      "target": "proxy.unresolved:taxonomy:Get-Value._dynamic_.Write-Output"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "taxonomy:Get-Value"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:main.<dynamic>.$Name"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "proxy.unresolved:taxonomy:main._dynamic_.$Name"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:<script>",
+      "target": "taxonomy:main"
+    }
+  ],
+  "language": "powershell",
+  "nodes": {
+    "proxy.unresolved:taxonomy:Get-Value._dynamic_.Write-Output": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Get-Value.<dynamic>.Write-Output"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Get-Value._dynamic_.Write-Output",
+      "kind": "proxy",
+      "location": {
+        "end_col": 40,
+        "end_line": 3,
+        "file_path": "taxonomy.ps1",
+        "start_col": 21,
+        "start_line": 3
+      },
+      "name": "taxonomy:Get-Value.<dynamic>.Write-Output",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:main._dynamic_.$Name": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:main.<dynamic>.$Name"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:main._dynamic_.$Name",
+      "kind": "proxy",
+      "location": {
+        "end_col": 8,
+        "end_line": 8,
+        "file_path": "taxonomy.ps1",
+        "start_col": 1,
+        "start_line": 8
+      },
+      "name": "taxonomy:main.<dynamic>.$Name",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 11,
+        "file_path": "taxonomy.ps1",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:<script>": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:<script>",
+      "kind": "function",
+      "location": {
+        "end_col": 0,
+        "end_line": 11,
+        "file_path": "taxonomy.ps1",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "<script>",
+      "parameters": [
+        {
+          "default": null,
+          "name": "$Name",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "string"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Get-Value": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "$Count -gt 0",
+          "location": {
+            "end_col": 42,
+            "end_line": 3,
+            "file_path": "taxonomy.ps1",
+            "start_col": 1,
+            "start_line": 3
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Get-Value",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 4,
+        "file_path": "taxonomy.ps1",
+        "start_col": 0,
+        "start_line": 2
+      },
+      "name": "Get-Value",
+      "parameters": [
+        {
+          "default": "1",
+          "name": "$Count",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Select-Thing": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Select-Thing",
+      "kind": "function",
+      "location": {
+        "end_col": 26,
+        "end_line": 5,
+        "file_path": "taxonomy.ps1",
+        "start_col": 0,
+        "start_line": 5
+      },
+      "name": "Select-Thing",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:main": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:main",
+      "kind": "function",
+      "location": {
+        "end_col": 1,
+        "end_line": 9,
+        "file_path": "taxonomy.ps1",
+        "start_col": 0,
+        "start_line": 6
+      },
+      "name": "main",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.ps1",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 4,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 4,
+    "languages": [
+      "powershell"
+    ],
+    "proxies": 2,
+    "source_file_counts": {
+      "powershell": 1
+    },
+    "source_files": 1,
+    "total_nodes": 7
+  },
+  "trailmark_version": "<trailmark-version>"
+}

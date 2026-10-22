@@ -44,6 +44,7 @@ PARSER_FIXTURES: list[tuple[str, str]] = [
     ("move", "taxonomy"),
     ("objc", "Taxonomy"),
     ("php", "taxonomy"),
+    ("powershell", "taxonomy"),
     ("proto", "taxonomy"),
     ("python", "taxonomy"),
     ("rego", "taxonomy"),

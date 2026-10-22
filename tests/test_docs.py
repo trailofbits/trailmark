@@ -184,6 +184,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ),
     ("docs/python-api.md", "from trailmark.parse import parse_directory, parse_file"),
     ("docs/python-api.md", 'graph = parse_file("path/to/file.py")'),
+    ("docs/languages.md", "Unique lexical function names resolve case-insensitively"),
     # Finding imports
     ("docs/augmenting.md", "`replace_existing=False`"),
     ("docs/augmenting.md", "preserves the graph's previous state"),

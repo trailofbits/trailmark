@@ -217,6 +217,7 @@ for working with proxies.
 | Bash | `.sh`, `.bash` | `bash` | functions, script execution, branches, commands, literal source dependencies |
 | C++ | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx` | `cpp` | functions, classes, structs, namespaces |
 | C# | `.cs` | `c_sharp` | methods, classes, interfaces, structs, enums, namespaces |
+| PowerShell | `.ps1`, `.psm1` | `powershell` | functions, filters, classes, methods, script blocks, parameters, command calls, imports |
 | Java | `.java` | `java` | methods, classes, interfaces, enums |
 | Go | `.go` | `go` | functions, methods, structs, interfaces |
 | Rust | `.rs` | `rust` | functions, structs, traits, enums, impl blocks, `verus!` blocks |
