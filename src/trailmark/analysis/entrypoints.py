@@ -302,6 +302,15 @@ def _detect_for_unit(
         return _export_tag("Zig exported function")
     if extension == ".ak" and _unit_attr(unit, "aiken_handler"):
         return _export_tag("Aiken validator handler")
+    return _detect_registered(extension, cache, unit, path)
+
+
+def _detect_registered(
+    extension: str,
+    cache: _SourceCache,
+    unit: CodeUnit,
+    path: str,
+) -> EntrypointTag | None:
     if detector := _SOURCE_DETECTORS.get(extension):
         return detector(cache, unit, path)
     if detector := _UNIT_DETECTORS.get(extension):

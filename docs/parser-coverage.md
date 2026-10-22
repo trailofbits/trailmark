@@ -164,8 +164,10 @@ and directive indexes are cached only for the current directory operation. The c
 symbol becomes the callable ID, with `macro_wrapper`, `source_alias`, and
 `expansion_alias` attributes preserving its source spelling. Conditional,
 redefined, recursive, variadic, or stringifying wrappers can remain symbolic
-`WRAPPER(name)` declarations with diagnostics and uncertain calls marked
-`macro_signature_unresolved`. Their calls can still link to real declarations.
+`WRAPPER(name)` declarations with diagnostics. Calls keep their normal confidence
+and are marked `macro_signature_unresolved`. An unexpanded macro cannot establish
+injected parameters that shadow a global function; strict analyses should filter
+on that attribute. Their calls can still link to real declarations.
 Untyped `WRAPPER(name) { ... }` definitions retain that wrapper identity even if
 the header is unavailable; argument-only names are not exposed as global aliases.
 Unavailable macro definitions cannot establish compiled names. Repeated unknown
@@ -176,8 +178,9 @@ designated function initializers. It binds by object and field, records
 `callback_table` / `callback_field`, and uses inferred confidence. Mutable or
 conditional tables, positional initializers, unknown pointers, and shadowed
 receivers remain uncertain. This does not select build configurations or infer
-general callback dataflow. Recovered bodies and unresolved macro signatures do
-not infer callback-table targets. Other parse errors mark the function
+general callback dataflow. Recovered bodies do not infer callback-table targets.
+Unresolved wrapper signatures retain normal callback-table inference, with the
+same possible injected-parameter limitation. Other parse errors mark the function
 `parse_incomplete` but affect confidence only at calls within an ERROR subtree or
 with broken descendants. Those calls carry `syntax_error_context`; unrelated
 calls and callback-table sites keep their normal binding confidence. Calls on a
@@ -198,8 +201,10 @@ Swift extensions retain methods and attach to an unambiguous extracted type with
 replacing its kind or source location. Local functions and closures own their bodies.
 Kotlin recursively extracts nested and companion containers. Both prefer known
 lexical methods over same-named free functions and preserve uncertain callable values.
-Ruby, Kotlin and Swift container nesting beyond 48 extraction levels produces an
-`unsupported_syntax` diagnostic instead of exhausting the Python stack.
+Recursive type and callable extraction in C++, Java, PHP, Python, Kotlin and
+Swift, and Ruby containers, is limited to 48 extraction levels. Deeper declarations
+produce an `unsupported_syntax` diagnostic. A final per-file recursion guard keeps
+directory analysis running and reports any file it cannot extract.
 
 Objective-C message sends retain complete selectors. A unique `self` selector in
 the same implementation can link with inferred confidence; other sends stay
@@ -268,3 +273,31 @@ operator proxy IDs use readable names such as `$operator.plus` and
 `$operator.plus_plus`. Constructor patterns do not create calls. Typeclass default bodies,
 applied-type instance bodies, Template Haskell expansion and typeclass dispatch
 remain incomplete.
+
+Python follows runtime redefinition order: the last definition keeps its plain ID;
+earlier bodies use `@line_column` suffixes. `@overload` stubs are skipped. Lambda
+parameters, including defaults, shadow outer functions. Kotlin, Swift and Dart
+class members shadow module names inside that class without leaking into outer
+functions. C and C++ names are visible after their declarator, including inside
+an initializer; Rust, Go and Kotlin bindings become visible after the initializer.
+
+C internal-linkage functions can link with inferred confidence from files that
+include their definitions directly or transitively through in-root quoted includes,
+including included `.c` files. Quoted includes are checked beside the source and
+then at the analysis root. Unincluded static definitions stay unresolved.
+Java constructor binding also runs after the directory merge. JavaScript and
+TypeScript arrows inherit lexical `this`; regular function expressions do not.
+Local literal `require` bindings shadow same-file functions and target the imported
+module or a proxy, without falling back to an unrelated same-named declaration.
+
+Ruby parentheses and argument lists always denote method calls, even when a local
+variable shares the name. Receiverless variable reads use preceding bindings;
+attribute writers do not call the reader method. Stabby lambda bodies retain their
+calls. Explicit `self` calls do not fall back to unrelated module functions. An
+ambiguous inherited method retains an uncertain `{owner}.{name}@ambiguous` target.
+Swift extensions of nested types follow their type's final owner. Move module aliases
+apply to qualified paths only; member imports may resolve bare calls. Macro callback
+parameters retain their `$` prefix, built-in macros use a built-in namespace, and
+import edges name modules rather than grouped source text or `use fun` aliases.
+Haskell operator proxies consistently use `$operator.<name>`, including composition
+and application, without marking ordinary operators as blocked lexical values.

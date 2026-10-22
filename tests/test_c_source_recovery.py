@@ -139,7 +139,7 @@ def test_unsupported_macro_signatures_keep_distinct_owners_and_targets(
             for edge in graph.edges
             if edge.source_id == unit.id and edge.kind == EdgeKind.CALLS
         ]
-        assert all(edge.confidence == EdgeConfidence.UNCERTAIN for edge in edges)
+        assert all(edge.confidence == EdgeConfidence.CERTAIN for edge in edges)
         assert all(dict(edge.attributes)["macro_signature_unresolved"] for edge in edges)
         assert not any(dict(edge.attributes).get("binding_blocked") for edge in edges)
         assert unit.parameters == ()

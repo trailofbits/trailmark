@@ -25,63 +25,42 @@
       "target": "taxonomy:branchy/2"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy/2",
       "target": "taxonomy:sum_even/1"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy/2",
       "target": "taxonomy:reduce/1"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy/2",
       "target": "taxonomy:parse_or_error/2"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy/2",
       "target": "taxonomy:sum_even/1"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy/2",
       "target": "taxonomy:reduce/1"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy/2",
       "target": "taxonomy:parse_or_error/2"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:branchy/2",
@@ -95,7 +74,6 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
         "raw_target": "lists:sum/1"
       },
       "confidence": "certain",
@@ -105,7 +83,6 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
         "raw_target": "lists:seq/2"
       },
       "confidence": "certain",
@@ -120,9 +97,6 @@
       "target": "taxonomy:reduce/1"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:reduce/1",
@@ -136,7 +110,6 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
         "raw_target": "string:to_integer/1"
       },
       "confidence": "certain",
@@ -146,7 +119,6 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
         "raw_target": "taxonomy:is_integer/1"
       },
       "confidence": "certain",
@@ -173,9 +145,6 @@
       "target": "taxonomy:new_dog/2"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:new_dog/2",
@@ -194,9 +163,6 @@
       "target": "taxonomy:use_animal/1"
     },
     {
-      "attributes": {
-        "binding_blocked": true
-      },
       "confidence": "certain",
       "kind": "calls",
       "source": "taxonomy:use_animal/1",

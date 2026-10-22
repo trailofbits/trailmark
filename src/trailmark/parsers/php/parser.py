@@ -25,6 +25,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._php_linking import link_php_functions
 from trailmark.parsers._walk import walk_owned
 
@@ -175,6 +176,7 @@ def _extract_namespace(
         _walk_children(body, file_path, module_id, graph)
 
 
+@bounded_nesting
 def _extract_class(
     node: Node,
     file_path: str,
@@ -273,6 +275,7 @@ def _visit_class_body(
             )
 
 
+@bounded_nesting
 def _extract_function(
     node: Node,
     file_path: str,
@@ -302,6 +305,31 @@ def _extract_function(
         kind = NodeKind.FUNCTION
         container_id = _namespace_owner(node, module_id)
 
+    unit, calls, body = _function_unit(
+        node, file_path, func_id=func_id, func_name=func_name, kind=kind
+    )
+    graph.nodes[func_id] = unit
+    add_contains_edge(graph, container_id, func_id)
+    _nested_functions(body, file_path, module_id, func_id, graph, class_id=class_id)
+
+    _add_call_edges(
+        calls,
+        func_id,
+        module_id,
+        class_id,
+        file_path=file_path,
+        graph=graph,
+    )
+
+
+def _function_unit(
+    node: Node,
+    file_path: str,
+    *,
+    func_id: str,
+    func_name: str,
+    kind: NodeKind,
+) -> tuple[CodeUnit, list[tuple[str, Node]], Node | None]:
     params = _extract_parameters(node)
     return_type = _extract_return_type(node)
     body = node.child_by_field_name("body")
@@ -334,8 +362,18 @@ def _extract_function(
         branches=tuple(branches),
         docstring=_extract_docstring(node),
     )
-    graph.nodes[func_id] = unit
-    add_contains_edge(graph, container_id, func_id)
+    return unit, calls, body
+
+
+def _nested_functions(
+    body: Node | None,
+    file_path: str,
+    module_id: str,
+    func_id: str,
+    graph: CodeGraph,
+    *,
+    class_id: str | None,
+) -> None:
     if body is not None:
         for nested in walk_owned(body, boundaries=_CALLABLE_TYPES):
             if nested.type in {"function_definition", "anonymous_function", "arrow_function"}:
@@ -352,69 +390,77 @@ def _extract_function(
                     else f"$lambda@{nested.start_point.row + 1}_{nested.start_point.column}",
                 )
 
-    _add_call_edges(
-        calls,
-        func_id,
-        module_id,
-        class_id,
-        file_path,
-        graph,
-    )
-
 
 def _add_call_edges(
     calls: list[tuple[str, Node]],
     func_id: str,
     module_id: str,
     class_id: str | None,
+    *,
     file_path: str,
     graph: CodeGraph,
 ) -> None:
-    """Add CALLS edges for all collected call sites."""
-    for call_name, call_node in calls:
-        target_id = _resolve_call_target(
-            call_name,
-            module_id,
-            class_id,
-        )
-        confidence = _call_confidence(call_name)
-        if call_node.type == "function_call_expression" and not call_name.startswith("$"):
-            target_id = _php_reference_id(call_node, module_id, call_name)
-        elif call_node.type == "scoped_call_expression":
-            scope, _, method = call_name.partition("::")
-            if scope == "self" and class_id is not None:
-                target_id, confidence = f"{class_id}.{method}", EdgeConfidence.CERTAIN
-            elif scope == "parent" and class_id is not None:
-                bases = [
-                    edge.target_id
-                    for edge in graph.edges
-                    if edge.source_id == class_id and edge.kind == EdgeKind.INHERITS
-                ]
-                if len(bases) == 1:
-                    target_id = f"{bases[0]}.{method}"
-            elif scope == "static":
-                confidence = EdgeConfidence.UNCERTAIN
-            elif not scope.startswith("$"):
-                target_id = f"{_php_reference_id(call_node, module_id, scope)}.{method}"
-        attributes: tuple[tuple[str, str | bool], ...] = ()
-        if call_node.type == "function_call_expression" and not call_name.startswith("$"):
-            attributes = (
-                (
-                    "php_function_target",
-                    _php_reference_id(call_node, module_id, call_name).split(":", 1)[-1],
-                ),
-                ("php_global_fallback", "\\" not in call_name),
-            )
+    """Add located PHP targets without mixing namespace and receiver policies."""
+    for name, site in calls:
+        target, confidence = _php_call_target(name, site, module_id, class_id, graph)
         graph.edges.append(
             CodeEdge(
                 source_id=func_id,
-                target_id=target_id,
+                target_id=target,
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
-                location=make_location(call_node, file_path),
-                attributes=attributes,
+                location=make_location(site, file_path),
+                attributes=_php_call_attributes(name, site, module_id),
             )
         )
+
+
+def _php_call_attributes(name: str, site: Node, module: str) -> tuple[tuple[str, str | bool], ...]:
+    if site.type != "function_call_expression" or name.startswith("$"):
+        return ()
+    return (
+        ("php_function_target", _php_reference_id(site, module, name).split(":", 1)[-1]),
+        ("php_global_fallback", "\\" not in name),
+    )
+
+
+def _php_call_target(
+    name: str,
+    site: Node,
+    module: str,
+    owner: str | None,
+    graph: CodeGraph,
+) -> tuple[str, EdgeConfidence]:
+    if site.type == "function_call_expression" and not name.startswith("$"):
+        return _php_reference_id(site, module, name), _call_confidence(name)
+    if site.type == "scoped_call_expression":
+        return _php_scoped_target(name, site, module, owner, graph)
+    return _resolve_call_target(name, module, owner), _call_confidence(name)
+
+
+def _php_scoped_target(
+    name: str,
+    site: Node,
+    module: str,
+    owner: str | None,
+    graph: CodeGraph,
+) -> tuple[str, EdgeConfidence]:
+    scope, _, method = name.partition("::")
+    if scope == "self" and owner is not None:
+        return f"{owner}.{method}", EdgeConfidence.CERTAIN
+    if scope == "parent" and owner is not None:
+        return _php_parent_target(name, module, owner, method, graph), EdgeConfidence.INFERRED
+    if scope == "static":
+        return _resolve_call_target(name, module, owner), EdgeConfidence.UNCERTAIN
+    target = name if scope.startswith("$") else f"{_php_reference_id(site, module, scope)}.{method}"
+    return target, EdgeConfidence.INFERRED
+
+
+def _php_parent_target(name: str, module: str, owner: str, method: str, graph: CodeGraph) -> str:
+    bases = [
+        e.target_id for e in graph.edges if e.source_id == owner and e.kind == EdgeKind.INHERITS
+    ]
+    return f"{bases[0]}.{method}" if len(bases) == 1 else _resolve_call_target(name, module, owner)
 
 
 def _call_confidence(call_name: str) -> EdgeConfidence:

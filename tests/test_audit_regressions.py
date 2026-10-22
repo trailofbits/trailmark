@@ -976,7 +976,7 @@ def test_ruby_owners_vcalls_and_entrypoint_visibility() -> None:
         "singleton:Processor.self.class_sink"
     ]
     graph = parse_file(str(FIXTURES / "ruby/fixtures/calls.rb"), "ruby")
-    assert _calls(graph, "calls:Handler.run").count("calls:Handler.sink") == 6
+    assert _calls(graph, "calls:Handler.run").count("calls:Handler.sink") == 7
     assert "calls:sink" not in _calls(graph, "calls:Handler.run")
     engine = QueryEngine.from_directory(str(FIXTURES / "ruby/fixtures"), language="ruby")
     ids = {row["node_id"] for row in engine.attack_surface()}

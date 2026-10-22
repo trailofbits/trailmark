@@ -40,7 +40,10 @@ compatibility tests, not a claim that those external gates have been updated.
   self-path lists must not classify a directly callable entrypoint as unreachable;
   include the entrypoint itself in the reachability set. Nested callable bodies
   have uncertain owner-to-body call edges with `deferred: true`. Reachability
-  includes these possible callback paths; confidence filters can exclude them.
+  includes these possible callback paths. The current query facade has no confidence
+  filter and does not expose the `deferred` flag in path results. `callers_of` lists
+  the owner as a caller and `summary()["call_edges"]` counts deferred edges. Consumers
+  needing to exclude them must inspect raw graph edges before traversal.
 
 ## Finding and state workflows
 
@@ -74,3 +77,11 @@ again against the built wheel and sdist. The release tag, pyproject version,
 runtime version, dated changelog heading, wheel metadata and root sdist `PKG-INFO`
 must agree. Publishing rejects an `(unreleased)` heading; ordinary test runs can
 retain it. This does not publish or tag anything during ordinary development.
+
+Python's last definition of a name keeps the plain ID and earlier definitions use
+position suffixes; `@overload` stubs are omitted. C calls in unresolved wrappers keep
+normal confidence and the `macro_signature_unresolved` attribute. Unexpanded macros
+cannot establish injected parameters that shadow globals; strict consumers should
+filter on this attribute. Recovered bodies still carry uncertain call edges.
+SARIF description-only bases fall back to the analysis root; percent-encoded paths
+decode consistently. Chain limits do not depend on finding order or cached results.

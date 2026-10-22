@@ -18,6 +18,7 @@ from trailmark.models.nodes import CodeUnit, NodeKind
 class _Scope:
     parent: int | None
     declarations: dict[str, list[Node]] = field(default_factory=dict)
+    latest: dict[str, Node] = field(default_factory=dict)
     directives: dict[str, str] = field(default_factory=dict)
     callback_parameters: set[str] = field(default_factory=set)
 
@@ -34,34 +35,45 @@ class ScopeIndex:
         self.callback_names: set[str] = set()
         self._class_scopes: set[int] = set()
         self._python = scopes == frozenset({"function_definition", "lambda"})
+        self._c_declarations = "init_declarator" in dict(fields)
+        self._skip_c_globals = root.type == "translation_unit" and dict(fields) == {
+            "init_declarator": "declarator",
+            "declaration": "declarator",
+        }
         self._build(root, scopes, dict(fields))
 
     def _build(self, root: Node, scopes: frozenset[str], fields: dict[str, str]) -> None:
         pending: list[tuple[Node, int | None]] = [(root, None)]
-        c_declarations = root.type == "translation_unit" and fields == {
-            "init_declarator": "declarator",
-            "declaration": "declarator",
-        }
         while pending:
             node, owner = pending.pop()
-            if (
-                c_declarations
-                and owner is None
-                and node.type
-                in {"declaration", "type_definition", "struct_specifier", "enum_specifier"}
-            ):
+            if _skip_global_data(node, owner, self._skip_c_globals):
                 continue
-            # A function's name belongs to its enclosing scope, not its body.
-            if owner is not None and node != root:
-                self._declaration(node, owner, fields)
-            if node.type in scopes or self._python and node.type == "class_definition":
-                owner = self._new_scope(node, owner)
-            self.owners[node.id] = owner
-            self._directives(node, owner)
-            pending.extend((child, owner) for child in reversed(node.named_children))
+            owner = self._index_node(node, owner, scopes, fields)
+            pending.extend(
+                (child, owner)
+                for child in reversed(node.named_children)
+                if not self._c_declarations or child.named_child_count
+            )
         for scope in self.scopes.values():
             for nodes in scope.declarations.values():
-                nodes.sort(key=lambda node: node.end_byte)
+                nodes.sort(key=self._visible_at)
+
+    def _index_node(
+        self,
+        node: Node,
+        owner: int | None,
+        scopes: frozenset[str],
+        fields: dict[str, str],
+    ) -> int | None:
+        # A function's name belongs to its enclosing scope, not its body.
+        if node.type in fields and owner is not None:
+            self._declaration(node, owner, fields)
+        if node.type in scopes or self._python and node.type == "class_definition":
+            owner = self._new_scope(node, owner)
+        self.owners[node.id] = owner
+        if self._python:
+            self._directives(node, owner)
+        return owner
 
     def _new_scope(self, node: Node, owner: int | None) -> int:
         if self._python and node.type in {"function_definition", "lambda"}:
@@ -81,7 +93,7 @@ class ScopeIndex:
 
     def _declaration(self, node: Node, owner: int, fields: dict[str, str]) -> None:
         field_name = fields.get(node.type)
-        if field_name is None or _require_import(node):
+        if field_name is None:
             return
         names = declaration_names(node, field_name)
         if (
@@ -92,7 +104,15 @@ class ScopeIndex:
             node = node.parent
         for name in names:
             self.scopes[owner].declarations.setdefault(name, []).append(node)
+            self.scopes[owner].latest[name] = node
             self.names.add(name)
+
+    def _visible_at(self, node: Node) -> int:
+        if node.type == "for":
+            pattern = node.child_by_field_name("pattern")
+            return pattern.end_byte if pattern is not None else node.end_byte
+        declarator = node.child_by_field_name("declarator") if self._c_declarations else None
+        return declarator.end_byte if declarator is not None else node.end_byte
 
     def declaration(self, occurrence: Node, name: str, ordered: bool) -> Node | None:
         if name not in self.names:
@@ -101,11 +121,11 @@ class ScopeIndex:
         while owner is not None:
             scope = self.scopes[owner]
             nodes = scope.declarations.get(name, [])
-            position = bisect_right(nodes, occurrence.start_byte, key=lambda node: node.end_byte)
+            position = (
+                bisect_right(nodes, occurrence.start_byte, key=self._visible_at) if ordered else 0
+            )
             if nodes and (not ordered or position):
-                return (
-                    nodes[position - 1] if ordered else max(nodes, key=lambda node: node.start_byte)
-                )
+                return nodes[position - 1] if ordered else scope.latest[name]
             owner = scope.parent
         return None
 
@@ -143,8 +163,9 @@ class _Session:
     indexes: dict[tuple[frozenset[str], tuple[tuple[str, str], ...]], ScopeIndex] = field(
         default_factory=dict
     )
-    units: dict[tuple[str, int, str], dict[str, CodeUnit]] = field(default_factory=dict)
+    units: dict[tuple[str, int, int | None, str], dict[str, CodeUnit]] = field(default_factory=dict)
     locations: dict[tuple[str, int, int | None], dict[str, CodeUnit]] = field(default_factory=dict)
+    parameters: dict[str, frozenset[str]] = field(default_factory=dict)
 
 
 _CURRENT: ContextVar[_Session | None] = ContextVar("_BINDING_INDEX", default=None)
@@ -175,25 +196,43 @@ def initialize_bindings(root: Node) -> None:
 def record_unit(unit: CodeUnit) -> None:
     session = _CURRENT.get()
     if session is not None:
+        session.parameters.pop(unit.id, None)
         position = (unit.location.file_path, unit.location.start_line, unit.location.start_col)
         session.locations[position] = {unit.id: unit}
-        key = (unit.location.file_path, unit.location.start_line, unit.name)
+        key = (*position, unit.name)
         # Moving an overload replaces the original identity at the same location.
         session.units[key] = {unit.id: unit}
 
 
+def call_parameter(source: CodeUnit | None, name: str) -> bool:
+    """Reuse each immutable callable's parameter names during its file parse."""
+    if source is None:
+        return False
+    session = _CURRENT.get()
+    if session is None:
+        return any(parameter.name == name for parameter in source.parameters)
+    if source.id not in session.parameters:
+        session.parameters[source.id] = frozenset(parameter.name for parameter in source.parameters)
+    return name in session.parameters[source.id]
+
+
 def local_unit(graph: CodeGraph, declaration: Node, name: str, source: CodeUnit) -> CodeUnit | None:
     session = _CURRENT.get()
-    key = (source.location.file_path, declaration.start_point.row + 1, name)
+    key = (
+        source.location.file_path,
+        declaration.start_point.row + 1,
+        declaration.start_point.column,
+        name,
+    )
     if session is None:
         units = [
             u
             for u in graph.nodes.values()
-            if (u.location.file_path, u.location.start_line, u.name) == key
+            if (u.location.file_path, u.location.start_line, u.location.start_col, u.name) == key
         ]
     else:
         units = list(session.units.get(key, {}).values())
-    units = [unit for unit in units if unit.kind == NodeKind.FUNCTION]
+    units = [unit for unit in units if unit.kind in {NodeKind.FUNCTION, NodeKind.METHOD}]
     return units[0] if len(units) == 1 else None
 
 
@@ -217,13 +256,14 @@ def scope_index(
 
 def declaration_names(node: Node, field_name: str) -> set[str]:
     patterns = node.children_by_field_name(field_name)
-    if not patterns and node.type == "local_function_declaration":
+    if not patterns and node.type in {"local_function_declaration", "function_declaration"}:
         patterns = _local_function_names(node)
     if not patterns and node.type in {
         "variable_declaration",
         "function_declaration",
         "initialized_variable_definition",
         "initialized_identifier",
+        "exception_variable",
     }:
         patterns = [
             child
@@ -243,14 +283,6 @@ def _local_function_names(node: Node) -> list[Node]:
     return names
 
 
-def _require_import(node: Node) -> bool:
-    value = node.child_by_field_name("value")
-    if node.type != "variable_declarator" or value is None or value.type != "call_expression":
-        return False
-    function = value.child_by_field_name("function")
-    return function is not None and function.text == b"require"
-
-
 def _leaf_name(node: Node) -> set[str]:
     return {_text(node)} if not node.named_children else set()
 
@@ -261,20 +293,42 @@ def _text(node: Node) -> str:
 
 def pattern_names(node: Node) -> set[str]:
     """Read declaration patterns without treating initializers or types as names."""
-    if node.type in {
+    names: set[str] = set()
+    pending = [node]
+    while pending:
+        current = pending.pop()
+        if current.type in _PATTERN_IDENTIFIERS:
+            names.add(_text(current))
+        else:
+            pending.extend(_pattern_children(current))
+    return names
+
+
+_GLOBAL_C_DATA = frozenset({"declaration", "type_definition", "struct_specifier", "enum_specifier"})
+
+
+def _skip_global_data(node: Node, owner: int | None, c_declarations: bool) -> bool:
+    return c_declarations and owner is None and node.type in _GLOBAL_C_DATA
+
+
+_PATTERN_IDENTIFIERS = frozenset(
+    {
         "variable_identifier",
         "identifier",
         "simple_identifier",
         "field_identifier",
         "shorthand_property_identifier_pattern",
-    }:
-        return {node.text.decode()} if node.text is not None else set()
+    }
+)
+
+
+def _pattern_children(node: Node) -> list[Node]:
     if node.type in {"pair_pattern", "object_assignment_pattern"}:
         target = node.child_by_field_name("value") or node.child_by_field_name("left")
-        return pattern_names(target) if target is not None else set()
+        return [target] if target is not None else []
     declarator = node.child_by_field_name("declarator")
     if declarator is not None:
-        return pattern_names(declarator)
+        return [declarator]
     if node.type in {
         "parenthesized_declarator",
         "pointer_declarator",
@@ -282,6 +336,7 @@ def pattern_names(node: Node) -> set[str]:
         "array_declarator",
         "tuple_pattern",
         "list_pattern",
+        "left_assignment_list",
         "pattern_list",
         "object_pattern",
         "array_pattern",
@@ -292,6 +347,7 @@ def pattern_names(node: Node) -> set[str]:
         "mut_pattern",
         "typed_parameter",
         "typed_default_parameter",
+        "default_parameter",
         "list_splat_pattern",
         "dictionary_splat_pattern",
         "pattern",
@@ -305,10 +361,15 @@ def pattern_names(node: Node) -> set[str]:
         "assignment_pattern",
     }:
         children = node.named_children
-        if node.type in {"typed_parameter", "typed_default_parameter", "assignment_pattern"}:
+        if node.type in {
+            "typed_parameter",
+            "typed_default_parameter",
+            "default_parameter",
+            "assignment_pattern",
+        }:
             children = children[:1]
-        return set().union(*(pattern_names(child) for child in children))
-    return set()
+        return children
+    return []
 
 
 def units_at(node: Node, path: str) -> list[CodeUnit]:

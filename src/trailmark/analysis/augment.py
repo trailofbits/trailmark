@@ -240,8 +240,8 @@ def _normalize_path(uri: str, root_path: str) -> str | None:
     Unsupported URI schemes or incompatible drives return None. Paths outside
     the root retain their ``..`` components for comparison with node paths.
     """
-    path = uri
     parsed = urlparse(uri)
+    path = unquote(parsed.path)
     if parsed.scheme == "file":
         path = unquote(parsed.path)
     elif parsed.scheme and parsed.scheme != "":

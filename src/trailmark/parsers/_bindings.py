@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
+from pathlib import Path
 
 from tree_sitter import Node
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit
-from trailmark.parsers._binding_index import local_unit, scope_index
+from trailmark.parsers._binding_index import call_parameter, local_unit, scope_index
+from trailmark.parsers._common import module_id_from_path
 
 _SCOPES = frozenset(
     {
@@ -35,6 +37,10 @@ _SCOPES = frozenset(
         "contract_body",
     }
 )
+_SCOPE_POLICIES = {
+    "python": frozenset({"function_definition", "lambda"}),
+    **dict.fromkeys(("kotlin", "swift", "dart"), _SCOPES | {"class_body"}),
+}
 
 # Name/pattern fields are grammar policies, not guesses based on declaration text.
 _DECLARATIONS: dict[str, tuple[tuple[str, str], ...]] = {
@@ -73,12 +79,12 @@ _DECLARATIONS: dict[str, tuple[tuple[str, str], ...]] = {
 def guard_call(edge: CodeEdge, occurrence: Node, *, graph: CodeGraph) -> CodeEdge:
     """Keep lexical values from binding to unrelated named declarations."""
     policy = _DECLARATIONS.get(graph.language)
-    if policy is None or (graph.language == "objc" and occurrence.type == "message_expression"):
+    if policy is None or (graph.language, occurrence.type) == ("objc", "message_expression"):
         return edge
     name = _bare_name(edge, occurrence)
     if name is None:
         return edge
-    scopes = frozenset({"function_definition", "lambda"}) if graph.language == "python" else _SCOPES
+    scopes = _SCOPE_POLICIES.get(graph.language, _SCOPES)
     index = scope_index(occurrence, scopes, policy)
     if index.callback_parameter(occurrence, name):
         return _blocked(edge, name)
@@ -89,7 +95,25 @@ def guard_call(edge: CodeEdge, occurrence: Node, *, graph: CodeGraph) -> CodeEdg
     declaration = index.declaration(
         occurrence, name, graph.language not in {"python", "javascript", "typescript"}
     )
-    parameter = source is not None and any(param.name == name for param in source.parameters)
+    return _bound_call(edge, declaration, name, source, graph)
+
+
+def _bound_call(
+    edge: CodeEdge,
+    declaration: Node | None,
+    name: str,
+    source: CodeUnit | None,
+    graph: CodeGraph,
+) -> CodeEdge:
+    parameter = call_parameter(source, name)
+    imported = _require_target(declaration, name, source)
+    if imported is not None:
+        return replace(
+            edge,
+            target_id=imported,
+            confidence=EdgeConfidence.INFERRED,
+            attributes=(*edge.attributes, ("import_binding", True)),
+        )
     if not parameter and declaration is None:
         return edge
     local = _local_callable(graph, declaration, name, source)
@@ -105,6 +129,40 @@ def guard_call(edge: CodeEdge, occurrence: Node, *, graph: CodeGraph) -> CodeEdg
             ),
         )
     return _blocked(edge, name)
+
+
+def _require_target(declaration: Node | None, name: str, source: CodeUnit | None) -> str | None:
+    if declaration is None or source is None or declaration.type != "variable_declarator":
+        return None
+    path = _require_path(declaration)
+    if path is None:
+        return None
+    if path.startswith("."):
+        target = Path(source.location.file_path).parent / path
+        if not target.suffix:
+            target = target.with_suffix(Path(source.location.file_path).suffix)
+        module = module_id_from_path(str(target.resolve()))
+    else:
+        module = path
+    return f"{module}:{name}"
+
+
+def _require_path(declaration: Node) -> str | None:
+    value = declaration.child_by_field_name("value")
+    if value is None or value.type != "call_expression":
+        return None
+    function = value.child_by_field_name("function")
+    if function is None or function.text != b"require":
+        return None
+    arguments = value.child_by_field_name("arguments")
+    return _string_argument(arguments) if arguments is not None else None
+
+
+def _string_argument(arguments: Node) -> str | None:
+    argument = next(iter(arguments.named_children), None)
+    if argument is None or argument.type != "string" or argument.text is None:
+        return None
+    return argument.text.decode()[1:-1]
 
 
 def _bare_name(edge: CodeEdge, occurrence: Node) -> str | None:
@@ -167,8 +225,8 @@ def lexical_declaration(
 ) -> Node | None:
     """Find a visible declaration using one parse-local index per scope policy.
 
-    Ordered languages bind a new name only after its declaration has finished,
-    so an initializer can still call the previous binding with the same name.
+    Rust, Go and Kotlin bind after the declaration; C-family names are visible
+    after the declarator, including within their own initializer.
     """
     return scope_index(occurrence, scopes, declarations).declaration(
         occurrence, name, declaration_order

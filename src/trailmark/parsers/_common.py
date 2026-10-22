@@ -183,6 +183,8 @@ def parse_directory(
     language: str,
     dir_path: str,
     extensions: tuple[str, ...],
+    *,
+    link_calls: Callable[[CodeGraph], None] | None = None,
 ) -> CodeGraph:
     """Parse all matching files under dir_path into a merged graph.
 
@@ -196,22 +198,48 @@ def parse_directory(
     if sources is None or sources.root != _absolute_lexical_path(Path(dir_path)):
         owners = dict.fromkeys(walk_source_files(dir_path, extensions), language)
         with directory_sources(dir_path, owners):
-            return parse_directory(parse_file_fn, language, dir_path, extensions)
+            return parse_directory(
+                parse_file_fn, language, dir_path, extensions, link_calls=link_calls
+            )
 
     merged = CodeGraph(language=language, root_path=dir_path)
     inspected = 0
     for fpath in walk_source_files(dir_path, extensions):
         if sources.owners.get(_absolute_lexical_path(Path(fpath))) != language:
             continue
-        file_graph = parse_file_fn(fpath)
+        file_graph = _parse_with_diagnostics(parse_file_fn, fpath, language)
         merged.merge(file_graph)
         inspected += 1
     coverage_language = "c_sharp" if language == "csharp" else language
     merged.source_file_counts = {coverage_language: inspected}
     link_type_relationships(merged)
     resolve_inherited_method_calls(merged)
-    link_cross_file_calls(merged)
+    (link_calls or link_cross_file_calls)(merged)
     return merged if sources.defer_proxies else ensure_proxy_nodes(merged)
+
+
+def _parse_with_diagnostics(
+    parse_file_fn: Callable[[str], CodeGraph],
+    path: str,
+    language: str,
+) -> CodeGraph:
+    try:
+        return parse_file_fn(path)
+    except RecursionError:
+        graph = CodeGraph(language=language, root_path=path)
+        ident = module_id_from_path(path)
+        location = SourceLocation(path, 1, 1)
+        graph.nodes[ident] = CodeUnit(ident, ident, NodeKind.MODULE, location)
+        graph.parse_diagnostics.append(
+            ParseDiagnostic(
+                language,
+                language,
+                location,
+                "unsupported_syntax",
+                "File exceeds parser recursion limit; remaining files are still analyzed",
+            )
+        )
+        return graph
 
 
 def collect_body_info(
@@ -560,7 +588,12 @@ def first_child_by_type(node: Node, type_name: str) -> Node | None:
     return None
 
 
-def link_cross_file_calls(graph: CodeGraph, *, eligible_ids: set[str] | None = None) -> None:
+def link_cross_file_calls(
+    graph: CodeGraph,
+    *,
+    eligible_ids: set[str] | None = None,
+    included_files: Callable[[str], set[str]] | None = None,
+) -> None:
     """Infer unique free-function targets without guessing receiver semantics.
 
     Bare calls cannot safely be assigned to an unrelated class method. Existing
@@ -571,12 +604,13 @@ def link_cross_file_calls(graph: CodeGraph, *, eligible_ids: set[str] | None = N
         link_php_functions(graph)
         return
     name_to_ids = _free_functions(graph, eligible_ids)
+    targets = _CrossFileTargets(graph, included_files)
     new_edges: list[CodeEdge] = []
     for edge in graph.edges:
         if not _needs_cross_file_target(edge, graph, eligible_ids):
             new_edges.append(edge)
             continue
-        candidates = _cross_file_candidates(edge, graph, name_to_ids)
+        candidates = _cross_file_candidates(edge, targets, name_to_ids)
         if len(candidates) == 1:
             edge = dataclasses.replace(
                 edge,
@@ -612,7 +646,7 @@ def _needs_cross_file_target(
     return (
         edge.kind == EdgeKind.CALLS
         and target not in graph.nodes
-        and not dict(edge.attributes).get("binding_blocked")
+        and _allows_cross_file_lookup(edge, graph.language)
         and (eligible_ids is None or edge.source_id in eligible_ids)
         and "::" not in target
         and "->" not in target
@@ -620,25 +654,54 @@ def _needs_cross_file_target(
     )
 
 
+def _allows_cross_file_lookup(edge: CodeEdge, language: str) -> bool:
+    attributes = dict(edge.attributes)
+    return language != "erlang" and not any(
+        attributes.get(key) for key in ("binding_blocked", "import_binding", "circom_dependency")
+    )
+
+
+class _CrossFileTargets:
+    """Cache path and linkage metadata once for the current linking pass."""
+
+    def __init__(self, graph: CodeGraph, included_files: Callable[[str], set[str]] | None) -> None:
+        self.graph = graph
+        self.included_files = included_files
+        paths = {unit.location.file_path for unit in graph.nodes.values()}
+        resolved = {path: str(Path(path).resolve()) for path in paths}
+        self.files = {
+            node_id: resolved[unit.location.file_path] for node_id, unit in graph.nodes.items()
+        }
+        self.parents = {node_id: path.rpartition(os.sep)[0] for node_id, path in self.files.items()}
+        self.attributes = {node_id: dict(unit.attributes) for node_id, unit in graph.nodes.items()}
+
+    def visible(self, source: str, candidate: str) -> bool:
+        if not self.attributes[candidate].get("internal_linkage"):
+            return True
+        path = self.files.get(source)
+        target = self.files[candidate]
+        return path == target or (
+            path is not None
+            and self.included_files is not None
+            and target in self.included_files(path)
+        )
+
+
 def _cross_file_candidates(
-    edge: CodeEdge, graph: CodeGraph, names: dict[str, list[str]]
+    edge: CodeEdge, targets: _CrossFileTargets, names: dict[str, list[str]]
 ) -> list[str]:
-    source = graph.nodes.get(edge.source_id)
+    source = targets.attributes.get(edge.source_id, {})
     candidates = [
         candidate
         for candidate in names.get(edge.target_id.rsplit(":", 1)[-1], [])
-        if not dict(graph.nodes[candidate].attributes).get("internal_linkage")
-        or source is not None
-        and source.location.file_path == graph.nodes[candidate].location.file_path
+        if targets.visible(edge.source_id, candidate)
     ]
-    if source is not None and "go_package" in dict(source.attributes):
+    if "go_package" in source:
         candidates = [
             candidate
             for candidate in candidates
-            if Path(graph.nodes[candidate].location.file_path).parent
-            == Path(source.location.file_path).parent
-            and dict(graph.nodes[candidate].attributes).get("go_package")
-            == dict(source.attributes).get("go_package")
+            if targets.parents[candidate] == targets.parents.get(edge.source_id)
+            and targets.attributes[candidate].get("go_package") == source["go_package"]
         ]
     return candidates
 

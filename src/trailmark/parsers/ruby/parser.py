@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
+from trailmark.parsers._binding_index import binding_scope
+from trailmark.parsers._bindings import lexical_declaration
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -58,6 +61,7 @@ class RubyParser:
     def __init__(self) -> None:
         self._parser = Parser(get_language("ruby"))
 
+    @binding_scope
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Ruby file into a CodeGraph."""
         source = Path(file_path).read_bytes()
@@ -270,7 +274,6 @@ def _extract_function(
     body = node.child_by_field_name("body")
 
     branches, exception_types, calls, bound = _ruby_body_info(body, file_path, params)
-
     unit = CodeUnit(
         id=func_id,
         name=func_name,
@@ -282,12 +285,7 @@ def _extract_function(
         cyclomatic_complexity=compute_complexity(branches),
         branches=tuple(branches),
         docstring=_extract_docstring(node),
-        attributes=(
-            ("ruby_receiver", "singleton" if singleton else "instance"),
-            ("ruby_visibility", visibility),
-            ("ruby_controller", controller),
-            ("ruby_worker", worker),
-        ),
+        attributes=_ruby_attributes(singleton, visibility, controller, worker),
     )
     graph.nodes[func_id] = unit
     add_contains_edge(graph, container_id, func_id)
@@ -298,8 +296,22 @@ def _extract_function(
         module_id,
         class_id,
         file_path,
-        graph,
+        graph=graph,
         bound=bound,
+    )
+
+
+def _ruby_attributes(
+    singleton: bool,
+    visibility: str,
+    controller: bool,
+    worker: bool,
+) -> tuple[tuple[str, str | bool], ...]:
+    return (
+        ("ruby_receiver", "singleton" if singleton else "instance"),
+        ("ruby_visibility", visibility),
+        ("ruby_controller", controller),
+        ("ruby_worker", worker),
     )
 
 
@@ -309,8 +321,8 @@ def _add_call_edges(
     module_id: str,
     class_id: str | None,
     file_path: str,
-    graph: CodeGraph,
     *,
+    graph: CodeGraph,
     bound: set[str],
 ) -> None:
     """Add CALLS edges for all collected call sites."""
@@ -322,10 +334,12 @@ def _add_call_edges(
         )
         confidence = _call_confidence(call_name)
         bare = "." not in call_name or call_name.startswith("self.")
-        blocked = "." not in call_name and call_name in bound
+        blocked = call_node.type == "identifier" and _ruby_bound_before(call_node, call_name, bound)
         attributes: tuple[tuple[str, str | bool], ...] = (("binding_blocked", blocked),)
         if bare:
             attributes += (("ruby_bare_name", call_name.removeprefix("self.")),)
+        if call_name.startswith("self."):
+            attributes += (("ruby_explicit_self", True),)
         if blocked:
             target_id = f"{func_id}.$binding.{call_name}"
             confidence = EdgeConfidence.UNCERTAIN
@@ -375,8 +389,23 @@ def _visit_ruby_body_node(
     calls: list[tuple[str, Node]],
 ) -> None:
     """Visit a single node in a Ruby method body."""
-    if node.type in {"lambda", "method", "singleton_method", "class", "module"}:
+    if node.type in {"method", "singleton_method", "class", "module"}:
         return
+    for current in walk_owned(
+        node,
+        boundaries=frozenset({"method", "singleton_method", "class", "module"}),
+        named_only=False,
+    ):
+        _collect_ruby_site(current, file_path, branches, exception_types, calls)
+
+
+def _collect_ruby_site(
+    node: Node,
+    file_path: str,
+    branches: list[BranchInfo],
+    exception_types: list[TypeRef],
+    calls: list[tuple[str, Node]],
+) -> None:
     if node.type in _BRANCH_NODE_TYPES:
         condition = _extract_condition_text(node)
         branches.append(
@@ -389,19 +418,19 @@ def _visit_ruby_body_node(
     if _is_raise_call(node):
         _collect_raise_type(node, exception_types)
 
-    if node.type == "call":
+    if node.type == "call" and not _attribute_writer(node):
         call_name = _extract_ruby_call_name(node)
         if call_name and call_name not in ("require", "require_relative"):
             calls.append((call_name, node))
 
-    for child in node.children:
-        _visit_ruby_body_node(
-            child,
-            file_path,
-            branches,
-            exception_types,
-            calls,
-        )
+
+def _attribute_writer(node: Node) -> bool:
+    parent = node.parent
+    return (
+        parent is not None
+        and parent.type in {"assignment", "operator_assignment"}
+        and parent.child_by_field_name("left") == node
+    )
 
 
 def _extract_condition_text(node: Node) -> str:
@@ -567,18 +596,22 @@ def _resolve_call_target(
     return call_name
 
 
-def _ruby_bound_names(body: Node) -> set[str]:
-    bound = set()
-    for node in walk_owned(body, boundaries=frozenset({"lambda", "method", "singleton_method"})):
-        field = {"assignment": "left", "operator_assignment": "left", "for": "pattern"}.get(
-            node.type
+def _ruby_bound_before(node: Node, name: str, parameters: set[str]) -> bool:
+    return (
+        name in parameters
+        or lexical_declaration(
+            node,
+            name,
+            scopes=frozenset({"method", "singleton_method", "lambda", "block", "do_block"}),
+            declarations=(
+                ("assignment", "left"),
+                ("operator_assignment", "left"),
+                ("for", "pattern"),
+                ("exception_variable", "name"),
+            ),
         )
-        pattern = node.child_by_field_name(field) if field else None
-        if node.type == "exception_variable":
-            pattern = node
-        if pattern is not None:
-            bound.update(node_text(n) for n in walk_owned(pattern) if n.type == "identifier")
-    return bound
+        is not None
+    )
 
 
 def _bind_ruby_methods(graph: CodeGraph) -> None:
@@ -589,10 +622,18 @@ def _bind_ruby_methods(graph: CodeGraph) -> None:
         if edge.kind == EdgeKind.INHERITS:
             bases.setdefault(edge.source_id, []).append(edge.target_id)
     for unit in graph.nodes.values():
-        receiver = dict(unit.attributes).get("ruby_receiver")
-        if unit.kind == NodeKind.METHOD and isinstance(receiver, str):
-            methods.setdefault((owners.get(unit.id, ""), unit.name, receiver), []).append(unit.id)
+        _index_ruby_method(unit, owners, methods)
     graph.edges[:] = [_ruby_method_edge(e, graph, owners, bases, methods) for e in graph.edges]
+
+
+def _index_ruby_method(
+    unit: CodeUnit,
+    owners: dict[str, str],
+    methods: dict[tuple[str, str, str], list[str]],
+) -> None:
+    receiver = dict(unit.attributes).get("ruby_receiver")
+    if unit.kind == NodeKind.METHOD and isinstance(receiver, str):
+        methods.setdefault((owners.get(unit.id, ""), unit.name, receiver), []).append(unit.id)
 
 
 def _ruby_method_edge(
@@ -623,9 +664,18 @@ def _ruby_method_edge(
         return replace(
             edge, target_id=f"{owner}.{name}@ambiguous", confidence=EdgeConfidence.UNCERTAIN
         )
+    return _ruby_global_fallback(edge, attributes, owner, name)
+
+
+def _ruby_global_fallback(
+    edge: CodeEdge,
+    attributes: Mapping[str, object],
+    owner: str,
+    name: str,
+) -> CodeEdge:
     # Bare Kernel/global calls keep the module/global lookup path.
-    if edge.target_id.startswith(owner + "."):
-        return replace(edge, target_id=f"{source.id.split(':', 1)[0]}:{name}")
+    if not attributes.get("ruby_explicit_self") and edge.target_id.startswith(owner + "."):
+        return replace(edge, target_id=f"{edge.source_id.split(':', 1)[0]}:{name}")
     return edge
 
 
@@ -668,56 +718,49 @@ def _ruby_body_info(
         )
 
     if body is not None:
-        bound.update(_ruby_bound_names(body))
         for current in walk_owned(
-            body, boundaries=frozenset({"lambda", "method", "singleton_method"})
+            body, boundaries=frozenset({"method", "singleton_method", "class", "module"})
         ):
-            if (
-                current.type != "identifier"
-                or node_text(current) in bound
-                or _block_bound(current)
-                or current.parent is None
-            ):
-                continue
-            parent = current.parent
-            if parent.type in {
-                "call",
-                "assignment",
-                "method_parameters",
-                "block_parameters",
-                "lambda_parameters",
-                "left_assignment_list",
-                "exception_variable",
-                "for",
-            }:
+            if not _ruby_vcall(current, bound):
                 continue
             calls.append((node_text(current), current))
         calls.sort(key=lambda call: call[1].start_byte)
     return branches, exception_types, calls, bound
 
 
+def _ruby_vcall(node: Node, parameters: set[str]) -> bool:
+    if node.type != "identifier" or node.parent is None:
+        return False
+    if _ruby_bound_before(node, node_text(node), parameters) or _block_bound(node):
+        return False
+    return node.parent.type not in {
+        "call",
+        "assignment",
+        "method_parameters",
+        "block_parameters",
+        "lambda_parameters",
+        "left_assignment_list",
+        "exception_variable",
+        "for",
+    }
+
+
 def _class_traits(node: Node, body: Node) -> tuple[bool, bool]:
     superclass = node.child_by_field_name("superclass")
-    controller = (
-        superclass is not None
-        and _extract_superclass_name(superclass).rsplit("::", 1)[-1]
-        in {"ApplicationController", "Base", "API"}
-        and (
-            _extract_superclass_name(superclass) == "ApplicationController"
-            or _extract_superclass_name(superclass).startswith("ActionController::")
-        )
-    )
-    worker = any(
-        child.type == "call"
-        and (method := child.child_by_field_name("method")) is not None
-        and node_text(method) == "include"
-        and (args := child.child_by_field_name("arguments")) is not None
-        and any(
-            node_text(arg) in {"Sidekiq::Worker", "Sidekiq::Job"} for arg in args.named_children
-        )
-        for child in body.named_children
-    )
-    return controller, worker
+    base = _extract_superclass_name(superclass) if superclass is not None else ""
+    controller = base == "ApplicationController" or base in {
+        "ActionController::Base",
+        "ActionController::API",
+    }
+    return controller, any(_worker_include(child) for child in body.named_children)
+
+
+def _worker_include(node: Node) -> bool:
+    method = node.child_by_field_name("method")
+    args = node.child_by_field_name("arguments")
+    if node.type != "call" or method is None or node_text(method) != "include" or args is None:
+        return False
+    return any(node_text(arg) in {"Sidekiq::Worker", "Sidekiq::Job"} for arg in args.named_children)
 
 
 def _apply_named_visibility(

@@ -165,6 +165,8 @@ def add_type(graph: CodeGraph, unit: CodeUnit) -> None:
 
 def add_callable(graph: CodeGraph, unit: CodeUnit) -> str:
     """Insert a callable without overwriting any earlier overload's body."""
+    if graph.language == "python":
+        return _add_runtime_callable(graph, unit)
     declarations = _current_declarations(graph)
     base = unit.id
     ids = declarations.ids.setdefault(base, [])
@@ -181,6 +183,33 @@ def add_callable(graph: CodeGraph, unit: CodeUnit) -> str:
     ids.append(node_id)
     declarations.bases[node_id] = base
     return node_id
+
+
+def _add_runtime_callable(graph: CodeGraph, unit: CodeUnit) -> str:
+    """Preserve Python redefinitions while keeping the final runtime binding plain."""
+    previous = graph.nodes.get(unit.id)
+    if previous is not None:
+        positioned = _positioned_id(previous, unit.id)
+        moved = {
+            node_id: positioned + node_id[len(unit.id) :]
+            for node_id in graph.nodes
+            if node_id == unit.id or node_id.startswith(unit.id + ".")
+        }
+        for old, new in moved.items():
+            graph.nodes[new] = replace(graph.nodes.pop(old), id=new)
+            record_unit(graph.nodes[new])
+        graph.edges[:] = [
+            replace(
+                edge,
+                source_id=moved.get(edge.source_id, edge.source_id),
+                target_id=moved.get(edge.target_id, edge.target_id)
+                if edge.kind == EdgeKind.CONTAINS
+                else edge.target_id,
+            )
+            for edge in graph.edges
+        ]
+    graph.nodes[unit.id] = unit
+    return unit.id
 
 
 def resolve_local_method_calls(graph: CodeGraph) -> None:

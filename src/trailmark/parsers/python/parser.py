@@ -30,6 +30,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import add_callable, callable_scope
+from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -114,6 +115,7 @@ def _visit_top_level_node(
         _extract_import(child, graph)
 
 
+@bounded_nesting
 def _extract_class(
     node: Node,
     file_path: str,
@@ -143,18 +145,21 @@ def _extract_class(
 
     _extract_base_classes(node, class_id, module_id, graph)
 
+    _extract_class_methods(node, file_path, module_id, class_id, graph)
+
+
+def _extract_class_methods(
+    node: Node, file_path: str, module_id: str, class_id: str, graph: CodeGraph
+) -> None:
     body = node.child_by_field_name("body")
     if body is None:
         return
     for child in body.children:
         actual = child
         if child.type == "decorated_definition":
-            for sub in child.children:
-                if sub.type == "function_definition":
-                    actual = sub
-                    break
-            else:
-                continue
+            actual = next(
+                (sub for sub in child.children if sub.type == "function_definition"), child
+            )
         if actual.type == "function_definition":
             _extract_function(
                 actual,
@@ -189,6 +194,7 @@ def _extract_base_classes(
             )
 
 
+@bounded_nesting
 def _extract_function(
     node: Node,
     file_path: str,
@@ -200,7 +206,7 @@ def _extract_function(
 ) -> None:
     """Extract a function or method definition."""
     name_node = node.child_by_field_name("name")
-    if name_node is None:
+    if name_node is None or _is_overload(node):
         return
     func_name = node_text(name_node)
 
@@ -230,6 +236,20 @@ def _extract_function(
 
     add_contains_edge(graph, container_id, func_id)
 
+    _nested_functions(body, file_path, module_id, func_id, graph, class_id=class_id)
+
+    _add_call_edges(calls, func_id, module_id, class_id, file_path=file_path, graph=graph)
+
+
+def _nested_functions(
+    body: Node | None,
+    file_path: str,
+    module_id: str,
+    func_id: str,
+    graph: CodeGraph,
+    *,
+    class_id: str | None,
+) -> None:
     if body is not None:
         for nested in walk_owned(body, boundaries=_CALLABLE_BOUNDARIES):
             if nested.type == "function_definition":
@@ -237,7 +257,16 @@ def _extract_function(
             elif nested.type == "class_definition":
                 _extract_class(nested, file_path, module_id, graph, owner_id=func_id)
 
-    _add_call_edges(calls, func_id, module_id, class_id, file_path, graph)
+
+def _is_overload(node: Node) -> bool:
+    parent = node.parent
+    if parent is None or parent.type != "decorated_definition":
+        return False
+    return any(
+        child.type == "decorator"
+        and node_text(child).lstrip("@").strip().split(".")[-1] == "overload"
+        for child in parent.named_children
+    )
 
 
 def _extract_parameters(node: Node, *, method: bool = False) -> list[Parameter]:
@@ -423,6 +452,7 @@ def _add_call_edges(
     func_id: str,
     module_id: str,
     class_id: str | None,
+    *,
     file_path: str,
     graph: CodeGraph,
 ) -> None:

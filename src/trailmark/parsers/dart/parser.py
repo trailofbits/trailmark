@@ -145,22 +145,33 @@ def _walk_siblings(
             _extract_import(node, graph)
         elif node.type == "class_definition":
             _extract_class(node, file_path, module_id, graph)
-        elif node.type in _SIGNATURES:
-            body = children[idx + 1] if idx + 1 < len(children) else None
-            body = body if body is not None and body.type == "function_body" else None
-            _extract_function_from_signature(
-                node, body, file_path, module_id, graph, container_id=container_id
-            )
-            idx += int(body is not None)
-        elif node.type == "declaration":
-            signature = next(
-                (member for member in node.children if member.type in _SIGNATURES), None
-            )
+        else:
+            signature = _sibling_signature(node)
             if signature is not None:
+                body = _following_body(children, idx) if node.type in _SIGNATURES else None
                 _extract_function_from_signature(
-                    signature, None, file_path, module_id, graph, container_id=container_id
+                    signature,
+                    body,
+                    file_path,
+                    module_id,
+                    graph,
+                    container_id=container_id,
                 )
+                idx += int(body is not None)
         idx += 1
+
+
+def _sibling_signature(node: Node) -> Node | None:
+    if node.type in _SIGNATURES:
+        return node
+    if node.type == "declaration":
+        return next((child for child in node.children if child.type in _SIGNATURES), None)
+    return None
+
+
+def _following_body(children: list[Node], index: int) -> Node | None:
+    body = children[index + 1] if index + 1 < len(children) else None
+    return body if body is not None and body.type == "function_body" else None
 
 
 def _extract_class(

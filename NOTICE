@@ -16,6 +16,11 @@ This product bundles the following third-party components:
   Licensed under the MIT License
   https://github.com/secure-foundations/tree-sitter-verus
 
+- tree-sitter-masm grammar (src/trailmark/tree_sitter_custom/masm/)
+  Copyright (c) 2025 Miden
+  Licensed under the MIT License
+  https://github.com/trailofbits/tree-sitter-masm
+
 - Move grammar (src/trailmark/tree_sitter_custom/move/)
   Copyright (c) The Move Contributors
   Licensed under the Apache License, Version 2.0

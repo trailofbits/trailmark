@@ -553,21 +553,25 @@ def _bind_self_messages(graph: CodeGraph) -> None:
             methods.setdefault((owners.get(unit.id, ""), unit.name, ".+" in unit.id), []).append(
                 unit.id
             )
-    edges = []
-    for edge in graph.edges:
-        selector = dict(edge.attributes).get("objc_selector")
-        if isinstance(selector, str) and edge.target_id.startswith("[self "):
-            candidates = methods.get(
-                (owners.get(edge.source_id, ""), selector, ".+" in edge.source_id), []
-            )
-            if len(candidates) == 1:
-                attributes = dict(edge.attributes)
-                attributes["binding_blocked"] = False
-                edge = replace(
-                    edge,
-                    target_id=candidates[0],
-                    confidence=EdgeConfidence.INFERRED,
-                    attributes=tuple(attributes.items()),
-                )
-        edges.append(edge)
-    graph.edges[:] = edges
+    graph.edges[:] = [_self_message_edge(edge, owners, methods) for edge in graph.edges]
+
+
+def _self_message_edge(
+    edge: CodeEdge,
+    owners: dict[str, str],
+    methods: dict[tuple[str, str, bool], list[str]],
+) -> CodeEdge:
+    selector = dict(edge.attributes).get("objc_selector")
+    if not isinstance(selector, str) or not edge.target_id.startswith("[self "):
+        return edge
+    candidates = methods.get((owners.get(edge.source_id, ""), selector, ".+" in edge.source_id), [])
+    if len(candidates) != 1:
+        return edge
+    attributes = dict(edge.attributes)
+    attributes["binding_blocked"] = False
+    return replace(
+        edge,
+        target_id=candidates[0],
+        confidence=EdgeConfidence.INFERRED,
+        attributes=tuple(attributes.items()),
+    )

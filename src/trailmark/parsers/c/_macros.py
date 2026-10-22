@@ -45,17 +45,28 @@ class DeclarationMacros:
     def _collect(self, root: Node, path: Path, position: int, depth: int) -> None:
         if depth > 16 or len(self._visited) >= 128:
             return
-        resolved = path.resolve()
-        if resolved in self._visited:
+        resolved = self._headers.resolve(path)
+        if resolved is None or resolved in self._visited:
             return
         self._visited.add(resolved)
         conditions = self._headers.conditions(root, path)
         for node in self._headers.directives(root, path):
             at = node.start_byte if depth == 0 else position
-            if node.type in {"preproc_def", "preproc_function_def", "preproc_call"}:
-                self._record_definition(node, at, conditions)
-            elif node.type == "preproc_include" and not _conditional(node, conditions):
-                self._include(node, path, at, depth)
+            self._collect_directive(node, path, at, depth, conditions=conditions)
+
+    def _collect_directive(
+        self,
+        node: Node,
+        path: Path,
+        position: int,
+        depth: int,
+        *,
+        conditions: dict[int, bool],
+    ) -> None:
+        if node.type in {"preproc_def", "preproc_function_def", "preproc_call"}:
+            self._record_definition(node, position, conditions)
+        elif node.type == "preproc_include" and not _conditional(node, conditions):
+            self._include(node, path, position, depth)
 
     def _record_definition(self, node: Node, position: int, conditions: dict[int, bool]) -> None:
         if node.type == "preproc_call":
@@ -89,12 +100,9 @@ class DeclarationMacros:
         self._macros[name] = macro, position
 
     def _include(self, node: Node, path: Path, position: int, depth: int) -> None:
-        include = node.child_by_field_name("path")
-        if include is None or include.type != "string_literal":
-            return
-        target = path.parent / node_text(include)[1:-1]
-        root = self._headers.get(target)
-        if root is not None:
+        included = self._headers.include(node, path)
+        if included is not None:
+            target, root = included
             self._collect(root, target, position, depth + 1)
 
     def wrapper(self, node: Node) -> tuple[str, str] | None:
@@ -128,7 +136,7 @@ class DeclarationMacros:
         return MacroSignature(name, wrapper, alias, declaration)
 
     def _expand(self, text: str, position: int) -> str | None:
-        if _unsupported_expansion(text):
+        if len(text) > 16_384 or _unsupported_expansion(text):
             return None
         for _ in range(16):
             previous = text
@@ -148,9 +156,10 @@ class DeclarationMacros:
             macro, at = entry
             if macro is None or at > position or _unsupported_expansion(macro.body):
                 continue
-            text = _replace_macro(text, name, macro)
-            if len(text) > 16_384:
+            expanded = _replace_macro(text, name, macro)
+            if expanded is None:
                 return None
+            text = expanded
         text = re.sub(r"\s*##\s*", "", text)
         return None if "#" in text else text
 
@@ -234,13 +243,33 @@ def _macro_patterns(
     return re.compile(pattern), parameter
 
 
-def _replace_macro(text: str, name: str, macro: _Macro) -> str:
-    if macro.parameters is None:
-        return macro.pattern.sub(lambda _: macro.body, text)
-    if macro.parameter is None:
+def _replace_macro(text: str, name: str, macro: _Macro) -> str | None:
+    if len(macro.body) > 16_384:
+        return None
+    if macro.parameters is not None and macro.parameter is None:
         return text
-    parameter = macro.parameter
-    return macro.pattern.sub(lambda match: parameter.sub(lambda _: match[1], macro.body), text)
+    matches = list(macro.pattern.finditer(text))
+    size = len(text)
+    for match in matches:
+        size += _replacement_size(macro, match) - len(match[0])
+        if size > 16_384:
+            return None
+    return macro.pattern.sub(
+        lambda match: (
+            macro.parameter.sub(lambda _: match[1], macro.body)
+            if macro.parameter is not None
+            else macro.body
+        ),
+        text,
+    )
+
+
+def _replacement_size(macro: _Macro, match: re.Match[str]) -> int:
+    if macro.parameter is None:
+        return len(macro.body)
+    return len(macro.body) + sum(
+        len(match[1]) - len(parameter[0]) for parameter in macro.parameter.finditer(macro.body)
+    )
 
 
 def _conditional(node: Node, cache: dict[int, bool] | None = None) -> bool:

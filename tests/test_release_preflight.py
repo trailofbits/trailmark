@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import subprocess
+import sys
 import tarfile
 from pathlib import Path
 from zipfile import ZipFile
@@ -91,3 +93,16 @@ def test_sdist_required(project: Path) -> None:
     (dist / "trailmark.tar.gz").unlink()
     with pytest.raises(ValueError, match="one sdist"):
         check_release(project, "v0.7.0", dist)
+
+
+def test_cli_reports_validation_error_without_traceback() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "tests.release_preflight", "--tag", "v0.0.0"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("release preflight: release version mismatch")
+    assert len(result.stderr.splitlines()) == 1

@@ -100,7 +100,6 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
         "constructor_type": "super"
       },
       "confidence": "inferred",

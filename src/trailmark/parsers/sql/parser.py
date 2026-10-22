@@ -298,7 +298,10 @@ def _procedure_header(tokens: list[_Token]) -> tuple[str | None, str, int] | Non
     offset = 3 if words[:3] == ["CREATE", "OR", "REPLACE"] else 1
     if not words or words[0] != "CREATE" or len(tokens) <= offset or words[offset] != "PROCEDURE":
         return None
-    cursor = offset + 1
+    return _procedure_name(tokens, offset + 1)
+
+
+def _procedure_name(tokens: list[_Token], cursor: int) -> tuple[str | None, str, int] | None:
     if cursor >= len(tokens):
         return None
     name, schema = tokens[cursor][0], None
@@ -461,27 +464,35 @@ def _add_routine(graph: CodeGraph, unit: CodeUnit) -> str:
     )
     schema = dict(unit.attributes).get("sql_schema", "")
     for old in list(graph.nodes.values()):
-        attributes = dict(old.attributes)
-        if (
-            old.kind == unit.kind
-            and _identifier(old.name) == _identifier(unit.name)
-            and _identifier(str(attributes.get("sql_schema", ""))) == _identifier(str(schema))
-            and attributes.get("sql_signature") == signature
-        ):
+        if _same_routine(old, unit, schema, signature):
             repair_body_edges(graph)
             graph.nodes[old.id] = dataclasses.replace(
                 unit, id=old.id, attributes=(*unit.attributes, ("sql_signature", signature))
             )
-            graph.edges[:] = [
-                edge
-                for edge in graph.edges
-                if edge.source_id != old.id
-                and not (edge.kind == EdgeKind.CONTAINS and edge.target_id == old.id)
-            ]
+            _remove_routine_edges(graph, old.id)
             return old.id
     return add_callable(
         graph,
         dataclasses.replace(unit, attributes=(*unit.attributes, ("sql_signature", signature))),
+    )
+
+
+def _remove_routine_edges(graph: CodeGraph, ident: str) -> None:
+    graph.edges[:] = [
+        edge
+        for edge in graph.edges
+        if edge.source_id != ident
+        and not (edge.kind == EdgeKind.CONTAINS and edge.target_id == ident)
+    ]
+
+
+def _same_routine(old: CodeUnit, unit: CodeUnit, schema: object, signature: str) -> bool:
+    attributes = dict(old.attributes)
+    return (
+        old.kind == unit.kind
+        and _identifier(old.name) == _identifier(unit.name)
+        and _identifier(str(attributes.get("sql_schema", ""))) == _identifier(str(schema))
+        and attributes.get("sql_signature") == signature
     )
 
 

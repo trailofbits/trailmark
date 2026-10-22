@@ -164,13 +164,12 @@ and uses the first directory that contains either `pyproject.toml` or
 several `pyproject.toml` files, put the override file next to the one closest to
 the directory you analyze.
 
-**Invalid entries are skipped silently.** Malformed TOML, unknown `kind`,
-`trust`, or `asset_value` values, `node` references that match nothing, and
-invalid regular expressions all cause the entry (or, for malformed TOML, the
-whole file) to be ignored without an error. A field with the wrong TOML type
-also skips the whole entry, so an invalid condition cannot broaden a rule.
-Run `trailmark entrypoints` after
-editing the file to confirm the result.
+**Invalid entries are skipped.** Malformed TOML, unknown `kind`, `trust`, or
+`asset_value` values, and invalid regular expressions cause the entry (or, for
+malformed TOML, the whole file) to be skipped silently. A field with the wrong
+TOML type also skips the whole entry, so an invalid condition cannot broaden a
+rule. Explicit `node` references that match nothing are skipped with a warning.
+Run `trailmark entrypoints` after editing the file to confirm the result.
 
 VB.NET: explicit Module/Shared Main methods with the supported CLI signature
 are detected case-insensitively; instance Main and generated framework startup

@@ -1,5 +1,6 @@
 // Copyright (c) The Move Contributors
 // SPDX-License-Identifier: Apache-2.0
+// Modified by Trail of Bits in 2026: Aptos/Sui syntax and parser compatibility.
 
 const PRECEDENCE = {
   assign: 1,

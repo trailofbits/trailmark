@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from tree_sitter import Parser
+from tree_sitter_language_pack import get_language
 
+from tests.test_c_source_recovery import BLOCKS
 from trailmark.models import CodeEdge, CodeGraph, EdgeConfidence, EdgeKind, NodeKind
 from trailmark.parse import parse_directory, parse_file
+from trailmark.parsers.c import _recovery
 from trailmark.parsers.c.parser import CParser
 
 
@@ -33,7 +38,7 @@ def test_unresolved_wrapper_keeps_same_file_targets(tmp_path: Path) -> None:
     graph = parse_file(str(path), "c")
     (edge,) = _calls(graph, "DECL(left)")
     assert edge.target_id == "sample:helper"
-    assert edge.confidence == EdgeConfidence.UNCERTAIN
+    assert edge.confidence == EdgeConfidence.CERTAIN
     assert dict(edge.attributes)["macro_signature_unresolved"]
     assert not dict(edge.attributes).get("binding_blocked")
 
@@ -44,7 +49,7 @@ def test_unresolved_wrapper_links_across_files(tmp_path: Path) -> None:
     graph = parse_directory(str(tmp_path), "c")
     (edge,) = _calls(graph, "UNAVAILABLE(left)")
     assert edge.target_id == "peer:helper"
-    assert edge.confidence == EdgeConfidence.UNCERTAIN
+    assert edge.confidence == EdgeConfidence.INFERRED
     assert dict(edge.attributes)["macro_signature_unresolved"]
 
 
@@ -186,7 +191,6 @@ def test_callback_binding_survives_an_unrelated_parse_error(tmp_path: Path) -> N
 
 
 def test_brace_changing_conditionals_are_not_recovered(tmp_path: Path) -> None:
-    from tests.test_c_source_recovery import BLOCKS
 
     source = BLOCKS.replace(
         " BLOCK_BEGIN { first();",
@@ -197,7 +201,6 @@ def test_brace_changing_conditionals_are_not_recovered(tmp_path: Path) -> None:
 
 
 def test_recovered_span_can_keep_an_unrelated_error(tmp_path: Path) -> None:
-    from tests.test_c_source_recovery import BLOCKS
 
     source = BLOCKS.replace(" final_step();", " int broken = 1 +;\n final_step();")
     graph = parse_file(str(_source(tmp_path, source)), "c")
@@ -213,13 +216,6 @@ def test_recovered_span_can_keep_an_unrelated_error(tmp_path: Path) -> None:
 def test_failed_span_candidate_does_not_cancel_an_independent_recovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from dataclasses import replace
-
-    from tree_sitter import Parser
-    from tree_sitter_language_pack import get_language
-
-    from tests.test_c_source_recovery import BLOCKS
-    from trailmark.parsers.c import _recovery
 
     source = (BLOCKS + BLOCKS.replace("action", "other_action")).encode()
     parser = Parser(get_language("c"))
@@ -244,3 +240,26 @@ def test_failed_span_candidate_does_not_cancel_an_independent_recovery(
     assert starts == {first}
     assert recovered.root_node.text is not None
     assert recovered.root_node.text.count(b"BLOCK_BEGIN { first();") == 1
+
+
+def test_inactive_prose_does_not_hide_physical_end(tmp_path: Path) -> None:
+    source = BLOCKS.replace(
+        " BLOCK_BEGIN { first();",
+        "#if 0\nThis isn't C {\n#if INNER\n} } }\n#endif\n#endif\n BLOCK_BEGIN { first();",
+    )
+    graph = parse_file(str(_source(tmp_path, source)), "c")
+    unit = graph.nodes["sample:action"]
+    assert dict(unit.attributes).get("syntax_recovered")
+    assert any(e.target_id == "sample:final_step" for e in _calls(graph, "action"))
+
+
+def test_unrecoverable_function_does_not_prevent_neighbor_recovery(tmp_path: Path) -> None:
+    bad = BLOCKS.replace("action", "bad").replace(
+        " BLOCK_BEGIN { first();",
+        "#if A\n if (a) {\n#else\n if (b) {\n#endif\n BLOCK_BEGIN { first();",
+    )
+    bad = bad[bad.index("void bad(void)") : bad.index("void after(void)")]
+    graph = parse_file(str(_source(tmp_path, BLOCKS + bad)), "c")
+    assert not dict(graph.nodes["sample:bad"].attributes).get("syntax_recovered")
+    assert dict(graph.nodes["sample:action"].attributes).get("syntax_recovered")
+    assert any(e.target_id == "sample:final_step" for e in _calls(graph, "action"))

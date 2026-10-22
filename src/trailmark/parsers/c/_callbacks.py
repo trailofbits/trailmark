@@ -79,7 +79,7 @@ def _bind(
     edge: CodeEdge, occurrence: Node, tables: dict[str, dict[str, str] | None], graph: CodeGraph
 ) -> CodeEdge:
     attrs = dict(edge.attributes)
-    if attrs.get("syntax_recovered") or attrs.get("macro_signature_unresolved"):
+    if attrs.get("syntax_recovered"):
         return edge
     if syntax_error_context(occurrence):
         return edge

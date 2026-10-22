@@ -12,11 +12,14 @@ from trailmark.parsers._walk import walk_owned
 _TOKENS = re.compile(
     rb"(?m)^[ \t]*\#(?:\\\r?\n|\\[^\n]|[^\n\\])*"
     rb"|//[^\n]*|/\*[\s\S]*?\*/"
-    rb"|\"(?:\\[\s\S]|[^\"\\])*\"|'(?:\\[\s\S]|[^'\\])*'"
+    rb"|\"(?:\\[\s\S]|[^\"\\\r\n])*\"|'(?:\\[\s\S]|[^'\\\r\n])*'"
     rb"|[A-Za-z_]\w*|[^\s]"
 )
 _KEYWORDS = frozenset({b"else", b"do", b"struct", b"union", b"enum"})
+_BLOCK_START = re.compile(rb"\b([A-Za-z_]\w*)\s*\{")
+_IDENTIFIER = re.compile(rb"[A-Za-z_]\w*\Z")
 _CONDITIONAL = re.compile(rb"\s*#\s*(if|ifdef|ifndef|else|elif|endif)\b")
+_DISABLED_START = re.compile(rb"\s*#\s*if\s+0\s*(?://[^\n]*|/\*.*?\*/\s*)?\Z")
 _DECLARATION_BOUNDARIES = frozenset(
     {"function_definition", "declaration", "type_definition", "struct_specifier", "enum_specifier"}
 )
@@ -32,16 +35,10 @@ def recover_bodies(source: bytes, tree: Tree, parser: Parser) -> tuple[Tree, fro
     """Verify each physical span independently and retain original diagnostics."""
     if not tree.root_node.has_error:
         return tree, frozenset()
-    functions = tuple(
-        node
-        for node in walk_owned(tree.root_node, boundaries=_DECLARATION_BOUNDARIES)
-        if node.type == "function_definition"
-    )
+    functions = _recovery_functions(tree.root_node, source)
     if not functions:
         return tree, frozenset()
-    tokens = [
-        token for token in _TOKENS.finditer(source) if not token.group().startswith((b"//", b"/*"))
-    ]
+    tokens = _source_tokens(source)
     candidates = _candidates(functions, tokens)
     for _ in range(4):
         if not candidates:
@@ -52,6 +49,52 @@ def recover_bodies(source: bytes, tree: Tree, parser: Parser) -> tuple[Tree, fro
             return recovered, frozenset(verified)
         candidates = {start: candidates[start] for start in verified}
     return tree, frozenset()
+
+
+def _needs_recovery(node: Node, source: bytes) -> bool:
+    if node.type != "function_definition" or not node.has_error:
+        return False
+    body = node.child_by_field_name("body")
+    return body is not None and any(
+        match[1] not in _KEYWORDS
+        for match in _BLOCK_START.finditer(source, body.start_byte, body.end_byte)
+    )
+
+
+def _recovery_functions(root: Node, source: bytes) -> tuple[Node, ...]:
+    return tuple(
+        node
+        for node in walk_owned(root, boundaries=_DECLARATION_BOUNDARIES)
+        if _needs_recovery(node, source)
+    )
+
+
+def _source_tokens(source: bytes) -> list[re.Match[bytes]]:
+    tokens = []
+    inactive = 0
+    for token in _TOKENS.finditer(source):
+        text = token.group()
+        if inactive:
+            directive = _CONDITIONAL.match(text)
+            if directive is not None:
+                inactive = _disabled_depth(directive[1], inactive)
+                tokens.append(token)
+        elif text[0] in (35, 32, 9) and _DISABLED_START.fullmatch(text):
+            inactive = 1
+            tokens.append(token)
+        elif not text.startswith((b"//", b"/*")):
+            tokens.append(token)
+    return tokens
+
+
+def _disabled_depth(directive: bytes, depth: int) -> int:
+    if directive in {b"if", b"ifdef", b"ifndef"}:
+        return depth + 1
+    if directive == b"endif":
+        return depth - 1
+    if depth == 1 and directive in {b"else", b"elif"}:
+        return 0
+    return depth
 
 
 def _candidates(
@@ -119,10 +162,10 @@ def _mask_ranges(
 def _block_macro(tokens: list[re.Match[bytes]], index: int) -> bool:
     text = tokens[index].group()
     return (
-        re.fullmatch(rb"[A-Za-z_]\w*", text) is not None
-        and text not in _KEYWORDS
+        tokens[index + 1].group() == b"{"
         and tokens[index - 1].group() in {b"{", b"}", b";", b":"}
-        and tokens[index + 1].group() == b"{"
+        and text not in _KEYWORDS
+        and _IDENTIFIER.fullmatch(text) is not None
     )
 
 

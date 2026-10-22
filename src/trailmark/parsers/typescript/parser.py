@@ -29,7 +29,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import add_callable, callable_scope
-from trailmark.parsers._ecmascript import discover_callables
+from trailmark.parsers._ecmascript import declared_name, discover_callables
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -110,15 +110,15 @@ def _visit_module(
         file_path,
         module_id,
         graph,
-        lambda node, name, owner, method: _extract_function(
+        lambda node, name, owner, class_owner: _extract_function(
             node,
             file_path,
             module_id,
-            owner if method else None,
+            class_owner if node.type == "arrow_function" else None,
             graph,
             name_override=name,
             owner_id=owner,
-            is_method=method,
+            is_method=node.type == "method_definition" and class_owner is not None,
         ),
     )
 
@@ -248,42 +248,12 @@ def _extract_function_expr(
     """Extract a function expression assigned to a named variable."""
     func_name = node_text(name_node)
     func_id = f"{module_id}:{func_name}"
-    params = _extract_parameters(func_node)
-    return_type = _extract_return_type(func_node)
-    body = func_node.child_by_field_name("body")
-
-    branches: list[BranchInfo] = []
-    exception_types: list[TypeRef] = []
-    calls: list[tuple[str, Node]] = []
-
-    if body is not None:
-        collect_body_info(
-            body,
-            file_path,
-            _BRANCH_NODE_TYPES,
-            "call_expression",
-            _THROW_TYPES,
-            branches,
-            exception_types,
-            calls,
-            skip_types=_FUNCTION_SCOPE_TYPES,
-        )
-
-    complexity = compute_complexity(branches)
-    location = make_location(func_node, file_path)
-
-    unit = CodeUnit(
-        id=func_id,
-        name=func_name,
+    unit, calls = _function_unit(
+        func_node,
+        file_path,
+        func_id=func_id,
+        func_name=func_name,
         kind=NodeKind.FUNCTION,
-        location=location,
-        parameters=tuple(params),
-        return_type=return_type,
-        type_parameters=extract_type_parameters(func_node),
-        cyclomatic_complexity=complexity,
-        branches=tuple(branches),
-        exception_types=tuple(exception_types),
-        docstring=_extract_jsdoc(func_node),
     )
     func_id = add_callable(graph, unit)
     add_contains_edge(graph, module_id, func_id)
@@ -293,8 +263,8 @@ def _extract_function_expr(
         func_id,
         module_id,
         None,
-        file_path,
-        graph,
+        file_path=file_path,
+        graph=graph,
     )
 
 
@@ -581,42 +551,12 @@ def _extract_method(
     method_name = node_text(name_node)
     method_id = f"{class_id}.{method_name}"
 
-    params = _extract_parameters(node)
-    return_type = _extract_return_type(node)
-    body = node.child_by_field_name("body")
-
-    branches: list[BranchInfo] = []
-    exception_types: list[TypeRef] = []
-    calls: list[tuple[str, Node]] = []
-
-    if body is not None:
-        collect_body_info(
-            body,
-            file_path,
-            _BRANCH_NODE_TYPES,
-            "call_expression",
-            _THROW_TYPES,
-            branches,
-            exception_types,
-            calls,
-            skip_types=_FUNCTION_SCOPE_TYPES,
-        )
-
-    complexity = compute_complexity(branches)
-    location = make_location(node, file_path)
-
-    unit = CodeUnit(
-        id=method_id,
-        name=method_name,
+    unit, calls = _function_unit(
+        node,
+        file_path,
+        func_id=method_id,
+        func_name=method_name,
         kind=NodeKind.METHOD,
-        location=location,
-        parameters=tuple(params),
-        return_type=return_type,
-        type_parameters=extract_type_parameters(node),
-        cyclomatic_complexity=complexity,
-        branches=tuple(branches),
-        exception_types=tuple(exception_types),
-        docstring=_extract_jsdoc(node),
     )
     graph.nodes[method_id] = unit
     add_contains_edge(graph, class_id, method_id)
@@ -626,8 +566,8 @@ def _extract_method(
         method_id,
         module_id,
         class_id,
-        file_path,
-        graph,
+        file_path=file_path,
+        graph=graph,
     )
 
 
@@ -643,14 +583,9 @@ def _extract_function(
     is_method: bool = False,
 ) -> str | None:
     """Extract a function or generator function declaration."""
-    name_node = node.child_by_field_name("name")
-    if name_node is None and name_override is None:
-        return
-    func_name = (
-        name_override
-        if name_override is not None
-        else (node_text(name_node) if name_node is not None else "")
-    )
+    func_name = declared_name(node, name_override)
+    if func_name is None:
+        return None
 
     if owner_id is not None:
         func_id = f"{owner_id}.{func_name}" if owner_id != module_id else f"{module_id}:{func_name}"
@@ -665,6 +600,29 @@ def _extract_function(
         kind = NodeKind.FUNCTION
         container_id = module_id
 
+    unit, calls = _function_unit(node, file_path, func_id=func_id, func_name=func_name, kind=kind)
+    func_id = add_callable(graph, unit)
+    add_contains_edge(graph, container_id, func_id)
+
+    _add_call_edges(
+        calls,
+        func_id,
+        module_id,
+        class_id,
+        file_path=file_path,
+        graph=graph,
+    )
+    return func_id
+
+
+def _function_unit(
+    node: Node,
+    file_path: str,
+    *,
+    func_id: str,
+    func_name: str,
+    kind: NodeKind,
+) -> tuple[CodeUnit, list[tuple[str, Node]]]:
     params = _extract_parameters(node)
     return_type = _extract_return_type(node)
     body = node.child_by_field_name("body")
@@ -702,18 +660,7 @@ def _extract_function(
         exception_types=tuple(exception_types),
         docstring=_extract_jsdoc(node),
     )
-    func_id = add_callable(graph, unit)
-    add_contains_edge(graph, container_id, func_id)
-
-    _add_call_edges(
-        calls,
-        func_id,
-        module_id,
-        class_id,
-        file_path,
-        graph,
-    )
-    return func_id
+    return unit, calls
 
 
 def _extract_parameters(node: Node) -> list[Parameter]:
@@ -882,6 +829,7 @@ def _add_call_edges(
     source_id: str,
     module_id: str,
     class_id: str | None,
+    *,
     file_path: str,
     graph: CodeGraph,
 ) -> None:

@@ -42,35 +42,54 @@ def ensure_proxy_nodes(graph: CodeGraph) -> CodeGraph:
 
 def _connect_deferred_calls(graph: CodeGraph) -> None:
     """Expose nested callable bodies without claiming they execute eagerly."""
-    owners = {
-        edge.target_id: edge.source_id for edge in graph.edges if edge.kind == EdgeKind.CONTAINS
-    }
+    nested = _deferred_callables(graph)
+    if not nested:
+        return
     existing = {
         (edge.source_id, edge.target_id) for edge in graph.edges if edge.kind == EdgeKind.CALLS
     }
+    for owner, unit in nested:
+        if (owner, unit.id) not in existing:
+            graph.edges.append(
+                CodeEdge(
+                    owner,
+                    unit.id,
+                    EdgeKind.CALLS,
+                    confidence=EdgeConfidence.UNCERTAIN,
+                    location=unit.location,
+                    attributes=(("deferred", True),),
+                )
+            )
+
+
+def _deferred_callables(graph: CodeGraph) -> list[tuple[str, CodeUnit]]:
+    owners = {
+        edge.target_id: edge.source_id for edge in graph.edges if edge.kind == EdgeKind.CONTAINS
+    }
     callable_kinds = {NodeKind.FUNCTION, NodeKind.METHOD, NodeKind.PROCEDURE}
-    for unit in tuple(graph.nodes.values()):
-        if unit.kind not in callable_kinds:
-            continue
-        owner = owners.get(unit.id)
-        seen = set()
-        while owner is not None and owner not in seen:
-            seen.add(owner)
-            container = graph.nodes.get(owner)
-            if container is not None and container.kind in callable_kinds:
-                if (owner, unit.id) not in existing:
-                    graph.edges.append(
-                        CodeEdge(
-                            owner,
-                            unit.id,
-                            EdgeKind.CALLS,
-                            confidence=EdgeConfidence.UNCERTAIN,
-                            location=unit.location,
-                            attributes=(("deferred", True),),
-                        )
-                    )
-                break
-            owner = owners.get(owner)
+    return [
+        (owner, unit)
+        for unit in graph.nodes.values()
+        if unit.kind in callable_kinds
+        and (owner := _callable_owner(unit.id, graph, owners, callable_kinds)) is not None
+    ]
+
+
+def _callable_owner(
+    node_id: str,
+    graph: CodeGraph,
+    owners: dict[str, str],
+    callable_kinds: set[NodeKind],
+) -> str | None:
+    owner = owners.get(node_id)
+    seen = set()
+    while owner is not None and owner not in seen:
+        seen.add(owner)
+        container = graph.nodes.get(owner)
+        if container is not None and container.kind in callable_kinds:
+            return owner
+        owner = owners.get(owner)
+    return None
 
 
 def _materialize_unresolved_calls(graph: CodeGraph) -> None:
@@ -284,6 +303,6 @@ def _operator_symbol(raw: str) -> str:
         "%": "percent",
     }
     module, _, name = raw.partition(":")
-    if name and all(char in names for char in name):
-        return f"{module}:$operator.{'_'.join(names[char] for char in name)}"
+    if name and all(not char.isalnum() and char not in "_'" for char in name):
+        return f"{module}:$operator.{'_'.join(names.get(char, f'u{ord(char):x}') for char in name)}"
     return raw

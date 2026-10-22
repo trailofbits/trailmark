@@ -2,6 +2,16 @@
 
 ## 0.7.0 (unreleased)
 
+- Keep the final Python redefinition's plain ID, skip overload stubs, and preserve
+  earlier bodies with position suffixes. Correct same-line nested bindings, Ruby
+  explicit calls/lambdas, class-member shadowing, and JS/TS arrow `this` ownership.
+- Link included C static definitions, Java constructors across files, and Swift
+  extensions of nested types. Keep normal confidence in unresolved C wrappers;
+  `macro_signature_unresolved` remains available for filtering because injected
+  shadowing parameters cannot be established without expansion.
+- Bound recursive extraction and macro substitution, cache repeated binding lookups
+  and linker path metadata, and keep SARIF chain limits independent of result order.
+
 - Preserve possible callback paths with uncertain `deferred` calls to nested
   callable owners. Retain Python lambda, Go closure, Haskell do-bind and Dart
   constructor-initializer calls. Preserve distinct JS/TS object methods and

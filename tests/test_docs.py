@@ -93,6 +93,13 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/parser-coverage.md", "Calls keep their normal confidence"),
+    ("docs/parser-coverage.md", "the last definition keeps its plain ID"),
+    ("docs/parser-coverage.md", "Java constructor binding also runs after the directory merge"),
+    ("docs/parser-coverage.md", "arrows inherit lexical `this`"),
+    ("docs/parser-coverage.md", "`{owner}.{name}@ambiguous`"),
+    ("docs/skills-compatibility.md", "current query facade has no confidence"),
+    ("docs/skills-compatibility.md", "SARIF description-only bases"),
     ("docs/entrypoint-patterns.md", "`pub proc foo` declarations"),
     (
         "docs/skills-compatibility.md",
@@ -238,7 +245,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     # Configuration files
     ("docs/links.md", "target_external = true"),
     ("docs/links.md", "source_external = true"),
-    ("docs/entrypoints.md", "Invalid entries are skipped silently"),
+    (
+        "docs/entrypoints.md",
+        "Explicit `node` references that match nothing are skipped with a warning",
+    ),
 )
 
 

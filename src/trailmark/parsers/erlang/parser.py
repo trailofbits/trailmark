@@ -97,7 +97,7 @@ def _visit_module(
     # Second pass: dispatch each top-level form.
     seen_funcs: dict[str, str] = {}
     for child in root.children:
-        _dispatch_form(child, file_path, module_id, specs, seen_funcs, graph)
+        _dispatch_form(child, file_path, module_id, specs, seen_funcs, graph=graph)
 
 
 def _dispatch_form(
@@ -106,11 +106,12 @@ def _dispatch_form(
     module_id: str,
     specs: dict[str, Node],
     seen_funcs: dict[str, str],
+    *,
     graph: CodeGraph,
 ) -> None:
     """Dispatch a single top-level form."""
     if child.type == "fun_decl":
-        _extract_function(child, file_path, module_id, specs, seen_funcs, graph)
+        _extract_function(child, file_path, module_id, specs, seen_funcs, graph=graph)
     elif child.type == "record_decl":
         _extract_record(child, file_path, module_id, graph)
     elif child.type == "type_alias":
@@ -130,6 +131,7 @@ def _extract_function(
     module_id: str,
     specs: dict[str, Node],
     seen_funcs: dict[str, str],
+    *,
     graph: CodeGraph,
 ) -> None:
     """Extract a function clause, merging with previous clauses."""
@@ -144,7 +146,9 @@ def _extract_function(
         _merge_function_clause(clause, file_path, seen_funcs[name], module_id, graph)
         return
 
-    _create_function_node(clause, name, file_path, module_id, specs, seen_funcs, graph)
+    _create_function_node(
+        clause, name, file_path, module_id, specs, seen_funcs=seen_funcs, graph=graph
+    )
 
 
 def _create_function_node(
@@ -153,6 +157,7 @@ def _create_function_node(
     file_path: str,
     module_id: str,
     specs: dict[str, Node],
+    *,
     seen_funcs: dict[str, str],
     graph: CodeGraph,
 ) -> None:
@@ -508,22 +513,9 @@ def _add_call_edges(
     for call_name, call_node in calls:
         if call_name.rsplit("/", 1)[0] in _THROW_ATOMS:
             continue
-        target_id = _resolve_call_target(call_name, module_id)
-        target_id = imported(call_name) or target_id
-        dynamic = "$dynamic." in call_name
-        if call_node.type == "remote":
-            module = call_node.child_by_field_name("module")
-            atom = module.child_by_field_name("module") if module is not None else None
-            dynamic = dynamic or atom is None or atom.type != "atom"
-        confidence = EdgeConfidence.UNCERTAIN if dynamic else _call_confidence(call_name)
-        if dynamic:
-            target_id = f"{source_id}.$dynamic.{call_name.removeprefix('$dynamic.')}"
-        expression = call_node.child_by_field_name("expr")
-        while expression is not None and expression.type == "paren_expr":
-            expression = expression.child_by_field_name("expr")
-        if expression is not None and expression.type == "anonymous_fun":
-            target_id = _closure_id(source_id, expression)
-            confidence = EdgeConfidence.INFERRED
+        target_id, confidence, dynamic = _erlang_call_target(
+            call_name, call_node, source_id, module_id
+        )
         graph.edges.append(
             CodeEdge(
                 source_id=source_id,
@@ -531,9 +523,45 @@ def _add_call_edges(
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
                 location=make_location(call_node, file_path),
-                attributes=(("binding_blocked", True),),
+                attributes=(("binding_blocked", True),) if dynamic else (),
             )
         )
+
+
+def _erlang_call_target(
+    call_name: str,
+    call_node: Node,
+    source_id: str,
+    module_id: str,
+) -> tuple[str, EdgeConfidence, bool]:
+    target_id = imported(call_name) or _resolve_call_target(call_name, module_id)
+    dynamic = _dynamic_call(call_name, call_node)
+    confidence = EdgeConfidence.UNCERTAIN if dynamic else _call_confidence(call_name)
+    if dynamic:
+        target_id = f"{source_id}.$dynamic.{call_name.removeprefix('$dynamic.')}"
+    closure = _called_closure(call_node, source_id)
+    if closure is not None:
+        target_id, confidence, dynamic = closure, EdgeConfidence.INFERRED, False
+    return target_id, confidence, dynamic
+
+
+def _dynamic_call(name: str, node: Node) -> bool:
+    if "$dynamic." in name:
+        return True
+    if node.type != "remote":
+        return False
+    module = node.child_by_field_name("module")
+    atom = module.child_by_field_name("module") if module is not None else None
+    return atom is None or atom.type != "atom"
+
+
+def _called_closure(node: Node, owner: str) -> str | None:
+    expression = node.child_by_field_name("expr")
+    while expression is not None and expression.type == "paren_expr":
+        expression = expression.child_by_field_name("expr")
+    if expression is not None and expression.type == "anonymous_fun":
+        return _closure_id(owner, expression)
+    return None
 
 
 def _call_confidence(call_name: str) -> EdgeConfidence:

@@ -205,6 +205,7 @@ def _kotlin_class_kind(node: Node) -> NodeKind:
     return NodeKind.CLASS
 
 
+@bounded_nesting
 def _extract_function(
     node: Node,
     file_path: str,
@@ -227,6 +228,28 @@ def _extract_function(
         else f"{container_id}:{func_name}"
     )
 
+    unit, calls, body = _function_unit(
+        node,
+        file_path,
+        func_id=func_id,
+        func_name=func_name,
+        kind=NodeKind.METHOD if is_method else NodeKind.FUNCTION,
+    )
+    func_id = add_callable(graph, unit)
+    add_contains_edge(graph, container_id, func_id)
+
+    _nested_functions(body, file_path, module_id, func_id, graph)
+    _add_call_edges(calls, func_id, file_path, graph)
+
+
+def _function_unit(
+    node: Node,
+    file_path: str,
+    *,
+    func_id: str,
+    func_name: str,
+    kind: NodeKind,
+) -> tuple[CodeUnit, list[tuple[str, Node]], Node | None]:
     params = _extract_parameters(node)
     return_type = _extract_return_type(node)
     body = first_child_by_type(node, "function_body")
@@ -239,7 +262,7 @@ def _extract_function(
     unit = CodeUnit(
         id=func_id,
         name=func_name,
-        kind=NodeKind.METHOD if is_method else NodeKind.FUNCTION,
+        kind=kind,
         location=make_location(node, file_path),
         parameters=tuple(params),
         return_type=return_type,
@@ -248,9 +271,16 @@ def _extract_function(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
     )
-    func_id = add_callable(graph, unit)
-    add_contains_edge(graph, container_id, func_id)
+    return unit, calls, body
 
+
+def _nested_functions(
+    body: Node | None,
+    file_path: str,
+    module_id: str,
+    func_id: str,
+    graph: CodeGraph,
+) -> None:
     if body is not None:
         for deferred in walk_owned(
             body,
@@ -273,7 +303,6 @@ def _extract_function(
                 _extract_function(
                     deferred, file_path, module_id, func_id, graph, name_override=nested_name
                 )
-    _add_call_edges(calls, func_id, file_path, graph)
 
 
 def _extract_parameters(node: Node) -> list[Parameter]:

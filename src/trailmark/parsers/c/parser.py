@@ -25,6 +25,7 @@ from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
     compute_complexity,
+    link_cross_file_calls,
     make_location,
     module_id_from_path,
     node_text,
@@ -98,7 +99,13 @@ class CParser:
         """Parse all C files under dir_path into a merged graph."""
         headers = HeaderSources(Path(dir_path), self._parser)
         return parse_directory(
-            lambda path: self._parse_file(path, headers), "c", dir_path, _EXTENSIONS
+            lambda path: self._parse_file(path, headers),
+            "c",
+            dir_path,
+            _EXTENSIONS,
+            link_calls=lambda graph: link_cross_file_calls(
+                graph, included_files=headers.included_files
+            ),
         )
 
 
@@ -413,7 +420,9 @@ def _call_edge(
     )
     broken = syntax_error_context(site)
     attributes = _call_attributes(indirect, recovered, unknown_signature, broken)
-    uncertain = indirect or recovered or unknown_signature or broken
+    if _indirect_site(call_name):
+        attributes += (("indirect_call", True),)
+    uncertain = indirect or recovered or broken
     return CodeEdge(
         source_id=func_id,
         target_id=target,
@@ -422,6 +431,10 @@ def _call_edge(
         location=make_location(site, path),
         attributes=attributes,
     )
+
+
+def _indirect_site(name: str) -> bool:
+    return any(marker in name for marker in ("(", "*", ".", "->"))
 
 
 def _call_attributes(

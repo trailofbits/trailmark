@@ -102,7 +102,7 @@ def _visit_declarations(
             module_id,
             signatures,
             seen_funcs,
-            graph,
+            graph=graph,
         )
 
 
@@ -112,6 +112,7 @@ def _dispatch_declaration(
     module_id: str,
     signatures: dict[str, Node],
     seen_funcs: dict[str, str],
+    *,
     graph: CodeGraph,
 ) -> None:
     """Dispatch a single top-level declaration."""
@@ -122,8 +123,8 @@ def _dispatch_declaration(
             module_id,
             None,
             signatures,
-            seen_funcs,
-            graph,
+            seen_funcs=seen_funcs,
+            graph=graph,
         )
     elif child.type == "data_type":
         _extract_data_type(child, file_path, module_id, graph)
@@ -258,8 +259,8 @@ def _extract_instance(
                 module_id,
                 type_id,
                 signatures,
-                seen_funcs,
-                graph,
+                seen_funcs=seen_funcs,
+                graph=graph,
             )
 
 
@@ -283,6 +284,7 @@ def _extract_function(
     module_id: str,
     container_id: str | None,
     signatures: dict[str, Node],
+    *,
     seen_funcs: dict[str, str],
     graph: CodeGraph,
 ) -> None:
@@ -298,7 +300,7 @@ def _extract_function(
             seen_funcs[name],
             module_id,
             container_id,
-            graph,
+            graph=graph,
         )
         return
 
@@ -308,9 +310,9 @@ def _extract_function(
         file_path,
         module_id,
         container_id,
-        signatures,
-        seen_funcs,
-        graph,
+        signatures=signatures,
+        seen_funcs=seen_funcs,
+        graph=graph,
     )
 
 
@@ -320,6 +322,7 @@ def _create_function_node(
     file_path: str,
     module_id: str,
     container_id: str | None,
+    *,
     signatures: dict[str, Node],
     seen_funcs: dict[str, str],
     graph: CodeGraph,
@@ -366,7 +369,7 @@ def _create_function_node(
     seen_funcs[name] = func_id
 
     _extract_locals(node, func_id, module_id, file_path, graph)
-    _add_call_edges(calls, func_id, module_id, container_id, file_path, graph)
+    _add_call_edges(calls, func_id, module_id, container_id, file_path=file_path, graph=graph)
 
 
 def _merge_function_equation(
@@ -375,6 +378,7 @@ def _merge_function_equation(
     func_id: str,
     module_id: str,
     container_id: str | None,
+    *,
     graph: CodeGraph,
 ) -> None:
     """Merge an additional function equation into an existing node."""
@@ -405,7 +409,7 @@ def _merge_function_equation(
         docstring=existing.docstring,
     )
     _extract_locals(node, func_id, module_id, file_path, graph)
-    _add_call_edges(calls, func_id, module_id, container_id, file_path, graph)
+    _add_call_edges(calls, func_id, module_id, container_id, file_path=file_path, graph=graph)
 
 
 # ── Signature and parameter extraction ──────────────────────────────
@@ -696,8 +700,8 @@ def _extract_locals(
                     module_id,
                     owner,
                     signatures,
-                    seen,
-                    graph,
+                    seen_funcs=seen,
+                    graph=graph,
                 )
         elif node.type not in {"function", "bind", "signature", "patterns"}:
             pending.extend(node.named_children)
@@ -734,17 +738,25 @@ def _link_lexical_calls(graph: CodeGraph) -> None:
 # ── Edge helpers ────────────────────────────────────────────────────
 
 
+def _operator_name(name: str) -> bool:
+    return all(not char.isalnum() and char not in "_'" for char in name)
+
+
 def _add_call_edges(
     calls: list[tuple[str, Node]],
     source_id: str,
     module_id: str,
     container_id: str | None,
+    *,
     file_path: str,
     graph: CodeGraph,
 ) -> None:
     """Add CALLS edges for all collected call expressions."""
     for call_name, call_node in calls:
         target_id = _resolve_call_target(call_name, module_id, container_id)
+        operator = _operator_name(call_name)
+        if operator:
+            target_id = f"{module_id}:{call_name}"
         confidence = _call_confidence(call_name)
         binding = _lexical_binding(call_node, call_name)
         attributes: tuple[tuple[str, object], ...] = ()
@@ -758,7 +770,7 @@ def _add_call_edges(
                     ("haskell_declaration_col", binding.start_point.column),
                     ("haskell_declaration_name", call_name),
                 )
-        elif "." in call_name or call_name == "$":
+        elif "." in call_name and not operator:
             confidence = EdgeConfidence.UNCERTAIN
             attributes = (("binding_blocked", True),)
         graph.edges.append(

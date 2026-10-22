@@ -36,6 +36,7 @@ from trailmark.parsers._declarations import (
     bind_lexical_calls,
     callable_scope,
 )
+from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -98,6 +99,7 @@ class JavaParser:
             "java",
             dir_path,
             _EXTENSIONS,
+            link_calls=_bind_constructors,
         )
 
 
@@ -134,6 +136,7 @@ def _visit_top_level(
         _extract_import(child, graph)
 
 
+@bounded_nesting
 def _extract_class(
     node: Node,
     file_path: str,
@@ -260,6 +263,7 @@ def _interface_type_name(node: Node) -> str:
     return ""
 
 
+@bounded_nesting
 def _extract_function(
     node: Node,
     file_path: str,
@@ -292,8 +296,8 @@ def _extract_function(
         func_id,
         module_id,
         class_id,
-        file_path,
-        graph,
+        file_path=file_path,
+        graph=graph,
     )
 
 
@@ -437,6 +441,7 @@ def _add_call_edges(
     func_id: str,
     module_id: str,
     class_id: str | None,
+    *,
     file_path: str,
     graph: CodeGraph,
 ) -> None:
@@ -615,10 +620,19 @@ def _bind_constructors(graph: CodeGraph) -> None:
     for unit in graph.nodes.values():
         if unit.kind == NodeKind.CLASS:
             types.setdefault(unit.name, []).append(unit.id)
-        owner = graph.nodes.get(owners.get(unit.id, ""))
-        if unit.kind == NodeKind.METHOD and owner is not None and unit.name == owner.name:
-            constructors.setdefault(owner.id, []).append(unit.id)
+        _index_constructor(unit, graph, owners, constructors)
     graph.edges[:] = [_constructor_edge(e, owners, bases, types, constructors) for e in graph.edges]
+
+
+def _index_constructor(
+    unit: CodeUnit,
+    graph: CodeGraph,
+    owners: dict[str, str],
+    constructors: dict[str, list[str]],
+) -> None:
+    owner = graph.nodes.get(owners.get(unit.id, ""))
+    if unit.kind == NodeKind.METHOD and owner is not None and unit.name == owner.name:
+        constructors.setdefault(owner.id, []).append(unit.id)
 
 
 def _constructor_edge(
@@ -632,16 +646,29 @@ def _constructor_edge(
     if not isinstance(name, str):
         return edge
     owner = owners.get(edge.source_id, "")
-    if name == "this":
-        candidates = [owner]
-    elif name == "super":
-        candidates = [bases[owner]] if owner in bases else []
-    else:
-        candidates = types.get(name, [])
+    candidates = _constructor_types(name, owner, bases, types)
     targets = constructors.get(candidates[0], []) if len(candidates) == 1 else []
     if len(targets) == 1:
-        return replace(edge, target_id=targets[0], confidence=EdgeConfidence.INFERRED)
-    return replace(edge, target_id=f"{edge.source_id}.$constructor.{name}")
+        return replace(
+            edge,
+            target_id=targets[0],
+            confidence=EdgeConfidence.INFERRED,
+            attributes=tuple((k, v) for k, v in edge.attributes if k != "binding_blocked"),
+        )
+    return edge
+
+
+def _constructor_types(
+    name: str,
+    owner: str,
+    bases: dict[str, str],
+    types: dict[str, list[str]],
+) -> list[str]:
+    if name == "this":
+        return [owner]
+    if name == "super":
+        return [bases[owner]] if owner in bases else []
+    return types.get(name, [])
 
 
 def _extract_nested_callables(

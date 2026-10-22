@@ -38,6 +38,7 @@ from trailmark.parsers._declarations import (
     callable_scope,
     resolve_local_method_calls,
 )
+from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -175,7 +176,7 @@ def _visit_template_body(
     """Visit the body of a template_declaration."""
     for child in node.children:
         if child.type == "function_definition":
-            _extract_function(child, file_path, module_id, class_id, graph, node)
+            _extract_function(child, file_path, module_id, class_id, graph, generic_node=node)
         elif child.type == "class_specifier":
             _extract_class(child, file_path, module_id, graph, node)
         elif child.type == "struct_specifier":
@@ -228,6 +229,7 @@ def _owner(node: Node, module: str, graph: CodeGraph) -> str:
     return module
 
 
+@bounded_nesting
 def _extract_namespace(
     node: Node,
     file_path: str,
@@ -280,6 +282,7 @@ def _extract_type_def(
             _extract_enum(child, file_path, module_id, graph)
 
 
+@bounded_nesting
 def _extract_class(
     node: Node,
     file_path: str,
@@ -410,6 +413,7 @@ def _check_inline_method(
             )
 
 
+@bounded_nesting
 def _extract_struct(
     node: Node,
     file_path: str,
@@ -463,14 +467,15 @@ def _extract_enum(
     add_contains_edge(graph, owner, enum_id)
 
 
+@bounded_nesting
 def _extract_function(
     node: Node,
     file_path: str,
     module_id: str,
     class_id: str | None,
     graph: CodeGraph,
-    generic_node: Node | None = None,
     *,
+    generic_node: Node | None = None,
     name_override: str | None = None,
 ) -> None:
     """Extract a C++ function or method definition."""

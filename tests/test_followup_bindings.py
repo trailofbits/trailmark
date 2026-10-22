@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from trailmark.models import CodeGraph, EdgeConfidence, EdgeKind
-from trailmark.parse import parse_file
+from trailmark.parse import parse_directory, parse_file
 from trailmark.query.api import QueryEngine
 
 
@@ -188,14 +188,10 @@ def test_repeated_python_nested_definitions_keep_bodies(tmp_path: Path) -> None:
     assert any(
         s.startswith("case:two.inner@2_") and t.endswith(":case:first") for s, t in calls.items()
     )
-    assert any(
-        s.startswith("case:two.inner@3_") and t.endswith(":case:second") for s, t in calls.items()
-    )
+    assert any(s == "case:two.inner" and t.endswith(":case:second") for s, t in calls.items())
 
 
 def test_javascript_local_require_destructure_links_across_files(tmp_path: Path) -> None:
-    from trailmark.parse import parse_directory
-
     (tmp_path / "app.js").write_text(
         "function handler(x) { const { sanitize } = require('./util'); return sanitize(x); }"
     )

@@ -225,6 +225,7 @@ def _class_kind(node: Node) -> NodeKind | None:
     return None
 
 
+@bounded_nesting
 def _extract_function(
     node: Node,
     file_path: str,
@@ -247,6 +248,28 @@ def _extract_function(
         else f"{container_id}:{func_name}"
     )
 
+    unit, calls, body = _function_unit(
+        node,
+        file_path,
+        func_id=func_id,
+        func_name=func_name,
+        kind=NodeKind.METHOD if is_method else NodeKind.FUNCTION,
+    )
+    func_id = add_callable(graph, unit)
+    add_contains_edge(graph, container_id, func_id)
+
+    _nested_functions(body, file_path, module_id, func_id, graph)
+    _add_call_edges(calls, func_id, file_path, graph)
+
+
+def _function_unit(
+    node: Node,
+    file_path: str,
+    *,
+    func_id: str,
+    func_name: str,
+    kind: NodeKind,
+) -> tuple[CodeUnit, list[tuple[str, Node]], Node | None]:
     params = _extract_parameters(node)
     return_type = _extract_return_type(node)
     body = first_child_by_type(node, "function_body")
@@ -259,7 +282,7 @@ def _extract_function(
     unit = CodeUnit(
         id=func_id,
         name=func_name,
-        kind=NodeKind.METHOD if is_method else NodeKind.FUNCTION,
+        kind=kind,
         location=make_location(node, file_path),
         parameters=tuple(params),
         return_type=return_type,
@@ -268,9 +291,16 @@ def _extract_function(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
     )
-    func_id = add_callable(graph, unit)
-    add_contains_edge(graph, container_id, func_id)
+    return unit, calls, body
 
+
+def _nested_functions(
+    body: Node | None,
+    file_path: str,
+    module_id: str,
+    func_id: str,
+    graph: CodeGraph,
+) -> None:
     if body is not None:
         for deferred in walk_owned(
             body,
@@ -293,7 +323,6 @@ def _extract_function(
                 _extract_function(
                     deferred, file_path, module_id, func_id, graph, name_override=nested_name
                 )
-    _add_call_edges(calls, func_id, file_path, graph)
 
 
 def _extract_parameters(node: Node) -> list[Parameter]:
@@ -393,7 +422,35 @@ def _extract_import(node: Node, graph: CodeGraph) -> None:
 
 
 def _merge_extensions(graph: CodeGraph) -> None:
-    """Move extension members using indexes built once for the merged graph."""
+    """Move extensions in owner dependency order, resolving previously moved types."""
+    types, children = _extension_indexes(graph)
+    moved: dict[str, str] = {}
+    removed = set()
+    reserved = set(graph.nodes)
+    extensions = sorted(
+        (
+            unit
+            for unit in graph.nodes.values()
+            if "swift_extension_target" in dict(unit.attributes)
+        ),
+        key=lambda unit: str(dict(unit.attributes)["swift_extension_target"]).count("."),
+    )
+    for extension in extensions:
+        owner = _extension_owner(extension, types)
+        if owner is not None:
+            _extension_moves(
+                extension.id,
+                moved.get(owner, owner),
+                graph,
+                children=children,
+                reserved=reserved,
+                moved=moved,
+            )
+            removed.add(extension.id)
+    _apply_extension_moves(graph, moved, removed)
+
+
+def _extension_indexes(graph: CodeGraph) -> tuple[dict[str, list[CodeUnit]], dict[str, list[str]]]:
     types: dict[str, list[CodeUnit]] = {}
     children: dict[str, list[str]] = {}
     for unit in graph.nodes.values():
@@ -403,21 +460,18 @@ def _merge_extensions(graph: CodeGraph) -> None:
     for edge in graph.edges:
         if edge.kind == EdgeKind.CONTAINS:
             children.setdefault(edge.source_id, []).append(edge.target_id)
-    moved: dict[str, str] = {}
-    removed = set()
-    reserved = set(graph.nodes)
-    for extension in tuple(graph.nodes.values()):
-        target = dict(extension.attributes).get("swift_extension_target")
-        if not isinstance(target, str):
-            continue
-        candidates = types.get(target, [])
-        local = [
-            unit for unit in candidates if unit.location.file_path == extension.location.file_path
-        ]
-        candidates = local or candidates
-        if len(candidates) == 1:
-            _extension_moves(extension.id, candidates[0].id, graph, children, reserved, moved)
-            removed.add(extension.id)
+    return types, children
+
+
+def _extension_owner(extension: CodeUnit, types: dict[str, list[CodeUnit]]) -> str | None:
+    target = dict(extension.attributes).get("swift_extension_target")
+    candidates = types.get(str(target), [])
+    local = [unit for unit in candidates if unit.location.file_path == extension.location.file_path]
+    candidates = local or candidates
+    return candidates[0].id if len(candidates) == 1 else None
+
+
+def _apply_extension_moves(graph: CodeGraph, moved: dict[str, str], removed: set[str]) -> None:
     graph.nodes = {
         moved.get(ident, ident): replace(unit, id=moved[ident]) if ident in moved else unit
         for ident, unit in graph.nodes.items()
@@ -438,6 +492,7 @@ def _extension_moves(
     extension: str,
     owner: str,
     graph: CodeGraph,
+    *,
     children: dict[str, list[str]],
     reserved: set[str],
     moved: dict[str, str],

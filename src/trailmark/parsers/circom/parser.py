@@ -308,7 +308,7 @@ def _add_call_edges(
                 kind=EdgeKind.CALLS,
                 confidence=EdgeConfidence.CERTAIN,
                 location=make_location(call_node, file_path),
-                attributes=(("circom_dependency", True), ("binding_blocked", True)),
+                attributes=(("circom_dependency", True),),
             )
         )
 

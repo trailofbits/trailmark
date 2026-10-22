@@ -14,8 +14,9 @@ from trailmark.parse import parse_directory
 from trailmark.storage.graph_store import GraphStore
 
 
-def test_semgrep_undefined_source_root_base_matches(tmp_path: Path) -> None:
-    source = tmp_path / "src"
+@pytest.mark.parametrize("folder", ["src", "my dir"])
+def test_semgrep_undefined_source_root_base_matches(tmp_path: Path, folder: str) -> None:
+    source = tmp_path / folder
     source.mkdir()
     (source / "app.py").write_text("import os\ndef run(cmd):\n    os.system(cmd)\n")
     run = {
@@ -29,7 +30,10 @@ def test_semgrep_undefined_source_root_base_matches(tmp_path: Path) -> None:
                 "locations": [
                     {
                         "physicalLocation": {
-                            "artifactLocation": {"uri": "src/app.py", "uriBaseId": "%SRCROOT%"},
+                            "artifactLocation": {
+                                "uri": f"{folder.replace(' ', '%20')}/app.py",
+                                "uriBaseId": "%SRCROOT%",
+                            },
                             "region": {"startLine": 3, "startColumn": 5, "endLine": 3},
                         }
                     }

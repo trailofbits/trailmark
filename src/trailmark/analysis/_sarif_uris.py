@@ -14,7 +14,7 @@ class SarifUris:
     def __init__(self, run: dict[str, Any]) -> None:
         self._artifacts = run.get("artifacts", [])
         self._bases = run.get("originalUriBaseIds", {})
-        self._cache: dict[str, str | None] = {}
+        self._cache: dict[str, tuple[str | None, int]] = {}
 
     def resolve(self, artifact: dict[str, Any]) -> str | None:
         location = self._location(artifact)
@@ -50,30 +50,62 @@ class SarifUris:
         seen: set[str] = set()
         current = name
         value = None
-        for _ in range(_LIMIT):
+        distance = 0
+        for steps in range(_LIMIT):
             if current in seen:
                 break
             if current in self._cache:
-                value = self._cache[current]
+                value, distance = self._cache[current]
+                if steps + distance > _LIMIT:
+                    return None
                 break
             seen.add(current)
-            location = self._location(self._bases[current])
+            location = self._base_location(current)
             if location is None:
                 break
             uri, parent = location
             if _terminal_base(uri, parent, self._bases):
-                value = uri if _directory_uri(uri) else None
-                self._cache[current] = value
+                value = _directory_base(uri)
+                distance = 1
+                self._cache[current] = value, distance
                 break
             chain.append((current, uri))
             if not isinstance(parent, str):
                 break
             current = parent
+        else:
+            return None
+        return self._cache_chain(name, chain, value, distance)
+
+    def _base_location(self, name: str) -> tuple[str, object] | None:
+        record = self._bases[name]
+        return ("./", None) if _description_base(record) else self._location(record)
+
+    def _cache_chain(
+        self,
+        name: str,
+        chain: list[tuple[str, str]],
+        value: str | None,
+        distance: int,
+    ) -> str | None:
         for base, suffix in reversed(chain):
             value = _join(value, suffix)
-            self._cache[base] = value
-        self._cache.setdefault(name, value)
-        return self._cache[name]
+            distance += 1
+            self._cache[base] = value, distance
+        self._cache.setdefault(name, (value, distance))
+        return value
+
+
+def _directory_base(uri: str) -> str | None:
+    return uri if _directory_uri(uri) else None
+
+
+def _description_base(record: object) -> bool:
+    return (
+        isinstance(record, dict)
+        and "description" in record
+        and not any(key in record for key in ("uri", "index", "uriBaseId"))
+    )
 
 
 def _valid_index(index: object, artifacts: object, seen: set[int]) -> TypeGuard[int]:

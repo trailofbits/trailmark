@@ -26,7 +26,6 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
         "circom_dependency": true
       },
       "confidence": "certain",
@@ -36,7 +35,6 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
         "circom_dependency": true
       },
       "confidence": "certain",
@@ -52,7 +50,6 @@
     },
     {
       "attributes": {
-        "binding_blocked": true,
         "circom_dependency": true
       },
       "confidence": "certain",

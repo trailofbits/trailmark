@@ -79,7 +79,10 @@ def main() -> None:
     parser.add_argument("--tag", required=True)
     parser.add_argument("--dist", type=Path)
     args = parser.parse_args()
-    version = check_release(Path(__file__).resolve().parents[1], args.tag, args.dist)
+    try:
+        version = check_release(Path(__file__).resolve().parents[1], args.tag, args.dist)
+    except (ValueError, OSError) as error:
+        parser.exit(1, f"release preflight: {error}\n")
     print(f"release versions verified: {version}")
 
 
