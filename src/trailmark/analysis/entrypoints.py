@@ -288,6 +288,13 @@ def _detect_for_unit(
         return _detect_python(cache, unit, path)
     if extension == ".rs":
         return _detect_rust(cache, unit, path)
+    if extension == ".zig" and dict(unit.attributes).get("zig_export"):
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Zig exported function",
+            asset_value=AssetValue.HIGH,
+        )
     if extension == ".sol":
         return _detect_solidity(cache, unit, path)
     if extension in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:

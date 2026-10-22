@@ -1,0 +1,378 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Mode"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Packet"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Server"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Server",
+      "target": "taxonomy:Server.handle"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:main"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:process"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:external_fn"
+    },
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "std"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:Server.handle",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:process",
+      "target": "taxonomy:helper"
+    }
+  ],
+  "language": "zig",
+  "nodes": {
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 14,
+        "file_path": "taxonomy.zig",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Mode": {
+      "attributes": {
+        "zig_container_kind": "enum"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Mode",
+      "kind": "enum",
+      "location": {
+        "end_col": 34,
+        "end_line": 2,
+        "file_path": "taxonomy.zig",
+        "start_col": 0,
+        "start_line": 2
+      },
+      "name": "Mode",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Packet": {
+      "attributes": {
+        "zig_container_kind": "union"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Packet",
+      "kind": "struct",
+      "location": {
+        "end_col": 62,
+        "end_line": 3,
+        "file_path": "taxonomy.zig",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "Packet",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Server": {
+      "attributes": {
+        "zig_container_kind": "struct"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Server",
+      "kind": "struct",
+      "location": {
+        "end_col": 2,
+        "end_line": 9,
+        "file_path": "taxonomy.zig",
+        "start_col": 0,
+        "start_line": 4
+      },
+      "name": "Server",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Server.handle": {
+      "attributes": {
+        "zig_export": false,
+        "zig_extern": false,
+        "zig_public": true
+      },
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "if (n > 0) ",
+          "location": {
+            "end_col": 40,
+            "end_line": 6,
+            "file_path": "taxonomy.zig",
+            "start_col": 8,
+            "start_line": 6
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Server.handle",
+      "kind": "method",
+      "location": {
+        "end_col": 5,
+        "end_line": 8,
+        "file_path": "taxonomy.zig",
+        "start_col": 8,
+        "start_line": 5
+      },
+      "name": "handle",
+      "parameters": [
+        {
+          "default": null,
+          "name": "self",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "*Server"
+          }
+        },
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u32"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "!u32"
+      }
+    },
+    "taxonomy:external_fn": {
+      "attributes": {
+        "zig_export": false,
+        "zig_extern": true,
+        "zig_public": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:external_fn",
+      "kind": "function",
+      "location": {
+        "end_col": 38,
+        "end_line": 13,
+        "file_path": "taxonomy.zig",
+        "start_col": 0,
+        "start_line": 13
+      },
+      "name": "external_fn",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u32"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "u32"
+      }
+    },
+    "taxonomy:helper": {
+      "attributes": {
+        "zig_export": false,
+        "zig_extern": false,
+        "zig_public": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 35,
+        "end_line": 10,
+        "file_path": "taxonomy.zig",
+        "start_col": 0,
+        "start_line": 10
+      },
+      "name": "helper",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u32"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "u32"
+      }
+    },
+    "taxonomy:main": {
+      "attributes": {
+        "zig_export": false,
+        "zig_extern": false,
+        "zig_public": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:main",
+      "kind": "function",
+      "location": {
+        "end_col": 37,
+        "end_line": 11,
+        "file_path": "taxonomy.zig",
+        "start_col": 4,
+        "start_line": 11
+      },
+      "name": "main",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "void"
+      }
+    },
+    "taxonomy:process": {
+      "attributes": {
+        "zig_export": true,
+        "zig_extern": false,
+        "zig_public": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:process",
+      "kind": "function",
+      "location": {
+        "end_col": 51,
+        "end_line": 12,
+        "file_path": "taxonomy.zig",
+        "start_col": 0,
+        "start_line": 12
+      },
+      "name": "process",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "u32"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "u32"
+      }
+    }
+  },
+  "root_path": "taxonomy.zig",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 3,
+    "classes": 0,
+    "dependencies": [
+      "std"
+    ],
+    "entrypoints": 0,
+    "functions": 5,
+    "languages": [
+      "zig"
+    ],
+    "proxies": 0,
+    "source_file_counts": {
+      "zig": 1
+    },
+    "source_files": 1,
+    "total_nodes": 9
+  },
+  "trailmark_version": "<trailmark-version>"
+}

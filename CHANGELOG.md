@@ -2,6 +2,9 @@
 
 ## 0.7.0 (unreleased)
 
+- Add a Zig frontend for `.zig` files, with named containers, function
+  signatures, direct calls, imports, and exported API entrypoints. Calls
+  requiring comptime evaluation or receiver inference stay uncertain.
 - Detect parameter types/defaults, return and exception types, generic
   parameters, declaration attributes, and node kind/origin/name changes in
   structural diffs. Edge differences include confidence; confidence changes

@@ -6,6 +6,7 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Rust and Verus](#rust-and-verus)
+- [Zig](#zig)
 - [Solidity persistent state](#solidity-persistent-state)
 - [TypeScript](#typescript)
 - [SQL](#sql)
@@ -62,6 +63,22 @@ from `verus! { ... }` blocks, including qualified invocations such as
   `macro_rules!` definitions are not expanded.
 - Function signatures without bodies are not extracted.
 - Calls in `requires` and `ensures` clauses are not extracted.
+
+## Zig
+
+The `.zig` frontend extracts functions (including extern declarations), named
+structs, enums and unions, nested container methods, signatures, branches,
+and literal `@import` dependencies. IDs include the container, for example
+`file:Server.handle`. `main` uses the generic CLI entrypoint rule; `export fn`
+is an untrusted API entrypoint. `pub fn` alone is not an external entrypoint.
+
+Bare calls and explicit calls through named local containers resolve within the
+file. Calls through parameters, local variables, instance receivers, imported
+modules, function pointers, and builtins remain uncertain. Local bindings and
+captures conservatively shadow declarations throughout the enclosing function.
+Comptime execution, generated/anonymous types, test blocks, and container methods
+declared inside function bodies are not analyzed. Zig syntax errors produce a
+warning; the resulting graph may be incomplete.
 
 ## Solidity persistent state
 

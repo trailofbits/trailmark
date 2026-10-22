@@ -11,7 +11,7 @@ other relationships, then lets you ask structural questions about it:
 - Which functions write this Solidity storage variable?
 - Where did call resolution stop, so that reachability results are incomplete?
 
-It supports 30 languages through [tree-sitter](https://tree-sitter.github.io/),
+It supports 31 languages through [tree-sitter](https://tree-sitter.github.io/),
 stores the graph in [rustworkx](https://www.rustworkx.org/), and exposes it
 through a command-line tool and a Python API. Trailmark was built for security
 review: every edge records whether it came straight from syntax or from a
@@ -231,6 +231,7 @@ for working with proxies.
 | Tact | `.tact` | `tact` | contracts, structs, receivers, functions |
 | Func | `.fc`, `.func` | `func` | functions, includes, direct calls |
 | Sway | `.sw` | `sway` | ABI interfaces, structs, impl methods, functions |
+| Zig | `.zig` | `zig` | Functions, named structs/enums/unions, container methods, imports, direct calls |
 | Rego | `.rego` | `rego` | packages, imports, policy rules, rule calls |
 | Proto | `.proto` | `proto` | services, RPCs, messages, fields, enums |
 | Thrift | `.thrift` | `thrift` | services, functions, structs, fields, enums |

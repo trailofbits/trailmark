@@ -142,6 +142,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     # Rust and Verus
     ("README.md", "`verus!` blocks"),
     ("docs/languages.md", "brace-delimited blocks"),
+    ("docs/languages.md", "pub fn` alone is not an external entrypoint"),
+    ("docs/languages.md", "Comptime execution, generated/anonymous types"),
     ("docs/languages.md", "file.inner:function"),
     ("docs/languages.md", "vstd::prelude::verus!"),
     ("docs/languages.md", "file:outer.inner"),
