@@ -22,7 +22,7 @@ def _file(tmp_path: Path, source: str) -> Path:
 def test_script_functions_substitutions_and_ownership(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
-        'helper() { if true; then echo ok; fi; }\n'
+        "helper() { if true; then echo ok; fi; }\n"
         'function main { helper | cat; x=$(helper); (helper); }\nmain "$@"\n',
     )
     graph = parse_file(str(path))
@@ -60,7 +60,7 @@ def test_runtime_bindings_stay_uncertain(tmp_path: Path, source: str) -> None:
 def test_dynamic_and_external_commands_do_not_bind_across_files(tmp_path: Path) -> None:
     _file(
         tmp_path,
-        'helper() { :; }; main() { command helper; builtin helper; '
+        "helper() { :; }; main() { command helper; builtin helper; "
         '"$CMD"; ./helper; receiver.helper; }\n',
     )
     (tmp_path / "other.bash").write_text("helper() { :; }; receiver.helper() { :; }")
