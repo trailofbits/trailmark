@@ -1,4 +1,4 @@
-"""Builds regenerate stale Verus sources and reuse self-contained distributions."""
+"""Builds regenerate stale grammar sources and reuse self-contained distributions."""
 
 from __future__ import annotations
 
@@ -12,32 +12,39 @@ import pytest
 import hatch_build as build
 
 
-@pytest.fixture
-def source_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Mock]:
-    grammar = tmp_path / build.GRAMMAR_PATH
+@pytest.fixture(params=build.GRAMMARS)
+def source_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> tuple[Path, Mock, str]:
+    name = request.param
+    grammar = tmp_path / build.GRAMMAR_ROOT / name
     grammar.mkdir(parents=True)
     (grammar / "grammar.js").write_text("original grammar")
     (grammar / "tree-sitter.json").write_text("{}")
 
     def generate(command: list[str], *, cwd: Path, check: bool) -> None:
-        for name in build.GENERATED_FILES:
-            path = cwd / name
+        for relative in build.GENERATED_FILES[name]:
+            path = cwd / relative
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(f"generated {name}")
+            path.write_text(f"generated {relative}")
 
     runner = Mock(side_effect=generate)
     monkeypatch.setattr(build, "_generator", Mock(return_value=Path("/tree-sitter")))
     monkeypatch.setattr(build.subprocess, "run", runner)
-    return tmp_path, runner
+    return tmp_path, runner, name
 
 
-def test_bundled_generated_sources_need_no_generator(source_tree: tuple[Path, Mock]) -> None:
-    root, runner = source_tree
-    build.generate_verus(root)
+def test_bundled_generated_sources_need_no_generator(source_tree: tuple[Path, Mock, str]) -> None:
+    root, runner, grammar_name = source_tree
+    build.generate_grammar(root, grammar_name)
     with patch.object(build, "_generator", side_effect=AssertionError("generator unavailable")):
-        build.generate_verus(root)
+        build.generate_grammar(root, grammar_name)
     assert runner.call_count == 1
-    assert all((root / build.GRAMMAR_PATH / name).is_file() for name in build.GENERATED_FILES)
+    assert runner.call_args.args[0][-2:] == ["--abi", build.GRAMMARS[grammar_name]]
+    assert all(
+        (root / build.GRAMMAR_ROOT / grammar_name / name).is_file()
+        for name in build.GENERATED_FILES[grammar_name]
+    )
 
 
 @pytest.mark.parametrize(
@@ -51,35 +58,37 @@ def test_bundled_generated_sources_need_no_generator(source_tree: tuple[Path, Mo
     ],
 )
 def test_changed_sources_or_damaged_artifacts_regenerate(
-    source_tree: tuple[Path, Mock], name: str
+    source_tree: tuple[Path, Mock, str], name: str
 ) -> None:
-    root, runner = source_tree
-    build.generate_verus(root)
-    (root / build.GRAMMAR_PATH / name).write_text("changed")
-    build.generate_verus(root)
-    build.generate_verus(root)
+    root, runner, grammar_name = source_tree
+    build.generate_grammar(root, grammar_name)
+    (root / build.GRAMMAR_ROOT / grammar_name / name).write_text("changed")
+    build.generate_grammar(root, grammar_name)
+    build.generate_grammar(root, grammar_name)
     assert runner.call_count == 2
 
 
-def test_missing_generated_header_regenerates(source_tree: tuple[Path, Mock]) -> None:
-    root, runner = source_tree
-    build.generate_verus(root)
-    (root / build.GRAMMAR_PATH / "src/tree_sitter/alloc.h").unlink()
-    build.generate_verus(root)
+def test_missing_generated_header_regenerates(source_tree: tuple[Path, Mock, str]) -> None:
+    root, runner, grammar_name = source_tree
+    build.generate_grammar(root, grammar_name)
+    (root / build.GRAMMAR_ROOT / grammar_name / "src/tree_sitter/parser.h").unlink()
+    build.generate_grammar(root, grammar_name)
     assert runner.call_count == 2
 
 
-def test_failed_generation_preserves_previous_sources(source_tree: tuple[Path, Mock]) -> None:
-    root, runner = source_tree
-    build.generate_verus(root)
-    grammar = root / build.GRAMMAR_PATH
-    before = {name: (grammar / name).read_bytes() for name in build.GENERATED_FILES}
+def test_failed_generation_preserves_previous_sources(source_tree: tuple[Path, Mock, str]) -> None:
+    root, runner, grammar_name = source_tree
+    build.generate_grammar(root, grammar_name)
+    grammar = root / build.GRAMMAR_ROOT / grammar_name
+    before = {name: (grammar / name).read_bytes() for name in build.GENERATED_FILES[grammar_name]}
     stamp = (grammar / ".generated.json").read_bytes()
     (grammar / "grammar.js").write_text("changed grammar")
     runner.side_effect = subprocess.CalledProcessError(1, "tree-sitter")
     with pytest.raises(subprocess.CalledProcessError):
-        build.generate_verus(root)
-    assert before == {name: (grammar / name).read_bytes() for name in build.GENERATED_FILES}
+        build.generate_grammar(root, grammar_name)
+    assert before == {
+        name: (grammar / name).read_bytes() for name in build.GENERATED_FILES[grammar_name]
+    }
     assert (grammar / ".generated.json").read_bytes() == stamp
 
 

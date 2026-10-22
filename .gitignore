@@ -24,3 +24,15 @@ coverage/gremlins/
 /src/trailmark/tree_sitter_custom/verus/.generated.json
 /src/trailmark/tree_sitter_custom/.verus-*/
 result
+/src/trailmark/tree_sitter_custom/circom/src/parser.c
+/src/trailmark/tree_sitter_custom/circom/src/tree_sitter/
+/src/trailmark/tree_sitter_custom/circom/src/grammar.json
+/src/trailmark/tree_sitter_custom/circom/src/node-types.json
+/src/trailmark/tree_sitter_custom/circom/.generated.json
+/src/trailmark/tree_sitter_custom/.circom-*/
+/src/trailmark/tree_sitter_custom/move/src/parser.c
+/src/trailmark/tree_sitter_custom/move/src/tree_sitter/
+/src/trailmark/tree_sitter_custom/move/src/grammar.json
+/src/trailmark/tree_sitter_custom/move/src/node-types.json
+/src/trailmark/tree_sitter_custom/move/.generated.json
+/src/trailmark/tree_sitter_custom/.move-*/

@@ -1,0 +1,16 @@
+{
+  "grammars": [
+    {
+      "name": "circom",
+      "scope": "source.circom",
+      "path": ".",
+      "file-types": [
+        "circom"
+      ]
+    }
+  ],
+  "metadata": {
+    "license": "MIT",
+    "version": "0.0.0"
+  }
+}

@@ -1,4 +1,4 @@
-"""Generate the Verus C parser for checkouts; ship it in wheels and sdists."""
+"""Generate bundled C parsers for checkouts; ship them in wheels and sdists."""
 
 from __future__ import annotations
 
@@ -12,37 +12,36 @@ from pathlib import Path
 from typing import Any
 
 GENERATOR_VERSION = "0.27.1"
-GENERATOR_ABI = "15"
-GRAMMAR_PATH = Path("src/trailmark/tree_sitter_custom/verus")
-GENERATED_FILES = (
-    "src/parser.c",
-    "src/tree_sitter/parser.h",
-    "src/tree_sitter/alloc.h",
-    "src/tree_sitter/array.h",
-)
+GRAMMAR_ROOT = Path("src/trailmark/tree_sitter_custom")
+GRAMMARS = {"circom": "14", "move": "14", "verus": "15"}
+GENERATED_FILES = {
+    name: ("src/parser.c", "src/tree_sitter/parser.h")
+    + (("src/tree_sitter/alloc.h", "src/tree_sitter/array.h") if name == "verus" else ())
+    for name in GRAMMARS
+}
 
 
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _inputs(grammar: Path) -> str:
+def _inputs(grammar: Path, abi: str) -> str:
     return hashlib.sha256(
         (
             GENERATOR_VERSION
-            + GENERATOR_ABI
+            + abi
             + _digest(grammar / "grammar.js")
             + _digest(grammar / "tree-sitter.json")
         ).encode()
     ).hexdigest()
 
 
-def _current(grammar: Path, inputs: str) -> bool:
+def _current(grammar: Path, inputs: str, outputs: tuple[str, ...]) -> bool:
     try:
         recorded = json.loads((grammar / ".generated.json").read_text())
         return recorded == {
             "inputs": inputs,
-            "outputs": {name: _digest(grammar / name) for name in GENERATED_FILES},
+            "outputs": {name: _digest(grammar / name) for name in outputs},
         }
     except (OSError, ValueError):
         return False
@@ -60,30 +59,34 @@ def _generator(root: Path) -> Path:
         [str(executable), "--version"], capture_output=True, text=True, check=True
     )
     if result.stdout.split()[:2] != ["tree-sitter", GENERATOR_VERSION]:
-        raise RuntimeError(f"Verus generation requires tree-sitter {GENERATOR_VERSION}; run npm ci")
+        raise RuntimeError(
+            f"Grammar generation requires tree-sitter {GENERATOR_VERSION}; run npm ci"
+        )
     return executable
 
 
-def generate_verus(root: Path) -> None:
-    grammar = root / GRAMMAR_PATH
-    inputs = _inputs(grammar)
-    if _current(grammar, inputs):
+def generate_grammar(root: Path, name: str) -> None:
+    grammar = root / GRAMMAR_ROOT / name
+    abi = GRAMMARS[name]
+    outputs = GENERATED_FILES[name]
+    inputs = _inputs(grammar, abi)
+    if _current(grammar, inputs, outputs):
         return
     executable = _generator(root)
-    with tempfile.TemporaryDirectory(prefix=".verus-", dir=grammar.parent) as directory:
+    with tempfile.TemporaryDirectory(prefix=f".{name}-", dir=grammar.parent) as directory:
         temporary = Path(directory)
-        for name in ("grammar.js", "tree-sitter.json"):
-            shutil.copyfile(grammar / name, temporary / name)
+        for relative in ("grammar.js", "tree-sitter.json"):
+            shutil.copyfile(grammar / relative, temporary / relative)
         subprocess.run(  # noqa: S603
-            [str(executable), "generate", "--abi", GENERATOR_ABI], cwd=temporary, check=True
+            [str(executable), "generate", "--abi", abi], cwd=temporary, check=True
         )
-        for name in GENERATED_FILES:
-            destination = grammar / name
+        for relative in outputs:
+            destination = grammar / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
-            (temporary / name).replace(destination)
+            (temporary / relative).replace(destination)
     stamp = {
         "inputs": inputs,
-        "outputs": {name: _digest(grammar / name) for name in GENERATED_FILES},
+        "outputs": {name: _digest(grammar / name) for name in outputs},
     }
     (grammar / ".generated.json").write_text(json.dumps(stamp, sort_keys=True) + "\n")
 
@@ -94,11 +97,13 @@ def get_build_hook() -> type:
         BuildHookInterface,
     )
 
-    class VerusBuildHook(BuildHookInterface):
+    class GrammarBuildHook(BuildHookInterface):
         def initialize(self, version: str, build_data: dict[str, Any]) -> None:
-            generate_verus(Path(self.root))
-            build_data["artifacts"].extend(
-                (GRAMMAR_PATH / name).as_posix() for name in (*GENERATED_FILES, ".generated.json")
-            )
+            for name in GRAMMARS:
+                generate_grammar(Path(self.root), name)
+                build_data["artifacts"].extend(
+                    (GRAMMAR_ROOT / name / relative).as_posix()
+                    for relative in (*GENERATED_FILES[name], ".generated.json")
+                )
 
-    return VerusBuildHook
+    return GrammarBuildHook

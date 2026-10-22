@@ -1,0 +1,16 @@
+{
+  "grammars": [
+    {
+      "name": "move",
+      "scope": "source.move",
+      "path": ".",
+      "file-types": [
+        "move"
+      ]
+    }
+  ],
+  "metadata": {
+    "license": "Apache-2.0",
+    "version": "0.0.0"
+  }
+}

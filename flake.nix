@@ -100,19 +100,25 @@
 
           nativeBuildInputs = [
             pkgs.stdenv.cc
+          ]
+          ++ lib.optionals (grammar == "circom") [
+            (treeSitterCli pkgs)
+            pkgs.nodejs
           ];
 
           buildPhase = ''
             runHook preBuild
+
+            ${lib.optionalString (grammar == "circom") "tree-sitter generate --abi 14"}
 
             ext_suffix="$(${python.interpreter} -c 'import sysconfig; print(sysconfig.get_config_var("EXT_SUFFIX") or ".so")')"
             darwin_flags=(${pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin "-undefined dynamic_lookup"})
 
             cc -shared -fPIC -O2 -std=c11 "''${darwin_flags[@]}" \
               -I"${python}/include/${python.libPrefix}" \
-              -I"$src/src" \
-              "$src/binding.c" \
-              "$src/src/parser.c" \
+              -I"$PWD/src" \
+              "binding.c" \
+              "src/parser.c" \
               -o "_binding$ext_suffix"
 
             runHook postBuild
@@ -149,7 +155,7 @@
                 postInstall = (old.postInstall or "") + ''
                   # Bindings include a digest of their installed path and source files.
                   # Build them before the Nix store becomes read-only.
-                  for grammar in circom masm verus; do
+                  for grammar in circom masm move verus; do
                     PYTHONPATH="$out/${final.python.sitePackages}" ${grammarPython}/bin/python \
                       -c "from trailmark.tree_sitter_custom.$grammar import language; language()"
                   done
@@ -243,7 +249,7 @@
                 trailmark analyze ${self} > /dev/null
                 trailmark entrypoints ${self} > /dev/null
                 python -c "from trailmark.query.api import QueryEngine; engine = QueryEngine.from_directory('${self}/src', language='auto'); assert engine.summary()['total_nodes'] > 0"
-                python -c "from trailmark.query.api import QueryEngine; assert all(QueryEngine.from_directory('${self}/tests/fixtures/kat/' + lang, language=lang).summary()['total_nodes'] > 0 for lang in ('circom', 'masm', 'sql', 'rust'))"
+                python -c "from trailmark.query.api import QueryEngine; assert all(QueryEngine.from_directory('${self}/tests/fixtures/kat/' + lang, language=lang).summary()['total_nodes'] > 0 for lang in ('circom', 'masm', 'move', 'sql', 'rust'))"
                 python -c "from trailmark.tree_sitter_custom.verus import language; from tree_sitter import Language, Parser; assert not Parser(Language(language())).parse(b'verus! { spec fn value() -> int { 1 } }').root_node.has_error"
               '';
         }

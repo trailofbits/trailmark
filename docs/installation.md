@@ -67,8 +67,9 @@ the read-only Nix store, and uses a root-owned language-pack grammar cache.
 
 ## From a git checkout
 
-A checkout keeps the Verus grammar definition and generates its C parser during
-the build with Tree-sitter CLI 0.27.1, which needs Node.js:
+A checkout keeps the Circom, Move, and Verus grammar definitions and generates
+their C parsers during the build with Tree-sitter CLI 0.27.1, which needs Node.js.
+Circom and Move use ABI 14; Verus uses ABI 15:
 
 ```bash
 npm ci                     # installs the pinned Tree-sitter CLI

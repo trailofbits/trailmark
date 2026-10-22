@@ -2,6 +2,9 @@
 
 ## 0.7.0 (unreleased)
 
+- Generate bundled Move and Circom parsers during builds instead of tracking
+  generated sources in Git; wheels and sdists remain self-contained.
+
 - Correct declaration ownership, lexical binding, call-site extraction, signatures,
   and entrypoint metadata across the 39 language frontends. See
   [parser coverage](docs/parser-coverage.md) for syntax limits and ID changes,

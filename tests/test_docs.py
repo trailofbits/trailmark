@@ -123,6 +123,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/installation.md", "Tree-sitter CLI 0.27.1"),
     ("docs/installation.md", "run `npm ci` with npm install scripts enabled"),
     ("docs/installation.md", "generated parser and headers are gitignored"),
+    ("docs/installation.md", "Circom and Move use ABI 14; Verus uses ABI 15"),
     ("docs/installation.md", "installing published packages needs neither"),
     # Mutation testing
     ("CONTRIBUTING.md", "tests.run_mutations --reviewed --workers=4"),
