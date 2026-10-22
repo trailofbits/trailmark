@@ -214,6 +214,7 @@ for working with proxies.
 | Ruby | `.rb` | `ruby` | methods, classes, modules |
 | Lua | `.lua` | `lua` | local/global functions, table methods, anonymous functions, chunks, imports, direct calls |
 | C | `.c`, `.h` | `c` | functions, structs, enums |
+| Bash | `.sh`, `.bash` | `bash` | functions, script execution, branches, commands, literal source dependencies |
 | C++ | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx` | `cpp` | functions, classes, structs, namespaces |
 | C# | `.cs` | `c_sharp` | methods, classes, interfaces, structs, enums, namespaces |
 | Java | `.java` | `java` | methods, classes, interfaces, enums |

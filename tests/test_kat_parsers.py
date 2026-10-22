@@ -24,6 +24,7 @@ from tests.kat_runner import assert_snapshot_matches, fixture_pair
 # <basename>.expected.json snapshot.
 PARSER_FIXTURES: list[tuple[str, str]] = [
     ("aiken", "taxonomy"),
+    ("bash", "taxonomy"),
     ("c", "taxonomy"),
     ("cairo", "taxonomy"),
     ("circom", "taxonomy"),

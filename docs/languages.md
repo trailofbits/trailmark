@@ -5,6 +5,7 @@ extracts. This page covers the languages whose behavior needs more
 explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
+- [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
 - [Solidity persistent state](#solidity-persistent-state)
@@ -13,6 +14,22 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Lua](#lua)
 - [SQL](#sql)
 - [C, C++, and Objective-C headers](#c-c-and-objective-c-headers)
+
+## Bash
+
+The `.sh` and `.bash` frontend extracts both function syntaxes, command calls
+(including pipelines, command substitutions and subshells), branches, and literal
+`source`/`.` dependencies. A synthetic `file:<script>` function owns top-level
+commands. Positional arguments do not become invented formal parameters.
+Unique top-level functions declared before a script call resolve as `inferred`;
+function bodies can also refer to those declarations. Conditional, nested or
+repeated definitions, aliases, dynamic commands, external programs, path calls,
+and cross-file names stay uncertain proxies. Sourcing or `eval` disables local
+inference throughout that file because it can change command bindings.
+`command helper` records a call to the command builtin, not to a shell function.
+No shell code is executed. `main` follows the generic entrypoint rule; script
+execution needs an entrypoint override. Extensionless scripts need explicit
+single-file parsing. Bash syntax errors warn that the graph may be incomplete.
 
 ## Rust and Verus
 

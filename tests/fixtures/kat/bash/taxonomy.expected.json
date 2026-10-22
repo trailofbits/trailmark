@@ -1,0 +1,211 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:main"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:<script>"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:helper.<command>.echo"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:helper",
+      "target": "proxy.unresolved:taxonomy:helper._command_.echo"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "taxonomy:helper"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:main.<command>.cat"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "proxy.unresolved:taxonomy:main._command_.cat"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:<script>",
+      "target": "taxonomy:main"
+    }
+  ],
+  "language": "bash",
+  "nodes": {
+    "proxy.unresolved:taxonomy:helper._command_.echo": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:helper.<command>.echo"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:helper._command_.echo",
+      "kind": "proxy",
+      "location": {
+        "end_col": 42,
+        "end_line": 2,
+        "file_path": "taxonomy.sh",
+        "start_col": 35,
+        "start_line": 2
+      },
+      "name": "taxonomy:helper.<command>.echo",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:main._command_.cat": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:main.<command>.cat"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:main._command_.cat",
+      "kind": "proxy",
+      "location": {
+        "end_col": 32,
+        "end_line": 3,
+        "file_path": "taxonomy.sh",
+        "start_col": 29,
+        "start_line": 3
+      },
+      "name": "taxonomy:main.<command>.cat",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 5,
+        "file_path": "taxonomy.sh",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:<script>": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:<script>",
+      "kind": "function",
+      "location": {
+        "end_col": 0,
+        "end_line": 5,
+        "file_path": "taxonomy.sh",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "<script>",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:helper": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "[ \"$1\" = yes ]",
+          "location": {
+            "end_col": 46,
+            "end_line": 2,
+            "file_path": "taxonomy.sh",
+            "start_col": 11,
+            "start_line": 2
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 49,
+        "end_line": 2,
+        "file_path": "taxonomy.sh",
+        "start_col": 0,
+        "start_line": 2
+      },
+      "name": "helper",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:main": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:main",
+      "kind": "function",
+      "location": {
+        "end_col": 51,
+        "end_line": 3,
+        "file_path": "taxonomy.sh",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "main",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.sh",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 5,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 3,
+    "languages": [
+      "bash"
+    ],
+    "proxies": 2,
+    "source_file_counts": {
+      "bash": 1
+    },
+    "source_files": 1,
+    "total_nodes": 6
+  },
+  "trailmark_version": "<trailmark-version>"
+}

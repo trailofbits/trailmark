@@ -2,6 +2,9 @@
 
 ## 0.7.0 (unreleased)
 
+- Bash frontend: shell functions, script command sites, branches, literal source
+  dependencies, and conservative local call inference.
+
 - Add a Zig frontend for `.zig` files, with named containers, function
   signatures, direct calls, imports, and exported API entrypoints. Calls
   requiring comptime evaluation or receiver inference stay uncertain.
