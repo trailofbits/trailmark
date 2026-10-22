@@ -81,6 +81,10 @@
 - Reorganize the documentation: a shorter README, and reference guides under
   `docs/` for the CLI, Python API, graph model, entrypoints, links, findings
   and preanalysis, call resolution, languages, and installation.
+- Add a Lua frontend for `.lua` files, with local/global functions, table
+  methods, anonymous functions, chunk execution, and literal `require`
+  dependencies. Respect lexical scope, declaration order, and reassignment;
+  table dispatch and callbacks remain uncertain.
 - Associate entrypoint decorators and export markers with their declarations
   instead of nearby source lines. Detect legacy PHP route comments and Swift
   `@main` methods without tagging neighbouring helpers. Circom main components

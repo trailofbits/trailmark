@@ -43,6 +43,7 @@ one wins.
 | C# | ASP.NET Core, Azure Functions |
 | PHP | Symfony `#[Route]` attributes and legacy annotations |
 | Ruby | Rails controller actions, Sidekiq worker `perform` methods |
+| Lua | generic named `main` only; use overrides for chunk execution and host callbacks |
 | Go | `http.HandleFunc` / `http.Handle` registrations, gin/chi/echo-style `<router>.GET/POST/...` registrations |
 | Rust | actix-web, rocket, FFI exports (`#[no_mangle]`, `pub extern "C"`), async-main attributes |
 | C / C++ | `extern "C"` linkage, `__attribute__((visibility("default")))`, `__declspec(dllexport)` |

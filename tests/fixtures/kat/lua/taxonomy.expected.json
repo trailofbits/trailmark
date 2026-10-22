@@ -1,0 +1,334 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:<chunk>"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:M.handle"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:callback"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:main"
+    },
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "dependency"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:<chunk>.<dynamic>.require"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:<chunk>",
+      "target": "proxy.unresolved:taxonomy:_chunk_._dynamic_.require"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:M.handle",
+      "target": "taxonomy:helper"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:M.handle.<dynamic>.self:other"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:M.handle",
+      "target": "proxy.unresolved:taxonomy:M.handle._dynamic_.self:other"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:callback",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "taxonomy:helper"
+    },
+    {
+      "confidence": "certain",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "taxonomy:callback"
+    },
+    {
+      "attributes": {
+        "raw_target": "taxonomy:main.<dynamic>.dependency.run"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "proxy.unresolved:taxonomy:main._dynamic_.dependency.run"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:<chunk>",
+      "target": "taxonomy:main"
+    }
+  ],
+  "language": "lua",
+  "nodes": {
+    "proxy.unresolved:taxonomy:M.handle._dynamic_.self:other": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:M.handle.<dynamic>.self:other"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:M.handle._dynamic_.self:other",
+      "kind": "proxy",
+      "location": {
+        "end_col": 35,
+        "end_line": 7,
+        "file_path": "taxonomy.lua",
+        "start_col": 22,
+        "start_line": 7
+      },
+      "name": "taxonomy:M.handle.<dynamic>.self:other",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:_chunk_._dynamic_.require": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:<chunk>.<dynamic>.require"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:_chunk_._dynamic_.require",
+      "kind": "proxy",
+      "location": {
+        "end_col": 40,
+        "end_line": 1,
+        "file_path": "taxonomy.lua",
+        "start_col": 19,
+        "start_line": 1
+      },
+      "name": "taxonomy:<chunk>.<dynamic>.require",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:main._dynamic_.dependency.run": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:main.<dynamic>.dependency.run"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:main._dynamic_.dependency.run",
+      "kind": "proxy",
+      "location": {
+        "end_col": 52,
+        "end_line": 11,
+        "file_path": "taxonomy.lua",
+        "start_col": 35,
+        "start_line": 11
+      },
+      "name": "taxonomy:main.<dynamic>.dependency.run",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 15,
+        "file_path": "taxonomy.lua",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:<chunk>": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:<chunk>",
+      "kind": "function",
+      "location": {
+        "end_col": 0,
+        "end_line": 15,
+        "file_path": "taxonomy.lua",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "<chunk>",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:M.handle": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:M.handle",
+      "kind": "method",
+      "location": {
+        "end_col": 3,
+        "end_line": 8,
+        "file_path": "taxonomy.lua",
+        "start_col": 0,
+        "start_line": 6
+      },
+      "name": "handle",
+      "parameters": [
+        {
+          "default": null,
+          "name": "self",
+          "type_ref": null
+        },
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:callback": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:callback",
+      "kind": "function",
+      "location": {
+        "end_col": 49,
+        "end_line": 9,
+        "file_path": "taxonomy.lua",
+        "start_col": 17,
+        "start_line": 9
+      },
+      "name": "callback",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:helper": {
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "x > 0",
+          "location": {
+            "end_col": 44,
+            "end_line": 3,
+            "file_path": "taxonomy.lua",
+            "start_col": 4,
+            "start_line": 3
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:helper",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 4,
+        "file_path": "taxonomy.lua",
+        "start_col": 0,
+        "start_line": 2
+      },
+      "name": "helper",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:main": {
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:main",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 12,
+        "file_path": "taxonomy.lua",
+        "start_col": 0,
+        "start_line": 10
+      },
+      "name": "main",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.lua",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 8,
+    "classes": 0,
+    "dependencies": [
+      "dependency"
+    ],
+    "entrypoints": 0,
+    "functions": 5,
+    "languages": [
+      "lua"
+    ],
+    "proxies": 3,
+    "source_file_counts": {
+      "lua": 1
+    },
+    "source_files": 1,
+    "total_nodes": 9
+  },
+  "trailmark_version": "<trailmark-version>"
+}

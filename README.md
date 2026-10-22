@@ -11,7 +11,8 @@ other relationships, then lets you ask structural questions about it:
 - Which functions write this Solidity storage variable?
 - Where did call resolution stop, so that reachability results are incomplete?
 
-It supports 30 languages through [tree-sitter](https://tree-sitter.github.io/),
+It parses the [supported languages](https://github.com/trailofbits/trailmark#supported-languages) through
+[tree-sitter](https://tree-sitter.github.io/),
 stores the graph in [rustworkx](https://www.rustworkx.org/), and exposes it
 through a command-line tool and a Python API. Trailmark was built for security
 review: every edge records whether it came straight from syntax or from a
@@ -211,6 +212,7 @@ for working with proxies.
 | TypeScript | `.ts`, `.tsx` | `typescript` | functions, classes, interfaces, enums |
 | PHP | `.php` | `php` | functions, classes, interfaces, traits |
 | Ruby | `.rb` | `ruby` | methods, classes, modules |
+| Lua | `.lua` | `lua` | local/global functions, table methods, anonymous functions, chunks, imports, direct calls |
 | C | `.c`, `.h` | `c` | functions, structs, enums |
 | C++ | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx` | `cpp` | functions, classes, structs, namespaces |
 | C# | `.cs` | `c_sharp` | methods, classes, interfaces, structs, enums, namespaces |

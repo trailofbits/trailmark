@@ -8,6 +8,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Rust and Verus](#rust-and-verus)
 - [Solidity persistent state](#solidity-persistent-state)
 - [TypeScript](#typescript)
+- [Lua](#lua)
 - [SQL](#sql)
 - [C, C++, and Objective-C headers](#c-c-and-objective-c-headers)
 
@@ -119,6 +120,30 @@ TypeScript resolves direct calls and straightforward receivers assigned with
 `new ConcreteClass()`. Interface dispatch through manifests, computed property
 names, dependency-injection containers, and other dynamic mechanisms is
 best-effort and often stays unresolved.
+
+## Lua
+
+The `.lua` frontend extracts local and global function declarations, functions
+assigned to named variables or table fields, anonymous functions, parameters
+(including implicit `self` for colon methods), branches, and literal `require`
+dependencies. A synthetic `file:<chunk>` function owns top-level execution.
+Table methods use IDs such as `file:M.handle`; nested functions include their
+enclosing function. Repeated names and anonymous functions gain byte-offset
+suffixes, which can change when earlier source is edited.
+
+Calls to unreassigned local functions resolve with `certain` confidence.
+Parameters, lexical blocks, loop variables, and declaration order affect name
+lookup; a local binding is not visible in its own initializer. Local function
+declarations do support recursion. Any reassignment makes calls through that
+binding uncertain throughout its scope. Calls to a unique same-file global
+function are `inferred`; global mutation can prevent that inference.
+
+Table/receiver dispatch, callbacks, aliases, metatables, `_ENV` behavior, and
+cross-file global/import binding are not resolved. These calls remain uncertain
+proxies even when a function elsewhere has the same name. A shadowed `require`
+does not create an import. Named `main` functions follow the generic entrypoint
+rule; chunk execution and host callbacks require entrypoint overrides. Lua
+syntax errors produce a warning and can leave an incomplete graph.
 
 ## SQL
 

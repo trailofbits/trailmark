@@ -154,6 +154,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "removed and added"),
     ("docs/languages.md", "use super::*"),
     ("docs/languages.md", "opaque macros or function bodies"),
+    ("docs/languages.md", "file:<chunk>"),
+    ("docs/languages.md", "A shadowed `require` does not create an import"),
     ("docs/languages.md", "syntax errors produce a warning"),
     # Solidity persistent state
     ("docs/languages.md", "state_variable"),
@@ -398,8 +400,11 @@ def test_language_extensions_match_registry() -> None:
         assert documented == expected, f"README extensions for {language} drifted"
 
 
-def test_language_count_matches_registry() -> None:
-    assert f"supports {len(supported_languages())} languages" in _flat("README.md")
+def test_language_overview_links_to_registry_checked_inventory() -> None:
+    assert (
+        "[supported languages](https://github.com/trailofbits/trailmark#supported-languages)"
+        in _raw("README.md")
+    )
 
 
 # ── Executable examples ───────────────────────────────────────────────
