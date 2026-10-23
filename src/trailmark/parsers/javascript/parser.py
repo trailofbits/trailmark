@@ -28,7 +28,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import add_callable, callable_scope
-from trailmark.parsers._ecmascript import declared_name, discover_callables
+from trailmark.parsers._ecmascript import class_member_callable, declared_name, discover_callables
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -111,7 +111,7 @@ def _visit_module(
             graph,
             name_override=name,
             owner_id=owner,
-            is_method=node.type == "method_definition" and class_owner is not None,
+            is_method=class_member_callable(node, class_owner),
         ),
     )
 

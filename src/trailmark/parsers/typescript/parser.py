@@ -29,7 +29,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import add_callable, callable_scope
-from trailmark.parsers._ecmascript import declared_name, discover_callables
+from trailmark.parsers._ecmascript import class_member_callable, declared_name, discover_callables
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -118,7 +118,7 @@ def _visit_module(
             graph,
             name_override=name,
             owner_id=owner,
-            is_method=node.type == "method_definition" and class_owner is not None,
+            is_method=class_member_callable(node, class_owner),
         ),
     )
 
@@ -132,23 +132,28 @@ def _visit_top_level_node(
     """Dispatch a single top-level node."""
     if child.type in _FUNCTION_DECL_TYPES:
         _extract_function(child, file_path, module_id, None, graph)
-    elif child.type == "class_declaration":
+    elif child.type in {"class_declaration", "abstract_class_declaration"}:
         _extract_class(child, file_path, module_id, graph)
-    elif child.type == "interface_declaration":
-        _extract_interface(child, file_path, module_id, graph)
-    elif child.type == "enum_declaration":
-        _extract_enum(child, file_path, module_id, graph)
-    elif child.type == "import_statement":
-        _extract_import(child, graph)
-    elif child.type == "export_statement":
-        _visit_export(child, file_path, module_id, graph)
-    elif child.type in (
-        "lexical_declaration",
-        "variable_declaration",
-    ):
-        _visit_lexical_decl(child, file_path, module_id, graph)
-    elif child.type == "expression_statement":
-        _visit_expression_stmt(child, file_path, module_id, graph)
+    else:
+        visitors = {
+            "interface_declaration": _extract_interface,
+            "enum_declaration": _extract_enum,
+            "import_statement": _extract_import_statement,
+            "export_statement": _visit_export,
+            "lexical_declaration": _visit_lexical_decl,
+            "variable_declaration": _visit_lexical_decl,
+            "expression_statement": _visit_expression_stmt,
+        }
+        visitor = visitors.get(child.type)
+        if visitor is not None:
+            visitor(child, file_path, module_id, graph)
+
+
+def _extract_import_statement(
+    child: Node, file_path: str, module_id: str, graph: CodeGraph
+) -> None:
+    """Adapt import metadata extraction to the top-level visitor signature."""
+    _extract_import(child, graph)
 
 
 def _visit_export(

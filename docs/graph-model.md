@@ -135,6 +135,12 @@ Sway, and Tact are `uncertain`. To find unresolved calls, look for edges to
 `uncertain`. `type_uses` edges are `certain` even though they come from name
 matching.
 
+Call edge attributes can preserve binding provenance. `import_binding` marks a
+JavaScript/TypeScript literal `require` named-export binding and prevents unrelated
+free-function fallback. `indirect_call` records pointer or field-call syntax; it
+remains present if callback-table inference later gives the edge an inferred target.
+The confidence describes target resolution, while this attribute describes syntax.
+
 ## Node IDs
 
 IDs have the form `module:function`, `module:Class`, or `module:Class.method`.
@@ -151,7 +157,7 @@ IDs have the form `module:function`, `module:Class`, or `module:Class.method`.
 - **Nested declarations** include their owners: Java nested classes are
   `module:Outer.Inner`, and Solidity contract-level structs and enums are
   `module:Contract.Name`.
-- **Overloads** in Solidity, C++, Java, C#, Kotlin, and Swift keep separate
+- **Repeated callables** in Python and overloads in Solidity, C++, Java, C#, Kotlin, and Swift keep separate
   declarations and bodies. Colliding callable IDs gain an `@line_column` suffix,
   for example `token:Token.f@12_4`. When a type and a callable share an ID, the
   type keeps the base ID.

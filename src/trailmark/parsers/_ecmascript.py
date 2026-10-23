@@ -12,6 +12,8 @@ from trailmark.models.nodes import NodeKind
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import node_text
 
+CLASSES = frozenset({"class_declaration", "abstract_class_declaration", "class"})
+
 CALLABLES = frozenset(
     {
         "function_declaration",
@@ -46,10 +48,10 @@ def discover_callables(
             if node_id is None:
                 continue
             owner = node_id
-        elif node.type in {"class_declaration", "class"}:
+        elif node.type in CLASSES:
             position = (node.start_point.row + 1, node.start_point.column)
-            owner = by_location.get(position, owner)
-            class_owner = owner
+            class_owner = by_location.get(position)
+            owner = class_owner or owner
         stack.extend((child, owner, class_owner) for child in reversed(node.named_children))
     # Forward nested declarations are available only after discovery completes.
     _guard_discovered_calls(graph, calls)
@@ -99,6 +101,7 @@ def _guard_discovered_calls(graph: CodeGraph, calls: dict[tuple[int, int], Node]
             edge, calls[(edge.location.start_line, edge.location.start_col or 0)], graph=graph
         )
         if edge.kind == EdgeKind.CALLS
+        and not dict(edge.attributes).get("import_binding")
         and edge.location is not None
         and (edge.location.start_line, edge.location.start_col or 0) in calls
         else edge
@@ -157,4 +160,18 @@ def _object_binding(node: Node) -> str:
         current = parent.parent
     return (
         ".".join(reversed(parts)) or f"$object@{node.start_point.row + 1}_{node.start_point.column}"
+    )
+
+
+def class_member_callable(node: Node, class_owner: str | None) -> bool:
+    """Class methods and arrow-valued fields retain method metadata."""
+    if class_owner is None:
+        return False
+    if node.type == "method_definition":
+        return True
+    parent = node.parent
+    return (
+        node.type == "arrow_function"
+        and parent is not None
+        and parent.type in {"field_definition", "public_field_definition"}
     )

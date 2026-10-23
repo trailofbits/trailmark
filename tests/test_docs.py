@@ -647,7 +647,29 @@ def _read_requires_python(pyproject_data: dict[str, object]) -> str:
         "`package fun`",
         "`file:api.init`",
         "`$operator.plus_plus`",
+        "breadth-first search",
+        "include depth capped at 16",
+        "closure capped at 128 headers",
+        "Compiler `-I` directories are not searched",
+        "platform compatibility shims",
+        "latest preceding definition",
+        "C#, Dart, Java, Objective-C",
+        "builtin.move:assert!",
+        "Arrow-valued class fields retain method kind",
+        "comment between the macro and brace",
     ],
 )
 def test_parser_coverage_contracts(marker: str) -> None:
     assert marker in _flat("docs/parser-coverage.md")
+
+
+@pytest.mark.parametrize(
+    "marker", ["`import_binding`", "`indirect_call`", "Repeated callables** in Python"]
+)
+def test_round3_graph_model_contracts(marker: str) -> None:
+    assert marker in _flat("docs/graph-model.md")
+
+
+def test_augmentation_filesystem_path_contract() -> None:
+    assert "percent-decoded exactly once" in _flat("docs/augmenting.md")
+    assert "literal `#`, `?` and `%` characters are preserved" in _flat("docs/augmenting.md")

@@ -1,5 +1,6 @@
 """Root-bounded header reads shared by one C directory parse."""
 
+from collections import deque
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -43,7 +44,7 @@ class HeaderSources:
         self._directives: dict[int, tuple[Node, ...]] = {}
         self._conditions: dict[int, dict[int, bool]] = {}
         self._included: dict[str, set[str]] = {}
-        self._links: dict[Path, set[Path]] = {}
+        self._links: dict[Path, list[Path]] = {}
         self._current_directives: tuple[Node, tuple[Node, ...]] | None = None
         self._resolved: dict[Path, Path | None] = {}
 
@@ -61,34 +62,36 @@ class HeaderSources:
         if source in self._included:
             return self._included[source]
         found: set[str] = set()
-        pending = [(Path(source), 0)]
+        pending = deque([(Path(source), 0)])
         while pending and len(found) < 128:
-            path, depth = pending.pop()
-            if depth > 16:
+            path, depth = pending.popleft()
+            if depth >= 16:
                 continue
             for target in self._direct_includes(path):
+                if len(found) >= 128:
+                    break
                 if str(target) not in found:
                     found.add(str(target))
                     pending.append((target, depth + 1))
         self._included[source] = found
         return found
 
-    def _direct_includes(self, path: Path) -> set[Path]:
+    def _direct_includes(self, path: Path) -> list[Path]:
         resolved = self.resolve(path)
         if resolved is None:
-            return set()
+            return []
         path = resolved
         if path not in self._links:
             root = self.get(path)
-            self._links[path] = self._include_paths(root, path) if root is not None else set()
+            self._links[path] = self._include_paths(root, path) if root is not None else []
         return self._links[path]
 
-    def _include_paths(self, root: Node, path: Path) -> set[Path]:
-        return {
+    def _include_paths(self, root: Node, path: Path) -> list[Path]:
+        return [
             target
             for node in self.directives(root, path)
             if (target := self._quoted_include(node, path)) is not None
-        }
+        ]
 
     def _quoted_include(self, node: Node, path: Path) -> Path | None:
         spelling = _include_spelling(node)

@@ -233,20 +233,9 @@ def clear_augmented(store: GraphStore, source_prefix: str) -> None:
 # ── Path matching ────────────────────────────────────────────────────
 
 
-def _normalize_path(uri: str, root_path: str) -> str | None:
-    """Normalize a URI or file path to be relative to root_path.
-
-    Handles file:// URIs, absolute paths, and relative paths.
-    Unsupported URI schemes or incompatible drives return None. Paths outside
-    the root retain their ``..`` components for comparison with node paths.
-    """
-    parsed = urlparse(uri)
-    path = unquote(parsed.path)
-    if parsed.scheme == "file":
-        path = unquote(parsed.path)
-    elif parsed.scheme and parsed.scheme != "":
-        return None
-
+def _normalize_file_path(uri: str, root_path: str) -> str | None:
+    """Normalize a filesystem path without interpreting URI delimiters."""
+    path = uri
     if os.path.isabs(path):
         try:
             return os.path.relpath(path, root_path)
@@ -271,7 +260,7 @@ def _normalize_node_path(path: str, root_path: str) -> str | None:
                 path = absolute
         except ValueError:
             return None
-    return _normalize_path(path, root_path)
+    return _normalize_file_path(path, root_path)
 
 
 def _find_overlapping_nodes(
@@ -467,7 +456,7 @@ def _nodes_from_weaudit_location(
     start_line = loc.get("startLine", 0) + 1
     end_line = loc.get("endLine", 0) + 1
 
-    rel_path = _normalize_path(path, graph.root_path)
+    rel_path = _normalize_file_path(path, graph.root_path)
     if rel_path is None:
         return []
 
@@ -505,3 +494,12 @@ def _annotate_nodes(
     ann = Annotation(kind=kind, description=description, source=source)
     for node_id in node_ids:
         graph.add_annotation(node_id, ann)
+
+
+def _normalize_path(uri: str, root: str) -> str | None:
+    """Decode SARIF paths exactly once, leaving filesystem paths literal."""
+    parsed = urlparse(uri)
+    if parsed.scheme not in {"", "file"}:
+        return None
+    path = parsed.path if parsed.scheme == "file" else uri
+    return _normalize_file_path(unquote(path), root)

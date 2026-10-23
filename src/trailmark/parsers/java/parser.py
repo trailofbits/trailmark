@@ -655,7 +655,11 @@ def _constructor_edge(
             confidence=EdgeConfidence.INFERRED,
             attributes=tuple((k, v) for k, v in edge.attributes if k != "binding_blocked"),
         )
-    return edge
+    return (
+        replace(edge, target_id=f"{edge.source_id}.$constructor.{name}")
+        if name in {"this", "super"}
+        else edge
+    )
 
 
 def _constructor_types(
@@ -676,7 +680,9 @@ def _extract_nested_callables(
 ) -> None:
     if body is not None:
         for nested in walk_owned(
-            body, boundaries=frozenset({"lambda_expression", "class_declaration", "class_body"})
+            body,
+            root_is_owner=False,
+            boundaries=frozenset({"lambda_expression", "class_declaration", "class_body"}),
         ):
             if nested.type == "lambda_expression":
                 _extract_function(

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -50,6 +53,9 @@ _BRANCH_NODE_TYPES = frozenset(
 _THROW_TYPES = frozenset({"raise_statement"})
 
 _EXTENSIONS = (".py",)
+_CALL_SITES: ContextVar[dict[tuple[int, int], Node] | None] = ContextVar(
+    "_PYTHON_CALL_SITES", default=None
+)
 _CALLABLE_BOUNDARIES = frozenset({"function_definition", "class_definition"})
 
 
@@ -70,8 +76,9 @@ class PythonParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="python", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        with callable_scope(graph):
+        with callable_scope(graph), _call_sites() as calls:
             _visit_module(tree.root_node, file_path, module_id, graph)
+            _bind_complete_calls(calls, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -251,7 +258,7 @@ def _nested_functions(
     class_id: str | None,
 ) -> None:
     if body is not None:
-        for nested in walk_owned(body, boundaries=_CALLABLE_BOUNDARIES):
+        for nested in walk_owned(body, root_is_owner=False, boundaries=_CALLABLE_BOUNDARIES):
             if nested.type == "function_definition":
                 _extract_function(nested, file_path, module_id, class_id, graph, owner_id=func_id)
             elif nested.type == "class_definition":
@@ -264,7 +271,8 @@ def _is_overload(node: Node) -> bool:
         return False
     return any(
         child.type == "decorator"
-        and node_text(child).lstrip("@").strip().split(".")[-1] == "overload"
+        and node_text(child).lstrip("@").strip()
+        in {"overload", "typing.overload", "typing_extensions.overload"}
         for child in parent.named_children
     )
 
@@ -467,17 +475,16 @@ def _add_call_edges(
             if "." not in call_name or call_name.startswith("self.")
             else EdgeConfidence.INFERRED
         )
+        sites = _CALL_SITES.get()
+        if sites is not None:
+            sites[(call_node.start_point.row + 1, call_node.start_point.column)] = call_node
         graph.edges.append(
-            guard_call(
-                CodeEdge(
-                    source_id=func_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CALLS,
-                    confidence=confidence,
-                    location=make_location(call_node, file_path),
-                ),
-                call_node,
-                graph=graph,
+            CodeEdge(
+                source_id=func_id,
+                target_id=target_id,
+                kind=EdgeKind.CALLS,
+                confidence=confidence,
+                location=make_location(call_node, file_path),
             )
         )
 
@@ -524,3 +531,27 @@ def _function_unit(
         docstring=_extract_docstring(node),
     )
     return unit, calls
+
+
+def _bind_complete_calls(calls: dict[tuple[int, int], Node], graph: CodeGraph) -> None:
+    """Bind each call once after all file-local definitions are extracted."""
+    graph.edges[:] = [
+        guard_call(
+            edge, calls[(edge.location.start_line, edge.location.start_col or 0)], graph=graph
+        )
+        if edge.kind == EdgeKind.CALLS
+        and edge.location is not None
+        and (edge.location.start_line, edge.location.start_col or 0) in calls
+        else edge
+        for edge in graph.edges
+    ]
+
+
+@contextmanager
+def _call_sites() -> Generator[dict[tuple[int, int], Node]]:
+    sites: dict[tuple[int, int], Node] = {}
+    token = _CALL_SITES.set(sites)
+    try:
+        yield sites
+    finally:
+        _CALL_SITES.reset(token)

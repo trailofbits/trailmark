@@ -19,15 +19,18 @@ _DEPTH: ContextVar[int] = ContextVar("_DECLARATION_DEPTH", default=0)
 
 def bounded_nesting[**P, T](function: Callable[P, T]) -> Callable[P, T]:
     """Limit recursive extractors, preserving their individual call signatures."""
-    graph_position = list(signature(function).parameters).index("graph")
+    parameters = list(signature(function).parameters)
+    graph_position = parameters.index("graph")
+    path_position = parameters.index("file_path")
 
     @wraps(function)
     def extract(*args: P.args, **kwargs: P.kwargs) -> T:
         depth = _DEPTH.get()
         if depth >= 48:
-            node, path = cast(Node, args[0]), str(args[1])
+            node = cast(Node, args[0])
+            path = str(kwargs["file_path"] if "file_path" in kwargs else args[path_position])
             graph = cast(CodeGraph, kwargs["graph"] if "graph" in kwargs else args[graph_position])
-            graph.parse_diagnostics.append(_nesting_diagnostic(node, path, graph.language))
+            graph.parse_diagnostics.append(nesting_diagnostic(node, path, graph.language))
             return cast(T, None)
         token = _DEPTH.set(depth + 1)
         try:
@@ -38,7 +41,8 @@ def bounded_nesting[**P, T](function: Callable[P, T]) -> Callable[P, T]:
     return extract
 
 
-def _nesting_diagnostic(node: Node, path: str, language: str) -> ParseDiagnostic:
+def nesting_diagnostic(node: Node, path: str, language: str) -> ParseDiagnostic:
+    """Locate the declaration or block omitted by the extraction depth limit."""
     return ParseDiagnostic(
         language,
         language,

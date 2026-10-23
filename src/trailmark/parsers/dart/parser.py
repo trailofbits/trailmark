@@ -53,6 +53,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import bind_lexical_calls
+from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
 _EXTENSIONS = (".dart",)
@@ -174,6 +175,7 @@ def _following_body(children: list[Node], index: int) -> Node | None:
     return body if body is not None and body.type == "function_body" else None
 
 
+@bounded_nesting
 def _extract_class(
     node: Node,
     file_path: str,
@@ -201,6 +203,7 @@ def _extract_class(
     _walk_siblings(body.children, file_path, module_id, class_id, graph)
 
 
+@bounded_nesting
 def _extract_function_from_signature(
     signature: Node,
     body: Node | None,
@@ -379,7 +382,9 @@ def _collect_dart_calls(body: Node, calls: list[tuple[str, Node]]) -> None:
     selector holding the argument_part.
     """
     for node in walk_owned(
-        body, boundaries=frozenset({"function_expression", "lambda_expression"})
+        body,
+        root_is_owner=False,
+        boundaries=frozenset({"function_expression", "lambda_expression"}),
     ):
         if node.type in {"function_expression", "lambda_expression"}:
             continue
@@ -529,7 +534,9 @@ def _extract_nested_functions(
 ) -> None:
     if body is not None:
         for nested in walk_owned(
-            body, boundaries=frozenset({"function_expression", "lambda_expression"})
+            body,
+            root_is_owner=False,
+            boundaries=frozenset({"function_expression", "lambda_expression"}),
         ):
             if nested.type in {"function_expression", "lambda_expression"}:
                 parameters = nested.child_by_field_name("parameters")

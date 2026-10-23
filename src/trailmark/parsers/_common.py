@@ -646,11 +646,10 @@ def _needs_cross_file_target(
     return (
         edge.kind == EdgeKind.CALLS
         and target not in graph.nodes
+        and edge.source_id in graph.nodes
         and _allows_cross_file_lookup(edge, graph.language)
         and (eligible_ids is None or edge.source_id in eligible_ids)
-        and "::" not in target
-        and "->" not in target
-        and "." not in target.rsplit(":", 1)[-1]
+        and _bare_cross_file_target(target)
     )
 
 
@@ -678,13 +677,23 @@ class _CrossFileTargets:
     def visible(self, source: str, candidate: str) -> bool:
         if not self.attributes[candidate].get("internal_linkage"):
             return True
-        path = self.files.get(source)
+        path = self.files[source]
         target = self.files[candidate]
-        return path == target or (
-            path is not None
-            and self.included_files is not None
-            and target in self.included_files(path)
-        )
+        if ":$anonymous" in candidate or ".$anonymous" in candidate:
+            return path == target
+        if path == target or Path(target).suffix.lower() in {
+            ".h",
+            ".hh",
+            ".hpp",
+            ".hxx",
+            ".inl",
+            ".inc",
+            ".ipp",
+        }:
+            return True
+        if self.included_files is None:
+            self.included_files = _include_resolver(self.graph.root_path)
+        return target in self.included_files(path) or path in self.included_files(target)
 
 
 def _cross_file_candidates(
@@ -753,3 +762,20 @@ def link_type_relationships(graph: CodeGraph) -> None:
                 )
         edges.append(edge)
     graph.edges[:] = edges
+
+
+def _include_resolver(root_path: str) -> Callable[[str], set[str]]:
+    """Share bounded include visibility with C++, Objective-C and polyglot runs."""
+    from tree_sitter import Parser
+    from tree_sitter_language_pack import get_language
+
+    from trailmark.parsers.c._headers import HeaderSources
+
+    root = Path(root_path)
+    headers = HeaderSources(root.parent if root.is_file() else root, Parser(get_language("cpp")))
+    return headers.included_files
+
+
+def _bare_cross_file_target(target: str) -> bool:
+    """Exclude qualified receivers from free-function name matching."""
+    return "::" not in target and "->" not in target and "." not in target.rsplit(":", 1)[-1]

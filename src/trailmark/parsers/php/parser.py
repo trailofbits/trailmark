@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -56,6 +57,8 @@ _CALLABLE_TYPES = frozenset(
 )
 
 _EXTENSIONS = (".php",)
+
+_NAMESPACE: ContextVar[str] = ContextVar("_PHP_NAMESPACE", default="")
 
 _CLASS_LIKE_TYPES = frozenset({"class_declaration", "interface_declaration", "trait_declaration"})
 
@@ -114,39 +117,55 @@ def _walk_children(
     graph: CodeGraph,
 ) -> None:
     """Recursively walk children to find top-level definitions."""
+    namespace = _NAMESPACE.get()
     for child in node.children:
-        if child.type == "program":
-            _walk_children(child, file_path, module_id, graph)
-        elif child.type == "namespace_definition":
-            _extract_namespace(
-                child,
-                file_path,
-                module_id,
-                graph,
-            )
-        elif child.type in _CLASS_LIKE_TYPES:
-            _extract_class(child, file_path, module_id, graph)
-        elif child.type == "function_definition":
-            _extract_function(
-                child,
-                file_path,
-                module_id,
-                None,
-                graph,
-            )
-        elif child.type in {"anonymous_function", "arrow_function"}:
-            _extract_function(
-                child,
-                file_path,
-                module_id,
-                None,
-                graph,
-                name_override=f"$lambda@{child.start_point.row + 1}_{child.start_point.column}",
-            )
-        elif child.type == "namespace_use_declaration":
-            _extract_import(child, graph)
+        if child.type == "namespace_definition":
+            name = child.child_by_field_name("name")
+            current = node_text(name) if name is not None else ""
+            if child.child_by_field_name("body") is None:
+                namespace = current
         else:
-            _walk_children(child, file_path, module_id, graph)
+            current = namespace
+        token = _NAMESPACE.set(current)
+        try:
+            _visit_statement(child, file_path, module_id, graph)
+        finally:
+            _NAMESPACE.reset(token)
+
+
+def _visit_statement(child: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:
+    if child.type == "program":
+        _walk_children(child, file_path, module_id, graph)
+    elif child.type == "namespace_definition":
+        _extract_namespace(
+            child,
+            file_path,
+            module_id,
+            graph,
+        )
+    elif child.type in _CLASS_LIKE_TYPES:
+        _extract_class(child, file_path, module_id, graph)
+    elif child.type == "function_definition":
+        _extract_function(
+            child,
+            file_path,
+            module_id,
+            None,
+            graph,
+        )
+    elif child.type in {"anonymous_function", "arrow_function"}:
+        _extract_function(
+            child,
+            file_path,
+            module_id,
+            None,
+            graph,
+            name_override=f"$lambda@{child.start_point.row + 1}_{child.start_point.column}",
+        )
+    elif child.type == "namespace_use_declaration":
+        _extract_import(child, graph)
+    else:
+        _walk_children(child, file_path, module_id, graph)
 
 
 def _extract_namespace(
@@ -375,7 +394,7 @@ def _nested_functions(
     class_id: str | None,
 ) -> None:
     if body is not None:
-        for nested in walk_owned(body, boundaries=_CALLABLE_TYPES):
+        for nested in walk_owned(body, root_is_owner=False, boundaries=_CALLABLE_TYPES):
             if nested.type in {"function_definition", "anonymous_function", "arrow_function"}:
                 name = nested.child_by_field_name("name")
                 _extract_function(
@@ -682,32 +701,13 @@ def _resolve_call_target(
     return call_name
 
 
-def _namespace(node: Node) -> str:
-    current: Node | None = node
-    while current is not None:
-        if current.type == "namespace_definition":
-            name = current.child_by_field_name("name")
-            return node_text(name) if name is not None else ""
-        previous = current.prev_named_sibling
-        while previous is not None:
-            if (
-                previous.type == "namespace_definition"
-                and previous.child_by_field_name("body") is None
-            ):
-                name = previous.child_by_field_name("name")
-                return node_text(name) if name is not None else ""
-            previous = previous.prev_named_sibling
-        current = current.parent
-    return ""
-
-
 def _namespace_owner(node: Node, module: str) -> str:
-    namespace = _namespace(node).replace("\\", ".")
+    namespace = _NAMESPACE.get().replace("\\", ".")
     return f"{module}:{namespace}" if namespace else module
 
 
 def _php_reference_id(node: Node, module: str, name: str) -> str:
     absolute = name.startswith("\\")
     name = name.lstrip("\\").replace("\\", ".")
-    namespace = "" if absolute else _namespace(node).replace("\\", ".")
+    namespace = "" if absolute else _NAMESPACE.get().replace("\\", ".")
     return f"{module}:{namespace}.{name}" if namespace else f"{module}:{name}"

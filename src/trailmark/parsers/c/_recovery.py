@@ -16,7 +16,7 @@ _TOKENS = re.compile(
     rb"|[A-Za-z_]\w*|[^\s]"
 )
 _KEYWORDS = frozenset({b"else", b"do", b"struct", b"union", b"enum"})
-_BLOCK_START = re.compile(rb"\b([A-Za-z_]\w*)\s*\{")
+_BLOCK_START = re.compile(rb"\b([A-Za-z_]\w*)(?:\s|/\*[^*]*\*+(?:[^/*][^*]*\*+)*/|//[^\n]*\n)*\{")
 _IDENTIFIER = re.compile(rb"[A-Za-z_]\w*\Z")
 _CONDITIONAL = re.compile(rb"\s*#\s*(if|ifdef|ifndef|else|elif|endif)\b")
 _DISABLED_START = re.compile(rb"\s*#\s*if\s+0\s*(?://[^\n]*|/\*.*?\*/\s*)?\Z")

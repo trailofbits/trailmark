@@ -113,7 +113,7 @@ def _imports(
         if prefix not in graph.dependencies:
             graph.dependencies.append(prefix)
         graph.edges.append(CodeEdge(owner, prefix, EdgeKind.IMPORTS))
-        if imported.type == "use_module":
+        if _is_module_import(imported):
             alias = imported.child_by_field_name("alias")
             modules[node_text(alias) if alias else prefix.rsplit("::", 1)[-1]] = prefix
         else:
@@ -139,7 +139,8 @@ def _address_imports(node: Node) -> list[tuple[Node, str]]:
     return [
         (member, f"{node_text(address)}::{node_text(module)}")
         for member in node.children_by_field_name("use_member")
-        if (module := member.child_by_field_name("module")) is not None
+        if (module := member.child_by_field_name("module") or member.child_by_field_name("member"))
+        is not None
     ]
 
 
@@ -267,7 +268,11 @@ def _access(site: Node) -> Node | None:
 def _call(site: Node, access: Node, broken: bool, ident: str, context: _Module) -> CodeEdge:
     raw = _access_name(access)
     blocked = broken or _shadowed_call(site, raw, ident, context)
-    raw = _imported_target(raw, context)
+    imported = _imported_target(raw, context)
+    confidence = EdgeConfidence.UNCERTAIN if blocked or "::" in raw else EdgeConfidence.CERTAIN
+    if not blocked and imported != raw:
+        confidence = EdgeConfidence.INFERRED
+    raw = imported
     target, builtin = _call_target(site, raw, context)
     if blocked:
         target = f"{ident}.$binding.{raw}"
@@ -275,7 +280,7 @@ def _call(site: Node, access: Node, broken: bool, ident: str, context: _Module) 
         ident,
         target,
         EdgeKind.CALLS,
-        confidence=EdgeConfidence.UNCERTAIN if blocked or "::" in raw else EdgeConfidence.CERTAIN,
+        confidence=confidence,
         location=make_location(site, context.path),
         attributes=(
             ("binding_blocked", blocked),
@@ -352,3 +357,15 @@ def _link_calls(graph: CodeGraph) -> None:
             )
         edges.append(edge)
     graph.edges[:] = edges
+
+
+def _is_module_import(node: Node) -> bool:
+    if node.type == "use_module":
+        return True
+    parent = node.parent
+    return (
+        node.type == "use_member"
+        and parent is not None
+        and parent.child_by_field_name("address") is not None
+        and node.child_by_field_name("module") is None
+    )

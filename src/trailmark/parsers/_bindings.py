@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import replace
 from pathlib import Path
@@ -11,7 +12,13 @@ from tree_sitter import Node
 from trailmark.models.edges import CodeEdge, EdgeConfidence
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit
-from trailmark.parsers._binding_index import call_parameter, local_unit, scope_index
+from trailmark.parsers._binding_index import (
+    cached_import_target,
+    call_parameter,
+    local_unit,
+    pattern_names,
+    scope_index,
+)
 from trailmark.parsers._common import module_id_from_path
 
 _SCOPES = frozenset(
@@ -39,7 +46,10 @@ _SCOPES = frozenset(
 )
 _SCOPE_POLICIES = {
     "python": frozenset({"function_definition", "lambda"}),
-    **dict.fromkeys(("kotlin", "swift", "dart"), _SCOPES | {"class_body"}),
+    **dict.fromkeys(
+        ("kotlin", "swift", "dart"), _SCOPES | {"class_body", "enum_class_body", "enum_body"}
+    ),
+    **dict.fromkeys(("javascript", "typescript"), _SCOPES | {"program"}),
 }
 
 # Name/pattern fields are grammar policies, not guesses based on declaration text.
@@ -95,6 +105,8 @@ def guard_call(edge: CodeEdge, occurrence: Node, *, graph: CodeGraph) -> CodeEdg
     declaration = index.declaration(
         occurrence, name, graph.language not in {"python", "javascript", "typescript"}
     )
+    if graph.language == "python" and declaration is None and index.local_binding(occurrence, name):
+        return _blocked(edge, name)
     return _bound_call(edge, declaration, name, source, graph)
 
 
@@ -106,6 +118,8 @@ def _bound_call(
     graph: CodeGraph,
 ) -> CodeEdge:
     parameter = call_parameter(source, name)
+    if parameter:
+        return _blocked(edge, name)
     imported = _require_target(declaration, name, source)
     if imported is not None:
         return replace(
@@ -114,7 +128,7 @@ def _bound_call(
             confidence=EdgeConfidence.INFERRED,
             attributes=(*edge.attributes, ("import_binding", True)),
         )
-    if not parameter and declaration is None:
+    if declaration is None:
         return edge
     local = _local_callable(graph, declaration, name, source)
     if local is not None:
@@ -128,23 +142,47 @@ def _bound_call(
                 if key not in {"binding_blocked", "binding_reason"}
             ),
         )
+    if declaration is not None and declaration.type == "function_declaration":
+        # A later member body may not be extracted yet; lexical linking runs
+        # after the complete class is available. Callable fields remain blocked.
+        return edge
     return _blocked(edge, name)
 
 
 def _require_target(declaration: Node | None, name: str, source: CodeUnit | None) -> str | None:
     if declaration is None or source is None or declaration.type != "variable_declarator":
         return None
+    key = (declaration.id, name, source.location.file_path)
+    return cached_import_target(key, lambda: _resolve_require(declaration, name, source))
+
+
+def _resolve_require(declaration: Node, name: str, source: CodeUnit) -> str | None:
     path = _require_path(declaration)
-    if path is None:
+    export = _require_export(declaration, name)
+    if path is None or export is None:
         return None
     if path.startswith("."):
-        target = Path(source.location.file_path).parent / path
+        target = Path(os.path.abspath(Path(source.location.file_path).parent / path))
+        if target.is_dir():
+            target = target / "index"
         if not target.suffix:
             target = target.with_suffix(Path(source.location.file_path).suffix)
-        module = module_id_from_path(str(target.resolve()))
+        module = module_id_from_path(str(target))
     else:
-        module = path
-    return f"{module}:{name}"
+        module = path.replace(":", ".")
+    return f"{module}:{export}"
+
+
+def _require_export(declaration: Node, name: str) -> str | None:
+    pattern = declaration.child_by_field_name("name")
+    if pattern is None or pattern.type != "object_pattern":
+        return None
+    for member in pattern.named_children:
+        if name not in pattern_names(member):
+            continue
+        key = member.child_by_field_name("key")
+        return key.text.decode() if key is not None and key.text else name
+    return None
 
 
 def _require_path(declaration: Node) -> str | None:

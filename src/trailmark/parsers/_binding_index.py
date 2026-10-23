@@ -19,6 +19,8 @@ class _Scope:
     parent: int | None
     declarations: dict[str, list[Node]] = field(default_factory=dict)
     latest: dict[str, Node] = field(default_factory=dict)
+    unordered: bool = False
+    export_to: int | None = None
     directives: dict[str, str] = field(default_factory=dict)
     callback_parameters: set[str] = field(default_factory=set)
 
@@ -83,7 +85,17 @@ class ScopeIndex:
             self._class_scopes.add(node.id)
         parameters = _callback_parameters(node)
         self.callback_names.update(parameters)
-        self.scopes[node.id] = _Scope(owner, callback_parameters=parameters)
+        self.scopes[node.id] = _Scope(
+            owner,
+            callback_parameters=parameters,
+            unordered=node.type in {"class_body", "enum_class_body", "enum_body"},
+        )
+        if (
+            node.type == "class_body"
+            and node.parent is not None
+            and node.parent.type == "companion_object"
+        ):
+            self.scopes[node.id].export_to = owner
         return node.id
 
     def _directives(self, node: Node, owner: int | None) -> None:
@@ -95,6 +107,12 @@ class ScopeIndex:
         field_name = fields.get(node.type)
         if field_name is None:
             return
+        if self._c_declarations and node.type in {"declaration", "field_declaration"}:
+            for declarator in node.children_by_field_name("declarator"):
+                self._remember(
+                    owner, pattern_names(declarator) | _leaf_name(declarator), declarator
+                )
+            return
         names = declaration_names(node, field_name)
         if (
             node.type == "variable_declaration"
@@ -102,9 +120,15 @@ class ScopeIndex:
             and node.parent.type == "property_declaration"
         ):
             node = node.parent
+        self._remember(owner, names, node)
+
+    def _remember(self, owner: int, names: set[str], node: Node) -> None:
+        scope = self.scopes[owner]
+        if scope.export_to is not None:
+            self._remember(scope.export_to, names, node)
         for name in names:
-            self.scopes[owner].declarations.setdefault(name, []).append(node)
-            self.scopes[owner].latest[name] = node
+            scope.declarations.setdefault(name, []).append(node)
+            scope.latest[name] = node
             self.names.add(name)
 
     def _visible_at(self, node: Node) -> int:
@@ -118,16 +142,28 @@ class ScopeIndex:
         if name not in self.names:
             return None
         owner = self.owners.get(occurrence.id)
+        initial_owner = owner
         while owner is not None:
             scope = self.scopes[owner]
             nodes = scope.declarations.get(name, [])
-            position = (
-                bisect_right(nodes, occurrence.start_byte, key=self._visible_at) if ordered else 0
+            ordered_here = not scope.unordered and (
+                ordered or self._python and owner == initial_owner
             )
-            if nodes and (not ordered or position):
-                return nodes[position - 1] if ordered else scope.latest[name]
+            position = (
+                bisect_right(nodes, occurrence.start_byte, key=self._visible_at)
+                if ordered_here
+                else 0
+            )
+            if nodes and (not ordered_here or position):
+                return nodes[position - 1] if ordered_here else scope.latest[name]
+            if nodes and self._python and owner == initial_owner:
+                return None
             owner = scope.parent
         return None
+
+    def local_binding(self, occurrence: Node, name: str) -> bool:
+        owner = self.owners.get(occurrence.id)
+        return owner is not None and name in self.scopes[owner].declarations
 
     def directive(self, occurrence: Node, name: str) -> str | None:
         owner = self.owners.get(occurrence.id)
@@ -146,12 +182,12 @@ class ScopeIndex:
 
 
 def _callback_parameters(node: Node) -> set[str]:
-    if node.type not in {"lambda", "func_literal"}:
+    if node.type not in {"lambda", "func_literal", "block", "do_block"}:
         return set()
     parameters = node.child_by_field_name("parameters")
     if parameters is None:
         return set()
-    if node.type == "lambda":
+    if node.type in {"lambda", "block", "do_block"}:
         return set().union(*(pattern_names(child) for child in parameters.named_children))
     return set().union(*(declaration_names(child, "name") for child in parameters.named_children))
 
@@ -166,6 +202,7 @@ class _Session:
     units: dict[tuple[str, int, int | None, str], dict[str, CodeUnit]] = field(default_factory=dict)
     locations: dict[tuple[str, int, int | None], dict[str, CodeUnit]] = field(default_factory=dict)
     parameters: dict[str, frozenset[str]] = field(default_factory=dict)
+    import_targets: dict[tuple[int, str, str], str | None] = field(default_factory=dict)
 
 
 _CURRENT: ContextVar[_Session | None] = ContextVar("_BINDING_INDEX", default=None)
@@ -400,3 +437,15 @@ def _error_spans(root: Node) -> list[tuple[int, int]]:
         else:
             pending.extend(child for child in node.named_children if child.has_error)
     return sorted(spans)
+
+
+def cached_import_target(
+    key: tuple[int, str, str], resolve: Callable[[], str | None]
+) -> str | None:
+    """Cache each declaration's import target for the lifetime of one parse."""
+    session = _CURRENT.get()
+    if session is None:
+        return resolve()
+    if key not in session.import_targets:
+        session.import_targets[key] = resolve()
+    return session.import_targets[key]

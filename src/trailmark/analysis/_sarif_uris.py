@@ -138,6 +138,8 @@ def _directory_uri(uri: str) -> bool:
 
 
 def _join(base: str | None, uri: str) -> str | None:
+    # Scheme-less artifact paths may contain literal filename delimiters.
+    uri = uri.replace("#", "%23").replace("?", "%3F")
     if base is None or not _directory_uri(base) or not _relative_within_base(uri):
         return None
     return urljoin(base, uri)

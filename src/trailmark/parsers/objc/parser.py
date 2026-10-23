@@ -48,6 +48,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import callable_scope
+from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c.parser import visit_c_declaration
 
@@ -135,6 +136,7 @@ def _visit_top_level_node(
         visit_c_declaration(child, file_path, module_id, graph)
 
 
+@bounded_nesting
 def _extract_c_function(
     node: Node,
     file_path: str,
@@ -166,7 +168,7 @@ def _extract_c_function(
     )
     graph.nodes[func_id] = unit
     add_contains_edge(graph, module_id, func_id)
-    _add_blocks(body, func_id, file_path, graph)
+    _add_blocks(body, file_path, func_id, graph)
     _add_call_edges(calls, func_id, file_path, graph)
 
 
@@ -269,6 +271,7 @@ def _extract_method_signature(
     add_contains_edge(graph, class_id, method_id)
 
 
+@bounded_nesting
 def _extract_method_definition(
     node: Node,
     file_path: str,
@@ -302,7 +305,7 @@ def _extract_method_definition(
     if method_id not in graph.nodes:
         add_contains_edge(graph, class_id, method_id)
     graph.nodes[method_id] = unit
-    _add_blocks(body, method_id, file_path, graph)
+    _add_blocks(body, file_path, method_id, graph)
     _add_call_edges(calls, method_id, file_path, graph)
 
 
@@ -433,7 +436,9 @@ def _collect_func_body(
             calls,
             skip_types=frozenset({"block_literal"}),
         )
-        for message in walk_owned(body, boundaries=frozenset({"block_literal"})):
+        for message in walk_owned(
+            body, root_is_owner=False, boundaries=frozenset({"block_literal"})
+        ):
             if message.type == "message_expression":
                 methods = message.children_by_field_name("method")
                 selector = (
@@ -514,10 +519,11 @@ def _method_id(node: Node, owner: str, selector: str) -> str:
     return f"{owner}.{dispatch}{selector}"
 
 
-def _add_blocks(body: Node | None, owner: str, file_path: str, graph: CodeGraph) -> None:
+@bounded_nesting
+def _add_blocks(body: Node | None, file_path: str, owner: str, graph: CodeGraph) -> None:
     if body is None:
         return
-    for block in walk_owned(body, boundaries=frozenset({"block_literal"})):
+    for block in walk_owned(body, root_is_owner=False, boundaries=frozenset({"block_literal"})):
         if block.type != "block_literal":
             continue
         name = f"$block@{block.start_point.row + 1}_{block.start_point.column}"
@@ -541,7 +547,7 @@ def _add_blocks(body: Node | None, owner: str, file_path: str, graph: CodeGraph)
             cyclomatic_complexity=compute_complexity(branches),
         )
         add_contains_edge(graph, owner, ident)
-        _add_blocks(nested_body, ident, file_path, graph)
+        _add_blocks(nested_body, file_path, ident, graph)
         _add_call_edges(calls, ident, file_path, graph)
 
 

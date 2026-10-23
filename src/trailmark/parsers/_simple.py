@@ -163,7 +163,7 @@ def collect_branches_and_calls(
     """Collect branch metadata and direct call expressions under ``body``."""
     branches: list[BranchInfo] = []
     calls: list[tuple[str, Node]] = []
-    if body is None:
+    if body is None or body.type in skip_types:
         return branches, calls
     for node in walk_owned(body, boundaries=skip_types):
         if node != body and node.type in skip_types:

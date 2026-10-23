@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 
@@ -18,7 +18,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
-from trailmark.parsers._binding_index import binding_scope
+from trailmark.parsers._binding_index import binding_scope, scope_index
 from trailmark.parsers._bindings import lexical_declaration
 from trailmark.parsers._common import (
     add_contains_edge,
@@ -29,8 +29,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._nesting import bounded_nesting
-from trailmark.parsers._walk import walk_owned
+from trailmark.parsers._nesting import bounded_nesting, nesting_diagnostic
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -273,7 +272,7 @@ def _extract_function(
     params = _extract_parameters(node)
     body = node.child_by_field_name("body")
 
-    branches, exception_types, calls, bound = _ruby_body_info(body, file_path, params)
+    branches, exception_types, calls = _ruby_body_info(body, file_path, params, graph)
     unit = CodeUnit(
         id=func_id,
         name=func_name,
@@ -297,7 +296,6 @@ def _extract_function(
         class_id,
         file_path,
         graph=graph,
-        bound=bound,
     )
 
 
@@ -323,7 +321,6 @@ def _add_call_edges(
     file_path: str,
     *,
     graph: CodeGraph,
-    bound: set[str],
 ) -> None:
     """Add CALLS edges for all collected call sites."""
     for call_name, call_node in calls:
@@ -334,15 +331,11 @@ def _add_call_edges(
         )
         confidence = _call_confidence(call_name)
         bare = "." not in call_name or call_name.startswith("self.")
-        blocked = call_node.type == "identifier" and _ruby_bound_before(call_node, call_name, bound)
-        attributes: tuple[tuple[str, str | bool], ...] = (("binding_blocked", blocked),)
+        attributes: tuple[tuple[str, str | bool], ...] = (("binding_blocked", False),)
         if bare:
             attributes += (("ruby_bare_name", call_name.removeprefix("self.")),)
         if call_name.startswith("self."):
             attributes += (("ruby_explicit_self", True),)
-        if blocked:
-            target_id = f"{func_id}.$binding.{call_name}"
-            confidence = EdgeConfidence.UNCERTAIN
 
         graph.edges.append(
             CodeEdge(
@@ -361,42 +354,6 @@ def _call_confidence(call_name: str) -> EdgeConfidence:
     if "." in call_name:
         return EdgeConfidence.INFERRED
     return EdgeConfidence.CERTAIN
-
-
-def _collect_ruby_body_info(
-    body: Node,
-    file_path: str,
-    branches: list[BranchInfo],
-    exception_types: list[TypeRef],
-    calls: list[tuple[str, Node]],
-) -> None:
-    """Collect branches, exceptions, and calls from a Ruby body."""
-    for child in body.children:
-        _visit_ruby_body_node(
-            child,
-            file_path,
-            branches,
-            exception_types,
-            calls,
-        )
-
-
-def _visit_ruby_body_node(
-    node: Node,
-    file_path: str,
-    branches: list[BranchInfo],
-    exception_types: list[TypeRef],
-    calls: list[tuple[str, Node]],
-) -> None:
-    """Visit a single node in a Ruby method body."""
-    if node.type in {"method", "singleton_method", "class", "module"}:
-        return
-    for current in walk_owned(
-        node,
-        boundaries=frozenset({"method", "singleton_method", "class", "module"}),
-        named_only=False,
-    ):
-        _collect_ruby_site(current, file_path, branches, exception_types, calls)
 
 
 def _collect_ruby_site(
@@ -428,7 +385,7 @@ def _attribute_writer(node: Node) -> bool:
     parent = node.parent
     return (
         parent is not None
-        and parent.type in {"assignment", "operator_assignment"}
+        and parent.type == "assignment"
         and parent.child_by_field_name("left") == node
     )
 
@@ -488,17 +445,10 @@ def _extract_ruby_call_name(node: Node) -> str:
 
 
 def _block_bound(site: Node) -> bool:
-    current = site.parent
-    while current is not None and current.type not in {"method", "singleton_method"}:
-        if current.type in {"do_block", "block", "lambda"}:
-            parameters = current.child_by_field_name("parameters")
-            if parameters is not None and any(
-                child.type == "identifier" and node_text(child) == node_text(site)
-                for child in walk_owned(parameters)
-            ):
-                return True
-        current = current.parent
-    return False
+    index = scope_index(
+        site, frozenset({"method", "singleton_method", "block", "do_block", "lambda"}), ()
+    )
+    return index.callback_parameter(site, node_text(site))
 
 
 def _extract_parameters(node: Node) -> list[Parameter]:
@@ -664,18 +614,6 @@ def _ruby_method_edge(
         return replace(
             edge, target_id=f"{owner}.{name}@ambiguous", confidence=EdgeConfidence.UNCERTAIN
         )
-    return _ruby_global_fallback(edge, attributes, owner, name)
-
-
-def _ruby_global_fallback(
-    edge: CodeEdge,
-    attributes: Mapping[str, object],
-    owner: str,
-    name: str,
-) -> CodeEdge:
-    # Bare Kernel/global calls keep the module/global lookup path.
-    if not attributes.get("ruby_explicit_self") and edge.target_id.startswith(owner + "."):
-        return replace(edge, target_id=f"{edge.source_id.split(':', 1)[0]}:{name}")
     return edge
 
 
@@ -701,39 +639,42 @@ def _ruby_candidates(
 
 
 def _ruby_body_info(
-    body: Node | None, file_path: str, params: list[Parameter]
-) -> tuple[list[BranchInfo], list[TypeRef], list[tuple[str, Node]], set[str]]:
+    body: Node | None, file_path: str, params: list[Parameter], graph: CodeGraph
+) -> tuple[list[BranchInfo], list[TypeRef], list[tuple[str, Node]]]:
     bound = {p.name for p in params}
     branches: list[BranchInfo] = []
-    exception_types: list[TypeRef] = []
+    exceptions: list[TypeRef] = []
     calls: list[tuple[str, Node]] = []
-
     if body is not None:
-        _collect_ruby_body_info(
-            body,
-            file_path,
-            branches,
-            exception_types,
-            calls,
-        )
-
-    if body is not None:
-        for current in walk_owned(
-            body, boundaries=frozenset({"method", "singleton_method", "class", "module"})
-        ):
-            if not _ruby_vcall(current, bound):
-                continue
-            calls.append((node_text(current), current))
+        for current in _ruby_sites(body, file_path, graph):
+            _collect_ruby_site(current, file_path, branches, exceptions, calls)
+            if _ruby_vcall(current, bound):
+                calls.append((node_text(current), current))
         calls.sort(key=lambda call: call[1].start_byte)
-    return branches, exception_types, calls, bound
+    return branches, exceptions, calls
+
+
+def _ruby_sites(body: Node, path: str, graph: CodeGraph) -> Iterator[Node]:
+    pending = [(body, 0)]
+    while pending:
+        node, depth = pending.pop()
+        if node.type in {"method", "singleton_method", "class", "module"}:
+            continue
+        depth += node.type in {"block", "do_block", "lambda"}
+        if depth >= 48:
+            graph.parse_diagnostics.append(nesting_diagnostic(node, path, "ruby"))
+            continue
+        yield node
+        pending.extend((child, depth) for child in reversed(node.children))
 
 
 def _ruby_vcall(node: Node, parameters: set[str]) -> bool:
-    if node.type != "identifier" or node.parent is None:
+    if node.type != "identifier":
         return False
-    if _ruby_bound_before(node, node_text(node), parameters) or _block_bound(node):
+    parent = node.parent
+    if parent is None:
         return False
-    return node.parent.type not in {
+    if parent.type in {
         "call",
         "assignment",
         "method_parameters",
@@ -742,7 +683,9 @@ def _ruby_vcall(node: Node, parameters: set[str]) -> bool:
         "left_assignment_list",
         "exception_variable",
         "for",
-    }
+    }:
+        return False
+    return not (_ruby_bound_before(node, node_text(node), parameters) or _block_bound(node))
 
 
 def _class_traits(node: Node, body: Node) -> tuple[bool, bool]:

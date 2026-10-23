@@ -157,3 +157,7 @@ tainted function can be called on a path that starts at an untrusted
 entrypoint, but Trailmark has not shown that attacker-controlled data reaches
 it. Treat it as a way to prioritize review, not as a finding. Unresolved calls
 end each pass at a proxy node; see [Call resolution](call-resolution.md).
+
+SARIF URI paths are percent-decoded exactly once. Node locations and weAudit paths
+are filesystem paths: literal `#`, `?` and `%` characters are preserved, preventing
+matches against other files with similar prefixes.

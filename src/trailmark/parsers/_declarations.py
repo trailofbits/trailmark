@@ -24,6 +24,7 @@ class _Declarations:
     ids: dict[str, list[str]] = field(default_factory=dict)
     moved: dict[str, _MovedCallable] = field(default_factory=dict)
     bases: dict[str, str] = field(default_factory=dict)
+    runtime: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,9 @@ def callable_scope(graph: CodeGraph) -> Generator[None]:
     token = _CURRENT.set(declarations)
     try:
         yield
+        _finish_runtime_callables(declarations)
+        if graph.language == "python":
+            return
         _repair_body_edges(declarations)
         owners = {
             edge.target_id: edge.source_id for edge in graph.edges if edge.kind == EdgeKind.CONTAINS
@@ -166,7 +170,7 @@ def add_type(graph: CodeGraph, unit: CodeUnit) -> None:
 def add_callable(graph: CodeGraph, unit: CodeUnit) -> str:
     """Insert a callable without overwriting any earlier overload's body."""
     if graph.language == "python":
-        return _add_runtime_callable(graph, unit)
+        return _add_runtime_callable(_current_declarations(graph), unit)
     declarations = _current_declarations(graph)
     base = unit.id
     ids = declarations.ids.setdefault(base, [])
@@ -185,31 +189,61 @@ def add_callable(graph: CodeGraph, unit: CodeUnit) -> str:
     return node_id
 
 
-def _add_runtime_callable(graph: CodeGraph, unit: CodeUnit) -> str:
-    """Preserve Python redefinitions while keeping the final runtime binding plain."""
-    previous = graph.nodes.get(unit.id)
-    if previous is not None:
-        positioned = _positioned_id(previous, unit.id)
-        moved = {
-            node_id: positioned + node_id[len(unit.id) :]
-            for node_id in graph.nodes
-            if node_id == unit.id or node_id.startswith(unit.id + ".")
-        }
-        for old, new in moved.items():
-            graph.nodes[new] = replace(graph.nodes.pop(old), id=new)
-            record_unit(graph.nodes[new])
-        graph.edges[:] = [
-            replace(
-                edge,
-                source_id=moved.get(edge.source_id, edge.source_id),
-                target_id=moved.get(edge.target_id, edge.target_id)
-                if edge.kind == EdgeKind.CONTAINS
+def _add_runtime_callable(declarations: _Declarations, unit: CodeUnit) -> str:
+    # Give each body a private identity until all definitions are available.
+    # Descendants and edges can then be renamed in a single indexed pass.
+    node_id = _positioned_id(unit, unit.id)
+    declarations.runtime.setdefault(unit.id, []).append(node_id)
+    declarations.graph.nodes[node_id] = replace(unit, id=node_id)
+    record_unit(declarations.graph.nodes[node_id])
+    return node_id
+
+
+def _finish_runtime_callables(declarations: _Declarations) -> None:
+    if not declarations.runtime:
+        return
+    graph = declarations.graph
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    bases = {node_id: base for base, ids in declarations.runtime.items() for node_id in ids}
+    renamed: dict[str, str] = {}
+    for node_id, unit in graph.nodes.items():
+        base = bases.get(node_id, node_id)
+        if node_id in bases:
+            latest = declarations.runtime[base][-1] == node_id
+            base = base if latest and base not in graph.nodes else _positioned_id(unit, base)
+        owner = owners.get(node_id, "")
+        if owner and base.startswith(owner + "."):
+            base = renamed.get(owner, owner) + base[len(owner) :]
+        renamed[node_id] = base
+    graph.nodes = {
+        renamed[key]: replace(unit, id=renamed[key]) for key, unit in graph.nodes.items()
+    }
+    targets = {base: ids[-1] for base, ids in declarations.runtime.items()}
+    graph.edges[:] = [
+        replace(
+            edge,
+            source_id=renamed.get(edge.source_id, edge.source_id),
+            target_id=_runtime_target(
+                targets.get(edge.target_id, edge.target_id)
+                if edge.kind == EdgeKind.CALLS
                 else edge.target_id,
-            )
-            for edge in graph.edges
-        ]
-    graph.nodes[unit.id] = unit
-    return unit.id
+                renamed,
+            ),
+        )
+        for edge in graph.edges
+    ]
+    for unit in graph.nodes.values():
+        record_unit(unit)
+
+
+def _runtime_target(target: str, renamed: dict[str, str]) -> str:
+    if target in renamed:
+        return renamed[target]
+    owner, separator, name = target.rpartition(".")
+    if owner.endswith(".$binding"):
+        scope = owner.removesuffix(".$binding")
+        return f"{renamed.get(scope, scope)}.$binding.{name}"
+    return renamed[owner] + separator + name if owner in renamed else target
 
 
 def resolve_local_method_calls(graph: CodeGraph) -> None:
