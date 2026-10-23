@@ -18,8 +18,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
-from trailmark.parsers._binding_index import binding_scope, scope_index
-from trailmark.parsers._bindings import lexical_declaration
+from trailmark.parsers._binding_index import binding_scope, scope_index, syntax_nodes
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -48,6 +47,13 @@ _BRANCH_NODE_TYPES = frozenset(
 _THROW_TYPES = frozenset[str]()
 
 _EXTENSIONS = (".rb",)
+_BINDING_SCOPES = frozenset({"method", "singleton_method", "lambda", "block", "do_block"})
+_BINDING_DECLARATIONS = (
+    ("assignment", "left"),
+    ("operator_assignment", "left"),
+    ("for", "pattern"),
+    ("exception_variable", "name"),
+)
 
 
 class RubyParser:
@@ -444,13 +450,6 @@ def _extract_ruby_call_name(node: Node) -> str:
     return method_name
 
 
-def _block_bound(site: Node) -> bool:
-    index = scope_index(
-        site, frozenset({"method", "singleton_method", "block", "do_block", "lambda"}), ()
-    )
-    return index.callback_parameter(site, node_text(site))
-
-
 def _extract_parameters(node: Node) -> list[Parameter]:
     """Extract parameters from a Ruby method definition."""
     params_node = node.child_by_field_name("parameters")
@@ -547,21 +546,10 @@ def _resolve_call_target(
 
 
 def _ruby_bound_before(node: Node, name: str, parameters: set[str]) -> bool:
-    return (
-        name in parameters
-        or lexical_declaration(
-            node,
-            name,
-            scopes=frozenset({"method", "singleton_method", "lambda", "block", "do_block"}),
-            declarations=(
-                ("assignment", "left"),
-                ("operator_assignment", "left"),
-                ("for", "pattern"),
-                ("exception_variable", "name"),
-            ),
-        )
-        is not None
-    )
+    if name in parameters:
+        return True
+    index = scope_index(node, _BINDING_SCOPES, _BINDING_DECLARATIONS)
+    return index.declaration(node, name, True) is not None or index.callback_parameter(node, name)
 
 
 def _bind_ruby_methods(graph: CodeGraph) -> None:
@@ -647,25 +635,38 @@ def _ruby_body_info(
     calls: list[tuple[str, Node]] = []
     if body is not None:
         for current in _ruby_sites(body, file_path, graph):
-            _collect_ruby_site(current, file_path, branches, exceptions, calls)
-            if _ruby_vcall(current, bound):
-                calls.append((node_text(current), current))
+            if current.type == "identifier":
+                if _ruby_vcall(current, bound):
+                    calls.append((node_text(current), current))
+            else:
+                _collect_ruby_site(current, file_path, branches, exceptions, calls)
         calls.sort(key=lambda call: call[1].start_byte)
     return branches, exceptions, calls
 
 
 def _ruby_sites(body: Node, path: str, graph: CodeGraph) -> Iterator[Node]:
-    pending = [(body, 0)]
-    while pending:
-        node, depth = pending.pop()
-        if node.type in {"method", "singleton_method", "class", "module"}:
+    boundaries = frozenset({"method", "singleton_method", "class", "module"})
+    blocks = frozenset({"block", "do_block", "lambda"})
+    types = boundaries | blocks | _BRANCH_NODE_TYPES | {"call", "identifier"}
+    enclosing: list[int] = []
+    skipped_until = -1
+    for node in syntax_nodes(body, types, tokens=_BRANCH_NODE_TYPES):
+        if node.start_byte < skipped_until:
             continue
-        depth += node.type in {"block", "do_block", "lambda"}
-        if depth >= 48:
-            graph.parse_diagnostics.append(nesting_diagnostic(node, path, "ruby"))
+        if node.type in boundaries:
+            skipped_until = node.end_byte
             continue
+        while enclosing and node.start_byte >= enclosing[-1]:
+            enclosing.pop()
+        if node.type in blocks:
+            if len(enclosing) >= 47:
+                graph.parse_diagnostics.append(
+                    nesting_diagnostic(node, path, "ruby", construct="Block")
+                )
+                skipped_until = node.end_byte
+                continue
+            enclosing.append(node.end_byte)
         yield node
-        pending.extend((child, depth) for child in reversed(node.children))
 
 
 def _ruby_vcall(node: Node, parameters: set[str]) -> bool:
@@ -680,12 +681,20 @@ def _ruby_vcall(node: Node, parameters: set[str]) -> bool:
         "method_parameters",
         "block_parameters",
         "lambda_parameters",
+        "destructured_parameter",
+        "splat_parameter",
+        "block_parameter",
         "left_assignment_list",
         "exception_variable",
         "for",
     }:
         return False
-    return not (_ruby_bound_before(node, node_text(node), parameters) or _block_bound(node))
+    if (
+        parent.type in {"optional_parameter", "keyword_parameter"}
+        and parent.child_by_field_name("name") == node
+    ):
+        return False
+    return not _ruby_bound_before(node, node_text(node), parameters)
 
 
 def _class_traits(node: Node, body: Node) -> tuple[bool, bool]:

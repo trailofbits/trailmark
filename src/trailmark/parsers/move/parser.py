@@ -269,9 +269,7 @@ def _call(site: Node, access: Node, broken: bool, ident: str, context: _Module) 
     raw = _access_name(access)
     blocked = broken or _shadowed_call(site, raw, ident, context)
     imported = _imported_target(raw, context)
-    confidence = EdgeConfidence.UNCERTAIN if blocked or "::" in raw else EdgeConfidence.CERTAIN
-    if not blocked and imported != raw:
-        confidence = EdgeConfidence.INFERRED
+    confidence = EdgeConfidence.UNCERTAIN if blocked or "::" in imported else EdgeConfidence.CERTAIN
     raw = imported
     target, builtin = _call_target(site, raw, context)
     if blocked:

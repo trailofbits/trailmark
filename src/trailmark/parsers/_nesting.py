@@ -41,7 +41,9 @@ def bounded_nesting[**P, T](function: Callable[P, T]) -> Callable[P, T]:
     return extract
 
 
-def nesting_diagnostic(node: Node, path: str, language: str) -> ParseDiagnostic:
+def nesting_diagnostic(
+    node: Node, path: str, language: str, *, construct: str = "Declaration"
+) -> ParseDiagnostic:
     """Locate the declaration or block omitted by the extraction depth limit."""
     return ParseDiagnostic(
         language,
@@ -54,5 +56,5 @@ def nesting_diagnostic(node: Node, path: str, language: str) -> ParseDiagnostic:
             node.end_point.column,
         ),
         "unsupported_syntax",
-        "Declaration nesting exceeds extraction limit (48)",
+        f"{construct} nesting exceeds extraction limit (48)",
     )

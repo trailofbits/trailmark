@@ -108,4 +108,4 @@ def test_move_address_block_import_registers_module_aliases(tmp_path: Path) -> N
         "0x1::math::max",
         "0x1::vector::empty",
     }
-    assert all(e.confidence.value == "inferred" for e in calls)
+    assert all(e.confidence.value == "uncertain" for e in calls)

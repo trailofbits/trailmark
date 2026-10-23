@@ -6,6 +6,26 @@ from collections.abc import Iterator
 
 from tree_sitter import Node
 
+from trailmark.parsers._binding_index import syntax_nodes
+
+
+def owned_syntax(
+    root: Node,
+    types: frozenset[str],
+    *,
+    boundaries: frozenset[str],
+    tokens: frozenset[str] = frozenset(),
+) -> Iterator[Node]:
+    """Capture selected nodes without attributing nested owners' bodies to the root."""
+    skipped_until = -1
+    for node in syntax_nodes(root, types | boundaries, tokens=tokens):
+        if node.start_byte < skipped_until:
+            continue
+        if node.type in boundaries:
+            skipped_until = node.end_byte
+        if node.type in types:
+            yield node
+
 
 def walk_owned(
     root: Node,

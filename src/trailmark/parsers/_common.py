@@ -11,6 +11,9 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from tree_sitter import Parser
+from tree_sitter_language_pack import get_language
+
 from trailmark.analysis.proxies import ensure_proxy_nodes
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
@@ -26,6 +29,7 @@ from trailmark.models.nodes import (
 )
 from trailmark.parsers._binding import resolve_inherited_method_calls
 from trailmark.parsers._binding_index import initialize_bindings, record_unit
+from trailmark.parsers._c_headers import HeaderSources
 from trailmark.parsers._php_linking import link_php_functions
 
 if TYPE_CHECKING:
@@ -618,6 +622,9 @@ def link_cross_file_calls(
                 confidence=EdgeConfidence.UNCERTAIN
                 if edge.confidence == EdgeConfidence.UNCERTAIN
                 else EdgeConfidence.INFERRED,
+                attributes=(*edge.attributes, ("include_unverified", True))
+                if targets.unverified(edge.source_id, candidates[0])
+                else edge.attributes,
             )
         elif candidates:
             edge = dataclasses.replace(edge, confidence=EdgeConfidence.UNCERTAIN)
@@ -673,6 +680,18 @@ class _CrossFileTargets:
         }
         self.parents = {node_id: path.rpartition(os.sep)[0] for node_id, path in self.files.items()}
         self.attributes = {node_id: dict(unit.attributes) for node_id, unit in graph.nodes.items()}
+        header_files = {
+            path
+            for path in resolved.values()
+            if Path(path).suffix.lower() in {".h", ".hh", ".hpp", ".hxx"}
+        }
+        self.header_statics = {
+            node_id
+            for node_id, attributes in self.attributes.items()
+            if attributes.get("internal_linkage") and self.files[node_id] in header_files
+        }
+        self.headers = getattr(included_files, "__self__", None)
+        self.externs: dict[str, set[str]] = {}
 
     def visible(self, source: str, candidate: str) -> bool:
         if not self.attributes[candidate].get("internal_linkage"):
@@ -681,19 +700,47 @@ class _CrossFileTargets:
         target = self.files[candidate]
         if ":$anonymous" in candidate or ".$anonymous" in candidate:
             return path == target
-        if path == target or Path(target).suffix.lower() in {
-            ".h",
-            ".hh",
-            ".hpp",
-            ".hxx",
-            ".inl",
-            ".inc",
-            ".ipp",
-        }:
+        if path == target or self.header_static(candidate):
+            return True
+        return self.included(source, candidate)
+
+    def header_static(self, candidate: str) -> bool:
+        return candidate in self.header_statics
+
+    def included(self, source: str, candidate: str) -> bool:
+        path, target = self.files[source], self.files[candidate]
+        if path == target:
             return True
         if self.included_files is None:
-            self.included_files = _include_resolver(self.graph.root_path)
+            self.included_files = self.header_sources().included_files
         return target in self.included_files(path) or path in self.included_files(target)
+
+    def header_sources(self) -> HeaderSources:
+        if not isinstance(self.headers, HeaderSources):
+            root = Path(self.graph.root_path)
+            self.headers = HeaderSources(
+                root.parent if root.is_file() else root, Parser(get_language("cpp"))
+            )
+        return self.headers
+
+    def external(self, source: str, name: str) -> bool:
+        path = self.files[source]
+        if path not in self.externs:
+            headers = self.header_sources()
+            paths = headers.included_files(path) | {path}
+            self.externs[path] = set().union(*(headers.external_declarations(p) for p in paths))
+        return name in self.externs[path]
+
+    def unverified(self, source: str, candidate: str) -> bool:
+        return self.header_static(candidate) and not self.included(source, candidate)
+
+    def prefer_included(self, source: str, name: str, candidates: list[str]) -> list[str]:
+        if not any(self.header_static(c) for c in candidates):
+            return candidates
+        verified = [c for c in candidates if not self.unverified(source, c)]
+        if verified:
+            return verified
+        return [] if self.external(source, name) else candidates
 
 
 def _cross_file_candidates(
@@ -712,7 +759,7 @@ def _cross_file_candidates(
             if targets.parents[candidate] == targets.parents.get(edge.source_id)
             and targets.attributes[candidate].get("go_package") == source["go_package"]
         ]
-    return candidates
+    return targets.prefer_included(edge.source_id, edge.target_id.rsplit(":", 1)[-1], candidates)
 
 
 def link_type_relationships(graph: CodeGraph) -> None:
@@ -762,18 +809,6 @@ def link_type_relationships(graph: CodeGraph) -> None:
                 )
         edges.append(edge)
     graph.edges[:] = edges
-
-
-def _include_resolver(root_path: str) -> Callable[[str], set[str]]:
-    """Share bounded include visibility with C++, Objective-C and polyglot runs."""
-    from tree_sitter import Parser
-    from tree_sitter_language_pack import get_language
-
-    from trailmark.parsers.c._headers import HeaderSources
-
-    root = Path(root_path)
-    headers = HeaderSources(root.parent if root.is_file() else root, Parser(get_language("cpp")))
-    return headers.included_files
 
 
 def _bare_cross_file_target(target: str) -> bool:

@@ -8,9 +8,19 @@ from tree_sitter import Node
 
 from trailmark.models.edges import EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import NodeKind
+from trailmark.models.nodes import BranchInfo, CodeUnit, NodeKind, SourceLocation, TypeRef
+from trailmark.parsers._binding_index import syntax_nodes
 from trailmark.parsers._bindings import guard_call
-from trailmark.parsers._common import node_text
+from trailmark.parsers._common import (
+    _collect_throw_type,
+    _extract_condition_text,
+    add_contains_edge,
+    extract_call_name,
+    make_location,
+    node_text,
+)
+from trailmark.parsers._nesting import nesting_diagnostic
+from trailmark.parsers._walk import owned_syntax
 
 CLASSES = frozenset({"class_declaration", "abstract_class_declaration", "class"})
 
@@ -27,6 +37,32 @@ CALLABLES = frozenset(
 )
 
 
+def body_info(
+    body: Node | None,
+    path: str,
+    *,
+    branch_types: frozenset[str],
+    throw_types: frozenset[str],
+    boundaries: frozenset[str],
+) -> tuple[list[BranchInfo], list[TypeRef], list[tuple[str, Node]]]:
+    """Collect ECMAScript body sites with the selected JS, TS, or TSX grammar."""
+    branches: list[BranchInfo] = []
+    exceptions: list[TypeRef] = []
+    calls: list[tuple[str, Node]] = []
+    if body is not None:
+        types = branch_types | throw_types | {"call_expression"}
+        for node in owned_syntax(body, types, boundaries=boundaries, tokens=types):
+            if node.type in branch_types:
+                branches.append(
+                    BranchInfo(make_location(node, path), _extract_condition_text(node))
+                )
+            if node.type in throw_types:
+                _collect_throw_type(node, exceptions)
+            if node.type == "call_expression" and (name := extract_call_name(node)):
+                calls.append((name, node))
+    return branches, exceptions, calls
+
+
 def discover_callables(
     root: Node,
     file_path: str,
@@ -36,25 +72,72 @@ def discover_callables(
 ) -> None:
     """Preserve nested and anonymous bodies without implying their execution."""
     by_location = _callable_locations(graph, file_path)
-    stack: list[tuple[Node, str, str | None]] = [(root, module_id, None)]
-    calls: dict[tuple[int, int], Node] = {}
-    while stack:
-        node, owner, class_owner = stack.pop()
+    stack: list[tuple[int, str, str | None]] = [(root.end_byte + 1, module_id, None)]
+    calls: dict[SourceLocation, Node] = {}
+    for node in _bounded_discovery(root, file_path, graph):
         if node.type == "call_expression":
-            calls[(node.start_point.row + 1, node.start_point.column)] = node
+            calls[make_location(node, file_path)] = node
+            continue
+        while node.start_byte >= stack[-1][0]:
+            stack.pop()
+        _, owner, class_owner = stack[-1]
         if node.type in CALLABLES:
             class_owner = _callable_class_owner(node, class_owner)
             node_id = _discover_callable(node, owner, class_owner, by_location, extract)
             if node_id is None:
                 continue
             owner = node_id
-        elif node.type in CLASSES:
+        else:
             position = (node.start_point.row + 1, node.start_point.column)
-            class_owner = by_location.get(position)
-            owner = class_owner or owner
-        stack.extend((child, owner, class_owner) for child in reversed(node.named_children))
+            owner = by_location.get(position) or _discover_container(
+                node, owner, graph, file_path=file_path
+            )
+            class_owner = owner if node.type in CLASSES else None
+        stack.append((node.end_byte, owner, class_owner))
     # Forward nested declarations are available only after discovery completes.
     _guard_discovered_calls(graph, calls)
+
+
+def _bounded_discovery(root: Node, file_path: str, graph: CodeGraph) -> list[Node]:
+    containers = CALLABLES | CLASSES | {"internal_module"}
+    nodes = []
+    enclosing: list[int] = []
+    skipped_until = -1
+    for node in syntax_nodes(root, containers | {"call_expression"}):
+        if node.start_byte < skipped_until:
+            continue
+        while enclosing and node.start_byte >= enclosing[-1]:
+            enclosing.pop()
+        if node.type in containers:
+            if len(enclosing) >= 48:
+                graph.parse_diagnostics.append(nesting_diagnostic(node, file_path, graph.language))
+                skipped_until = node.end_byte
+                continue
+            enclosing.append(node.end_byte)
+        nodes.append(node)
+    return nodes
+
+
+def _discover_container(node: Node, owner: str, graph: CodeGraph, *, file_path: str) -> str:
+    namespace = node.type == "internal_module"
+    name_node = node.child_by_field_name("name")
+    name = (
+        node_text(name_node)
+        if name_node is not None
+        else f"$class@{node.start_point.row + 1}_{node.start_point.column}"
+    )
+    separator = "." if ":" in owner else ":"
+    node_id = owner + separator + name
+    if node_id in graph.nodes:
+        node_id += f"@{node.start_point.row + 1}_{node.start_point.column}"
+    graph.nodes[node_id] = CodeUnit(
+        id=node_id,
+        name=name,
+        kind=NodeKind.NAMESPACE if namespace else NodeKind.CLASS,
+        location=make_location(node, file_path),
+    )
+    add_contains_edge(graph, owner, node_id)
+    return node_id
 
 
 def _callable_class_owner(node: Node, owner: str | None) -> str | None:
@@ -95,15 +178,13 @@ def declared_name(node: Node, override: str | None) -> str | None:
     return node_text(name) if name is not None else None
 
 
-def _guard_discovered_calls(graph: CodeGraph, calls: dict[tuple[int, int], Node]) -> None:
+def _guard_discovered_calls(graph: CodeGraph, calls: dict[SourceLocation, Node]) -> None:
     graph.edges[:] = [
-        guard_call(
-            edge, calls[(edge.location.start_line, edge.location.start_col or 0)], graph=graph
-        )
+        guard_call(edge, calls[edge.location], graph=graph)
         if edge.kind == EdgeKind.CALLS
         and not dict(edge.attributes).get("import_binding")
         and edge.location is not None
-        and (edge.location.start_line, edge.location.start_col or 0) in calls
+        and edge.location in calls
         else edge
         for edge in graph.edges
     ]

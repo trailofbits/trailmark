@@ -35,7 +35,7 @@ from trailmark.parsers._declarations import (
     callable_scope,
 )
 from trailmark.parsers._nesting import bounded_nesting
-from trailmark.parsers._walk import walk_owned
+from trailmark.parsers._walk import owned_syntax
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -51,6 +51,9 @@ _BRANCH_NODE_TYPES = frozenset(
 )
 
 _THROW_TYPES = frozenset({"throw_statement", "throw_expression"})
+_NESTED_CALLABLES = frozenset(
+    {"local_function_statement", "lambda_expression", "anonymous_method_expression"}
+)
 
 _EXTENSIONS = (".cs",)
 
@@ -334,7 +337,7 @@ def _extract_function(
         "local_function_statement",
     }:
         kind = NodeKind.FUNCTION
-    body = node.child_by_field_name("body")
+    body = _callable_body(node)
     branches, exception_types, calls = _walk_body(
         body,
         file_path,
@@ -358,6 +361,13 @@ def _extract_function(
 
     _extract_nested_functions(body, file_path, module_id, func_id, graph)
     _add_call_edges(calls, func_id, module_id, class_id, file_path, graph)
+
+
+def _callable_body(node: Node) -> Node | None:
+    body = node.child_by_field_name("body")
+    if body is None and node.type == "anonymous_method_expression":
+        body = next((child for child in node.named_children if child.type == "block"), None)
+    return body
 
 
 def _get_func_name(node: Node, class_id: str | None) -> str:
@@ -415,24 +425,14 @@ def _visit_node(
     exception_types: list[TypeRef],
     calls: list[tuple[str, Node]],
 ) -> None:
-    """Visit body nodes in source order using an explicit work stack."""
-    stack = [node]
-    while stack:
-        current = stack.pop()
-        if current != node and current.type in {
-            "local_function_statement",
-            "lambda_expression",
-            "anonymous_method_expression",
-        }:
-            continue
+    """Capture body sites without entering nested callable owners."""
+    types = _BRANCH_NODE_TYPES | _THROW_TYPES | {"invocation_expression"}
+    for current in owned_syntax(node, types, boundaries=_NESTED_CALLABLES):
         if current.type in _BRANCH_NODE_TYPES:
             cond = current.child_by_field_name("condition")
             cond_text = node_text(cond) if cond else current.type
             branches.append(
-                BranchInfo(
-                    location=make_location(current, file_path),
-                    condition=cond_text,
-                )
+                BranchInfo(location=make_location(current, file_path), condition=cond_text)
             )
         if current.type in _THROW_TYPES:
             _collect_throw(current, exception_types)
@@ -440,7 +440,6 @@ def _visit_node(
             call_name = _extract_call_name(current)
             if call_name:
                 calls.append((call_name, current))
-        stack.extend(reversed(current.children))
 
 
 def _extract_call_name(node: Node) -> str:
@@ -634,22 +633,11 @@ def _extract_nested_functions(
 ) -> None:
     """Extract each nested callable once, including expression-bodied lambdas."""
     if body is not None:
-        for nested in walk_owned(
-            body,
-            root_is_owner=False,
-            boundaries=frozenset(
-                {"local_function_statement", "lambda_expression", "anonymous_method_expression"}
-            ),
-        ):
-            if nested.type in {
-                "local_function_statement",
-                "lambda_expression",
-                "anonymous_method_expression",
-            }:
-                name_node = nested.child_by_field_name("name")
-                name = (
-                    node_text(name_node)
-                    if name_node is not None
-                    else f"$lambda@{nested.start_point.row + 1}_{nested.start_point.column}"
-                )
-                _extract_function(nested, file_path, module_id, func_id, graph, name_override=name)
+        for nested in owned_syntax(body, _NESTED_CALLABLES, boundaries=_NESTED_CALLABLES):
+            name_node = nested.child_by_field_name("name")
+            name = (
+                node_text(name_node)
+                if name_node is not None
+                else f"$lambda@{nested.start_point.row + 1}_{nested.start_point.column}"
+            )
+            _extract_function(nested, file_path, module_id, func_id, graph, name_override=name)

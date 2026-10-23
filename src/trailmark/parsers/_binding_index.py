@@ -6,12 +6,46 @@ from bisect import bisect_right
 from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from functools import wraps
+from functools import lru_cache, wraps
 
-from tree_sitter import Node
+from tree_sitter import Language, Node, Query, QueryCursor
 
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind
+from trailmark.parsers._c_headers import function_prototype_name
+
+
+@lru_cache(maxsize=128)
+def _binding_query(
+    language: Language, types: frozenset[str], tokens: frozenset[str] = frozenset()
+) -> Query:
+    patterns = " ".join(
+        f"({name})" for name in sorted(types) if language.id_for_node_kind(name, True) is not None
+    )
+    literals = " ".join(
+        f'"{name}"' for name in sorted(tokens) if language.id_for_node_kind(name, False) is not None
+    )
+    return Query(language, f"[{patterns} {literals}] @binding" if patterns or literals else "")
+
+
+def syntax_nodes(
+    root: Node, types: frozenset[str], *, tokens: frozenset[str] = frozenset()
+) -> list[Node]:
+    """Capture selected syntax with the active parser's exact grammar."""
+    session = _CURRENT.get()
+    if session is not None and session.language is not None:
+        query = _binding_query(session.language, types, tokens)
+        nodes = QueryCursor(query).captures(root).get("binding", [])
+        nodes.sort(key=lambda n: (n.start_byte, -n.end_byte))
+        return nodes
+    nodes = []
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        if node.type in (types if node.is_named else tokens):
+            nodes.append(node)
+        pending.extend(reversed(node.children))
+    return nodes
 
 
 @dataclass
@@ -29,7 +63,12 @@ class ScopeIndex:
     """Index a syntax tree once for a language's scope and declaration policy."""
 
     def __init__(
-        self, root: Node, scopes: frozenset[str], fields: tuple[tuple[str, str], ...]
+        self,
+        root: Node,
+        scopes: frozenset[str],
+        fields: tuple[tuple[str, str], ...],
+        *,
+        language: Language | None = None,
     ) -> None:
         self.owners: dict[int, int | None] = {}
         self.scopes: dict[int, _Scope] = {}
@@ -42,9 +81,41 @@ class ScopeIndex:
             "init_declarator": "declarator",
             "declaration": "declarator",
         }
-        self._build(root, scopes, dict(fields))
+        if language is None:
+            self._build(root, scopes, dict(fields))
+        else:
+            self._build_captures(root, scopes, dict(fields), language)
+
+    def _build_captures(
+        self, root: Node, scopes: frozenset[str], fields: dict[str, str], language: Language
+    ) -> None:
+        types = scopes | fields.keys()
+        if self._python:
+            types |= {"class_definition", "global_statement", "nonlocal_statement"}
+        captures = (
+            QueryCursor(_binding_query(language, frozenset(types)))
+            .captures(root)
+            .get("binding", [])
+        )
+        captures.sort(key=lambda n: (n.start_byte, -n.end_byte))
+        enclosing: list[Node] = []
+        skipped_until = -1
+        for node in captures:
+            if node.start_byte < skipped_until:
+                continue
+            while enclosing and node.start_byte >= enclosing[-1].end_byte:
+                enclosing.pop()
+            owner = enclosing[-1].id if enclosing else None
+            if _skip_global_data(node, owner, self._skip_c_globals):
+                skipped_until = node.end_byte
+                continue
+            indexed = self._index_node(node, owner, scopes, fields)
+            if indexed == node.id:
+                enclosing.append(node)
+        self._sort_declarations()
 
     def _build(self, root: Node, scopes: frozenset[str], fields: dict[str, str]) -> None:
+        leaf_types = scopes | fields.keys() | ({"identifier"} if "method" in scopes else set())
         pending: list[tuple[Node, int | None]] = [(root, None)]
         while pending:
             node, owner = pending.pop()
@@ -54,8 +125,11 @@ class ScopeIndex:
             pending.extend(
                 (child, owner)
                 for child in reversed(node.named_children)
-                if not self._c_declarations or child.named_child_count
+                if child.named_child_count or child.type in leaf_types
             )
+        self._sort_declarations()
+
+    def _sort_declarations(self) -> None:
         for scope in self.scopes.values():
             for nodes in scope.declarations.values():
                 nodes.sort(key=self._visible_at)
@@ -90,6 +164,7 @@ class ScopeIndex:
             callback_parameters=parameters,
             unordered=node.type in {"class_body", "enum_class_body", "enum_body"},
         )
+        self._single_parameter(node)
         if (
             node.type == "class_body"
             and node.parent is not None
@@ -97,6 +172,12 @@ class ScopeIndex:
         ):
             self.scopes[node.id].export_to = owner
         return node.id
+
+    def _single_parameter(self, node: Node) -> None:
+        if node.type == "arrow_function":
+            parameter = node.child_by_field_name("parameter")
+            if parameter is not None:
+                self._remember(node.id, pattern_names(parameter), parameter)
 
     def _directives(self, node: Node, owner: int | None) -> None:
         if owner is not None and node.type in {"global_statement", "nonlocal_statement"}:
@@ -109,6 +190,8 @@ class ScopeIndex:
             return
         if self._c_declarations and node.type in {"declaration", "field_declaration"}:
             for declarator in node.children_by_field_name("declarator"):
+                if function_prototype_name(declarator) is not None:
+                    continue
                 self._remember(
                     owner, pattern_names(declarator) | _leaf_name(declarator), declarator
                 )
@@ -141,7 +224,7 @@ class ScopeIndex:
     def declaration(self, occurrence: Node, name: str, ordered: bool) -> Node | None:
         if name not in self.names:
             return None
-        owner = self.owners.get(occurrence.id)
+        owner = self._owner(occurrence)
         initial_owner = owner
         while owner is not None:
             scope = self.scopes[owner]
@@ -162,23 +245,37 @@ class ScopeIndex:
         return None
 
     def local_binding(self, occurrence: Node, name: str) -> bool:
-        owner = self.owners.get(occurrence.id)
+        owner = self._owner(occurrence)
         return owner is not None and name in self.scopes[owner].declarations
 
     def directive(self, occurrence: Node, name: str) -> str | None:
-        owner = self.owners.get(occurrence.id)
+        owner = self._owner(occurrence)
         return self.scopes[owner].directives.get(name) if owner is not None else None
 
     def callback_parameter(self, occurrence: Node, name: str) -> bool:
         if name not in self.callback_names:
             return False
-        owner = self.owners.get(occurrence.id)
+        owner = self._owner(occurrence)
         while owner is not None:
             scope = self.scopes[owner]
             if name in scope.callback_parameters:
                 return True
             owner = scope.parent
         return False
+
+    def _owner(self, occurrence: Node) -> int | None:
+        current = occurrence
+        pending: list[int] = []
+        while current.id not in self.owners:
+            pending.append(current.id)
+            parent = current.parent
+            if parent is None:
+                return None
+            current = parent
+        owner = self.owners[current.id]
+        for node_id in pending:
+            self.owners[node_id] = owner
+        return owner
 
 
 def _callback_parameters(node: Node) -> set[str]:
@@ -194,6 +291,7 @@ def _callback_parameters(node: Node) -> set[str]:
 
 @dataclass
 class _Session:
+    language: Language | None = None
     root: Node | None = None
     errors: list[tuple[int, int]] | None = None
     indexes: dict[tuple[frozenset[str], tuple[tuple[str, str], ...]], ScopeIndex] = field(
@@ -213,7 +311,11 @@ def binding_scope[**P, T](function: Callable[P, T]) -> Callable[P, T]:
 
     @wraps(function)
     def parse(*args: P.args, **kwargs: P.kwargs) -> T:
-        token = _CURRENT.set(_Session())
+        parser = getattr(args[0], "_parser", None) if args else None
+        language = getattr(parser, "language", None)
+        if args and any(hasattr(args[0], name) for name in ("_tsx_parser", "_verus_parser")):
+            language = None
+        token = _CURRENT.set(_Session(language=language))
         try:
             return function(*args, **kwargs)
         finally:
@@ -222,12 +324,14 @@ def binding_scope[**P, T](function: Callable[P, T]) -> Callable[P, T]:
     return parse
 
 
-def initialize_bindings(root: Node) -> None:
+def initialize_bindings(root: Node, *, language: Language | None = None) -> None:
     session = _CURRENT.get()
-    if session is not None and session.root != root:
+    if session is not None and (session.root != root or language is not None):
         session.root = root
         session.errors = None
         session.indexes.clear()
+        if language is not None:
+            session.language = language
 
 
 def record_unit(unit: CodeUnit) -> None:
@@ -269,7 +373,9 @@ def local_unit(graph: CodeGraph, declaration: Node, name: str, source: CodeUnit)
         ]
     else:
         units = list(session.units.get(key, {}).values())
-    units = [unit for unit in units if unit.kind in {NodeKind.FUNCTION, NodeKind.METHOD}]
+    units = [
+        unit for unit in units if unit.kind in {NodeKind.FUNCTION, NodeKind.METHOD, NodeKind.CLASS}
+    ]
     return units[0] if len(units) == 1 else None
 
 
@@ -285,14 +391,20 @@ def scope_index(
         root = occurrence
         while root.parent is not None:
             root = root.parent
-    index = ScopeIndex(root, scopes, declarations)
+    index = ScopeIndex(
+        root, scopes, declarations, language=session.language if session is not None else None
+    )
     if session is not None:
         session.indexes[key] = index
     return index
 
 
 def declaration_names(node: Node, field_name: str) -> set[str]:
-    patterns = node.children_by_field_name(field_name)
+    patterns = (
+        node.named_children
+        if node.type == "formal_parameters"
+        else node.children_by_field_name(field_name)
+    )
     if not patterns and node.type in {"local_function_declaration", "function_declaration"}:
         patterns = _local_function_names(node)
     if not patterns and node.type in {
@@ -359,14 +471,8 @@ _PATTERN_IDENTIFIERS = frozenset(
 )
 
 
-def _pattern_children(node: Node) -> list[Node]:
-    if node.type in {"pair_pattern", "object_assignment_pattern"}:
-        target = node.child_by_field_name("value") or node.child_by_field_name("left")
-        return [target] if target is not None else []
-    declarator = node.child_by_field_name("declarator")
-    if declarator is not None:
-        return [declarator]
-    if node.type in {
+_PATTERN_CONTAINERS = frozenset(
+    {
         "parenthesized_declarator",
         "pointer_declarator",
         "reference_declarator",
@@ -396,7 +502,28 @@ def _pattern_children(node: Node) -> list[Node]:
         "lambda_binding",
         "rest_pattern",
         "assignment_pattern",
+        "destructured_parameter",
+    }
+)
+
+
+def _pattern_children(node: Node) -> list[Node]:
+    if node.type in {
+        "splat_parameter",
+        "block_parameter",
+        "optional_parameter",
+        "keyword_parameter",
+        "required_parameter",
     }:
+        name = node.child_by_field_name("name") or node.child_by_field_name("pattern")
+        return [name] if name is not None else []
+    if node.type in {"pair_pattern", "object_assignment_pattern"}:
+        target = node.child_by_field_name("value") or node.child_by_field_name("left")
+        return [target] if target is not None else []
+    declarator = node.child_by_field_name("declarator")
+    if declarator is not None:
+        return [declarator]
+    if node.type in _PATTERN_CONTAINERS:
         children = node.named_children
         if node.type in {
             "typed_parameter",

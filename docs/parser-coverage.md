@@ -140,7 +140,8 @@ and grammar recovery can still leave graphs incomplete. Skipped Julia macros emi
 `unsupported_syntax` diagnostics and fail strict parsing.
 
 C tag and callable namespaces retain both declarations when names coincide.
-Indirect pointer calls remain uncertain. C++ anonymous namespace functions are excluded from cross-file free-function
+Indirect pointer calls remain uncertain. C++ anonymous namespace functions are
+excluded from cross-file free-function
 fallback. Static functions follow the header and include visibility rules below. Header
 export annotations currently need to be repeated on extracted definitions; matching
 prototype attributes through preprocessing/includes is not implemented.
@@ -190,7 +191,9 @@ callback's return value remain separate indirect sites.
 C++ namespaces qualify declaration IDs, including file-local `$anonymous` owners.
 Lambdas and local classes own their bodies; lambda capture initializers stay with
 the enclosing function. C# namespaces also qualify type IDs; local functions and
-lambdas have separate owners. Generic and conditional-access calls are retained.
+lambdas have separate owners. Anonymous `delegate` bodies retain their calls, and
+curried C# and Dart lambdas assign each call to the innermost callable. Generic and
+conditional-access calls are retained.
 
 Java lambdas and local/anonymous classes own deferred bodies. Explicit construction
 and constructor chaining have located edges; unknown or overloaded constructors
@@ -202,11 +205,15 @@ Swift extensions retain methods and attach to an unambiguous extracted type with
 replacing its kind or source location. Local functions and closures own their bodies.
 Kotlin recursively extracts nested and companion containers. Both prefer known
 lexical methods over same-named free functions and preserve uncertain callable values.
-Recursive type and callable extraction in C++, C#, Dart, Java, Objective-C, PHP,
+Recursive type and callable extraction in JavaScript, TypeScript, C++, C#, Dart,
+Java, Objective-C, PHP,
 Python, Kotlin and Swift, and Ruby containers and blocks, is limited to 48 extraction
 levels. Deeper declarations
 produce an `unsupported_syntax` diagnostic. A final per-file recursion guard keeps
-directory analysis running and reports any file it cannot extract.
+directory analysis running and reports any file it cannot extract. Ruby depth
+diagnostics identify block nesting. Extremely deep PHP conditional or parenthesized
+expressions can still raise `RecursionError` through `parse_file`; the declaration
+limit does not cover every expression form.
 
 Objective-C message sends retain complete selectors. A unique `self` selector in
 the same implementation can link with inferred confidence; other sends stay
@@ -255,7 +262,8 @@ Ruby namespaces qualify nested type/method IDs. Instance methods use
 reads retain vcall sites while known parameters, local variables, and block
 parameters remain values, including destructuring, rescue variables and loop
 binders. Bare calls remain eligible for local/inherited method and cross-file
-global linking; known local callable values stay uncertain. Rails actions and Sidekiq `perform` entrypoints require
+global linking; known local callable values stay uncertain. Rails actions and
+Sidekiq `perform` entrypoints require
 public instance-method metadata; private and singleton helpers are excluded.
 Runtime metaprogramming, reopened class inheritance, and lambda-body coverage remain
 limited.
@@ -279,16 +287,23 @@ remain incomplete.
 Python follows runtime redefinition order: the last definition keeps its plain ID
 unless a type owns that ID; earlier bodies use `@line_column` suffixes. Calls in the
 same scope use the latest preceding definition; nested deferred scopes use the final
-definition. Only `@overload`, `@typing.overload` and `@typing_extensions.overload`
-stubs are skipped. Lambda
+definition. A later class definition also wins over an earlier function of the
+same name; the class retains its base ID. A local function can rebind a parameter.
+Unresolved receiver targets retain the final names of all their enclosing owners.
+Only `@overload`, `@typing.overload` and `@typing_extensions.overload` stubs are
+skipped, including import aliases of `typing` and `typing_extensions`. Lambda
 parameters, including defaults, shadow outer functions. Kotlin, Swift and Dart
 class members shadow module names throughout the class, including before their
-declaration, without leaking into outer functions. C and C++ names are visible after their declarator, including inside
+declaration, without leaking into outer functions. C and C++ names are visible after
+their declarator, including inside
 an initializer; Rust, Go and Kotlin bindings become visible after the initializer.
 
-C and C++ internal-linkage functions in headers (`.h`, `.hh`, `.hpp`, `.hxx`, `.inl`,
-`.inc`, `.ipp`) can link from any file when their name is unique among candidates,
-with inferred confidence. This also applies in polyglot C-family analysis. Statics
+C and C++ internal-linkage functions in headers (`.h`, `.hh`, `.hpp`, `.hxx`) use
+include closures to break same-name ties. A single candidate inside the closure,
+in either inclusion direction, wins over candidates outside it. An unambiguous
+out-of-closure fallback retains inferred confidence and carries
+`include_unverified=True`; it is disabled when the caller or its includes declare
+a non-static prototype of that name. This also applies in polyglot C-family analysis. Statics
 in source files can link when the caller includes the definition or the defining
 file includes the caller, directly or transitively. Other source statics stay
 unresolved. Quoted includes are checked beside the source and then at the analysis
@@ -297,20 +312,29 @@ search, with include depth capped at 16 and each closure capped at 128 headers.
 Compiler `-I` directories are not searched. Results can therefore depend on the
 analysis root. Unique-name linking does not select a build configuration and can
 pick platform compatibility shims, such as a Windows shim called from POSIX code.
+Block-scope function prototypes refer to the external function rather than
+shadowing it; function-pointer variables still shadow same-name functions.
 Java constructor binding also runs after the directory merge. JavaScript and
 TypeScript arrows inherit lexical `this`; regular function expressions do not.
-Abstract TypeScript classes own their methods. An unextracted local class or class
-expression does not inherit the enclosing function's `this`. Arrow-valued class
-fields retain method kind. Local literal `require` destructuring resolves named
-exports and aliases, including relative directory `index` modules. Parameters
-shadow outer imports. Calling a whole-module require remains an uncertain proxy;
+Abstract TypeScript classes own their methods. Anonymous classes have positioned
+`$class@line_column` owners, and namespace classes have IDs such as
+`file:NS.Inner.method`. Local classes and class expressions do not inherit the
+enclosing function's `this`. Arrow-valued class fields retain method kind. Module
+`const`/`let` arrows and function expressions, including exports, are callable
+declarations; noncallable values remain blocked. Chained calls retain separate
+receiver and method edges at their complete source spans. Local literal `require`
+destructuring resolves named exports and aliases, including relative directory
+`index` modules; a matching source file takes precedence over a directory.
+Parameters shadow outer imports through nested callbacks. Calling a whole-module
+require remains an uncertain proxy;
 external `node:` module IDs normalize the namespace separator to a dot. Import
 resolution is cached per declaration.
 
 Ruby parentheses and argument lists always denote method calls, even when a local
 variable shares the name. Receiverless variable reads use preceding bindings;
 plain attribute writers do not call the reader method; compound assignments retain
-the reader call. Stabby lambda bodies retain their
+the reader call. Ruby block parameters include splats, block arguments,
+destructuring, optional parameters and keyword parameters. Stabby lambda bodies retain their
 calls. Explicit `self` calls do not fall back to unrelated module functions. An
 ambiguous inherited method retains an uncertain `{owner}.{name}@ambiguous` target.
 Swift extensions of nested types follow their type's final owner. Move module aliases
@@ -318,6 +342,8 @@ apply to qualified paths only; member imports may resolve bare calls. Macro call
 parameters retain their `$` prefix. Built-in macros such as `builtin.move:assert!`
 are synthetic function nodes at `<builtin>` and count toward summary function
 totals. Address-group imports such as `use 0x1::{math, vector}` register each module
-alias. Import edges name modules rather than grouped source text or `use fun` aliases.
+alias. Alias-expanded and fully qualified calls both remain uncertain when the
+target module is absent; parsing the target allows normal local or cross-file
+binding confidence. Import edges name modules rather than grouped source text or `use fun` aliases.
 Haskell operator proxies consistently use `$operator.<name>`, including composition
 and application, without marking ordinary operators as blocked lexical values.

@@ -17,15 +17,18 @@ from trailmark.models.nodes import (
     CodeUnit,
     NodeKind,
     Parameter,
+    SourceLocation,
     TypeRef,
 )
-from trailmark.parsers._binding_index import binding_scope
+from trailmark.parsers._binding_index import binding_scope, record_unit
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
+    _collect_throw_type,
+    _extract_condition_text,
     add_contains_edge,
     add_module_node,
-    collect_body_info,
     compute_complexity,
+    extract_call_name,
     extract_type_parameters,
     make_location,
     module_id_from_path,
@@ -34,7 +37,7 @@ from trailmark.parsers._common import (
 )
 from trailmark.parsers._declarations import add_callable, callable_scope
 from trailmark.parsers._nesting import bounded_nesting
-from trailmark.parsers._walk import walk_owned
+from trailmark.parsers._walk import owned_syntax
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -53,8 +56,12 @@ _BRANCH_NODE_TYPES = frozenset(
 _THROW_TYPES = frozenset({"raise_statement"})
 
 _EXTENSIONS = (".py",)
-_CALL_SITES: ContextVar[dict[tuple[int, int], Node] | None] = ContextVar(
+_CALL_SITES: ContextVar[dict[SourceLocation, Node] | None] = ContextVar(
     "_PYTHON_CALL_SITES", default=None
+)
+_OVERLOAD_NAMES: ContextVar[frozenset[str]] = ContextVar(
+    "_PYTHON_OVERLOAD_NAMES",
+    default=frozenset({"overload", "typing.overload", "typing_extensions.overload"}),
 )
 _CALLABLE_BOUNDARIES = frozenset({"function_definition", "class_definition"})
 
@@ -76,7 +83,7 @@ class PythonParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="python", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        with callable_scope(graph), _call_sites() as calls:
+        with callable_scope(graph), _call_sites() as calls, _overload_scope(tree.root_node):
             _visit_module(tree.root_node, file_path, module_id, graph)
             _bind_complete_calls(calls, graph)
         return graph
@@ -148,6 +155,7 @@ def _extract_class(
         docstring=_extract_docstring(node),
     )
     graph.nodes[class_id] = class_unit
+    record_unit(class_unit)
     add_contains_edge(graph, owner_id or module_id, class_id)
 
     _extract_base_classes(node, class_id, module_id, graph)
@@ -258,7 +266,7 @@ def _nested_functions(
     class_id: str | None,
 ) -> None:
     if body is not None:
-        for nested in walk_owned(body, root_is_owner=False, boundaries=_CALLABLE_BOUNDARIES):
+        for nested in owned_syntax(body, _CALLABLE_BOUNDARIES, boundaries=_CALLABLE_BOUNDARIES):
             if nested.type == "function_definition":
                 _extract_function(nested, file_path, module_id, class_id, graph, owner_id=func_id)
             elif nested.type == "class_definition":
@@ -270,9 +278,7 @@ def _is_overload(node: Node) -> bool:
     if parent is None or parent.type != "decorated_definition":
         return False
     return any(
-        child.type == "decorator"
-        and node_text(child).lstrip("@").strip()
-        in {"overload", "typing.overload", "typing_extensions.overload"}
+        child.type == "decorator" and node_text(child).lstrip("@").strip() in _OVERLOAD_NAMES.get()
         for child in parent.named_children
     )
 
@@ -475,16 +481,17 @@ def _add_call_edges(
             if "." not in call_name or call_name.startswith("self.")
             else EdgeConfidence.INFERRED
         )
+        location = make_location(call_node, file_path)
         sites = _CALL_SITES.get()
         if sites is not None:
-            sites[(call_node.start_point.row + 1, call_node.start_point.column)] = call_node
+            sites[location] = call_node
         graph.edges.append(
             CodeEdge(
                 source_id=func_id,
                 target_id=target_id,
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
-                location=make_location(call_node, file_path),
+                location=location,
             )
         )
 
@@ -496,22 +503,7 @@ def _function_unit(
     return_type = _extract_return_type(node)
     body = node.child_by_field_name("body")
 
-    branches: list[BranchInfo] = []
-    exception_types: list[TypeRef] = []
-    calls: list[tuple[str, Node]] = []
-
-    if body is not None:
-        collect_body_info(
-            body,
-            file_path,
-            _BRANCH_NODE_TYPES,
-            "call",
-            _THROW_TYPES,
-            branches,
-            exception_types,
-            calls,
-            skip_types=_CALLABLE_BOUNDARIES,
-        )
+    branches, exception_types, calls = _python_body_info(body, file_path)
 
     complexity = compute_complexity(branches)
 
@@ -533,25 +525,69 @@ def _function_unit(
     return unit, calls
 
 
-def _bind_complete_calls(calls: dict[tuple[int, int], Node], graph: CodeGraph) -> None:
+def _python_body_info(
+    body: Node | None, file_path: str
+) -> tuple[list[BranchInfo], list[TypeRef], list[tuple[str, Node]]]:
+    branches: list[BranchInfo] = []
+    exceptions: list[TypeRef] = []
+    calls: list[tuple[str, Node]] = []
+    if body is None:
+        return branches, exceptions, calls
+    for node in owned_syntax(
+        body, _BRANCH_NODE_TYPES | _THROW_TYPES | {"call"}, boundaries=_CALLABLE_BOUNDARIES
+    ):
+        if node.type in _BRANCH_NODE_TYPES:
+            branches.append(
+                BranchInfo(
+                    location=make_location(node, file_path), condition=_extract_condition_text(node)
+                )
+            )
+        if node.type in _THROW_TYPES:
+            _collect_throw_type(node, exceptions)
+        if node.type == "call" and (name := extract_call_name(node)):
+            calls.append((name, node))
+    return branches, exceptions, calls
+
+
+def _bind_complete_calls(calls: dict[SourceLocation, Node], graph: CodeGraph) -> None:
     """Bind each call once after all file-local definitions are extracted."""
     graph.edges[:] = [
-        guard_call(
-            edge, calls[(edge.location.start_line, edge.location.start_col or 0)], graph=graph
-        )
-        if edge.kind == EdgeKind.CALLS
-        and edge.location is not None
-        and (edge.location.start_line, edge.location.start_col or 0) in calls
+        guard_call(edge, calls[edge.location], graph=graph)
+        if edge.kind == EdgeKind.CALLS and edge.location is not None and edge.location in calls
         else edge
         for edge in graph.edges
     ]
 
 
 @contextmanager
-def _call_sites() -> Generator[dict[tuple[int, int], Node]]:
-    sites: dict[tuple[int, int], Node] = {}
+def _call_sites() -> Generator[dict[SourceLocation, Node]]:
+    sites: dict[SourceLocation, Node] = {}
     token = _CALL_SITES.set(sites)
     try:
         yield sites
     finally:
         _CALL_SITES.reset(token)
+
+
+@contextmanager
+def _overload_scope(root: Node) -> Generator[None]:
+    names = {"overload", "typing.overload", "typing_extensions.overload"}
+    for statement in root.named_children:
+        if statement.type != "import_statement":
+            continue
+        for imported in statement.named_children:
+            if imported.type != "aliased_import":
+                continue
+            module = imported.child_by_field_name("name")
+            alias = imported.child_by_field_name("alias")
+            if (
+                module is not None
+                and node_text(module) in {"typing", "typing_extensions"}
+                and alias is not None
+            ):
+                names.add(node_text(alias) + ".overload")
+    token = _OVERLOAD_NAMES.set(frozenset(names))
+    try:
+        yield
+    finally:
+        _OVERLOAD_NAMES.reset(token)

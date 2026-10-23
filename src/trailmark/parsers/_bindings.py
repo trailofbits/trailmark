@@ -49,18 +49,35 @@ _SCOPE_POLICIES = {
     **dict.fromkeys(
         ("kotlin", "swift", "dart"), _SCOPES | {"class_body", "enum_class_body", "enum_body"}
     ),
-    **dict.fromkeys(("javascript", "typescript"), _SCOPES | {"program"}),
+    **dict.fromkeys(
+        ("javascript", "typescript"),
+        _SCOPES
+        | {
+            "program",
+            "method_definition",
+            "function",
+            "generator_function",
+            "generator_function_declaration",
+        },
+    ),
 }
 
 # Name/pattern fields are grammar policies, not guesses based on declaration text.
 _DECLARATIONS: dict[str, tuple[tuple[str, str], ...]] = {
-    "python": (("assignment", "left"), ("for_statement", "left"), ("function_definition", "name")),
+    "python": (
+        ("assignment", "left"),
+        ("for_statement", "left"),
+        ("function_definition", "name"),
+        ("class_definition", "name"),
+    ),
     "javascript": (
+        ("formal_parameters", ""),
         ("variable_declarator", "name"),
         ("function_declaration", "name"),
         ("assignment_expression", "left"),
     ),
     "typescript": (
+        ("formal_parameters", ""),
         ("variable_declarator", "name"),
         ("function_declaration", "name"),
         ("assignment_expression", "left"),
@@ -117,8 +134,9 @@ def _bound_call(
     source: CodeUnit | None,
     graph: CodeGraph,
 ) -> CodeEdge:
+    local = _local_callable(graph, declaration, name, source)
     parameter = call_parameter(source, name)
-    if parameter:
+    if parameter and local is None:
         return _blocked(edge, name)
     imported = _require_target(declaration, name, source)
     if imported is not None:
@@ -130,23 +148,30 @@ def _bound_call(
         )
     if declaration is None:
         return edge
-    local = _local_callable(graph, declaration, name, source)
     if local is not None:
-        return replace(
-            edge,
-            target_id=local.id,
-            confidence=EdgeConfidence.CERTAIN,
-            attributes=tuple(
-                (key, value)
-                for key, value in edge.attributes
-                if key not in {"binding_blocked", "binding_reason"}
-            ),
-        )
+        return _local_edge(edge, local)
     if declaration is not None and declaration.type == "function_declaration":
         # A later member body may not be extracted yet; lexical linking runs
         # after the complete class is available. Callable fields remain blocked.
         return edge
     return _blocked(edge, name)
+
+
+def _local_edge(edge: CodeEdge, local: CodeUnit) -> CodeEdge:
+    attributes = tuple(
+        (key, value)
+        for key, value in edge.attributes
+        if key not in {"binding_blocked", "binding_reason"}
+    )
+    if (edge.target_id, edge.confidence, edge.attributes) == (
+        local.id,
+        EdgeConfidence.CERTAIN,
+        attributes,
+    ):
+        return edge
+    return replace(
+        edge, target_id=local.id, confidence=EdgeConfidence.CERTAIN, attributes=attributes
+    )
 
 
 def _require_target(declaration: Node | None, name: str, source: CodeUnit | None) -> str | None:
@@ -163,10 +188,11 @@ def _resolve_require(declaration: Node, name: str, source: CodeUnit) -> str | No
         return None
     if path.startswith("."):
         target = Path(os.path.abspath(Path(source.location.file_path).parent / path))
-        if target.is_dir():
-            target = target / "index"
         if not target.suffix:
-            target = target.with_suffix(Path(source.location.file_path).suffix)
+            file = target.with_suffix(Path(source.location.file_path).suffix)
+            target = (
+                file if file.is_file() or not target.is_dir() else target / ("index" + file.suffix)
+            )
         module = module_id_from_path(str(target))
     else:
         module = path.replace(":", ".")
@@ -227,6 +253,14 @@ def _bare_name(edge: CodeEdge, occurrence: Node) -> str | None:
 def _local_callable(
     graph: CodeGraph, declaration: Node | None, name: str, source: CodeUnit | None
 ) -> CodeUnit | None:
+    if declaration is not None and declaration.type == "variable_declarator":
+        value = declaration.child_by_field_name("value")
+        if value is not None and value.type in {
+            "arrow_function",
+            "function_expression",
+            "function",
+        }:
+            declaration = value
     if (
         declaration is None
         or source is None
@@ -236,6 +270,10 @@ def _local_callable(
             "function_declaration",
             "local_function_statement",
             "local_function_declaration",
+            "arrow_function",
+            "function_expression",
+            "function",
+            "class_definition",
         }
     ):
         return None

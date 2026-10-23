@@ -10,17 +10,14 @@ from tree_sitter_language_pack import get_language
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
-    BranchInfo,
     CodeUnit,
     NodeKind,
     Parameter,
-    TypeRef,
 )
 from trailmark.parsers._binding_index import binding_scope
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
-    collect_body_info,
     compute_complexity,
     make_location,
     module_id_from_path,
@@ -28,7 +25,12 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import add_callable, callable_scope
-from trailmark.parsers._ecmascript import class_member_callable, declared_name, discover_callables
+from trailmark.parsers._ecmascript import (
+    body_info,
+    class_member_callable,
+    declared_name,
+    discover_callables,
+)
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -107,7 +109,7 @@ def _visit_module(
             node,
             file_path,
             module_id,
-            class_owner if node.type == "arrow_function" else None,
+            class_owner if node.type in {"arrow_function", "method_definition"} else None,
             graph,
             name_override=name,
             owner_id=owner,
@@ -424,22 +426,13 @@ def _function_unit(
     params = _extract_parameters(node)
     body = node.child_by_field_name("body")
 
-    branches: list[BranchInfo] = []
-    exception_types: list[TypeRef] = []
-    calls: list[tuple[str, Node]] = []
-
-    if body is not None:
-        collect_body_info(
-            body,
-            file_path,
-            _BRANCH_NODE_TYPES,
-            "call_expression",
-            _THROW_TYPES,
-            branches,
-            exception_types,
-            calls,
-            skip_types=_FUNCTION_SCOPE_TYPES,
-        )
+    branches, exception_types, calls = body_info(
+        body,
+        file_path,
+        branch_types=_BRANCH_NODE_TYPES,
+        throw_types=_THROW_TYPES,
+        boundaries=_FUNCTION_SCOPE_TYPES,
+    )
 
     complexity = compute_complexity(branches)
     location = make_location(node, file_path)

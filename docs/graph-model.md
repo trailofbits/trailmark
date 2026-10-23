@@ -140,6 +140,10 @@ JavaScript/TypeScript literal `require` named-export binding and prevents unrela
 free-function fallback. `indirect_call` records pointer or field-call syntax; it
 remains present if callback-table inference later gives the edge an inferred target.
 The confidence describes target resolution, while this attribute describes syntax.
+`include_unverified=True` marks a C/C++ header-static link whose visibility was
+inferred by name without a verified include path in either direction. Consumers can
+distinguish these fallback links from include-supported links without changing the
+edge's confidence.
 
 ## Node IDs
 
@@ -157,7 +161,8 @@ IDs have the form `module:function`, `module:Class`, or `module:Class.method`.
 - **Nested declarations** include their owners: Java nested classes are
   `module:Outer.Inner`, and Solidity contract-level structs and enums are
   `module:Contract.Name`.
-- **Repeated callables** in Python and overloads in Solidity, C++, Java, C#, Kotlin, and Swift keep separate
+- **Repeated callables** in Python and overloads in Solidity, C++, Java, C#, Kotlin,
+  and Swift keep separate
   declarations and bodies. Colliding callable IDs gain an `@line_column` suffix,
   for example `token:Token.f@12_4`. When a type and a callable share an ID, the
   type keeps the base ID.

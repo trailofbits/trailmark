@@ -381,6 +381,9 @@ def _collect_dart_calls(body: Node, calls: list[tuple[str, Node]]) -> None:
     ``identifier`` + ``selector`` + ``identifier`` + ... with the final
     selector holding the argument_part.
     """
+    detached = _detached_arrow_call(body)
+    if detached is not None:
+        calls.append(detached)
     for node in walk_owned(
         body,
         root_is_owner=False,
@@ -399,6 +402,27 @@ def _collect_dart_calls(body: Node, calls: list[tuple[str, Node]]) -> None:
             name = _resolve_dart_callee(children, idx)
             if name:
                 calls.append((name, child))
+
+
+def _detached_arrow_call(body: Node) -> tuple[str, Node] | None:
+    """Recover arguments placed after a chain of expression closures by the grammar."""
+    if body.type != "function_expression_body" or body.named_child_count != 1:
+        return None
+    callee = body.named_children[0]
+    if callee.type != "identifier":
+        return None
+    current = body
+    while current.type in {"function_expression_body", "function_expression"}:
+        following = current.next_named_sibling
+        if following is not None:
+            if following.type == "selector" and _selector_has_arguments(following):
+                return node_text(callee), following
+            return None
+        parent = current.parent
+        if parent is None:
+            break
+        current = parent
+    return None
 
 
 def _selector_has_arguments(selector: Node) -> bool:

@@ -44,7 +44,7 @@ def callable_scope(graph: CodeGraph) -> Generator[None]:
     try:
         yield
         _finish_runtime_callables(declarations)
-        if graph.language == "python":
+        if graph.language == "python" or not declarations.bases:
             return
         _repair_body_edges(declarations)
         owners = {
@@ -59,6 +59,8 @@ def callable_scope(graph: CodeGraph) -> Generator[None]:
 
 
 def _repair_body_edges(declarations: _Declarations) -> None:
+    if not declarations.moved:
+        return
     edges = []
     for index, edge in enumerate(declarations.graph.edges):
         source_id, target_id = edge.source_id, edge.target_id
@@ -70,7 +72,7 @@ def _repair_body_edges(declarations: _Declarations) -> None:
             source_id = source.node_id
         if edge.kind == EdgeKind.CONTAINS and target is not None and index < target.edge_count:
             target_id = target.node_id
-        edges.append(replace(edge, source_id=source_id, target_id=target_id))
+        edges.append(_runtime_edge(edge, source_id, target_id))
     declarations.graph.edges[:] = edges
 
 
@@ -215,15 +217,16 @@ def _finish_runtime_callables(declarations: _Declarations) -> None:
         if owner and base.startswith(owner + "."):
             base = renamed.get(owner, owner) + base[len(owner) :]
         renamed[node_id] = base
+    targets = _runtime_aliases(declarations)
     graph.nodes = {
-        renamed[key]: replace(unit, id=renamed[key]) for key, unit in graph.nodes.items()
+        renamed[key]: replace(unit, id=renamed[key]) if renamed[key] != key else unit
+        for key, unit in graph.nodes.items()
     }
-    targets = {base: ids[-1] for base, ids in declarations.runtime.items()}
     graph.edges[:] = [
-        replace(
+        _runtime_edge(
             edge,
-            source_id=renamed.get(edge.source_id, edge.source_id),
-            target_id=_runtime_target(
+            renamed.get(edge.source_id, edge.source_id),
+            _runtime_target(
                 targets.get(edge.target_id, edge.target_id)
                 if edge.kind == EdgeKind.CALLS
                 else edge.target_id,
@@ -237,13 +240,33 @@ def _finish_runtime_callables(declarations: _Declarations) -> None:
 
 
 def _runtime_target(target: str, renamed: dict[str, str]) -> str:
-    if target in renamed:
-        return renamed[target]
-    owner, separator, name = target.rpartition(".")
-    if owner.endswith(".$binding"):
-        scope = owner.removesuffix(".$binding")
-        return f"{renamed.get(scope, scope)}.$binding.{name}"
-    return renamed[owner] + separator + name if owner in renamed else target
+    prefix = target
+    while prefix:
+        if prefix in renamed:
+            return renamed[prefix] + target[len(prefix) :]
+        prefix = prefix.rpartition(".")[0]
+    return target
+
+
+def _runtime_edge(edge: CodeEdge, source: str, target: str) -> CodeEdge:
+    if (source, target) == (edge.source_id, edge.target_id):
+        return edge
+    return CodeEdge(source, target, edge.kind, edge.confidence, edge.location, edge.attributes)
+
+
+def _runtime_aliases(declarations: _Declarations) -> dict[str, str]:
+    graph = declarations.graph
+    targets = {}
+    for base, ids in declarations.runtime.items():
+        latest = graph.nodes[ids[-1]]
+        unit = graph.nodes.get(base)
+        class_wins = (
+            unit is not None
+            and unit.kind == NodeKind.CLASS
+            and (unit.location.start_line > latest.location.start_line)
+        )
+        targets[base] = base if class_wins else ids[-1]
+    return targets
 
 
 def resolve_local_method_calls(graph: CodeGraph) -> None:

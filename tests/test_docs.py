@@ -657,6 +657,18 @@ def _read_requires_python(pyproject_data: dict[str, object]) -> str:
         "builtin.move:assert!",
         "Arrow-valued class fields retain method kind",
         "comment between the macro and brace",
+        "`include_unverified=True`",
+        "include closures to break same-name ties",
+        "Block-scope function prototypes",
+        "import aliases of `typing` and `typing_extensions`",
+        "`file:NS.Inner.method`",
+        "`$class@line_column`",
+        "Parameters shadow outer imports through nested callbacks",
+        "matching source file takes precedence over a directory",
+        "curried C# and Dart lambdas",
+        "Extremely deep PHP conditional or parenthesized expressions",
+        "Alias-expanded and fully qualified calls both remain uncertain",
+        "Module `const`/`let` arrows and function expressions",
     ],
 )
 def test_parser_coverage_contracts(marker: str) -> None:
@@ -673,3 +685,8 @@ def test_round3_graph_model_contracts(marker: str) -> None:
 def test_augmentation_filesystem_path_contract() -> None:
     assert "percent-decoded exactly once" in _flat("docs/augmenting.md")
     assert "literal `#`, `?` and `%` characters are preserved" in _flat("docs/augmenting.md")
+
+
+def test_header_link_provenance_contract() -> None:
+    assert "`include_unverified=True`" in _flat("docs/graph-model.md")
+    assert "without a verified include path in either direction" in _flat("docs/graph-model.md")
