@@ -558,6 +558,9 @@ def _parse_param_declaration(node: Node) -> Parameter | None:
 
 def _extract_return_type(node: Node) -> TypeRef | None:
     """Extract return type from a C function definition."""
+    declarator = node.child_by_field_name("declarator")
+    if declarator is not None and declarator.type == "parenthesized_declarator":
+        return None
     type_node = node.child_by_field_name("type")
     if type_node is None:
         return None

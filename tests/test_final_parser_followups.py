@@ -42,6 +42,7 @@ def test_ordinary_c_macro_specifiers(tmp_path: Path, definition: str, name: str)
     )
     unit = graph.nodes[f"app:{name}"]
     assert not dict(unit.attributes).get("macro_signature_unresolved")
+    assert unit.return_type is None or unit.return_type.name != name
     assert any(e.source_id == "app:run" and e.target_id == unit.id for e in _calls(graph))
     if name == "NAME_HANDLER":
         assert [p.name for p in unit.parameters] == ["a"]
@@ -85,6 +86,22 @@ def test_named_iife_calls_expression(tmp_path: Path, extension: str) -> None:
     )
     assert any(e.source_id == "app:run" and e.target_id == "app:run.setup" for e in _calls(graph))
     assert not any(e.target_id == "app:setup" for e in _calls(graph))
+
+
+@pytest.mark.parametrize("extension", ["js", "ts"])
+def test_unextracted_iife_does_not_bind_module_function(tmp_path: Path, extension: str) -> None:
+    source = (
+        "function setup(){} function outer(){"
+        + "function nested(){" * 47
+        + "(function setup(){})()"
+        + "}" * 48
+    )
+    graph = _graph(tmp_path, source, extension)
+    assert graph.parse_diagnostics
+    calls = _calls(graph)
+    assert len(calls) == 1
+    assert calls[0].target_id != "app:setup"
+    assert calls[0].confidence == EdgeConfidence.UNCERTAIN
 
 
 def test_go_parenthesized_pointer_conversion_is_not_call(tmp_path: Path) -> None:

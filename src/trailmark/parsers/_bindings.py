@@ -121,8 +121,7 @@ def guard_call(edge: CodeEdge, occurrence: Node, *, graph: CodeGraph) -> CodeEdg
             if name is not None and name.text is not None and source is not None
             else None
         )
-        if local is not None:
-            return _local_edge(edge, local)
+        return _local_edge(edge, local) if local is not None else _blocked(edge, "$iife")
     if function is not None and (
         function.type in {"call", "call_expression"}
         or edge.target_id.rsplit(":", 1)[-1].startswith("$indirect@")
