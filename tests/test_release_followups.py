@@ -1,5 +1,6 @@
 """Regression coverage for the remaining v0.7 binding and ownership gaps."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -334,3 +335,14 @@ def test_returned_call_proxy_positions_are_one_based(tmp_path: Path) -> None:
     graph = _graph(tmp_path, "def k(): pass\ndef run(): k()()\n", "py")
     edge = next(edge for edge in _calls(graph) if dict(edge.attributes).get("indirect_call"))
     assert dict(edge.attributes)["raw_target"] == "app:$returned@2_11_30"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows forbids colons in filenames")
+def test_python_final_bindings_keep_distinct_modules_with_colons(tmp_path: Path) -> None:
+    (tmp_path / "a:b.py").write_text("def f(): pass\n")
+    (tmp_path / "a:c.py").write_text("def f(): pass\n")
+    (tmp_path / "run.py").write_text("def run(): f()\n")
+    graph = parse_directory(str(tmp_path), "python")
+    edge = next(edge for edge in _calls(graph) if edge.source_id == "run:run")
+    assert edge.confidence == EdgeConfidence.UNCERTAIN
+    assert edge.target_id.startswith("proxy.unresolved:")

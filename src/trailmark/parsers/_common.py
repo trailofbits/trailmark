@@ -668,7 +668,7 @@ def _python_runtime_functions(
             or (container is not None and container.kind != NodeKind.MODULE)
         ):
             continue
-        key = (unit.id.split(":", 1)[0], unit.name)
+        key = (unit.location.file_path, unit.name)
         final[key] = max((final.get(key, unit), unit), key=position)
     names: dict[str, list[str]] = {}
     for unit in final.values():
