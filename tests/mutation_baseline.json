@@ -33,11 +33,11 @@
       "reason": "Equivalent for parser-produced call locations: a call starts at an expression token, never at the enclosing block opening-brace token. Equality with block.start_point cannot occur. The upper boundary is observably different for a call adjacent to the closing brace and has a regression test."
     },
     {
-      "fingerprint": "b81639c5bca3fcddce2666e401291f25b5f10eaf5ea2ab9636accee3094ce279",
-      "source_hash": "2044d51d310ffed63fe0ed9928eb91750af5904ab4e17ea832fca7651f0edc1d",
+      "fingerprint": "051529e5bb9afad4f28aa226534813235a6c3de33269d0154f34dd2cf908eace",
+      "source_hash": "b4aef5a77e3516d5eb56a772bb58ca373038c98b4089e26ecae53d5ade0de2bb",
       "path": "src/trailmark/parsers/_common.py",
       "function": "<module>",
-      "line": 58,
+      "line": 59,
       "operator": "boolean",
       "original": "True",
       "mutated": "False",

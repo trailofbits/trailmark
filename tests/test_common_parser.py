@@ -5,11 +5,32 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from tree_sitter_language_pack import get_parser
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, SourceLocation
-from trailmark.parsers._common import module_id_from_path, parse_directory
+from trailmark.parsers._common import extract_call_name, module_id_from_path, parse_directory
+
+
+@pytest.mark.parametrize(
+    "language,source",
+    [
+        ("javascript", "(()=>{})()"),
+        ("swift", "func run(){ ({})() }"),
+    ],
+)
+def test_anonymous_call_without_a_name_returns_empty_string(language: str, source: str) -> None:
+    root = get_parser(language).parse(source.encode()).root_node
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        if node.type == "call_expression":
+            assert extract_call_name(node) == ""
+            break
+        pending.extend(node.named_children)
+    else:
+        pytest.fail("Fixture must contain an invocation")
 
 
 def _fake_parse_file(file_path: str) -> CodeGraph:

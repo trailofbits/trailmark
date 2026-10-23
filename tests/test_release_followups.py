@@ -311,3 +311,26 @@ def test_deep_callable_wrappers_are_iterative(tmp_path: Path) -> None:
         "ts",
     )
     assert any(edge.source_id == "app:run" and edge.target_id == "app:f" for edge in _calls(graph))
+
+
+@pytest.mark.parametrize(
+    "extension,value",
+    [
+        ("js", "(/* before */()=>work()/* after */)"),
+        ("ts", "(/* before */()=>work()) satisfies (()=>void)"),
+        ("ts", "<(()=>void)>/* asserted */(()=>work())"),
+    ],
+)
+def test_comments_in_callable_wrappers_preserve_binding(
+    tmp_path: Path, extension: str, value: str
+) -> None:
+    graph = _graph(
+        tmp_path, f"function work(){{}} const f={value};function run(){{f();}}", extension
+    )
+    assert any(edge.source_id == "app:run" and edge.target_id == "app:f" for edge in _calls(graph))
+
+
+def test_returned_call_proxy_positions_are_one_based(tmp_path: Path) -> None:
+    graph = _graph(tmp_path, "def k(): pass\ndef run(): k()()\n", "py")
+    edge = next(edge for edge in _calls(graph) if dict(edge.attributes).get("indirect_call"))
+    assert dict(edge.attributes)["raw_target"] == "app:$returned@2_11_30"

@@ -8,6 +8,7 @@ import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from operator import attrgetter
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -657,6 +658,7 @@ def _python_runtime_functions(
 ) -> dict[str, list[str]]:
     """Cross-file calls observe the final module binding, including classes."""
     final: dict[tuple[str, str], CodeUnit] = {}
+    position = attrgetter("location.start_line", "location.start_col")
     for unit in graph.nodes.values():
         owner = owners.get(unit.id, "")
         container = graph.nodes.get(owner)
@@ -666,14 +668,8 @@ def _python_runtime_functions(
             or (container is not None and container.kind != NodeKind.MODULE)
         ):
             continue
-        key = (owner or unit.id.split(":", 1)[0], unit.name)
-        previous = final.get(key)
-        position = (unit.location.start_line, unit.location.start_col or 0)
-        if previous is None or position > (
-            previous.location.start_line,
-            previous.location.start_col or 0,
-        ):
-            final[key] = unit
+        key = (unit.id.split(":", 1)[0], unit.name)
+        final[key] = max((final.get(key, unit), unit), key=position)
     names: dict[str, list[str]] = {}
     for unit in final.values():
         names.setdefault(unit.name, []).append(unit.id)

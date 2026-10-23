@@ -13,13 +13,20 @@ _WRAPPERS = frozenset(
 )
 
 
+def _wrapped_expression(node: Node) -> Node | None:
+    children = node.named_children
+    if node.type == "type_assertion":
+        children.reverse()
+    return next((child for child in children if not child.is_extra), None)
+
+
 def unwrap_callable(node: Node) -> Node:
     """Remove syntax-only wrappers without looking through evaluated expressions."""
     while node.type in _WRAPPERS:
-        children = node.named_children
-        if not children:
+        child = _wrapped_expression(node)
+        if child is None:
             break
-        node = children[-1] if node.type == "type_assertion" else children[0]
+        node = child
     return node
 
 
@@ -27,8 +34,7 @@ def callable_parent(node: Node) -> Node | None:
     """Find the binding container through syntax-only expression wrappers."""
     parent = node.parent
     while parent is not None and parent.type in _WRAPPERS:
-        children = parent.named_children
-        child = children[-1] if parent.type == "type_assertion" else children[0]
+        child = _wrapped_expression(parent)
         if child != node:
             break
         node, parent = parent, parent.parent
