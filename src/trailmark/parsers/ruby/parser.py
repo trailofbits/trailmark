@@ -685,6 +685,7 @@ def _ruby_vcall(node: Node, parameters: set[str]) -> bool:
         "splat_parameter",
         "block_parameter",
         "left_assignment_list",
+        "hash_splat_parameter",
         "exception_variable",
         "for",
     }:

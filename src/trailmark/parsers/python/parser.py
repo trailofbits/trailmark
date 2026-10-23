@@ -35,7 +35,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._declarations import add_callable, callable_scope
+from trailmark.parsers._declarations import add_callable, callable_scope, prepare_call_bindings
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import owned_syntax
 
@@ -151,7 +151,7 @@ def _extract_class(
         name=class_name,
         kind=NodeKind.CLASS,
         location=location,
-        type_parameters=extract_type_parameters(node),
+        type_parameters=extract_type_parameters(node, field_name="type_parameters"),
         docstring=_extract_docstring(node),
     )
     graph.nodes[class_id] = class_unit
@@ -517,7 +517,7 @@ def _function_unit(
         parameters=tuple(params),
         return_type=return_type,
         exception_types=tuple(exception_types),
-        type_parameters=extract_type_parameters(node),
+        type_parameters=extract_type_parameters(node, field_name="type_parameters"),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=_extract_docstring(node),
@@ -551,6 +551,7 @@ def _python_body_info(
 
 def _bind_complete_calls(calls: dict[SourceLocation, Node], graph: CodeGraph) -> None:
     """Bind each call once after all file-local definitions are extracted."""
+    prepare_call_bindings(graph)
     graph.edges[:] = [
         guard_call(edge, calls[edge.location], graph=graph)
         if edge.kind == EdgeKind.CALLS and edge.location is not None and edge.location in calls
@@ -573,6 +574,7 @@ def _call_sites() -> Generator[dict[SourceLocation, Node]]:
 def _overload_scope(root: Node) -> Generator[None]:
     names = {"overload", "typing.overload", "typing_extensions.overload"}
     for statement in root.named_children:
+        names.update(_overload_from_aliases(statement))
         if statement.type != "import_statement":
             continue
         for imported in statement.named_children:
@@ -591,3 +593,19 @@ def _overload_scope(root: Node) -> Generator[None]:
         yield
     finally:
         _OVERLOAD_NAMES.reset(token)
+
+
+def _overload_from_aliases(statement: Node) -> set[str]:
+    module = statement.child_by_field_name("module_name")
+    if statement.type != "import_from_statement" or module is None:
+        return set()
+    if node_text(module) not in {"typing", "typing_extensions"}:
+        return set()
+    return {
+        node_text(alias)
+        for imported in statement.named_children
+        if imported.type == "aliased_import"
+        and (name := imported.child_by_field_name("name")) is not None
+        and node_text(name) == "overload"
+        and (alias := imported.child_by_field_name("alias")) is not None
+    }

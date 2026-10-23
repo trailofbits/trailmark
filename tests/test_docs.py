@@ -689,4 +689,22 @@ def test_augmentation_filesystem_path_contract() -> None:
 
 def test_header_link_provenance_contract() -> None:
     assert "`include_unverified=True`" in _flat("docs/graph-model.md")
-    assert "without a verified include path in either direction" in _flat("docs/graph-model.md")
+    assert "could not verify an include path in either direction" in _flat("docs/graph-model.md")
+    assert "does not establish that the caller lacks an include" in _flat("docs/graph-model.md")
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [
+        "calling function can rebind its parameter",
+        "function declared in an enclosing function",
+        "identifier-only initializer arguments",
+        "signature-only parameters do not introduce runtime bindings",
+        "Local-class heritage, static blocks, computed keys and field initializers",
+        "Repeated TypeScript namespace blocks share a container",
+        "splats, double splats",
+        "`from typing import overload as ...` aliases",
+    ],
+)
+def test_round5_binding_contracts(marker: str) -> None:
+    assert marker in _flat("docs/parser-coverage.md")

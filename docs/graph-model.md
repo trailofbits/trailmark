@@ -140,10 +140,11 @@ JavaScript/TypeScript literal `require` named-export binding and prevents unrela
 free-function fallback. `indirect_call` records pointer or field-call syntax; it
 remains present if callback-table inference later gives the edge an inferred target.
 The confidence describes target resolution, while this attribute describes syntax.
-`include_unverified=True` marks a C/C++ header-static link whose visibility was
-inferred by name without a verified include path in either direction. Consumers can
-distinguish these fallback links from include-supported links without changing the
-edge's confidence.
+`include_unverified=True` marks a C/C++ header-static link for which the resolver
+could not verify an include path in either direction. It does not establish that
+the caller lacks an include: compiler search paths and translation-unit context
+may supply one. Consumers can distinguish these fallback links from verified
+include-supported links without changing the edge's confidence.
 
 ## Node IDs
 

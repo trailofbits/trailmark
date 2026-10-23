@@ -44,7 +44,9 @@ def callable_scope(graph: CodeGraph) -> Generator[None]:
     try:
         yield
         _finish_runtime_callables(declarations)
-        if graph.language == "python" or not declarations.bases:
+        if graph.language == "python" or not (
+            declarations.bases or any(u.kind == NodeKind.NAMESPACE for u in graph.nodes.values())
+        ):
             return
         _repair_body_edges(declarations)
         owners = {
@@ -76,11 +78,24 @@ def _repair_body_edges(declarations: _Declarations) -> None:
     declarations.graph.edges[:] = edges
 
 
+def prepare_call_bindings(graph: CodeGraph) -> None:
+    """Repair moved body identities before looking up callers for lexical binding."""
+    _repair_body_edges(_current_declarations(graph))
+
+
 def _callable_base(
     edge: CodeEdge,
     declarations: _Declarations,
     owners: dict[str, str],
 ) -> str | None:
+    module = edge.source_id.split(":", 1)[0]
+    name = edge.target_id.removeprefix(module + ":")
+    owner = owners.get(edge.source_id)
+    if owner is not None and not any(separator in name for separator in (":", ".", "->")):
+        for separator in (".", ":"):
+            base = f"{owner}{separator}{name}"
+            if base in declarations.ids:
+                return base
     if edge.target_id in declarations.ids:
         return edge.target_id
     if edge.target_id in declarations.bases:
@@ -89,13 +104,6 @@ def _callable_base(
     # before module functions, without inferring receiver or argument types.
     if any(separator in edge.target_id for separator in (":", ".", "->")):
         return None
-    owner = owners.get(edge.source_id)
-    if owner is not None:
-        for separator in (".", ":"):
-            base = f"{owner}{separator}{edge.target_id}"
-            if base in declarations.ids:
-                return base
-    module = edge.source_id.split(":", 1)[0]
     base = f"{module}:{edge.target_id}"
     return base if base in declarations.ids else None
 
@@ -117,7 +125,7 @@ def _repair_call_target(
     )
     if len(ids) == 1 and not constructor_ambiguity:
         # A same-named type owns the base ID; calls use the callable namespace.
-        return replace(edge, target_id=ids[0]) if ids[0] != base else edge
+        return replace(edge, target_id=ids[0]) if ids[0] != edge.target_id else edge
     # Kotlin constructors share call syntax with factories, but the frontend
     # does not materialize their candidates. A single factory is not sufficient
     # evidence to distinguish construction from a call to that factory.
@@ -222,6 +230,8 @@ def _finish_runtime_callables(declarations: _Declarations) -> None:
         renamed[key]: replace(unit, id=renamed[key]) if renamed[key] != key else unit
         for key, unit in graph.nodes.items()
     }
+    changed = {old: new for old, new in renamed.items() if old != new}
+    maximum = max((name.count(".") for name in changed), default=0)
     graph.edges[:] = [
         _runtime_edge(
             edge,
@@ -230,7 +240,8 @@ def _finish_runtime_callables(declarations: _Declarations) -> None:
                 targets.get(edge.target_id, edge.target_id)
                 if edge.kind == EdgeKind.CALLS
                 else edge.target_id,
-                renamed,
+                changed,
+                maximum=maximum,
             ),
         )
         for edge in graph.edges
@@ -239,8 +250,10 @@ def _finish_runtime_callables(declarations: _Declarations) -> None:
         record_unit(unit)
 
 
-def _runtime_target(target: str, renamed: dict[str, str]) -> str:
-    prefix = target
+def _runtime_target(target: str, renamed: dict[str, str], *, maximum: int) -> str:
+    if not renamed:
+        return target
+    prefix = ".".join(target.split(".", maximum + 1)[: maximum + 1])
     while prefix:
         if prefix in renamed:
             return renamed[prefix] + target[len(prefix) :]

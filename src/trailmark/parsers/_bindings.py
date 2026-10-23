@@ -136,7 +136,7 @@ def _bound_call(
 ) -> CodeEdge:
     local = _local_callable(graph, declaration, name, source)
     parameter = call_parameter(source, name)
-    if parameter and local is None:
+    if parameter and not _declared_inside(local, source):
         return _blocked(edge, name)
     imported = _require_target(declaration, name, source)
     if imported is not None:
@@ -155,6 +155,15 @@ def _bound_call(
         # after the complete class is available. Callable fields remain blocked.
         return edge
     return _blocked(edge, name)
+
+
+def _declared_inside(local: CodeUnit | None, source: CodeUnit | None) -> bool:
+    if local is None or source is None:
+        return False
+    start = (source.location.start_line, source.location.start_col or 0)
+    end = (source.location.end_line, source.location.end_col or 0)
+    position = (local.location.start_line, local.location.start_col or 0)
+    return start < position < end
 
 
 def _local_edge(edge: CodeEdge, local: CodeUnit) -> CodeEdge:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 from tree_sitter import Node
 
@@ -19,10 +19,12 @@ from trailmark.parsers._common import (
     make_location,
     node_text,
 )
+from trailmark.parsers._declarations import prepare_call_bindings
 from trailmark.parsers._nesting import nesting_diagnostic
 from trailmark.parsers._walk import owned_syntax
 
 CLASSES = frozenset({"class_declaration", "abstract_class_declaration", "class"})
+NAMESPACES = frozenset({"internal_module", "module"})
 
 CALLABLES = frozenset(
     {
@@ -51,7 +53,7 @@ def body_info(
     calls: list[tuple[str, Node]] = []
     if body is not None:
         types = branch_types | throw_types | {"call_expression"}
-        for node in owned_syntax(body, types, boundaries=boundaries, tokens=types):
+        for node in _execution_sites(body, types, boundaries):
             if node.type in branch_types:
                 branches.append(
                     BranchInfo(make_location(node, path), _extract_condition_text(node))
@@ -61,6 +63,22 @@ def body_info(
             if node.type == "call_expression" and (name := extract_call_name(node)):
                 calls.append((name, node))
     return branches, exceptions, calls
+
+
+def _execution_sites(
+    body: Node, types: frozenset[str], boundaries: frozenset[str]
+) -> Iterator[Node]:
+    """Include class evaluation sites while keeping method bodies with their owners."""
+    boundaries = boundaries - CLASSES
+    for node in owned_syntax(
+        body, types | {"method_definition"}, boundaries=boundaries, tokens=types
+    ):
+        if node.type == "method_definition":
+            name = node.child_by_field_name("name")
+            if name is not None and name.type == "computed_property_name":
+                yield from owned_syntax(name, types, boundaries=boundaries, tokens=types)
+        else:
+            yield node
 
 
 def discover_callables(
@@ -99,7 +117,7 @@ def discover_callables(
 
 
 def _bounded_discovery(root: Node, file_path: str, graph: CodeGraph) -> list[Node]:
-    containers = CALLABLES | CLASSES | {"internal_module"}
+    containers = CALLABLES | CLASSES | NAMESPACES
     nodes = []
     enclosing: list[int] = []
     skipped_until = -1
@@ -119,7 +137,7 @@ def _bounded_discovery(root: Node, file_path: str, graph: CodeGraph) -> list[Nod
 
 
 def _discover_container(node: Node, owner: str, graph: CodeGraph, *, file_path: str) -> str:
-    namespace = node.type == "internal_module"
+    namespace = node.type in NAMESPACES
     name_node = node.child_by_field_name("name")
     name = (
         node_text(name_node)
@@ -128,6 +146,8 @@ def _discover_container(node: Node, owner: str, graph: CodeGraph, *, file_path: 
     )
     separator = "." if ":" in owner else ":"
     node_id = owner + separator + name
+    if namespace and node_id in graph.nodes:
+        return node_id
     if node_id in graph.nodes:
         node_id += f"@{node.start_point.row + 1}_{node.start_point.column}"
     graph.nodes[node_id] = CodeUnit(
@@ -179,6 +199,7 @@ def declared_name(node: Node, override: str | None) -> str | None:
 
 
 def _guard_discovered_calls(graph: CodeGraph, calls: dict[SourceLocation, Node]) -> None:
+    prepare_call_bindings(graph)
     graph.edges[:] = [
         guard_call(edge, calls[edge.location], graph=graph)
         if edge.kind == EdgeKind.CALLS

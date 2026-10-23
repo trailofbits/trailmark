@@ -172,7 +172,7 @@ class HeaderSources:
         return self._directives[root.id]
 
 
-def function_prototype_name(declarator: Node) -> str | None:
+def function_prototype_name(declarator: Node, *, cpp_block: bool = False) -> str | None:
     """Distinguish a function prototype from a function-pointer variable."""
     current = declarator
     while current.type in {"pointer_declarator", "reference_declarator"}:
@@ -182,9 +182,29 @@ def function_prototype_name(declarator: Node) -> str | None:
         current = nested
     if current.type != "function_declarator":
         return None
+    if cpp_block and _cpp_object_initializer(current, declarator.parent):
+        return None
     name = current.child_by_field_name("declarator")
     return (
         name.text.decode() if name is not None and name.type == "identifier" and name.text else None
+    )
+
+
+def _cpp_object_initializer(function: Node, declaration: Node | None) -> bool:
+    if declaration is not None and any(
+        child.type == "storage_class_specifier" and child.text == b"extern"
+        for child in declaration.named_children
+    ):
+        return False
+    parameters = function.child_by_field_name("parameters")
+    if parameters is None:
+        return False
+    return any(
+        parameter.type == "parameter_declaration"
+        and parameter.child_by_field_name("declarator") is None
+        and (kind := parameter.child_by_field_name("type")) is not None
+        and kind.type != "primitive_type"
+        for parameter in parameters.named_children
     )
 
 

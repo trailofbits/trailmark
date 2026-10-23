@@ -288,10 +288,13 @@ Python follows runtime redefinition order: the last definition keeps its plain I
 unless a type owns that ID; earlier bodies use `@line_column` suffixes. Calls in the
 same scope use the latest preceding definition; nested deferred scopes use the final
 definition. A later class definition also wins over an earlier function of the
-same name; the class retains its base ID. A local function can rebind a parameter.
+same name; the class retains its base ID. A local function declared inside the
+calling function can rebind its parameter. A parameter still shadows a local
+function declared in an enclosing function, including in C#, Kotlin and Swift.
 Unresolved receiver targets retain the final names of all their enclosing owners.
 Only `@overload`, `@typing.overload` and `@typing_extensions.overload` stubs are
-skipped, including import aliases of `typing` and `typing_extensions`. Lambda
+skipped, including import aliases of `typing` and `typing_extensions` and
+`from typing import overload as ...` aliases. Lambda
 parameters, including defaults, shadow outer functions. Kotlin, Swift and Dart
 class members shadow module names throughout the class, including before their
 declaration, without leaking into outer functions. C and C++ names are visible after
@@ -302,7 +305,8 @@ C and C++ internal-linkage functions in headers (`.h`, `.hh`, `.hpp`, `.hxx`) us
 include closures to break same-name ties. A single candidate inside the closure,
 in either inclusion direction, wins over candidates outside it. An unambiguous
 out-of-closure fallback retains inferred confidence and carries
-`include_unverified=True`; it is disabled when the caller or its includes declare
+`include_unverified=True`, meaning the resolver could not verify the include path,
+not that the caller lacks an include. It is disabled when the caller or its includes declare
 a non-static prototype of that name. This also applies in polyglot C-family analysis. Statics
 in source files can link when the caller includes the definition or the defining
 file includes the caller, directly or transitively. Other source statics stay
@@ -313,7 +317,9 @@ Compiler `-I` directories are not searched. Results can therefore depend on the
 analysis root. Unique-name linking does not select a build configuration and can
 pick platform compatibility shims, such as a Windows shim called from POSIX code.
 Block-scope function prototypes refer to the external function rather than
-shadowing it; function-pointer variables still shadow same-name functions.
+shadowing it; function-pointer variables still shadow same-name functions. In C++
+block scope, identifier-only initializer arguments such as `Functor cb(cfg)` are
+treated as object bindings. A prototype requires `extern` or explicitly typed parameters.
 Java constructor binding also runs after the directory merge. JavaScript and
 TypeScript arrows inherit lexical `this`; regular function expressions do not.
 Abstract TypeScript classes own their methods. Anonymous classes have positioned
@@ -321,7 +327,13 @@ Abstract TypeScript classes own their methods. Anonymous classes have positioned
 `file:NS.Inner.method`. Local classes and class expressions do not inherit the
 enclosing function's `this`. Arrow-valued class fields retain method kind. Module
 `const`/`let` arrows and function expressions, including exports, are callable
-declarations; noncallable values remain blocked. Chained calls retain separate
+declarations; noncallable values remain blocked. Duplicate callable bodies retain
+their own binding identities. TypeScript signature-only parameters do not introduce
+runtime bindings. Local-class heritage, static blocks, computed keys and field
+initializers retain calls under the enclosing callable; method bodies keep their
+own owners. Repeated TypeScript namespace blocks share a container and resolve
+their functions across blocks, including class/function namespace merging and
+the legacy `module` spelling. Chained calls retain separate
 receiver and method edges at their complete source spans. Local literal `require`
 destructuring resolves named exports and aliases, including relative directory
 `index` modules; a matching source file takes precedence over a directory.
@@ -333,7 +345,7 @@ resolution is cached per declaration.
 Ruby parentheses and argument lists always denote method calls, even when a local
 variable shares the name. Receiverless variable reads use preceding bindings;
 plain attribute writers do not call the reader method; compound assignments retain
-the reader call. Ruby block parameters include splats, block arguments,
+the reader call. Ruby block parameters include splats, double splats, block arguments,
 destructuring, optional parameters and keyword parameters. Stabby lambda bodies retain their
 calls. Explicit `self` calls do not fall back to unrelated module functions. An
 ambiguous inherited method retains an uncertain `{owner}.{name}@ambiguous` target.

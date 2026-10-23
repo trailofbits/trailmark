@@ -36,7 +36,7 @@ def syntax_nodes(
     if session is not None and session.language is not None:
         query = _binding_query(session.language, types, tokens)
         nodes = QueryCursor(query).captures(root).get("binding", [])
-        nodes.sort(key=lambda n: (n.start_byte, -n.end_byte))
+        sort_syntax(nodes)
         return nodes
     nodes = []
     pending = [root]
@@ -46,6 +46,35 @@ def syntax_nodes(
             nodes.append(node)
         pending.extend(reversed(node.children))
     return nodes
+
+
+def _same_span_depth(node: Node) -> int:
+    """Order ancestors before descendants even when they occupy the same span."""
+    parent = node.parent
+    depth = 0
+    while parent is not None and (parent.start_byte, parent.end_byte) == (
+        node.start_byte,
+        node.end_byte,
+    ):
+        depth += 1
+        parent = parent.parent
+    return depth
+
+
+def sort_syntax(nodes: list[Node]) -> None:
+    """Sort captures without walking ancestry except for identical-span ties."""
+    if len(nodes) < 2:
+        return
+    nodes.sort(key=lambda node: (node.start_byte, -node.end_byte))
+    start = 0
+    while start < len(nodes):
+        end = start + 1
+        span = (nodes[start].start_byte, nodes[start].end_byte)
+        while end < len(nodes) and (nodes[end].start_byte, nodes[end].end_byte) == span:
+            end += 1
+        if end > start + 1:
+            nodes[start:end] = sorted(nodes[start:end], key=_same_span_depth)
+        start = end
 
 
 @dataclass
@@ -77,6 +106,7 @@ class ScopeIndex:
         self._class_scopes: set[int] = set()
         self._python = scopes == frozenset({"function_definition", "lambda"})
         self._c_declarations = "init_declarator" in dict(fields)
+        self._cpp_declarations = "field_declaration" in dict(fields)
         self._skip_c_globals = root.type == "translation_unit" and dict(fields) == {
             "init_declarator": "declarator",
             "declaration": "declarator",
@@ -97,7 +127,7 @@ class ScopeIndex:
             .captures(root)
             .get("binding", [])
         )
-        captures.sort(key=lambda n: (n.start_byte, -n.end_byte))
+        sort_syntax(captures)
         enclosing: list[Node] = []
         skipped_until = -1
         for node in captures:
@@ -190,7 +220,10 @@ class ScopeIndex:
             return
         if self._c_declarations and node.type in {"declaration", "field_declaration"}:
             for declarator in node.children_by_field_name("declarator"):
-                if function_prototype_name(declarator) is not None:
+                if (
+                    function_prototype_name(declarator, cpp_block=self._cpp_declarations)
+                    is not None
+                ):
                     continue
                 self._remember(
                     owner, pattern_names(declarator) | _leaf_name(declarator), declarator
@@ -400,6 +433,10 @@ def scope_index(
 
 
 def declaration_names(node: Node, field_name: str) -> set[str]:
+    if node.type == "formal_parameters" and (
+        node.parent is None or node.parent.child_by_field_name("body") is None
+    ):
+        return set()
     patterns = (
         node.named_children
         if node.type == "formal_parameters"
@@ -510,6 +547,7 @@ _PATTERN_CONTAINERS = frozenset(
 def _pattern_children(node: Node) -> list[Node]:
     if node.type in {
         "splat_parameter",
+        "hash_splat_parameter",
         "block_parameter",
         "optional_parameter",
         "keyword_parameter",
