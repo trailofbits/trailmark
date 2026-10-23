@@ -11,6 +11,7 @@ from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import BranchInfo, CodeUnit, NodeKind, SourceLocation, TypeRef
 from trailmark.parsers._binding_index import syntax_nodes
 from trailmark.parsers._bindings import guard_call
+from trailmark.parsers._callable_syntax import callable_parent
 from trailmark.parsers._common import (
     _collect_throw_type,
     _extract_condition_text,
@@ -46,14 +47,17 @@ def body_info(
     branch_types: frozenset[str],
     throw_types: frozenset[str],
     boundaries: frozenset[str],
+    parameters: Node | None = None,
 ) -> tuple[list[BranchInfo], list[TypeRef], list[tuple[str, Node]]]:
     """Collect ECMAScript body sites with the selected JS, TS, or TSX grammar."""
     branches: list[BranchInfo] = []
     exceptions: list[TypeRef] = []
     calls: list[tuple[str, Node]] = []
-    if body is not None:
+    for region in (parameters, body):
+        if region is None or region == parameters and not region.named_child_count:
+            continue
         types = branch_types | throw_types | {"call_expression"}
-        for node in _execution_sites(body, types, boundaries):
+        for node in _execution_sites(region, types, boundaries):
             if node.type in branch_types:
                 branches.append(
                     BranchInfo(make_location(node, path), _extract_condition_text(node))
@@ -224,9 +228,13 @@ def _discovered_name(node: Node) -> str:
 
 def _callable_name(node: Node) -> str:
     name = node.child_by_field_name("name")
-    if name is not None:
+    if name is not None and node.type not in {
+        "function_expression",
+        "function",
+        "generator_function",
+    }:
         return node_text(name)
-    parent = node.parent
+    parent = callable_parent(node)
     if parent is not None:
         field = {
             "variable_declarator": "name",
@@ -241,6 +249,8 @@ def _callable_name(node: Node) -> str:
                 return node_text(binding).removeprefix("module.exports.").removeprefix("exports.")
         if parent.type == "export_statement":
             return "default"
+    if name is not None:
+        return node_text(name)
     return f"$lambda@{node.start_point.row + 1}_{node.start_point.column}"
 
 
@@ -271,7 +281,7 @@ def class_member_callable(node: Node, class_owner: str | None) -> bool:
         return False
     if node.type == "method_definition":
         return True
-    parent = node.parent
+    parent = callable_parent(node)
     return (
         node.type == "arrow_function"
         and parent is not None

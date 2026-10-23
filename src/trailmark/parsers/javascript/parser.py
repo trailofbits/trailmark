@@ -49,7 +49,9 @@ _THROW_TYPES = frozenset({"throw_statement"})
 
 _FUNCTION_DECL_TYPES = frozenset({"function_declaration", "generator_function_declaration"})
 
-_FUNCTION_EXPR_TYPES = frozenset({"arrow_function", "function", "function_expression"})
+_FUNCTION_EXPR_TYPES = frozenset(
+    {"arrow_function", "function", "function_expression", "generator_function"}
+)
 _FUNCTION_SCOPE_TYPES = (
     _FUNCTION_DECL_TYPES
     | _FUNCTION_EXPR_TYPES
@@ -358,7 +360,7 @@ def _extract_method(
         func_name=method_name,
         kind=NodeKind.METHOD,
     )
-    graph.nodes[method_id] = unit
+    method_id = add_callable(graph, unit)
     add_contains_edge(graph, class_id, method_id)
 
     _add_call_edges(
@@ -432,6 +434,7 @@ def _function_unit(
         branch_types=_BRANCH_NODE_TYPES,
         throw_types=_THROW_TYPES,
         boundaries=_FUNCTION_SCOPE_TYPES,
+        parameters=node.child_by_field_name("parameters"),
     )
 
     complexity = compute_complexity(branches)

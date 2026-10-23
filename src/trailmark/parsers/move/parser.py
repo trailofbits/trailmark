@@ -92,7 +92,7 @@ def _module(node: Node, module: str, path: str, graph: CodeGraph) -> None:
     )
     add_contains_edge(graph, module, owner)
     imports: dict[str, str] = {}
-    modules: dict[str, str] = {}
+    modules: dict[str, str] = {"Self": logical}
     for item in body.named_children:
         if item.type == "use_declaration":
             _imports(item, imports, modules, owner, graph)

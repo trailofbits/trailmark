@@ -137,7 +137,7 @@ matching.
 
 Call edge attributes can preserve binding provenance. `import_binding` marks a
 JavaScript/TypeScript literal `require` named-export binding and prevents unrelated
-free-function fallback. `indirect_call` records pointer or field-call syntax; it
+free-function fallback. `indirect_call` records pointer, field-call or returned-call syntax; it
 remains present if callback-table inference later gives the edge an inferred target.
 The confidence describes target resolution, while this attribute describes syntax.
 `include_unverified=True` marks a C/C++ header-static link for which the resolver
@@ -145,6 +145,9 @@ could not verify an include path in either direction. It does not establish that
 the caller lacks an include: compiler search paths and translation-unit context
 may supply one. Consumers can distinguish these fallback links from verified
 include-supported links without changing the edge's confidence.
+`external_prototype` records a C/C++ prototype visible at a call site and prevents
+unverified header-static fallback. Python and JS/TS returned-call expressions use
+distinct `$returned@line_column_endbyte` proxies with uncertain confidence.
 
 ## Node IDs
 
@@ -167,6 +170,8 @@ IDs have the form `module:function`, `module:Class`, or `module:Class.method`.
   declarations and bodies. Colliding callable IDs gain an `@line_column` suffix,
   for example `token:Token.f@12_4`. When a type and a callable share an ID, the
   type keeps the base ID.
+  Nested declarations inherit their owner's final positioned ID. JavaScript and
+  TypeScript getter/setter bodies also retain distinct positioned callable IDs.
 - **Rust local items** keep their enclosing function in the ID, and repeated
   local names gain a byte-offset suffix. See [Rust](languages.md#rust-and-verus).
 - **Declared package IDs** (for example, Protobuf packages) are not renamed.
@@ -222,6 +227,8 @@ After each file is parsed, Trailmark links the graph by name:
 - Directory parsing resolves bare cross-file calls to a unique free-function
   candidate, with `inferred` confidence. Ambiguous cross-file calls stay
   unresolved. A free-function match never binds to an unrelated class method.
+- Python directory candidates use the final module binding, including classes
+  that replace functions; earlier redefinitions are retained for body analysis.
 - Unqualified Solidity and C++ calls prefer a method in the caller's own
   container.
 - Solidity calls can bind to a unique internally callable method through

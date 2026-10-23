@@ -30,6 +30,7 @@ from trailmark.models.nodes import (
 from trailmark.parsers._binding import resolve_inherited_method_calls
 from trailmark.parsers._binding_index import initialize_bindings, record_unit
 from trailmark.parsers._c_headers import HeaderSources
+from trailmark.parsers._callable_syntax import unwrap_callable
 from trailmark.parsers._php_linking import link_php_functions
 
 if TYPE_CHECKING:
@@ -335,6 +336,9 @@ _CALL_NAME_TYPES = frozenset(
 def extract_call_name(node: Node) -> str:
     """Extract the function/method name from a call node."""
     func = node.child_by_field_name("function")
+    func = unwrap_callable(func) if func is not None else None
+    if func is not None and func.type in {"call", "call_expression"}:
+        return f"$returned@{node.start_point.row + 1}_{node.start_point.column}_{node.end_byte}"
     if func is None:
         # Fallback for grammars that don't label the callable (e.g. Swift):
         # the callable is conventionally the first named child.
@@ -634,6 +638,8 @@ def link_cross_file_calls(
 
 def _free_functions(graph: CodeGraph, eligible_ids: set[str] | None) -> dict[str, list[str]]:
     owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    if graph.language == "python":
+        return _python_runtime_functions(graph, owners, eligible_ids)
     names: dict[str, list[str]] = {}
     for node_id, unit in graph.nodes.items():
         owner = graph.nodes.get(owners.get(node_id, ""))
@@ -643,6 +649,34 @@ def _free_functions(graph: CodeGraph, eligible_ids: set[str] | None) -> dict[str
             and (owner is None or owner.kind not in {NodeKind.FUNCTION, NodeKind.METHOD})
         ):
             names.setdefault(unit.name, []).append(node_id)
+    return names
+
+
+def _python_runtime_functions(
+    graph: CodeGraph, owners: dict[str, str], eligible_ids: set[str] | None
+) -> dict[str, list[str]]:
+    """Cross-file calls observe the final module binding, including classes."""
+    final: dict[tuple[str, str], CodeUnit] = {}
+    for unit in graph.nodes.values():
+        owner = owners.get(unit.id, "")
+        container = graph.nodes.get(owner)
+        if (
+            unit.kind not in {NodeKind.FUNCTION, NodeKind.CLASS}
+            or (eligible_ids is not None and unit.id not in eligible_ids)
+            or (container is not None and container.kind != NodeKind.MODULE)
+        ):
+            continue
+        key = (owner or unit.id.split(":", 1)[0], unit.name)
+        previous = final.get(key)
+        position = (unit.location.start_line, unit.location.start_col or 0)
+        if previous is None or position > (
+            previous.location.start_line,
+            previous.location.start_col or 0,
+        ):
+            final[key] = unit
+    names: dict[str, list[str]] = {}
+    for unit in final.values():
+        names.setdefault(unit.name, []).append(unit.id)
     return names
 
 
@@ -759,6 +793,8 @@ def _cross_file_candidates(
             if targets.parents[candidate] == targets.parents.get(edge.source_id)
             and targets.attributes[candidate].get("go_package") == source["go_package"]
         ]
+    if dict(edge.attributes).get("external_prototype"):
+        candidates = [c for c in candidates if not targets.unverified(edge.source_id, c)]
     return targets.prefer_included(edge.source_id, edge.target_id.rsplit(":", 1)[-1], candidates)
 
 

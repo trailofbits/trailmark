@@ -708,3 +708,30 @@ def test_header_link_provenance_contract() -> None:
 )
 def test_round5_binding_contracts(marker: str) -> None:
     assert marker in _flat("docs/parser-coverage.md")
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [
+        "final module binding",
+        "inside a conditional branch",
+        "external block-scope prototype",
+        "Generator expressions",
+        "default parameter expressions",
+        "Getter and setter bodies",
+        "Descendants of C# overloads",
+        "indexed once per body",
+        "`$returned@line_column_endbyte`",
+        "numbered block/lambda parameters",
+        "Move `Self::name()`",
+    ],
+)
+def test_release_followup_coverage_contracts(marker: str) -> None:
+    assert marker in _flat("docs/parser-coverage.md")
+
+
+def test_release_followup_graph_contracts() -> None:
+    text = _flat("docs/graph-model.md")
+    assert "`external_prototype`" in text
+    assert "`$returned@line_column_endbyte`" in text
+    assert "Nested declarations inherit their owner's final positioned ID" in text

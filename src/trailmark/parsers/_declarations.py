@@ -49,6 +49,7 @@ def callable_scope(graph: CodeGraph) -> Generator[None]:
         ):
             return
         _repair_body_edges(declarations)
+        _repair_descendant_ids(declarations)
         owners = {
             edge.target_id: edge.source_id for edge in graph.edges if edge.kind == EdgeKind.CONTAINS
         }
@@ -81,6 +82,52 @@ def _repair_body_edges(declarations: _Declarations) -> None:
 def prepare_call_bindings(graph: CodeGraph) -> None:
     """Repair moved body identities before looking up callers for lexical binding."""
     _repair_body_edges(_current_declarations(graph))
+
+
+def _repair_descendant_ids(declarations: _Declarations) -> None:
+    """Propagate a moved overload's identity through its containment subtree."""
+    graph = declarations.graph
+    children: dict[str, list[str]] = {}
+    contained = set()
+    for edge in graph.edges:
+        if edge.kind == EdgeKind.CONTAINS:
+            children.setdefault(edge.source_id, []).append(edge.target_id)
+            contained.add(edge.target_id)
+    pending = [key for key in graph.nodes if key not in contained]
+    renamed: dict[str, str] = {}
+    while pending:
+        owner = pending.pop()
+        for child in children.get(owner, []):
+            base = declarations.bases.get(owner, owner)
+            prefix = owner if child.startswith(owner + ".") else base
+            if child.startswith(prefix + "."):
+                renamed[child] = renamed.get(owner, owner) + child[len(prefix) :]
+            pending.append(child)
+    changed = {old: new for old, new in renamed.items() if old != new}
+    if changed:
+        _rename_descendants(declarations, changed)
+
+
+def _rename_descendants(declarations: _Declarations, changed: dict[str, str]) -> None:
+    graph = declarations.graph
+    maximum = max(name.count(".") for name in changed)
+
+    def target(name: str) -> str:
+        return _runtime_target(name, changed, maximum=maximum)
+
+    graph.nodes = {
+        target(key): replace(unit, id=target(key)) if target(key) != key else unit
+        for key, unit in graph.nodes.items()
+    }
+    graph.edges[:] = [
+        _runtime_edge(edge, target(edge.source_id), target(edge.target_id)) for edge in graph.edges
+    ]
+    declarations.ids = {
+        target(base): [target(key) for key in ids] for base, ids in declarations.ids.items()
+    }
+    declarations.bases = {target(key): target(base) for key, base in declarations.bases.items()}
+    for unit in graph.nodes.values():
+        record_unit(unit)
 
 
 def _callable_base(

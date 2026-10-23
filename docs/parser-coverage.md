@@ -301,6 +301,14 @@ declaration, without leaking into outer functions. C and C++ names are visible a
 their declarator, including inside
 an initializer; Rust, Go and Kotlin bindings become visible after the initializer.
 
+Python directory linking selects the final module binding, including a class that
+replaces a function. Historical bodies remain available under their positioned IDs.
+A definition inside a conditional branch does not establish a definite binding
+after that branch; these calls remain uncertain with `binding_blocked` metadata.
+Calls inside the defining branch and after unconditional definitions retain normal
+binding confidence. This is conservative syntax analysis rather than a control-flow
+proof, including when both branches define different bodies.
+
 C and C++ internal-linkage functions in headers (`.h`, `.hh`, `.hpp`, `.hxx`) use
 include closures to break same-name ties. A single candidate inside the closure,
 in either inclusion direction, wins over candidates outside it. An unambiguous
@@ -320,6 +328,10 @@ Block-scope function prototypes refer to the external function rather than
 shadowing it; function-pointer variables still shadow same-name functions. In C++
 block scope, identifier-only initializer arguments such as `Functor cb(cfg)` are
 treated as object bindings. A prototype requires `extern` or explicitly typed parameters.
+An external block-scope prototype also disables unverified header-static fallback
+in its own lexical scope, without affecting another function. Such calls carry
+`external_prototype` metadata; verified include-supported targets remain eligible.
+Invalid block-scope `static` prototypes remain blocked.
 Java constructor binding also runs after the directory merge. JavaScript and
 TypeScript arrows inherit lexical `this`; regular function expressions do not.
 Abstract TypeScript classes own their methods. Anonymous classes have positioned
@@ -342,6 +354,21 @@ require remains an uncertain proxy;
 external `node:` module IDs normalize the namespace separator to a dot. Import
 resolution is cached per declaration.
 
+Generator expressions and callable initializers wrapped in parentheses, `as`,
+`satisfies`, type assertions or non-null assertions retain their variable binding.
+Calls in JS/TS default parameter expressions belong to the callable, including
+destructured defaults; nested callbacks retain their own body owners. Getter and
+setter bodies keep distinct positioned IDs and each call is extracted once.
+Descendants of C# overloads inherit their owner's final positioned ID at every
+nesting level. TypeScript receiver assignments are indexed once per body during a
+file parse; source order, block visibility and conditional invalidation still apply.
+
+Python and JS/TS calls through another call's result, such as `f()()`, retain one
+edge to `f` and a separate uncertain indirect edge for the returned callable.
+The indirect proxy uses `$returned@line_column_endbyte` and `indirect_call=True`;
+its full source span distinguishes it from the producer call. No return-value
+type or callback dataflow is inferred.
+
 Ruby parentheses and argument lists always denote method calls, even when a local
 variable shares the name. Receiverless variable reads use preceding bindings;
 plain attribute writers do not call the reader method; compound assignments retain
@@ -357,5 +384,8 @@ totals. Address-group imports such as `use 0x1::{math, vector}` register each mo
 alias. Alias-expanded and fully qualified calls both remain uncertain when the
 target module is absent; parsing the target allows normal local or cross-file
 binding confidence. Import edges name modules rather than grouped source text or `use fun` aliases.
+Ruby numbered block/lambda parameters `_1` through `_9` are value reads; explicit
+call syntax such as `_1()` remains a method call. Move `Self::name()` resolves
+within the current module; a missing member stays uncertain.
 Haskell operator proxies consistently use `$operator.<name>`, including composition
 and application, without marking ordinary operators as blocked lexical values.

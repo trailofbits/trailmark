@@ -33,6 +33,7 @@ from trailmark.parsers._ecmascript import (
     declared_name,
     discover_callables,
 )
+from trailmark.parsers._receiver_index import concrete_receiver, receiver_scope
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -51,7 +52,9 @@ _THROW_TYPES = frozenset({"throw_statement"})
 
 _FUNCTION_DECL_TYPES = frozenset({"function_declaration", "generator_function_declaration"})
 
-_FUNCTION_EXPR_TYPES = frozenset({"arrow_function", "function", "function_expression"})
+_FUNCTION_EXPR_TYPES = frozenset(
+    {"arrow_function", "function", "function_expression", "generator_function"}
+)
 _FUNCTION_SCOPE_TYPES = (
     _FUNCTION_DECL_TYPES
     | _FUNCTION_EXPR_TYPES
@@ -81,7 +84,7 @@ class TypeScriptParser:
         initialize_bindings(tree.root_node, language=parser.language)
         graph = CodeGraph(language="typescript", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        with callable_scope(graph):
+        with callable_scope(graph), receiver_scope():
             _visit_module(tree.root_node, file_path, module_id, graph)
         return graph
 
@@ -569,7 +572,7 @@ def _extract_method(
         func_name=method_name,
         kind=NodeKind.METHOD,
     )
-    graph.nodes[method_id] = unit
+    method_id = add_callable(graph, unit)
     add_contains_edge(graph, class_id, method_id)
 
     _add_call_edges(
@@ -644,6 +647,7 @@ def _function_unit(
         branch_types=_BRANCH_NODE_TYPES,
         throw_types=_THROW_TYPES,
         boundaries=_FUNCTION_SCOPE_TYPES,
+        parameters=node.child_by_field_name("parameters"),
     )
 
     complexity = compute_complexity(branches)
@@ -864,101 +868,10 @@ def _resolve_concrete_receiver(call_name: str, call_node: Node, module_id: str) 
     receiver, method = call_name.split(".", 1)
     if receiver == "this":
         return None
-    scope = _nearest_function_scope(call_node)
-    if scope is None:
-        return None
-    concrete_class = _latest_receiver_assignment(scope, call_node, receiver)
+    concrete_class = concrete_receiver(call_node, receiver)
     if concrete_class is None:
         return None
     return f"{module_id}:{concrete_class}.{method}"
-
-
-def _nearest_function_scope(node: Node) -> Node | None:
-    current = node.parent
-    while current is not None and current.type not in _FUNCTION_SCOPE_TYPES:
-        current = current.parent
-    return current
-
-
-def _latest_receiver_assignment(scope: Node, call_node: Node, receiver: str) -> str | None:
-    latest: str | None = None
-    ancestors: set[Node] = set()
-    current = call_node.parent
-    while current is not None:
-        ancestors.add(current)
-        current = current.parent
-    for node in _walk_nodes(scope):
-        if node.start_byte >= call_node.start_byte:
-            continue
-        if _nearest_function_scope(node) != scope:
-            continue
-        field = {"variable_declarator": "name", "assignment_expression": "left"}.get(node.type)
-        assigned = node.child_by_field_name(field) if field is not None else None
-        if assigned is None or node_text(assigned) != receiver:
-            continue
-        parent = node.parent
-        conditional = False
-        visible = True
-        while parent is not None and parent != scope:
-            if (
-                node.type == "variable_declarator"
-                and parent.type == "statement_block"
-                and parent not in ancestors
-            ):
-                visible = False
-                break
-            if (
-                parent.type
-                in {
-                    "if_statement",
-                    "switch_case",
-                    "for_statement",
-                    "while_statement",
-                    "ternary_expression",
-                    "catch_clause",
-                }
-                and parent not in ancestors
-            ):
-                conditional = True
-            parent = parent.parent
-        if visible:
-            latest = None if conditional else _receiver_assignment_class(node, receiver)
-    return latest
-
-
-def _receiver_assignment_class(node: Node, receiver: str) -> str | None:
-    if node.type == "variable_declarator":
-        assigned = node.child_by_field_name("name")
-        value = node.child_by_field_name("value")
-    elif node.type == "assignment_expression":
-        assigned = node.child_by_field_name("left")
-        value = node.child_by_field_name("right")
-    else:
-        return None
-    if assigned is None or value is None:
-        return None
-    if assigned.type != "identifier" or node_text(assigned) != receiver:
-        return None
-    return _new_expression_class(value)
-
-
-def _new_expression_class(node: Node) -> str | None:
-    if node.type != "new_expression":
-        return None
-    for child in node.named_children:
-        if child.type == "identifier":
-            return node_text(child)
-    return None
-
-
-def _walk_nodes(root: Node) -> list[Node]:
-    result: list[Node] = []
-    stack = list(reversed(root.named_children))
-    while stack:
-        node = stack.pop()
-        result.append(node)
-        stack.extend(reversed(node.named_children))
-    return result
 
 
 def _call_confidence(call_name: str) -> EdgeConfidence:

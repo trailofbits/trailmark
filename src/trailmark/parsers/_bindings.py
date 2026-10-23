@@ -19,6 +19,8 @@ from trailmark.parsers._binding_index import (
     pattern_names,
     scope_index,
 )
+from trailmark.parsers._c_headers import function_prototype_name
+from trailmark.parsers._callable_syntax import unwrap_callable
 from trailmark.parsers._common import module_id_from_path
 
 _SCOPES = frozenset(
@@ -105,12 +107,25 @@ _DECLARATIONS: dict[str, tuple[tuple[str, str], ...]] = {
 
 def guard_call(edge: CodeEdge, occurrence: Node, *, graph: CodeGraph) -> CodeEdge:
     """Keep lexical values from binding to unrelated named declarations."""
+    function = occurrence.child_by_field_name("function")
+    function = unwrap_callable(function) if function is not None else None
+    if function is not None and function.type in {"call", "call_expression"}:
+        return replace(
+            edge,
+            confidence=EdgeConfidence.UNCERTAIN,
+            attributes=(*edge.attributes, ("indirect_call", True)),
+        )
     policy = _DECLARATIONS.get(graph.language)
     if policy is None or (graph.language, occurrence.type) == ("objc", "message_expression"):
         return edge
     name = _bare_name(edge, occurrence)
     if name is None:
         return edge
+    return _guard_named_call(edge, occurrence, graph, name)
+
+
+def _guard_named_call(edge: CodeEdge, occurrence: Node, graph: CodeGraph, name: str) -> CodeEdge:
+    policy = _DECLARATIONS[graph.language]
     scopes = _SCOPE_POLICIES.get(graph.language, _SCOPES)
     index = scope_index(occurrence, scopes, policy)
     if index.callback_parameter(occurrence, name):
@@ -122,9 +137,33 @@ def guard_call(edge: CodeEdge, occurrence: Node, *, graph: CodeGraph) -> CodeEdg
     declaration = index.declaration(
         occurrence, name, graph.language not in {"python", "javascript", "typescript"}
     )
+    if graph.language == "python" and _conditional_declaration(declaration, occurrence):
+        return _blocked(edge, name)
     if graph.language == "python" and declaration is None and index.local_binding(occurrence, name):
         return _blocked(edge, name)
     return _bound_call(edge, declaration, name, source, graph)
+
+
+def _conditional_declaration(declaration: Node | None, occurrence: Node) -> bool:
+    """A definition in another control-flow branch is not a definite binding."""
+    if declaration is None:
+        return False
+    child = declaration
+    parent = child.parent
+    while parent is not None and parent.type not in {"function_definition", "module"}:
+        if parent.type in {
+            "if_statement",
+            "elif_clause",
+            "else_clause",
+            "for_statement",
+            "while_statement",
+            "try_statement",
+            "except_clause",
+            "case_clause",
+        } and not (child.start_byte <= occurrence.start_byte < child.end_byte):
+            return True
+        child, parent = parent, parent.parent
+    return False
 
 
 def _bound_call(
@@ -135,6 +174,9 @@ def _bound_call(
     graph: CodeGraph,
 ) -> CodeEdge:
     local = _local_callable(graph, declaration, name, source)
+    prototype = _prototype_edge(edge, declaration, graph.language, name)
+    if prototype is not None:
+        return prototype
     parameter = call_parameter(source, name)
     if parameter and not _declared_inside(local, source):
         return _blocked(edge, name)
@@ -146,6 +188,27 @@ def _bound_call(
             confidence=EdgeConfidence.INFERRED,
             attributes=(*edge.attributes, ("import_binding", True)),
         )
+    return _declared_edge(edge, declaration, local, name)
+
+
+def _prototype_edge(
+    edge: CodeEdge, declaration: Node | None, language: str, name: str
+) -> CodeEdge | None:
+    if language not in {"c", "cpp"} or declaration is None:
+        return None
+    if not function_prototype_name(declaration, cpp_block=language == "cpp"):
+        return None
+    parent = declaration.parent
+    if parent is not None and any(
+        c.type == "storage_class_specifier" and c.text == b"static" for c in parent.named_children
+    ):
+        return _blocked(edge, name)
+    return replace(edge, attributes=(*edge.attributes, ("external_prototype", True)))
+
+
+def _declared_edge(
+    edge: CodeEdge, declaration: Node | None, local: CodeUnit | None, name: str
+) -> CodeEdge:
     if declaration is None:
         return edge
     if local is not None:
@@ -264,10 +327,12 @@ def _local_callable(
 ) -> CodeUnit | None:
     if declaration is not None and declaration.type == "variable_declarator":
         value = declaration.child_by_field_name("value")
+        value = unwrap_callable(value) if value is not None else None
         if value is not None and value.type in {
             "arrow_function",
             "function_expression",
             "function",
+            "generator_function",
         }:
             declaration = value
     if (
@@ -282,6 +347,7 @@ def _local_callable(
             "arrow_function",
             "function_expression",
             "function",
+            "generator_function",
             "class_definition",
         }
     ):

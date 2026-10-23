@@ -220,10 +220,9 @@ class ScopeIndex:
             return
         if self._c_declarations and node.type in {"declaration", "field_declaration"}:
             for declarator in node.children_by_field_name("declarator"):
-                if (
-                    function_prototype_name(declarator, cpp_block=self._cpp_declarations)
-                    is not None
-                ):
+                prototype = function_prototype_name(declarator, cpp_block=self._cpp_declarations)
+                if prototype is not None:
+                    self._remember(owner, {prototype}, declarator)
                     continue
                 self._remember(
                     owner, pattern_names(declarator) | _leaf_name(declarator), declarator

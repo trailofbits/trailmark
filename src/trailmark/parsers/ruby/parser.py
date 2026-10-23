@@ -675,6 +675,8 @@ def _ruby_vcall(node: Node, parameters: set[str]) -> bool:
     parent = node.parent
     if parent is None:
         return False
+    if _numbered_parameter(node):
+        return False
     if parent.type in {
         "call",
         "assignment",
@@ -696,6 +698,20 @@ def _ruby_vcall(node: Node, parameters: set[str]) -> bool:
     ):
         return False
     return not _ruby_bound_before(node, node_text(node), parameters)
+
+
+def _numbered_parameter(node: Node) -> bool:
+    """Bare numbered arguments are implicit values inside blocks and lambdas."""
+    if node.text not in {b"_1", b"_2", b"_3", b"_4", b"_5", b"_6", b"_7", b"_8", b"_9"}:
+        return False
+    parent = node.parent
+    while parent is not None:
+        if parent.type in {"block", "do_block", "lambda"}:
+            return True
+        if parent.type in {"method", "singleton_method", "class", "module"}:
+            return False
+        parent = parent.parent
+    return False
 
 
 def _class_traits(node: Node, body: Node) -> tuple[bool, bool]:

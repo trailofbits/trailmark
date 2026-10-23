@@ -2,6 +2,14 @@
 
 ## 0.7.0 (unreleased)
 
+- Resolve final Python module bindings across files and keep conditional
+  redefinitions uncertain. Preserve JS/TS generators, wrapped callable bindings,
+  default-parameter calls and separate getter/setter bodies. Keep overload
+  descendants under their final owners and returned-call sites indirect.
+- Suppress unverified C header-static fallback at external block prototypes,
+  recognize Ruby numbered block parameters and Move `Self::` calls, and index
+  TypeScript receiver assignments once per body.
+
 - Keep the final Python redefinition's plain ID, skip overload stubs, and preserve
   earlier bodies with position suffixes. Correct same-line nested bindings, Ruby
   explicit calls/lambdas, class-member shadowing, and JS/TS arrow `this` ownership.
