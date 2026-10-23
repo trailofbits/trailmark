@@ -118,12 +118,7 @@ class DeclarationMacros:
             self._collect(self._root, self._path, 0, 0)
             self._loaded = True
         entry = self._macros.get(wrapper)
-        if (
-            entry is not None
-            and entry[0] is not None
-            and entry[0].parameters is not None
-            and entry[1] <= node.start_byte
-        ):
+        if entry is not None and entry[1] <= node.start_byte:
             return wrapper, alias
         alias_entry = self._macros.get(alias)
         if alias in {
@@ -145,7 +140,7 @@ class DeclarationMacros:
             and alias not in self._function_macros
         ):
             return None
-        if unambiguous or entry is not None and entry[1] <= node.start_byte:
+        if unambiguous:
             return wrapper, alias
         return None
 

@@ -176,6 +176,8 @@ Unavailable macro definitions cannot establish compiled names. Repeated unknown
 declarations retain separate source-position IDs and body ownership.
 Ordinary C functions with `void`, primitive types, or object-like parameter-list
 macros keep their function names, including with unknown leading specifiers.
+Known declaration wrappers take precedence over type-like arguments such as `void`;
+aliases still expand, while ambiguous wrapper definitions remain symbolic.
 Unambiguous parameter-list macros expand into parameters; conditional definitions
 leave parameters unresolved without changing the function's identity.
 

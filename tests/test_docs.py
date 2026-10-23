@@ -747,6 +747,7 @@ def test_release_followup_graph_contracts() -> None:
         ("docs/skills-compatibility.md", "binding's ID"),
         ("docs/skills-compatibility.md", "separate `$namespace`"),
         ("docs/parser-coverage.md", "object-like parameter-list"),
+        ("docs/parser-coverage.md", "Known declaration wrappers take precedence"),
         ("docs/parser-coverage.md", "Definitions in a `try` body"),
         ("docs/parser-coverage.md", "Captured Python, Kotlin, Swift and C# parameters"),
         ("docs/parser-coverage.md", "Parameter decorators follow method decorators"),
