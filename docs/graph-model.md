@@ -108,7 +108,7 @@ pairs, such as Solidity visibility or the raw text of an unresolved call.
 | `inherits` | Subtype &rarr; base type |
 | `implements` | Type &rarr; interface or trait it implements |
 | `contains` | Owner &rarr; member (module &rarr; function, class &rarr; method, contract &rarr; state variable) |
-| `imports` | Module &rarr; imported module. Only the Func, Move, Proto, Rego, Sway, Tact, and Thrift parsers emit these; other parsers record imported names in the graph's `dependencies` list instead. |
+| `imports` | Module &rarr; imported module, when the frontend emits [import edges](#import-edges) |
 | `type_uses` | Function &rarr; type declaration named in its parameters, return type, exceptions, or generic bounds |
 | `corresponds_to` | Source node &rarr; matching binary function, or SQL routine/view &rarr; object it depends on |
 | `resolves_to` | Reserved; no built-in pass emits it, but `.trailmark/links.toml` may declare it |
@@ -116,6 +116,17 @@ pairs, such as Solidity visibility or the raw text of an unresolved call.
 
 Reachability queries (`ancestors_of`, `reachable_from`, path queries) follow
 only `calls` edges unless a method takes an `edge_kinds` argument.
+
+### Import edges
+
+These frontends emit `imports` edges: Aiken (`aiken`), Bash (`bash`), Func (`func`),
+Julia (`julia`), Lua (`lua`), Move (`move`), Perl (`perl`), PowerShell (`powershell`),
+Protocol Buffers (`proto`), R (`r`), Rego (`rego`), Sway (`sway`), Tact (`tact`),
+Thrift (`thrift`), VB.NET (`vb`), and Zig (`zig`).
+
+Other frontends may record imported names only in the graph's `dependencies`
+list. Module-dependency diagrams render `imports` edges; they do not infer edges
+from that list.
 
 ## Edge confidence
 

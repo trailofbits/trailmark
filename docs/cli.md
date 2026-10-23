@@ -122,7 +122,7 @@ Prints a [Mermaid](https://mermaid.js.org/) diagram. `--target` (`-t`) and
 | --- | --- |
 | `call-graph` | Call edges. With `--focus`, only callers and callees within `--depth` calls of the focus node, in either direction (default depth 2). |
 | `class-hierarchy` | Inheritance and implementation relationships |
-| `module-deps` | `imports` edges. Only the Func, Move, Proto, Rego, Sway, Tact, and Thrift parsers emit them; other languages produce an empty diagram. |
+| `module-deps` | Import relationships recorded as `imports` edges. See [import edges](graph-model.md#import-edges) for the frontends that emit them; dependency names alone do not create diagram edges. |
 | `containment` | Classes and their members |
 | `complexity` | Functions with cyclomatic complexity &ge; `--threshold` (default 10) and the calls between them, colored low (under 5), medium (5&ndash;10), or high (over 10) |
 | `data-flow` | Call paths of at most `--depth` edges (default 20) from detected entrypoints to `--focus`. Without `--focus`, the targets are up to ten non-entrypoint functions with complexity &ge; 10, and the diagram is empty if there are none. |

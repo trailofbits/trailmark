@@ -34,7 +34,8 @@ that are reachable from user input.
 - **Reachability.** Direct callers and callees, transitive slices, and bounded
   call paths from entrypoints to a target.
 - **Structural diffs.** Compare two directories or git refs and report added or
-  removed functions, call edges, and entrypoints.
+  removed declarations, signature and type changes, call-edge confidence changes,
+  and entrypoints.
 - **Diagrams.** Mermaid call graphs, class hierarchies, module dependencies,
   containment views, complexity maps, and entrypoint-to-target flows.
 - **Findings on the graph.** Import SARIF and weAudit results, attach your own
@@ -285,8 +286,9 @@ Trailmark builds its graph from syntax and naming. It does not compile code, so:
   Preanalysis taint is a coarse, separate signal.
 - Dynamic dispatch, overloads that need argument types, and calls through
   receivers whose type would have to be inferred stay unresolved.
-- Macros are not expanded, and implicit calls such as destructors produce no
-  edges.
+- Macro handling is partial: bounded C declaration wrappers can be expanded,
+  while arbitrary preprocessing and implicit calls such as destructors are not
+  modeled.
 - A missing edge is not proof that a call or storage access cannot happen.
 
 Each guide lists the limits specific to its feature.

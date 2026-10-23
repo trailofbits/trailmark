@@ -27,6 +27,20 @@ description = "Parse source code into a queryable graph of functions, classes, c
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+keywords = ["static-analysis", "code-graph", "security", "tree-sitter"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
 authors = [
     { name = "Trail of Bits, Inc.", email = "opensource@trailofbits.com" },
 ]
@@ -41,6 +55,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/trailofbits/trailmark"
 Repository = "https://github.com/trailofbits/trailmark"
+Documentation = "https://github.com/trailofbits/trailmark/blob/main/README.md#documentation"
 Issues = "https://github.com/trailofbits/trailmark/issues"
 Changelog = "https://github.com/trailofbits/trailmark/blob/main/CHANGELOG.md"
 

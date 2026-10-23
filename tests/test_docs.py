@@ -117,6 +117,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/installation.md", "Move, and Verus ship as C sources"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
+    ("README.md", "bounded C declaration wrappers can be expanded"),
+    ("CONTRIBUTING.md", "tests/release_preflight.py --tag vX.Y.Z --dist dist/release"),
     ("CONTRIBUTING.md", "CI tests Python 3.12 through 3.15."),
     ("docs/installation.md", "CI tests Python 3.12 through 3.15."),
     ("docs/installation.md", "`tree-sitter-language-pack` 1.22.1 or newer"),
@@ -270,6 +272,22 @@ def test_language_pack_floor_matches_pyproject(pyproject_data: dict[str, object]
     project = cast("dict[str, object]", pyproject_data["project"])
     dependencies = cast("list[str]", project["dependencies"])
     assert "tree-sitter-language-pack>=1.22.1,<2.0" in dependencies
+
+
+def test_import_edge_frontends_match_documentation() -> None:
+    section = re.search(
+        r"^### Import edges\n(.*?)(?=^##)", _raw("docs/graph-model.md"), re.S | re.M
+    )
+    assert section is not None
+    documented = set(re.findall(r"\(`(\w+)`\)", section.group(1)))
+    parsers = REPO_ROOT / "src/trailmark/parsers"
+    emitting = {
+        path.parent.name
+        for path in parsers.glob("*/parser.py")
+        if "EdgeKind.IMPORTS" in path.read_text()
+    }
+    assert documented == emitting
+    assert "graph-model.md#import-edges" in _raw("docs/cli.md")
 
 
 @pytest.mark.parametrize("relative", ["README.md", "docs/installation.md", "CONTRIBUTING.md"])

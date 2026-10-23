@@ -152,3 +152,42 @@ behavior changes, update the guide and the matching test in the same change.
 
 Links in `README.md` use absolute `https://github.com/trailofbits/trailmark/blob/main/...`
 URLs so they work on PyPI; links between files in `docs/` are relative.
+
+## Preparing a release
+
+Prepare changes on a `release/vX.Y.Z` branch. Keep the version in
+`pyproject.toml` and `src/trailmark/__init__.py` consistent, and consolidate the
+changelog into user-facing additions, behavior changes, fixes, and upgrade notes.
+Date the release heading as `## X.Y.Z (YYYY-MM-DD)` before publishing.
+
+Run the checks above, then build into a fresh directory and validate the artifacts
+(replace `vX.Y.Z` with the intended tag):
+
+```bash
+uv build --out-dir dist/release
+uv run python tests/release_preflight.py --tag vX.Y.Z --dist dist/release
+```
+
+The directory must contain exactly one wheel and one sdist. Preflight compares
+the intended tag, package and runtime versions, dated changelog heading, wheel
+metadata, and root sdist `PKG-INFO`. It does not create a tag or publish a release.
+
+Install each artifact in its own environment and run the frontend smoke checks:
+
+```bash
+uv venv --python 3.15 /tmp/trailmark-release-wheel
+uv pip install --python /tmp/trailmark-release-wheel dist/release/*.whl
+/tmp/trailmark-release-wheel/bin/python tests/package_smoke.py tests/fixtures/kat
+uv venv --python 3.15 /tmp/trailmark-release-sdist
+uv pip install --python /tmp/trailmark-release-sdist dist/release/*.tar.gz
+/tmp/trailmark-release-sdist/bin/python tests/package_smoke.py tests/fixtures/kat
+```
+
+Check that PyPI metadata lists the tested Python versions and documentation URL,
+and that both artifacts contain the bundled grammar sources and license notices.
+CI repeats package checks on Linux and macOS using Python 3.13 and 3.15.
+
+After the release branch is reviewed and merged, a maintainer creates the tag and
+publishes the GitHub release. That publication triggers
+[the PyPI workflow](https://github.com/trailofbits/trailmark/actions/workflows/publish.yml),
+which repeats preflight and installed-wheel checks before publishing the artifacts.

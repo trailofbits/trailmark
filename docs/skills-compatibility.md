@@ -42,6 +42,12 @@ compatibility tests, not a claim that those external gates have been updated.
   Move logical module names include the address (`0x1::bank`); unsupported address
   blocks no longer synthesize a logical module node. Rebuild ID-keyed entrypoint
   overrides; unmatched explicit override keys now emit warnings.
+- Python's last definition of a name keeps the plain ID and earlier definitions
+  use position suffixes; `@overload` stubs are omitted.
+- C calls in unresolved wrappers keep normal confidence and the
+  `macro_signature_unresolved` attribute. Unexpanded macros cannot establish
+  injected parameters that shadow globals; strict consumers should filter on
+  this attribute. Recovered bodies still carry uncertain call edges.
 - Test all three confidence values and query depth semantics against the installed
   version. An uncertain proxy is a retained site, not a proven target. Empty
   self-path lists must not classify a directly callable entrypoint as unreachable;
@@ -62,7 +68,9 @@ retain occurrence locations; do not turn repeated edges into independent claims.
 SARIF imports resolve indexed artifacts and chained URI bases before matching
 source files. Undefined base IDs use analysis-root-relative paths; defined bases
 are bounded directory URIs. Keep relocation rules explicit and inspect unmatched
-results.
+results. SARIF description-only bases fall back to the analysis root;
+percent-encoded paths decode consistently. Chain limits do not depend on finding
+order or cached results.
 Repeated finding imports and JSON-only CLI output have regression coverage;
 verify those behaviors before enabling the corresponding workflow gate.
 
@@ -84,11 +92,5 @@ again against the built wheel and sdist. The release tag, pyproject version,
 runtime version, dated changelog heading, wheel metadata and root sdist `PKG-INFO`
 must agree. Publishing rejects an `(unreleased)` heading; ordinary test runs can
 retain it. This does not publish or tag anything during ordinary development.
-
-Python's last definition of a name keeps the plain ID and earlier definitions use
-position suffixes; `@overload` stubs are omitted. C calls in unresolved wrappers keep
-normal confidence and the `macro_signature_unresolved` attribute. Unexpanded macros
-cannot establish injected parameters that shadow globals; strict consumers should
-filter on this attribute. Recovered bodies still carry uncertain call edges.
-SARIF description-only bases fall back to the analysis root; percent-encoded paths
-decode consistently. Chain limits do not depend on finding order or cached results.
+See [Preparing a release](../CONTRIBUTING.md#preparing-a-release) for the
+maintainer's build and validation steps.

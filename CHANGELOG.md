@@ -1,212 +1,133 @@
 # Changelog
 
-## 0.7.0 (unreleased)
+## 0.7.0 (2026-10-23)
 
-- Keep ordinary C `void` and parameter-macro function IDs plain, restore same-file
-  calls past swallowed static prototypes, and recognize explicitly typed C++ block
-  prototypes. Prevent compound callees and Go pointer conversions from inventing targets.
-- Correct named JS/TS function-expression recursion, IIFE targets, parameter
-  decorator ownership, optional parameters, object-literal callable IDs and local-class
-  receivers. Separate merged TypeScript function namespaces under `$namespace` IDs
-  and normalize ambient module quotes. Preserve module calls instead of false self-loops.
-- Include all module-level Python classes in cross-file name candidates. Preserve
-  captured parameter shadowing and final overload proxy owners. Treat `try` bodies
-  and TypeScript `do` bodies as unconditional, and recognize Ruby's bare implicit `it`.
-- Document returned-call proxies in C++, Go and Rust as well as Python and JS/TS.
-  Named JS/TS function expressions assigned to bindings use the binding-qualified ID.
+This release adds nine language frontends, Solidity storage-access graphs, and
+source-coverage and call-resolution diagnostics. It also corrects declaration
+identities, lexical binding, call extraction, and analysis performance across
+the 39 supported languages.
 
-- Resolve final Python module bindings across files and keep conditional
-  redefinitions uncertain. Preserve JS/TS generators, wrapped callable bindings,
-  default-parameter calls and separate getter/setter bodies. Keep overload
-  descendants under their final owners and returned-call sites indirect.
-- Suppress unverified C header-static fallback at external block prototypes,
-  recognize Ruby numbered block parameters and Move `Self::` calls, and index
-  TypeScript receiver assignments once per body.
+### Added
 
-- Keep the final Python redefinition's plain ID, skip overload stubs, and preserve
-  earlier bodies with position suffixes. Correct same-line nested bindings, Ruby
-  explicit calls/lambdas, class-member shadowing, and JS/TS arrow `this` ownership.
-- Link included C static definitions, Java constructors across files, and Swift
-  extensions of nested types. Keep normal confidence in unresolved C wrappers;
-  `macro_signature_unresolved` remains available for filtering because injected
-  shadowing parameters cannot be established without expansion.
-- Bound recursive extraction and macro substitution, cache repeated binding lookups
-  and linker path metadata, and keep SARIF chain limits independent of result order.
+- **Nine language frontends:** Aiken, Bash, Julia, Lua, Perl 5, PowerShell, R,
+  VB.NET, and Zig. These include Aiken validator handlers, script and chunk
+  execution, anonymous functions, signatures, imports, and conservative call
+  graphs where supported. See [language notes](docs/languages.md) for each
+  frontend's scope and limitations.
+- **Solidity persistent state:** `state_variable` nodes and occurrence-level
+  `reads` and `writes` edges for functions, constructors, and modifiers. Query
+  them with `state_read_by()`, `state_written_by()`, `readers_of()`, and
+  `writers_of()`.
+- **Call-resolution diagnostics:** `trailmark analyze --resolution`,
+  `QueryEngine.call_resolution()`, and `unresolved_calls(name=None)` report
+  unresolved call sites and their targets.
+- **Source-file coverage:** graphs, summaries, and structural diffs report
+  inspected file counts per language, including files with no declarations.
+  Missing/non-directory roots and zero matching files now fail; use Python's
+  `allow_empty=True` or the CLI's `--allow-empty` for intentional empty inputs.
+- **Structured parse diagnostics:** inspect grammar errors, recovered syntax,
+  unsupported constructs, and excessive nesting separately from source counts.
+  Python `strict=True` and CLI `--strict` reject these diagnostics. Empty and
+  comment-only source files remain valid; a clean parse does not prove coverage.
+- **Export provenance and JSON summaries:** graph exports include
+  `trailmark_version` and `schema_version` (initially `1`).
+  `trailmark analyze --summary --json` prints the same summary as the Python API.
 
-- Preserve possible callback paths with uncertain `deferred` calls to nested
-  callable owners. Retain Python lambda, Go closure, Haskell do-bind and Dart
-  constructor-initializer calls. Preserve distinct JS/TS object methods and
-  repeated Python nested declarations.
-- Index lexical declarations, header directives, Erlang symbols, constructors and
-  extension members instead of rescanning them for each call. Keep initializer
-  binding order and Java method/variable namespaces distinct. Deduplicate syntax
-  diagnostics in linear time.
-- Recover C bodies independently through brace-neutral preprocessor conditionals,
-  keep valid call confidence despite unrelated errors, and retain real targets in
-  unresolved macro wrappers. Restrict header lookup to the analyzed root.
-- Fix PHP namespace calls, Ruby bare-call binding, Objective-C self sends, Move
-  call-local recovery and generic linking, SQL overload replacement, and Circom
-  same-file confidence. Diagnose excessive declaration nesting.
-- Accept common Aptos `acquires`, range-loop, compound-assignment and package
-  visibility syntax. Ship the upstream Move MIT notices with all distributions.
-- Restore Semgrep SARIF paths with undefined base IDs, cache bounded URI-base
-  chains, and reject paths escaping defined bases. Keep empty/comment-only files
-  valid in strict mode and report skipped Julia macros.
-- Require dated release changelogs and verify both wheel and sdist metadata before
-  publishing. Warn when explicit entrypoint overrides match no node.
+### Changed
 
-- Generate bundled Move and Circom parsers during builds instead of tracking
-  generated sources in Git; wheels and sdists remain self-contained.
+- Structural diffs detect parameter types/defaults, return and exception types,
+  generic parameters, declaration attributes, and node kind/origin/name changes.
+  Edge comparisons include confidence; confidence changes appear as removals
+  and additions. Diffs include `source_coverage.before` and `.after`.
+- Cross-file linking binds unique free functions with `inferred` confidence.
+  Ambiguous overloads and unresolved receivers retain `uncertain` proxies.
+  Solidity calls can follow resolved inheritance; C, C++, and Objective-C calls
+  can link across frontends in polyglot parses. Python candidates include all
+  module-level functions and classes. Type edges target type declarations.
+- Nested callable bodies retain their own owners and possible callback paths
+  through uncertain `deferred` call edges. Calls through returned values or
+  computed callees retain distinct indirect sites instead of inventing targets.
+- Repeated declarations and overloads retain separate nodes. Python's final
+  definition keeps the plain ID, earlier definitions gain position suffixes,
+  and `@overload` stubs are omitted. Name lookup prefers exact IDs and source
+  declarations before proxies, consistently across queries and diagrams.
+- Literal quoted C headers are cached within each parse and read only inside
+  the analysis root. `.h` files are parsed once, using Objective-C when both C
+  and Objective-C are selected.
 
-- Correct declaration ownership, lexical binding, call-site extraction, signatures,
-  and entrypoint metadata across the 39 language frontends. See
-  [parser coverage](docs/parser-coverage.md) for syntax limits and ID changes,
-  including Erlang arity, Ruby singleton methods, Objective-C class methods,
-  namespaces, local callables and Rego clauses.
-- Expose structured parse diagnostics separately from inspected source counts.
-  Python `strict=True` and CLI `--strict` reject diagnostics, including explicitly
-  skipped Verus and unsupported Rego syntax. A clean tree is not proof of coverage.
-- Resolve SARIF run artifact indices and chained URI bases before finding matching.
-- Recover bounded C source spans around block macros with explicit diagnostics,
-  retain declaration-macro identities and aliases, and infer callbacks through
-  unambiguous file-local constant designated tables.
-- Bundle a pinned Move grammar to distinguish explicit generic applications from
-  comparisons and retain qualified call symbols.
-- Check release tag, package/runtime versions, and built wheel metadata before
-  publishing. Document the v0.7 skills compatibility validation checklist.
+### Fixed
 
-- Bash frontend: shell functions, script command sites, branches, literal source
-  dependencies, and conservative local call inference.
+- Recover C function bodies independently through brace-neutral preprocessor
+  conditionals and bounded block-macro recovery. Preserve valid call confidence
+  despite unrelated syntax errors, link included static definitions, and keep
+  same-file calls past swallowed prototypes. Ordinary `void`/parameter-macro
+  declarations keep plain IDs; genuine declaration wrappers retain their
+  verified expansions or symbolic identities and diagnostics.
+- Correct lexical shadowing, declaration order, captured parameters, local
+  classes, namespaces, overload descendants, and object-method ownership across
+  frontends. This includes Python lambdas and repeated bodies, JS/TS named
+  function expressions and IIFEs, TypeScript parameter decorators and merged
+  namespaces, PHP namespace calls, Ruby block parameters, and C# delegate bodies.
+- Preserve Go closures, Haskell do-bind calls, Dart constructor initializers,
+  Java constructor links, Swift nested-type extensions, and Move `Self::` and
+  qualified calls. The bundled Move grammar supports explicit generics and
+  common Aptos syntax. Unsupported or skipped syntax remains diagnosed.
+- Bound recursive extraction and macro expansion. Index declarations, receivers,
+  header directives, and linker metadata instead of rescanning for every call;
+  deduplicate parse diagnostics in linear time. These changes remove the
+  quadratic and exponential slowdowns found in parser regression cases.
+- Match SARIF indexed artifacts and bounded URI-base chains, including undefined
+  bases used by Semgrep. Decode paths once, preserve path characters, and reject
+  traversal above defined bases. Finding importers validate inputs before
+  mutation and accept `replace_existing=True`. Repeated CLI import flags retain
+  every file; `augment --json` sends import summaries to stderr.
+- Count path depths in edges consistently. `paths_between()` accepts keyword-only
+  `max_depth=20`; non-positive depths fail, self-paths return `[]`, and parallel
+  call sites do not duplicate paths. Reachability lists are sorted by ID.
+- Correct entrypoint decorator/export ownership, Solidity state access, and
+  entrypoint override matching. Unmatched explicit override keys warn. Preserve
+  distinct unresolved proxies and reject conflicting binary-import metadata
+  without changing the graph. Diagrams honor depth, direction, thresholds, and
+  actual edge confidence.
 
-- Add a Zig frontend for `.zig` files, with named containers, function
-  signatures, direct calls, imports, and exported API entrypoints. Calls
-  requiring comptime evaluation or receiver inference stay uncertain.
-- Detect parameter types/defaults, return and exception types, generic
-  parameters, declaration attributes, and node kind/origin/name changes in
-  structural diffs. Edge differences include confidence; confidence changes
-  appear as removals and additions. Diffs include both snapshots' source-file
-  coverage. Consumers validating the diff schema must accept these fields.
-- Reject missing/non-directory analysis roots and zero matching source files.
-  Python directory factories accept `allow_empty=True`, and source-reading CLI
-  commands accept `--allow-empty` for intentional empty inputs. Graphs record
-  inspected source-file counts per language; summaries expose those counts and
-  selected languages, including files with no declarations.
-- Add top-level `trailmark_version` and `schema_version` (initially `1`) to
-  graph JSON exports. The schema version describes the export format; parser
-  behavior still depends on the Trailmark version and selected languages.
-- Add `trailmark analyze --summary --json` to print `QueryEngine.summary()`
-  directly, without importing CLI internals. Existing text summaries remain
-  available; `--json` cannot be combined with `--complexity`.
-- Model Solidity persistent state. Contract storage declarations become
-  `state_variable` nodes (for example `token:Token.balances`) with `reads` and
-  `writes` edges from functions, constructors, and modifiers, one per
-  occurrence. Query them with `state_read_by()`, `state_written_by()`,
-  `readers_of()`, and `writers_of()` (#84).
-- Add an Aiken frontend for `.ak` files, including validator contracts and
-  all six purpose handlers plus the fallback, helper functions, custom types,
-  imports, and direct/pipeline calls. Validator handlers are untrusted API
-  entrypoints; higher-order dispatch remains uncertain.
-- Add `trailmark analyze --resolution`, `QueryEngine.call_resolution()`, and
-  `QueryEngine.unresolved_calls(name=None)` for counting and inspecting
-  unresolved call sites. Document Rust call-resolution limits (#85).
-- Add a PowerShell frontend for scripts/modules, functions, filters, classes,
-  script blocks, typed parameters, dependencies and conservative command calls.
-- Keep overloads in Solidity, C++, Java, C#, Kotlin, and Swift as separate
-  nodes. Colliding callable IDs gain an `@line_column` suffix; a type that
-  shares a callable's ID keeps the base ID. Calls that need overload resolution
-  stay unresolved and `uncertain` (#86).
-- Add a Perl 5 frontend for packages, subroutine bodies, signatures/prototypes,
-  anonymous subs, build-script calls, dependencies and conservative package binding.
-- Give same-stem files distinct module IDs when they would collide, using
-  escaped extensions (`app\.py`, `app\.rs`, `pkg.__init__\.py`). Solidity
-  contract-level structs and enums are now `module:Contract.Name`, and Java
-  nested classes (`module:Outer.Inner`) and enum-body methods are extracted (#86).
-- Make linking more conservative. Bare cross-file calls bind only to a unique
-  free function, with `inferred` confidence. Unqualified Solidity and C++ calls
-  prefer the caller's own container, and Solidity calls can bind through
-  resolved inheritance. `inherits` and `implements` edges link only to unique
-  same-language type declarations, and `type_uses` edges target only type
-  declarations (#86).
-- Add an R frontend for named/anonymous functions, closures, default/variadic
-  parameters, branches, call sites and literal package/source dependencies.
-- Parse each `.h` file once, with the Objective-C grammar when both C and
-  Objective-C are selected, and link calls across the C, C++, and Objective-C
-  frontends in polyglot parses (#86).
-- Add a VB.NET frontend (`vb`) with typed methods, containers, overloads,
-  lambdas, accessor bodies, conservative calls and explicit CLI Main detection.
-- Match file extensions case-insensitively. Explicit language lists drop empty
-  and duplicate entries, and an empty list raises `ValueError`. Node-ID
-  collisions between languages raise `ValueError` instead of merging unrelated
-  nodes (#86).
-- Add a Julia frontend for `.jl` files: modules, types, long/short functions,
-  closures, signatures, branches, imports, and conservative local calls.
-  Multiple-dispatch candidates remain separate and unresolved; opaque macros
-  warn instead of inventing expansions.
-- `paths_between()` gains a keyword-only `max_depth=20`. `max_depth` now counts
-  edges in `paths_between()`, `entrypoint_paths_to()`, and
-  `connect_subgraphs()`; the latter two previously stopped one edge short.
-  Non-positive depths raise `ValueError`, self-paths return `[]`, parallel call
-  sites no longer duplicate paths, and `reachable_from()`/`ancestors_of()` are
-  sorted by ID (#86).
-- Name lookup, including `trailmark diagram --focus`, tries an exact node ID,
-  then concrete declarations, then proxies, matching by name, `:name` suffix,
-  and `.name` suffix in that order (#86).
-- `augment_sarif()` and `augment_weaudit()` take `replace_existing=True`.
-  Repeated `--sarif`/`--weaudit` flags keep every file's findings instead of
-  only the last. Imports validate their input, leave the graph unchanged on
-  failure, and attach findings only to source nodes. `augment --json` writes
-  import summaries to stderr so stdout is valid JSON (#86).
-- Binary imports reject colliding node IDs and conflicting architecture or hash
-  metadata for the same artifact, leaving the graph unchanged (#86).
-- `trailmark diagram --depth` counts edges and defaults to 2 for `call-graph`
-  and 20 for `data-flow`. Data-flow diagrams show the actual (weakest parallel)
-  edge confidence instead of always `certain` (#86).
-- `.trailmark/entrypoints.toml` `file_glob` rules match slash-bounded path
-  suffixes relative to the configuration root (#86).
-- Fix Solidity state tracking for nested `push`/`pop`, struct members,
-  initializer scoping, and call-option labels; avoid recursion-limit failures
-  on very deep Solidity and C# expressions; keep qualified Sway, Rego, and Tact
-  calls as `uncertain` proxies instead of binding them to same-named local
-  declarations (#86).
-- Distinct unresolved targets that escape to the same proxy ID gain a hash
-  suffix instead of merging, and colliding external proxy identities raise
-  `ValueError` (#86).
-- Remove the `trailmark.cli.git_worktree` re-export; import it from
-  `trailmark.analysis.diff` (#86).
-- Reorganize the documentation: a shorter README, and reference guides under
-  `docs/` for the CLI, Python API, graph model, entrypoints, links, findings
-  and preanalysis, call resolution, languages, and installation.
-- Add a Lua frontend for `.lua` files, with local/global functions, table
-  methods, anonymous functions, chunk execution, and literal `require`
-  dependencies. Respect lexical scope, declaration order, and reassignment;
-  table dispatch and callbacks remain uncertain.
-- Associate entrypoint decorators and export markers with their declarations
-  instead of nearby source lines. Detect legacy PHP route comments and Swift
-  `@main` methods without tagging neighbouring helpers. Circom main components
-  are untrusted entrypoints and participate in taint propagation.
-- Skip malformed entrypoint override fields without crashing or broadening
-  rules. Keep functions inside C++ `extern "C"` blocks in the graph.
-- Honor explicit `analyze --complexity 0`; reject negative thresholds. Class
-  diagrams honor `--direction` and warn when more than 100 classes are rendered.
-- Upgrade pytest-gremlins to 1.11.4 and revalidate the mutation runner against
-  its pytest and import handling. Reject skipped instrumentation. Keep
-  `tree-sitter` on the 0.25 series because 0.26.0 causes native crashes.
-- Test Python 3.15 in CI alongside 3.12–3.14. Run wheel and source-distribution
-  smoke tests on Python 3.13 and 3.15 on Linux and macOS.
+### Packaging and development
 
-Many node IDs change in this release: overloaded callables, colliding
-same-stem modules, Solidity contract-level types, and Java nested classes. C#,
-PHP and Ruby IDs include namespace owners. Rust collision suffixes use byte
-offsets; other positioned declarations use line/column suffixes. Anonymous lambda
-and block IDs move with their source position. Unresolved C declaration wrappers
-use `file:WRAPPER(name)` even without a reachable header. Move module names include
-the address; unsupported address blocks no longer synthesize logical modules.
-Rebuild entrypoint overrides after the upgrade. A
-`trailmark diff` across the upgrade shows these as removals and additions.
-Cross-file calls that were `certain` are now `inferred`, and some ambiguous or
-method targets that were linked before are now unresolved proxies. Polyglot
-parses that silently merged colliding IDs now raise `ValueError`. Solidity
-state edges cover only direct access to storage declared in the same contract.
+- Test Python 3.12–3.15 in CI, with installed wheel and sdist checks on Python
+  3.13 and 3.15 on Linux and macOS. Python 3.12 remains the minimum version.
+- Generate bundled Circom, Move, and Verus parsers during builds rather than
+  tracking generated sources in Git. Wheels and sdists include the generated
+  sources and grammar notices; installing them does not require Node.js.
+- Validate the release tag, package/runtime versions, dated changelog entry,
+  wheel metadata, and root sdist `PKG-INFO` before publishing. Keep the
+  `tree-sitter` dependency below 0.26 to avoid native crashes; update the pinned
+  pytest-gremlins runner to 1.11.4 and reject skipped instrumentation.
+- Reorganize the reference guides under `docs/`, including
+  [parser coverage](docs/parser-coverage.md) and
+  [skills compatibility](docs/skills-compatibility.md).
+
+### Upgrading from 0.6
+
+- **Rebuild saved graphs and ID-keyed configuration.** IDs change for overloads,
+  colliding same-stem modules, nested and anonymous callables, namespaced types,
+  C declaration wrappers, and several language-specific declarations. Position
+  suffixes move with the source. See [node IDs](docs/graph-model.md#node-ids) and
+  [parser coverage](docs/parser-coverage.md). A diff across parser versions can
+  report these as removals and additions; rebuild both snapshots with the same
+  Trailmark version and language selection for code-change comparisons.
+- **Update strict JSON validators.** Accept export provenance, parse diagnostics,
+  source coverage, and the expanded structural-diff fields. Export schema
+  version `1` does not promise identical parser behavior across releases.
+- **Review reachability assumptions.** Some formerly certain cross-file edges
+  are now inferred, ambiguous targets remain proxies, and deferred callback
+  edges add possible paths. An empty self-path does not make an entrypoint
+  unreachable. Solidity state edges cover direct access to storage declared in
+  the same contract; missing edges do not establish dead code or safe data flow.
+- **Handle explicit input failures.** Empty selections require `allow_empty`;
+  unresolved node-ID collisions between languages raise `ValueError`.
+- Import `git_worktree` from `trailmark.analysis.diff`; its old
+  `trailmark.cli` re-export is removed. See the
+  [skills compatibility guide](docs/skills-compatibility.md) before widening
+  external workflow version gates.
 
 ## 0.6.0
 
