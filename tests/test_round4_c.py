@@ -1,11 +1,13 @@
 """Header visibility prefers verified includes and respects extern declarations."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from trailmark.models import EdgeKind
 from trailmark.parse import parse_directory, parse_file
+from trailmark.parsers._common import link_cross_file_calls
 
 
 @pytest.mark.parametrize("extensions", [("c", "h"), ("cpp", "hpp")])
@@ -71,3 +73,17 @@ def test_function_pointer_still_shadows_global(tmp_path: Path) -> None:
     graph = parse_file(str(path))
     call = next(e for e in graph.edges if e.kind == EdgeKind.CALLS)
     assert dict(call.attributes)["binding_blocked"]
+
+
+def test_same_header_raw_call_is_verified(tmp_path: Path) -> None:
+    path = tmp_path / "local.h"
+    path.write_text("static int helper(){return 1;} static int run(){return helper();}")
+    graph = parse_file(str(path), "c")
+    # Shared linking accepts raw spellings as well as module-qualified targets.
+    graph.edges[:] = [
+        replace(e, target_id="helper") if e.kind == EdgeKind.CALLS else e for e in graph.edges
+    ]
+    link_cross_file_calls(graph)
+    call = next(e for e in graph.edges if e.kind == EdgeKind.CALLS)
+    assert call.target_id == "local:helper"
+    assert not dict(call.attributes).get("include_unverified")
