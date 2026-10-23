@@ -30,8 +30,15 @@ compatibility tests, not a claim that those external gates have been updated.
   Anonymous `$lambda@line_column` and Objective-C `$block@line_column` IDs move
   with source lines. JavaScript/TypeScript object methods include their binding,
   such as `file:api.init`, so separate objects do not share a callable ID.
+  Object-literal callable properties use the same binding qualification. Named
+  function expressions assigned to variables or properties use the binding's ID
+  (for example, `file:Foo.prototype.walk`); their own names bind inside their bodies.
+  A namespace merged with a TypeScript function has a separate `$namespace`
+  container, such as `file:fn.$namespace.extra`, distinct from the function's locals.
   C declaration wrappers without reachable macro definitions
   use `file:WRAPPER(name)`, rather than exposing the argument as a compiled name.
+  Ordinary C functions with `void` or object-like parameter-list macros keep
+  plain function IDs, including when leading declaration specifiers are unknown.
   Move logical module names include the address (`0x1::bank`); unsupported address
   blocks no longer synthesize a logical module node. Rebuild ID-keyed entrypoint
   overrides; unmatched explicit override keys now emit warnings.

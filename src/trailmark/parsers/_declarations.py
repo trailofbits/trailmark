@@ -44,6 +44,7 @@ def callable_scope(graph: CodeGraph) -> Generator[None]:
     try:
         yield
         _finish_runtime_callables(declarations)
+        _repair_static_prototypes(graph)
         if graph.language == "python" or not (
             declarations.bases or any(u.kind == NodeKind.NAMESPACE for u in graph.nodes.values())
         ):
@@ -59,6 +60,33 @@ def callable_scope(graph: CodeGraph) -> Generator[None]:
         ]
     finally:
         _CURRENT.reset(token)
+
+
+def _repair_static_prototypes(graph: CodeGraph) -> None:
+    """Recover swallowed prototypes when their same-file definition is known."""
+    if graph.language not in {"c", "cpp"}:
+        return
+    for index, edge in enumerate(graph.edges):
+        name = dict(edge.attributes).get("static_prototype")
+        if not isinstance(name, str):
+            continue
+        target = graph.nodes.get(edge.source_id.split(":", 1)[0] + ":" + name)
+        if target is not None and target.kind == NodeKind.FUNCTION:
+            graph.edges[index] = replace(
+                edge,
+                target_id=target.id,
+                confidence=EdgeConfidence.UNCERTAIN
+                if any(
+                    dict(edge.attributes).get(key)
+                    for key in ("syntax_error_context", "syntax_recovered")
+                )
+                else EdgeConfidence.CERTAIN,
+                attributes=tuple(
+                    (k, v)
+                    for k, v in edge.attributes
+                    if k not in {"binding_blocked", "binding_reason"}
+                ),
+            )
 
 
 def _repair_body_edges(declarations: _Declarations) -> None:
@@ -138,6 +166,11 @@ def _callable_base(
     module = edge.source_id.split(":", 1)[0]
     name = edge.target_id.removeprefix(module + ":")
     owner = owners.get(edge.source_id)
+    if declarations.graph.language in {"javascript", "typescript"} and (
+        owner not in declarations.graph.nodes
+        or declarations.graph.nodes[owner].kind != NodeKind.NAMESPACE
+    ):
+        owner = None
     if owner is not None and not any(separator in name for separator in (":", ".", "->")):
         for separator in (".", ":"):
             base = f"{owner}{separator}{name}"
@@ -309,6 +342,11 @@ def _runtime_target(target: str, renamed: dict[str, str], *, maximum: int) -> st
 
 
 def _runtime_edge(edge: CodeEdge, source: str, target: str) -> CodeEdge:
+    if source != edge.source_id:
+        for suffix in (".$binding.", ".$constructor"):
+            prefix = edge.source_id + suffix
+            if target.startswith(prefix):
+                target = source + target[len(edge.source_id) :]
     if (source, target) == (edge.source_id, edge.target_id):
         return edge
     return CodeEdge(source, target, edge.kind, edge.confidence, edge.location, edge.attributes)

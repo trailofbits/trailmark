@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
+from dataclasses import replace
 
 from tree_sitter import Node
 
-from trailmark.models.edges import EdgeKind
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import BranchInfo, CodeUnit, NodeKind, SourceLocation, TypeRef
 from trailmark.parsers._binding_index import syntax_nodes
-from trailmark.parsers._bindings import guard_call
+from trailmark.parsers._bindings import guard_call, namespace_receiver_matches
 from trailmark.parsers._callable_syntax import callable_parent
 from trailmark.parsers._common import (
     _collect_throw_type,
@@ -20,7 +21,7 @@ from trailmark.parsers._common import (
     make_location,
     node_text,
 )
-from trailmark.parsers._declarations import prepare_call_bindings
+from trailmark.parsers._declarations import _runtime_target, prepare_call_bindings
 from trailmark.parsers._nesting import nesting_diagnostic
 from trailmark.parsers._walk import owned_syntax
 
@@ -57,7 +58,8 @@ def body_info(
         if region is None or region == parameters and not region.named_child_count:
             continue
         types = branch_types | throw_types | {"call_expression"}
-        for node in _execution_sites(region, types, boundaries):
+        region_boundaries = boundaries | {"decorator"} if region == parameters else boundaries
+        for node in _execution_sites(region, types, region_boundaries):
             if node.type in branch_types:
                 branches.append(
                     BranchInfo(make_location(node, path), _extract_condition_text(node))
@@ -148,10 +150,18 @@ def _discover_container(node: Node, owner: str, graph: CodeGraph, *, file_path: 
         if name_node is not None
         else f"$class@{node.start_point.row + 1}_{node.start_point.column}"
     )
+    if name_node is not None and name_node.type == "string":
+        name = name[1:-1]
     separator = "." if ":" in owner else ":"
     node_id = owner + separator + name
+    attributes = ()
     if namespace and node_id in graph.nodes:
-        return node_id
+        if graph.nodes[node_id].kind not in {NodeKind.FUNCTION, NodeKind.METHOD}:
+            return node_id
+        attributes = (("merged_callable", node_id),)
+        node_id += ".$namespace"
+        if node_id in graph.nodes:
+            return node_id
     if node_id in graph.nodes:
         node_id += f"@{node.start_point.row + 1}_{node.start_point.column}"
     graph.nodes[node_id] = CodeUnit(
@@ -159,6 +169,7 @@ def _discover_container(node: Node, owner: str, graph: CodeGraph, *, file_path: 
         name=name,
         kind=NodeKind.NAMESPACE if namespace else NodeKind.CLASS,
         location=make_location(node, file_path),
+        attributes=attributes,
     )
     add_contains_edge(graph, owner, node_id)
     return node_id
@@ -204,8 +215,14 @@ def declared_name(node: Node, override: str | None) -> str | None:
 
 def _guard_discovered_calls(graph: CodeGraph, calls: dict[SourceLocation, Node]) -> None:
     prepare_call_bindings(graph)
+    aliases = {
+        original: unit.id
+        for unit in graph.nodes.values()
+        if isinstance((original := dict(unit.attributes).get("merged_callable")), str)
+    }
+    maximum = max((k.count(".") for k in aliases), default=0)
     graph.edges[:] = [
-        guard_call(edge, calls[edge.location], graph=graph)
+        _guard_context_call(edge, calls[edge.location], graph, aliases, maximum)
         if edge.kind == EdgeKind.CALLS
         and not dict(edge.attributes).get("import_binding")
         and edge.location is not None
@@ -215,8 +232,43 @@ def _guard_discovered_calls(graph: CodeGraph, calls: dict[SourceLocation, Node])
     ]
 
 
+def _guard_context_call(
+    edge: CodeEdge, occurrence: Node, graph: CodeGraph, aliases: dict[str, str], maximum: int
+) -> CodeEdge:
+    name = extract_call_name(occurrence)
+    if name.startswith(("this.", "super.")) and _class_initializer(occurrence):
+        return replace(edge, target_id=name, confidence=EdgeConfidence.UNCERTAIN)
+    edge = guard_call(edge, occurrence, graph=graph)
+    if aliases and "." in name:
+        qualified = edge.source_id.split(":", 1)[0] + ":" + name
+        target = _runtime_target(qualified, aliases, maximum=maximum)
+        receiver = edge.source_id.split(":", 1)[0] + ":" + name.split(".", 1)[0]
+        if (
+            target != qualified
+            and target in graph.nodes
+            and namespace_receiver_matches(edge, occurrence, graph, receiver)
+        ):
+            return replace(edge, target_id=target)
+    return edge
+
+
+def _class_initializer(occurrence: Node) -> bool:
+    """Class field values use the class receiver; computed keys use the outer one."""
+    parent = occurrence.parent
+    while parent is not None:
+        if parent.type in CALLABLES | {"computed_property_name"}:
+            return False
+        if parent.type in {"field_definition", "public_field_definition", "class_static_block"}:
+            return True
+        parent = parent.parent
+    return False
+
+
 def _discovered_name(node: Node) -> str:
     name = _callable_name(node)
+    parent = callable_parent(node)
+    if parent is not None and parent.type == "pair" and parent.parent is not None:
+        name = f"{_object_binding(parent.parent)}.{name}"
     if (
         node.type == "method_definition"
         and node.parent is not None

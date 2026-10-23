@@ -174,6 +174,10 @@ Untyped `WRAPPER(name) { ... }` definitions retain that wrapper identity even if
 the header is unavailable; argument-only names are not exposed as global aliases.
 Unavailable macro definitions cannot establish compiled names. Repeated unknown
 declarations retain separate source-position IDs and body ownership.
+Ordinary C functions with `void`, primitive types, or object-like parameter-list
+macros keep their function names, including with unknown leading specifiers.
+Unambiguous parameter-list macros expand into parameters; conditional definitions
+leave parameters unresolved without changing the function's identity.
 
 C callback inference is limited to file-local `static const` objects with direct
 designated function initializers. It binds by object and field, records
@@ -301,13 +305,17 @@ declaration, without leaking into outer functions. C and C++ names are visible a
 their declarator, including inside
 an initializer; Rust, Go and Kotlin bindings become visible after the initializer.
 
-Python directory linking selects the final module binding, including a class that
-replaces a function. Historical bodies remain available under their positioned IDs.
+Python directory linking includes all module-level classes and functions and
+selects the final module binding for each name in each physical source file.
+Historical bodies remain available under their positioned IDs.
 A definition inside a conditional branch does not establish a definite binding
 after that branch; these calls remain uncertain with `binding_blocked` metadata.
 Calls inside the defining branch and after unconditional definitions retain normal
 binding confidence. This is conservative syntax analysis rather than a control-flow
 proof, including when both branches define different bodies.
+Definitions in a `try` body retain normal confidence; definitions in `except` or
+`else` clauses remain conditional. Captured Python, Kotlin, Swift and C# parameters
+shadow unrelated functions in nested bodies as well as in their declaring callable.
 
 C and C++ internal-linkage functions in headers (`.h`, `.hh`, `.hpp`, `.hxx`) use
 include closures to break same-name ties. A single candidate inside the closure,
@@ -327,11 +335,13 @@ pick platform compatibility shims, such as a Windows shim called from POSIX code
 Block-scope function prototypes refer to the external function rather than
 shadowing it; function-pointer variables still shadow same-name functions. In C++
 block scope, identifier-only initializer arguments such as `Functor cb(cfg)` are
-treated as object bindings. A prototype requires `extern` or explicitly typed parameters.
+treated as object bindings. A prototype requires `extern` or explicitly typed parameters,
+including sized types such as `unsigned`, qualified types, and struct/enum/union types.
 An external block-scope prototype also disables unverified header-static fallback
 in its own lexical scope, without affecting another function. Such calls carry
 `external_prototype` metadata; verified include-supported targets remain eligible.
-Invalid block-scope `static` prototypes remain blocked.
+Invalid block-scope `static` prototypes remain blocked unless a same-file function
+definition supplies the target, including when a misparsed macro swallows a prototype.
 Java constructor binding also runs after the directory merge. JavaScript and
 TypeScript arrows inherit lexical `this`; regular function expressions do not.
 Abstract TypeScript classes own their methods. Anonymous classes have positioned
@@ -345,7 +355,10 @@ runtime bindings. Local-class heritage, static blocks, computed keys and field
 initializers retain calls under the enclosing callable; method bodies keep their
 own owners. Repeated TypeScript namespace blocks share a container and resolve
 their functions across blocks, including class/function namespace merging and
-the legacy `module` spelling. Chained calls retain separate
+the legacy `module` spelling. A namespace merged with a function uses a separate
+`$namespace` container so its members do not collide with function locals or create
+deferred edges from the function. String-named ambient module IDs omit quote
+delimiters; declarations without bodies do not create callable nodes. Chained calls retain separate
 receiver and method edges at their complete source spans. Local literal `require`
 destructuring resolves named exports and aliases, including relative directory
 `index` modules; a matching source file takes precedence over a directory.
@@ -357,20 +370,34 @@ resolution is cached per declaration.
 Generator expressions and callable initializers wrapped in parentheses, `as`,
 `satisfies`, type assertions or non-null assertions retain their variable binding.
 Calls in JS/TS default parameter expressions belong to the callable, including
-destructured defaults; nested callbacks retain their own body owners. Getter and
+destructured defaults; nested callbacks retain their own body owners. Parameter
+decorators follow method decorators: they are not calls from the method body.
+Optional TypeScript parameters shadow same-name functions. Named function
+expressions retain their internal recursive binding even when the graph ID uses
+the variable or property receiving the expression. Getter and
 setter bodies keep distinct positioned IDs and each call is extracted once.
 Descendants of C# overloads inherit their owner's final positioned ID at every
 nesting level. TypeScript receiver assignments are indexed once per body during a
 file parse; source order, block visibility and conditional invalidation still apply.
+A `do` body runs at least once and does not itself make an assignment conditional.
+Local-class field initializers and static blocks do not resolve `this` or `super`
+against an enclosing class; heritage expressions and computed keys retain the outer context.
 
-Python and JS/TS calls through another call's result, such as `f()()`, retain one
+Python, JavaScript, TypeScript, C++, Go and Rust calls through another call's result,
+such as `f()()`, retain one
 edge to `f` and a separate uncertain indirect edge for the returned callable.
 The indirect proxy uses `$returned@line_column_endbyte` and `indirect_call=True`;
 its full source span distinguishes it from the producer call. No return-value
 type or callback dataflow is inferred.
+Parentheses preserve a direct callee's lexical binding. Logical, conditional,
+pointer and subscript callees use uncertain `$indirect@line_column_endbyte` proxies;
+these callees do not bind to an operand, and Go parenthesized pointer conversions do not
+create call edges. Named JS/TS IIFEs target their own function expression.
 
 Ruby parentheses and argument lists always denote method calls, even when a local
 variable shares the name. Receiverless variable reads use preceding bindings;
+Ruby 3.4's bare implicit `it` parameter is a value inside parameterless blocks and
+lambdas, just like numbered parameters.
 plain attribute writers do not call the reader method; compound assignments retain
 the reader call. Ruby block parameters include splats, double splats, block arguments,
 destructuring, optional parameters and keyword parameters. Stabby lambda bodies retain their

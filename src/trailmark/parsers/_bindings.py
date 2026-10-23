@@ -109,7 +109,24 @@ def guard_call(edge: CodeEdge, occurrence: Node, *, graph: CodeGraph) -> CodeEdg
     """Keep lexical values from binding to unrelated named declarations."""
     function = occurrence.child_by_field_name("function")
     function = unwrap_callable(function) if function is not None else None
-    if function is not None and function.type in {"call", "call_expression"}:
+    if function is not None and function.type in {
+        "function_expression",
+        "function",
+        "generator_function",
+    }:
+        source = graph.nodes.get(edge.source_id)
+        name = function.child_by_field_name("name")
+        local = (
+            local_unit(graph, function, name.text.decode(), source)
+            if name is not None and name.text is not None and source is not None
+            else None
+        )
+        if local is not None:
+            return _local_edge(edge, local)
+    if function is not None and (
+        function.type in {"call", "call_expression"}
+        or edge.target_id.rsplit(":", 1)[-1].startswith("$indirect@")
+    ):
         return replace(
             edge,
             confidence=EdgeConfidence.UNCERTAIN,
@@ -157,13 +174,21 @@ def _conditional_declaration(declaration: Node | None, occurrence: Node) -> bool
             "else_clause",
             "for_statement",
             "while_statement",
-            "try_statement",
             "except_clause",
             "case_clause",
         } and not (child.start_byte <= occurrence.start_byte < child.end_byte):
             return True
         child, parent = parent, parent.parent
     return False
+
+
+def namespace_receiver_matches(
+    edge: CodeEdge, occurrence: Node, graph: CodeGraph, target: str
+) -> bool:
+    """Require a merged namespace receiver to retain its module-level binding."""
+    name = target.rsplit(":", 1)[-1]
+    probe = _guard_named_call(replace(edge, target_id=target), occurrence, graph, name)
+    return probe.target_id == target and not dict(probe.attributes).get("binding_blocked")
 
 
 def _bound_call(
@@ -202,7 +227,8 @@ def _prototype_edge(
     if parent is not None and any(
         c.type == "storage_class_specifier" and c.text == b"static" for c in parent.named_children
     ):
-        return _blocked(edge, name)
+        blocked = _blocked(edge, name)
+        return replace(blocked, attributes=(*blocked.attributes, ("static_prototype", name)))
     return replace(edge, attributes=(*edge.attributes, ("external_prototype", True)))
 
 
@@ -307,6 +333,7 @@ def _bare_name(edge: CodeEdge, occurrence: Node) -> str | None:
         name = explicit
     else:
         function = occurrence.child_by_field_name("function")
+        function = unwrap_callable(function) if function is not None else None
         if function is None:
             function = next(
                 (

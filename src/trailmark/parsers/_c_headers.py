@@ -203,7 +203,15 @@ def _cpp_object_initializer(function: Node, declaration: Node | None) -> bool:
         parameter.type == "parameter_declaration"
         and parameter.child_by_field_name("declarator") is None
         and (kind := parameter.child_by_field_name("type")) is not None
-        and kind.type != "primitive_type"
+        and kind.type
+        not in {
+            "primitive_type",
+            "sized_type_specifier",
+            "struct_specifier",
+            "enum_specifier",
+            "union_specifier",
+        }
+        and not any(child.type == "type_qualifier" for child in parameter.named_children)
         for parameter in parameters.named_children
     )
 

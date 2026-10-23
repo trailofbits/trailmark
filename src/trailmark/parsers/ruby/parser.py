@@ -702,12 +702,12 @@ def _ruby_vcall(node: Node, parameters: set[str]) -> bool:
 
 def _numbered_parameter(node: Node) -> bool:
     """Bare numbered arguments are implicit values inside blocks and lambdas."""
-    if node.text not in {b"_1", b"_2", b"_3", b"_4", b"_5", b"_6", b"_7", b"_8", b"_9"}:
+    if node.text not in {b"it", b"_1", b"_2", b"_3", b"_4", b"_5", b"_6", b"_7", b"_8", b"_9"}:
         return False
     parent = node.parent
     while parent is not None:
         if parent.type in {"block", "do_block", "lambda"}:
-            return True
+            return not (node.text == b"it" and parent.child_by_field_name("parameters") is not None)
         if parent.type in {"method", "singleton_method", "class", "module"}:
             return False
         parent = parent.parent

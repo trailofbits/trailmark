@@ -38,6 +38,8 @@ class DeclarationMacros:
     def __init__(self, root: Node, path: str, headers: HeaderSources) -> None:
         self._headers = headers
         self._macros: dict[str, tuple[_Macro | None, int]] = {}
+        self._object_macros: set[str] = set()
+        self._function_macros: set[str] = set()
         self._visited: set[Path] = set()
         self._root, self._path = root, Path(path)
         self._loaded = False
@@ -80,6 +82,7 @@ class DeclarationMacros:
             return
         value = node.child_by_field_name("value")
         params = node.child_by_field_name("parameters")
+        (self._object_macros if params is None else self._function_macros).add(node_text(name))
         macro = _macro(
             node_text(name),
             params,
@@ -115,9 +118,48 @@ class DeclarationMacros:
             self._collect(self._root, self._path, 0, 0)
             self._loaded = True
         entry = self._macros.get(wrapper)
+        if (
+            entry is not None
+            and entry[0] is not None
+            and entry[0].parameters is not None
+            and entry[1] <= node.start_byte
+        ):
+            return wrapper, alias
+        alias_entry = self._macros.get(alias)
+        if alias in {
+            "void",
+            "int",
+            "char",
+            "float",
+            "double",
+            "short",
+            "long",
+            "unsigned",
+            "signed",
+        }:
+            return None
+        if (
+            alias_entry is not None
+            and alias_entry[1] <= node.start_byte
+            and alias in self._object_macros
+            and alias not in self._function_macros
+        ):
+            return None
         if unambiguous or entry is not None and entry[1] <= node.start_byte:
             return wrapper, alias
         return None
+
+    def parameter_declaration(self, node: Node) -> Node | None:
+        """Expand an ordinary function's object-like parameter-list macro."""
+        candidate = _wrapper_candidate(node)
+        if candidate is None or self.wrapper(node) is not None:
+            return None
+        name, alias, _ = candidate
+        expanded = self._expand(alias, node.start_byte)
+        if expanded is None or expanded == alias:
+            return None
+        function = _expanded_function(self._headers.parser, f"void {name}({expanded})")
+        return function[0] if function is not None else None
 
     def signature(self, node: Node) -> MacroSignature | None:
         """Verify the expanded declaration, including object-like macro aliases."""

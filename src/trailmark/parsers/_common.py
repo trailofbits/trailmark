@@ -333,13 +333,29 @@ _CALL_NAME_TYPES = frozenset(
     }
 )
 
+_INDIRECT_CALLEES = frozenset(
+    {
+        "binary_expression",
+        "boolean_operator",
+        "conditional_expression",
+        "ternary_expression",
+        "if_expression",
+        "pointer_expression",
+        "subscript",
+    }
+)
+
 
 def extract_call_name(node: Node) -> str:
     """Extract the function/method name from a call node."""
     func = node.child_by_field_name("function")
     func = unwrap_callable(func) if func is not None else None
+    if func is not None and func.type == "generic_function":
+        func = func.child_by_field_name("function")
     if func is not None and func.type in {"call", "call_expression"}:
         return f"$returned@{node.start_point.row + 1}_{node.start_point.column}_{node.end_byte}"
+    if func is not None and func.type in _INDIRECT_CALLEES:
+        return f"$indirect@{node.start_point.row + 1}_{node.start_point.column}_{node.end_byte}"
     if func is None:
         # Fallback for grammars that don't label the callable (e.g. Swift):
         # the callable is conventionally the first named child.
@@ -347,12 +363,21 @@ def extract_call_name(node: Node) -> str:
             if child.type in _CALL_NAME_TYPES:
                 return node_text(child)
         return ""
+    return _named_callee(func)
+
+
+def _named_callee(func: Node) -> str:
+    """Read a direct callee without selecting operands of compound expressions."""
     if func.type in _CALL_NAME_TYPES:
         return node_text(func)
-    # Unwrap wrapper nodes (e.g., Solidity wraps in "expression").
-    for child in func.children:
-        if child.type in _CALL_NAME_TYPES:
-            return node_text(child)
+    if func.type in {"function_expression", "function", "generator_function"}:
+        name = func.child_by_field_name("name")
+        return node_text(name) if name is not None else ""
+    # Solidity's expression node is a grammar wrapper, unlike compound callees.
+    if func.type == "expression":
+        for child in func.children:
+            if child.type in _CALL_NAME_TYPES:
+                return node_text(child)
     return ""
 
 

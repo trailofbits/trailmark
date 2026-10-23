@@ -288,7 +288,9 @@ def _extract_function(
         name=declaration.name,
         kind=NodeKind.FUNCTION,
         location=make_location(node, file_path),
-        parameters=() if declaration.unresolved else tuple(_extract_parameters(declaration.node)),
+        parameters=()
+        if declaration.unresolved
+        else tuple(_extract_parameters(declaration.node, macros)),
         return_type=None if declaration.unresolved else _extract_return_type(declaration.node),
         exception_types=tuple(exceptions),
         cyclomatic_complexity=compute_complexity(branches),
@@ -476,6 +478,10 @@ def _get_function_name(node: Node) -> str:
     declarator = node.child_by_field_name("declarator")
     if declarator is None:
         return ""
+    if declarator.type == "parenthesized_declarator":
+        type_node = node.child_by_field_name("type")
+        if type_node is not None:
+            return node_text(type_node)
     return _dig_identifier(declarator)
 
 
@@ -498,8 +504,10 @@ def _dig_identifier(node: Node) -> str:
     return ""
 
 
-def _extract_parameters(node: Node) -> list[Parameter]:
+def _extract_parameters(node: Node, macros: DeclarationMacros | None = None) -> list[Parameter]:
     """Extract parameters from a C function definition."""
+    expanded = macros.parameter_declaration(node) if macros is not None else None
+    node = expanded if expanded is not None else node
     declarator = node.child_by_field_name("declarator")
     func_decl = _find_func_declarator(declarator)
     if func_decl is None:

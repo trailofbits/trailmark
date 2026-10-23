@@ -33,7 +33,6 @@ _CONDITIONAL = frozenset(
         "for_statement",
         "for_in_statement",
         "while_statement",
-        "do_statement",
         "ternary_expression",
         "catch_clause",
     }

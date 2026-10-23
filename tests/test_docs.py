@@ -735,3 +735,25 @@ def test_release_followup_graph_contracts() -> None:
     assert "`external_prototype`" in text
     assert "`$returned@line_column_endbyte`" in text
     assert "Nested declarations inherit their owner's final positioned ID" in text
+
+
+@pytest.mark.parametrize(
+    "path,marker",
+    [
+        ("docs/graph-model.md", "all module-level classes and functions"),
+        ("docs/graph-model.md", "C++, Go and Rust returned-call expressions"),
+        ("docs/graph-model.md", "`static_prototype`"),
+        ("docs/graph-model.md", "`$indirect@line_column_endbyte`"),
+        ("docs/skills-compatibility.md", "binding's ID"),
+        ("docs/skills-compatibility.md", "separate `$namespace`"),
+        ("docs/parser-coverage.md", "object-like parameter-list"),
+        ("docs/parser-coverage.md", "Definitions in a `try` body"),
+        ("docs/parser-coverage.md", "Captured Python, Kotlin, Swift and C# parameters"),
+        ("docs/parser-coverage.md", "Parameter decorators follow method decorators"),
+        ("docs/parser-coverage.md", "A `do` body runs at least once"),
+        ("docs/parser-coverage.md", "callees do not bind to an operand"),
+        ("docs/parser-coverage.md", "bare implicit `it`"),
+    ],
+)
+def test_final_parser_followup_contracts(path: str, marker: str) -> None:
+    assert marker in _flat(path)

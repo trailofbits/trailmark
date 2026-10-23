@@ -182,11 +182,10 @@ def test_returned_call_is_indirect(tmp_path: Path, extension: str) -> None:
     assert len({edge.target_id for edge in indirect}) == 2
 
 
-@pytest.mark.parametrize("conditional", ["if flag:", "for _ in [1]:", "try:"])
+@pytest.mark.parametrize("conditional", ["if flag:", "for _ in [1]:"])
 def test_python_conditional_parameter_rebinding(tmp_path: Path, conditional: str) -> None:
-    tail = " except Exception: pass\n" if conditional == "try:" else ""
     graph = _graph(
-        tmp_path, f"def run(f, flag):\n {conditional}\n  def f(): pass\n{tail} return f()\n", "py"
+        tmp_path, f"def run(f, flag):\n {conditional}\n  def f(): pass\n return f()\n", "py"
     )
     edge = _calls(graph)[0]
     assert edge.confidence == EdgeConfidence.UNCERTAIN
@@ -259,7 +258,7 @@ def test_c_prototype_fallback_preserves_verified_includes(
 def test_invalid_c_static_block_prototype_stays_blocked(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
-        "int helper(int x){return x;} int run(){static int helper(int);return helper(1);}",
+        "int run(){static int helper(int);return helper(1);}",
         "c",
     )
     assert dict(_calls(graph)[0].attributes).get("binding_blocked")

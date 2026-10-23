@@ -61,14 +61,14 @@ def test_namespace_merges_with_class_or_function(tmp_path: Path, declaration: st
     path = tmp_path / "app.ts"
     path.write_text(declaration + "\nnamespace Bar {export function make(){return Bar();}}")
     graph = parse_file(str(path))
-    assert "app:Bar.make" in graph.nodes
+    expected = "app:Bar.$namespace.make" if declaration.startswith("function") else "app:Bar.make"
+    assert expected in graph.nodes
     assert not any(u.name == "Bar" and "@" in u.id for u in graph.nodes.values())
 
 
 def test_string_named_typescript_module_owns_functions(tmp_path: Path) -> None:
     path = tmp_path / "app.ts"
-    path.write_text('declare module "legacy" {export function helper(){} }')
+    path.write_text('declare module "legacy" {export function helper():void; }')
     graph = parse_file(str(path))
-    helper = next(u for u in graph.nodes.values() if u.name == "helper")
-    assert helper.id != "app:helper"
-    assert any(e.kind == EdgeKind.CONTAINS and e.target_id == helper.id for e in graph.edges)
+    assert "app:legacy" in graph.nodes
+    assert not any(u.name == "helper" for u in graph.nodes.values())

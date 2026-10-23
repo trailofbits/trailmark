@@ -2,6 +2,19 @@
 
 ## 0.7.0 (unreleased)
 
+- Keep ordinary C `void` and parameter-macro function IDs plain, restore same-file
+  calls past swallowed static prototypes, and recognize explicitly typed C++ block
+  prototypes. Prevent compound callees and Go pointer conversions from inventing targets.
+- Correct named JS/TS function-expression recursion, IIFE targets, parameter
+  decorator ownership, optional parameters, object-literal callable IDs and local-class
+  receivers. Separate merged TypeScript function namespaces under `$namespace` IDs
+  and normalize ambient module quotes. Preserve module calls instead of false self-loops.
+- Include all module-level Python classes in cross-file name candidates. Preserve
+  captured parameter shadowing and final overload proxy owners. Treat `try` bodies
+  and TypeScript `do` bodies as unconditional, and recognize Ruby's bare implicit `it`.
+- Document returned-call proxies in C++, Go and Rust as well as Python and JS/TS.
+  Named JS/TS function expressions assigned to bindings use the binding-qualified ID.
+
 - Resolve final Python module bindings across files and keep conditional
   redefinitions uncertain. Preserve JS/TS generators, wrapped callable bindings,
   default-parameter calls and separate getter/setter bodies. Keep overload

@@ -194,7 +194,13 @@ class ScopeIndex:
             callback_parameters=parameters,
             unordered=node.type in {"class_body", "enum_class_body", "enum_body"},
         )
+        if node.type in {"function_expression", "function", "generator_function"}:
+            name = node.child_by_field_name("name")
+            if name is not None:
+                self._remember(node.id, {_text(name)}, node)
         self._single_parameter(node)
+        for parameter in _scope_parameters(node):
+            self._remember(node.id, pattern_names(parameter), parameter)
         if (
             node.type == "class_body"
             and node.parent is not None
@@ -321,6 +327,23 @@ def _callback_parameters(node: Node) -> set[str]:
     return set().union(*(declaration_names(child, "name") for child in parameters.named_children))
 
 
+def _scope_parameters(node: Node) -> list[Node]:
+    """Index parameters in their declaring scope so captured values also shadow."""
+    parameters = node.child_by_field_name("parameters")
+    if parameters is not None:
+        return parameters.named_children
+    if node.type == "function_declaration":
+        container = next(
+            (c for c in node.named_children if c.type == "function_value_parameters"), None
+        )
+        return (
+            container.named_children
+            if container is not None
+            else [c for c in node.named_children if c.type == "parameter"]
+        )
+    return []
+
+
 @dataclass
 class _Session:
     language: Language | None = None
@@ -404,7 +427,12 @@ def local_unit(graph: CodeGraph, declaration: Node, name: str, source: CodeUnit)
             if (u.location.file_path, u.location.start_line, u.location.start_col, u.name) == key
         ]
     else:
-        units = list(session.units.get(key, {}).values())
+        indexed = (
+            session.locations.get(key[:3], {})
+            if declaration.type in {"function_expression", "function", "generator_function"}
+            else session.units.get(key, {})
+        )
+        units = list(indexed.values())
     units = [
         unit for unit in units if unit.kind in {NodeKind.FUNCTION, NodeKind.METHOD, NodeKind.CLASS}
     ]
@@ -551,8 +579,11 @@ def _pattern_children(node: Node) -> list[Node]:
         "optional_parameter",
         "keyword_parameter",
         "required_parameter",
+        "parameter",
     }:
         name = node.child_by_field_name("name") or node.child_by_field_name("pattern")
+        if name is None:
+            name = next((c for c in node.named_children if c.type in _PATTERN_IDENTIFIERS), None)
         return [name] if name is not None else []
     if node.type in {"pair_pattern", "object_assignment_pattern"}:
         target = node.child_by_field_name("value") or node.child_by_field_name("left")

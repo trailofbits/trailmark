@@ -146,8 +146,13 @@ the caller lacks an include: compiler search paths and translation-unit context
 may supply one. Consumers can distinguish these fallback links from verified
 include-supported links without changing the edge's confidence.
 `external_prototype` records a C/C++ prototype visible at a call site and prevents
-unverified header-static fallback. Python and JS/TS returned-call expressions use
+unverified header-static fallback; the eventual target can be a same-file static
+definition. `static_prototype` names an invalid block-scope static prototype; calls
+remain blocked unless a same-file function definition supplies the target.
+Python, JavaScript, TypeScript, C++, Go and Rust returned-call expressions use
 distinct `$returned@line_column_endbyte` proxies with uncertain confidence.
+Compound, pointer and subscript callees use `$indirect@line_column_endbyte` proxies
+with `indirect_call=True`; an operand's name does not establish the call target.
 
 ## Node IDs
 
@@ -227,8 +232,10 @@ After each file is parsed, Trailmark links the graph by name:
 - Directory parsing resolves bare cross-file calls to a unique free-function
   candidate, with `inferred` confidence. Ambiguous cross-file calls stay
   unresolved. A free-function match never binds to an unrelated class method.
-- Python directory candidates use the final module binding, including classes
-  that replace functions; earlier redefinitions are retained for body analysis.
+- Python directory candidates include all module-level classes and functions,
+  using the final module binding for each name in each source file. Earlier
+  redefinitions are retained for body analysis. These are name-based candidates;
+  linking does not establish that a Python import executes successfully.
 - Unqualified Solidity and C++ calls prefer a method in the caller's own
   container.
 - Solidity calls can bind to a unique internally callable method through
