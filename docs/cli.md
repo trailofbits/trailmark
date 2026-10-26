@@ -1,7 +1,7 @@
 # CLI reference
 
 Every subcommand that reads source code takes `--language` (`-l`). The default
-is `python`. Pass a key from the
+is `python`, except `endpoints`, which defaults to `auto`. Pass a key from the
 [language table](../README.md#supported-languages), a comma-separated list such
 as `python,rust`, or `auto` to detect and merge every supported language found
 in the tree.
@@ -15,6 +15,7 @@ in the analysis summary; selecting one language does not cover the others.
 
 - [`trailmark analyze`](#trailmark-analyze)
 - [`trailmark entrypoints`](#trailmark-entrypoints)
+- [`trailmark endpoints`](#trailmark-endpoints)
 - [`trailmark diff`](#trailmark-diff)
 - [`trailmark diagram`](#trailmark-diagram)
 - [`trailmark augment`](#trailmark-augment)
@@ -48,6 +49,8 @@ prints JSON. Negative thresholds are rejected.
 
 The JSON graph contains nodes, edges, subgraphs, a summary, and the
 `trailmark_version` and `schema_version` export provenance fields (v0.7+).
+Directory exports also include the effective source policy and nonempty
+endpoint/execution-evidence exports.
 It does not contain annotations, entrypoint tags, or per-call-site locations; see
 [JSON export](python-api.md#json-export) for what is omitted and how to get it.
 
@@ -58,6 +61,37 @@ trailmark analyze --language auto path/to/project > graph.json
 trailmark analyze --complexity 10 path/to/project
 trailmark analyze --language rust --resolution path/to/project
 ```
+
+## `trailmark endpoints`
+
+```bash
+trailmark endpoints --language auto PATH
+trailmark endpoints PATH --native-registry django=resolver-snapshot.json
+trailmark endpoints PATH --source-root framework=PATH/vendor/selected-package
+```
+
+Prints the complete versioned registration inventory, its diagnostics and the
+effective source policy as JSON. HTTP, GraphQL, CLI, task, template and generic
+source-entrypoint records remain distinct. `--native-registry FRAMEWORK=FILE`
+opts into a retained native snapshot;
+supported formats are `django`, `symfony`, `magento` and `medusa`. Repeat the
+flag to supply multiple explicit inputs. This command never starts applications.
+Use the Python API for container/source prefix mappings.
+
+`analyze`, `entrypoints` and `endpoints` accept these source-policy options:
+
+| Flag | Meaning |
+| --- | --- |
+| `--source-root NAME=PATH` | Add a named dependency/plugin root; repeat for multiple roots |
+| `--exclude-source GLOB` | Add a root-relative exclusion to the defaults |
+| `--include-source GLOB` | Override exclusions for deliberately selected paths |
+| `--auxiliary-source GLOB` | Retain a selected artifact as registration evidence without parsing it as implementation code |
+
+The primary root is named `app` when these flags are used. Root names must be
+unique. Overlapping/symlinked roots report duplicates and preserve first-root
+ownership. `--strict` and `--allow-empty` retain their normal source-validation
+semantics. See [the Python policy API](python-api.md#explicit-roots-and-source-policy)
+for file categories, skipped-directory units and limitations.
 
 ## `trailmark entrypoints`
 

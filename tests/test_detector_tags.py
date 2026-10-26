@@ -232,7 +232,9 @@ class TestSolidityDetectorTags:
 class TestNextJsDetectorTags:
     @pytest.mark.parametrize("verb", ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
     def test_app_router_verb_tags(self, tmp_path: Path, verb: str) -> None:
-        (tmp_path / "route.ts").write_text(
+        (tmp_path / "app").mkdir()
+        (tmp_path / "app" / "route.ts").write_text(
+            "import { NextRequest } from 'next/server';\n"
             f"export async function {verb}(req: Request) {{ return new Response(); }}\n",
         )
         ep = _by_name(tmp_path, "typescript", verb)

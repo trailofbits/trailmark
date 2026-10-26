@@ -53,6 +53,7 @@ from pathlib import Path
 from typing import Any
 
 from trailmark.analysis._entrypoint_declarations import DeclarationCache
+from trailmark.analysis._python_http import PythonHTTPRoute, python_http_routes
 from trailmark.models.annotations import (
     AssetValue,
     EntrypointKind,
@@ -64,14 +65,6 @@ from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin
 
 OVERRIDE_FILE = ".trailmark/entrypoints.toml"
-
-# Python HTTP web-framework decorator suffix on any receiver.
-#   Matches: @app.route(...), @router.get(...), @bp.post(...), @routes.put(...)
-#   (Flask, FastAPI, aiohttp, Sanic all share this shape.)
-_PY_HTTP_DECORATOR = re.compile(
-    r"^\s*@\s*[A-Za-z_][\w.]*\.(route|get|post|put|patch|delete|head|options|"
-    r"websocket|api_route)\s*\(",
-)
 
 # @click.command / @click.group / @typer_app.command
 _PY_CLI_DECORATOR = re.compile(
@@ -333,14 +326,21 @@ def _detect_python(
     path: str,
 ) -> EntrypointTag | None:
     decorators = cache.declarations.decorators(unit)
+    if path not in cache.python_http:
+        cache.python_http[path] = python_http_routes(path)
+    if any(
+        route.framework
+        and route.handler_line == unit.location.start_line
+        and route.handler_col == unit.location.start_col
+        for route in cache.python_http[path]
+    ):
+        return EntrypointTag(
+            kind=EntrypointKind.API,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+            description="Python HTTP route decorator",
+            asset_value=AssetValue.HIGH,
+        )
     for line in decorators:
-        if _PY_HTTP_DECORATOR.match(line):
-            return EntrypointTag(
-                kind=EntrypointKind.API,
-                trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
-                description="Python HTTP route decorator",
-                asset_value=AssetValue.HIGH,
-            )
         if _PY_CLI_DECORATOR.match(line):
             return EntrypointTag(
                 kind=EntrypointKind.USER_INPUT,
@@ -531,17 +531,31 @@ def _detect_nextjs_route(unit: CodeUnit, path: str) -> EntrypointTag | None:
     normalized = path.replace("\\", "/")
     basename = normalized.rsplit("/", 1)[-1]
     if basename.startswith("route.") and unit.name in _NEXTJS_VERBS:
+        from trailmark.analysis.registrations import file_route_framework
+
+        framework = file_route_framework(path)
+        description = {
+            "medusa": "Medusa API handler",
+            "nextjs": "Next.js App Router handler",
+        }.get(framework, "File route handler (framework unknown)")
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
-            description="Next.js App Router handler",
+            description=description,
             asset_value=AssetValue.HIGH,
         )
     if "/pages/api/" in normalized and unit.name in {"handler", "default"}:
+        from trailmark.analysis.registrations import file_route_framework
+
+        framework = file_route_framework(path)
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
-            description="Next.js Pages API handler",
+            description=(
+                "Next.js Pages API handler"
+                if framework == "nextjs"
+                else "File route handler (framework unknown)"
+            ),
             asset_value=AssetValue.HIGH,
         )
     return None
@@ -1120,6 +1134,7 @@ class _SourceCache:
     """Lazily reads and caches source files during a detection pass."""
 
     def __init__(self, language: str | None = None) -> None:
+        self.python_http: dict[str, list[PythonHTTPRoute]] = {}
         self.servlet_owners: dict[str, str] = {}
         self.servlet_bases: dict[str, list[str]] = {}
         self._lines: dict[str, list[str]] = {}
@@ -1597,7 +1612,7 @@ _SOURCE_DETECTORS = {
         ((".sol",), _detect_solidity),
         ((".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"), _detect_js_ts),
         ((".cs",), _detect_csharp),
-        ((".php",), _detect_php),
+        ((".php", ".phtml"), _detect_php),
         ((".cairo",), _detect_cairo),
         ((".circom",), _detect_circom),
         ((".masm",), _detect_masm),
@@ -1625,4 +1640,5 @@ _UNIT_DETECTORS = {
     ".rego": _detect_rego,
     ".graphql": _detect_graphql,
     ".gql": _detect_graphql,
+    ".graphqls": _detect_graphql,
 }

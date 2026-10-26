@@ -16,6 +16,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Lua](#lua)
 - [R](#r)
 - [SQL](#sql)
+- [PHP](#php)
 - [PowerShell](#powershell)
 - [C, C++, and Objective-C headers](#c-c-and-objective-c-headers)
 - [VB.NET](#vbnet)
@@ -318,6 +319,10 @@ leaf types retain dependency edges. Thrift IDs use source-file identity instead
 of the first target-language namespace; namespaces remain metadata. Container
 arguments and declared throws are represented as type references.
 
+GraphQL source discovery includes Magento `.graphqls` files. Operation identity
+and implementation/transport evidence are documented in
+[Endpoint registrations](entrypoints.md#endpoint-registrations).
+
 FunC dot/tilde method variants retain specialized declarations and bare fallback
 semantics. Function-valued parameters and locals block unrelated same-name
 binding. Getters use `method_id` metadata and `run_ticktock` is a reserved
@@ -328,3 +333,32 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## PHP
+
+### Scripts and theme templates
+
+PHP discovery includes `.php` and `.phtml`. Mixed PHP/HTML templates have a
+synthetic `<template>` execution body; executable top-level `.php` statements
+have a `<script>` body. Their call sites and branches retain original source
+coordinates. Calls inside nested functions belong to those functions. This
+includes direct database calls in custom theme code. Embedded SQL strings remain
+PHP expressions; separate `.sql` files use the SQL frontend and its dialect limits.
+HTML and embedded JavaScript inside a PHP template are not separate JS programs
+in the graph; standalone JS/TS theme files use their own frontends.
+
+Selected Magento theme/module templates also appear as `template` registrations.
+Literal layout references retain candidate source bindings; theme inheritance,
+store-specific selection and dynamic `setTemplate()` dispatch can remain unknown.
+They are not assumed to be directly accessible HTTP endpoints.
+
+### Class constant compatibility
+
+The packaged PHP grammar rejects valid `TRUE`/`FALSE` class constant names,
+including the uppercase declarations used by Magento. The integration recovers
+that specific identifier slot with an equal-length parser-input placeholder;
+source files and coordinates are unchanged. Constant identifiers are not graph
+units. Recovery re-parses the input and preserves diagnostics for other invalid
+syntax rather than suppressing error ranges. Typed constants, comma-separated
+boolean-name declarations and other grammar gaps can still require upstream
+grammar support. This compatibility recovery is independent of endpoint discovery.

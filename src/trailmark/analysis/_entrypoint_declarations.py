@@ -21,6 +21,7 @@ _LANGUAGES = {
     ".java": "java",
     ".cs": "csharp",
     ".php": "php",
+    ".phtml": "php",
     ".cairo": "cairo",
     ".swift": "swift",
     ".kt": "kotlin",
@@ -87,6 +88,10 @@ class DeclarationCache:
                     from trailmark.parsers.rust.parser import parse_syntax_roots
 
                     pending = list(reversed(parse_syntax_roots(source, path)))
+                elif language == "php":
+                    from trailmark.parsers.php._syntax import parse_php
+
+                    pending = [parse_php(Parser(get_language("php")), source).root_node]
                 else:
                     pending = [Parser(get_language(language)).parse(source).root_node]
                 while pending:

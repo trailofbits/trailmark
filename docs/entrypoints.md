@@ -79,8 +79,100 @@ Use the override file for handlers that are not covered by these patterns.
 
 [entrypoint-patterns.md](entrypoint-patterns.md) is a reference for detector
 authors: markers, suggested classifications, and grep-ready patterns, including
-frameworks that are not detected yet (Express, Koa, Fastify, Django, Laravel,
+frameworks that are not detected yet (Express, Koa, Fastify, Laravel,
 Cobra, axum, warp, clap, and others).
+
+## Endpoint registrations
+
+`attack_surface()` remains a generic node/tag view. Use `endpoint_inventory()`
+or `trailmark endpoints` for registration identity. The inventory has
+`schema_version: 1`, a complete `registrations` list and registration
+`diagnostics`. HTTP routes, GraphQL operations, CLI commands and task handlers
+are separate `kind` values; do not combine their census denominators. `template`
+records describe executable PHP templates and layout references. `entrypoint`
+records retain other existing source entrypoints from every supported language,
+with unknown transport until framework-specific registration evidence is available.
+This preserves FFI exports, contract methods, lifecycle callbacks and other
+non-HTTP entrypoints without interpreting them as HTTP routes.
+
+Each `EndpointRegistration` includes a deterministic `id`, `owning_root`,
+`framework`, service `namespace`, `evidence`, `bindings` and `confidence`.
+HTTP identity uses `path`, `method` (one method, otherwise null) and `methods`
+(the lossless list). GraphQL identity uses `operation_type` and
+`operation_name`; `declaration_nodes` identifies schema declarations, while
+`bindings` identifies implementations. `transport_registrations` retains
+explicit transport associations. An empty association does not prove execution
+is impossible. Subscriptions do not inherit HTTP query/mutation transports.
+
+One handler may have several registration IDs. A registration may have several
+bindings, each with its own symbol, node ID, source range and status:
+`resolved`, `unresolved`, `out_of_root`, `unsupported` or `ambiguous`.
+Bindings use exact qualified identities or supplied file/definition evidence,
+never terminal-name matching alone. Native decorator-line evidence can differ
+from a function's definition line; both ranges must remain attributable.
+
+Unknown metadata is null. `enabled` remains null for static declarations:
+source presence does not establish deployment. Explicit native registration
+snapshots can establish activation. `declared_enabled` separately describes
+source module configuration and does not prove runtime activation. ACL
+references in `acl` are authorization metadata, not authentication labels.
+
+Evidence distinguishes `static`, `native` and `manual` sources. Native inputs
+are deliberately supplied snapshots; ordinary scanning never starts or imports
+an application. `import_native_registrations()` accepts Django URL resolver
+exports (`routes`), Symfony `debug:router` JSON, Magento canonical HTTP registry
+rows and Medusa loader snapshots (`routes`). Supplied container-to-source prefix
+maps are explicit inputs. Compiled JavaScript paths are not silently mapped to
+TypeScript implementations. Native rows and static declarations remain separate
+records, so importing a reference census is never automatic detector coverage.
+
+Supported static patterns and limits:
+
+- Python HTTP decorators require lexical Flask/FastAPI/aiohttp/Sanic receiver
+  evidence, including import aliases, assignment aliases and simple application
+  factories. `mock.patch`, unrelated `get`/`patch` objects and parameter shadows
+  do not establish HTTP registrations. Ambiguous receivers produce diagnostics.
+  Conditional/dynamic factories and cross-file registrar exports remain limited.
+- Django supports literal `urlpatterns`, nested `include()` prefixes and
+  namespaces, shared handlers and `as_view()` class/dispatch bindings. Dynamic
+  application factories, settings-driven URL generation and inherited dispatch
+  may require a native snapshot. Regex patterns remain Django patterns, and
+  function-view method restrictions remain unknown when not supplied.
+- Symfony supports selected YAML/XML route imports, prefixes, explicit routes
+  and class/service controller bindings, including literal `set(id, Class::class)`
+  aliases from typed PHP container configurators. API Platform explicit operation paths
+  are retained; dynamically generated resource operations and unresolved
+  providers/processors remain diagnostics or unresolved bindings.
+- Magento supports `module.xml`, source module enablement configuration,
+  `routes.xml`, `webapi.xml`, global DI preferences, controller HTTP marker
+  interfaces and ACL references. Secret admin prefixes, rewrites, area-specific
+  DI overrides, module ordering conflicts and inherited controllers require
+  additional evidence. REST declarations retain their registered `/V1/...`
+  paths; a native snapshot supplies deployment prefixes such as `/rest/default`.
+- Medusa file routes retain HTTP verb/path bindings and Medusa provenance.
+  Generic `route.ts` files without framework evidence retain unknown framework
+  identity. Static declarations do not distinguish active routes from loader
+  exclusions or instrumentation fixtures by absence from source alone.
+  Next.js labels require an actual Next import or a matching app/pages route
+  under a package that declares Next as a dependency.
+- PHP `.phtml` templates are discovered in selected theme and module roots,
+  including Magento `app/design` and `view/*/templates`. Template execution
+  bodies retain calls, including database calls, with source locations. Magento
+  layout references retain candidate bindings; competing module/theme overrides
+  are ambiguous until selection is established. Template presence never marks
+  an HTTP endpoint or proves rendering, deployment or authentication. Explicit
+  dependency theme roots use the same source policy as application code.
+- GraphQL discovers `.graphql`, `.gql` and `.graphqls`, merges operation
+  fragments and preserves Vendure Shop/Admin namespaces. Resolver links require
+  Nest module/provider/decorator wiring, registered Graphene schema field
+  ownership or Magento `@resolver` directives. Conflicting implementations stay
+  ambiguous. Explicit Vendure plugin extensions can reference literal
+  `graphql-tag` schemas and resolver arrays in selected roots. Dynamic schema
+  interpolation and inherited/dynamic resolver wiring may remain unresolved.
+
+Resolved non-template implementations found by automatic adapters or native
+imports also appear in the generic attack surface.
+Schema declarations alone prove neither resolver execution nor authentication.
 
 ### Solidity
 

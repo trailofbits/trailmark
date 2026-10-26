@@ -10,6 +10,8 @@ from trailmark.models.annotations import (
 )
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
+from trailmark.models.endpoints import EndpointRegistration, HandlerBinding, RegistrationEvidence
+from trailmark.models.execution import ExecutionFlow, ExecutionPoint
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
     Attribute,
@@ -38,6 +40,11 @@ __all__ = [
     "EdgeKind",
     "EntrypointKind",
     "EntrypointTag",
+    "EndpointRegistration",
+    "HandlerBinding",
+    "RegistrationEvidence",
+    "ExecutionFlow",
+    "ExecutionPoint",
     "NodeKind",
     "NodeOrigin",
     "Parameter",

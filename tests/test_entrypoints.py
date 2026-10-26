@@ -27,6 +27,7 @@ SRC = REPO_ROOT / "src"
         (
             "Routes.PY",
             "python",
+            "from flask import Flask\napp = Flask(__name__)\n"
             '@app.route("/hello")\ndef hello():\n    pass\n',
             "Python HTTP route decorator",
         ),
@@ -582,11 +583,10 @@ class TestJavaScriptFrameworks:
         assert any("NestJS" in d for d in descriptions if d), surface
 
     def test_nextjs_app_router_detected(self, tmp_path: Path) -> None:
-        # Trailmark uses file basename in node ids, so we only need a
-        # `route.ts` file (the directory structure is irrelevant for the
-        # detector, which looks at basename and export name).
-        route = tmp_path / "route.ts"
+        route = tmp_path / "app" / "route.ts"
+        route.parent.mkdir()
         route.write_text(
+            "import { NextRequest } from 'next/server';\n"
             "export async function GET(request: Request) {\n"
             "  return new Response('ok');\n"
             "}\n"

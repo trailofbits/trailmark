@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import replace
 from pathlib import Path
 
@@ -20,7 +22,7 @@ from trailmark.parsers._common import (
 )
 from trailmark.parsers._simple import descendants, first_child_type, named_children
 
-_EXTENSIONS = (".graphql", ".gql")
+_EXTENSIONS = (".graphql", ".gql", ".graphqls")
 
 
 class GraphQLParser:
@@ -110,9 +112,23 @@ def _extract_field(node: Node, file_path: str, object_id: str, graph: CodeGraph)
         location=make_location(node, file_path),
         parameters=_arguments(node),
         return_type=_type_ref(node),
-        attributes=(("schema_role", _field_role(object_id)),),
+        attributes=(("schema_role", _field_role(object_id)), *_resolver_attributes(node)),
     )
     add_contains_edge(graph, object_id, field_id)
+
+
+def _resolver_attributes(node: Node) -> tuple[tuple[str, str], ...]:
+    pending = list(node.named_children)
+    while pending:
+        child = pending.pop()
+        if child.type == "directive":
+            text = node_text(child)
+            match = re.fullmatch(r'@resolver\s*\(\s*class\s*:\s*("(?:[^"\\]|\\.)*")\s*\)', text)
+            if match:
+                return (("graphql_resolver", json.loads(match.group(1))),)
+        elif child.type == "directives":
+            pending.extend(child.named_children)
+    return ()
 
 
 def _field_role(object_id: str) -> str:
@@ -184,16 +200,18 @@ def _assign_roots(graph: CodeGraph) -> None:
 
 
 def _merge_extensions(graph: CodeGraph) -> None:
-    owners: dict[str, list[str]] = {}
+    owners: dict[tuple[str, str], list[str]] = {}
     for unit in graph.nodes.values():
         attrs = dict(unit.attributes)
         if "graphql_type" in attrs and not attrs.get("graphql_extension"):
-            owners.setdefault(unit.name, []).append(unit.id)
+            owners.setdefault((_schema_scope(unit.location.file_path), unit.name), []).append(
+                unit.id
+            )
     remap = {}
     for unit in graph.nodes.values():
         if not dict(unit.attributes).get("graphql_extension"):
             continue
-        candidates = owners.get(unit.name, [])
+        candidates = owners.get((_schema_scope(unit.location.file_path), unit.name), [])
         if len(candidates) == 1:
             remap[unit.id] = candidates[0]
     for node_id, unit in list(graph.nodes.items()):
@@ -212,6 +230,10 @@ def _merge_extensions(graph: CodeGraph) -> None:
         )
         for edge in graph.edges
     ]
+
+
+def _schema_scope(path: str) -> str:
+    return next((p for p in Path(path).parts if p in {"admin-api", "shop-api"}), "")
 
 
 def _extract_enum(node: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:

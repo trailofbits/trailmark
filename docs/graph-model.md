@@ -66,6 +66,23 @@ classDiagram
 Nodes and edges also carry an `attributes` tuple of parser-specific key/value
 pairs, such as Solidity visibility or the raw text of an unresolved call.
 
+`CodeGraph.registrations` stores immutable `EndpointRegistration` records by ID;
+`add_registration()` rejects conflicting identities and `merge()` retains their
+evidence. `GraphStore.add_registration()` additionally validates resolved node
+references. `GraphStore.endpoint_registrations()` returns model records.
+`QueryEngine.endpoint_inventory()` returns JSON-compatible records. Handler
+bindings and schema declaration nodes remain separate.
+
+`CodeGraph.execution_flows` stores immutable `ExecutionFlow` transitions between
+source-ranged `ExecutionPoint` values. `add_execution_flow()` rejects conflicting
+IDs; the store additionally validates ranges and registration references.
+`GraphStore.execution_evidence()` returns models; the query facade exports
+plain dictionaries. Execution points can represent different ranges inside one
+function, including a gate, its rejection and its successful continuation.
+Their transitions are explicit evidence, separate from ordinary call edges.
+GraphQL schema-to-resolver links use `resolves_to` with registration provenance;
+they do not silently enter the ordinary `calls` traversal projection.
+
 ## Node kinds
 
 | Kind | Used for |

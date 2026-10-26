@@ -14,10 +14,14 @@ from trailmark.analysis.diff import compute_diff
 from trailmark.analysis.entrypoints import detect_entrypoints
 from trailmark.analysis.preanalysis import run_preanalysis
 from trailmark.analysis.proxies import ensure_proxy_nodes
+from trailmark.analysis.registrations import discover_registrations, mark_registered_entrypoints
 from trailmark.models.annotations import Annotation, AnnotationKind
 from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.endpoints import EndpointRegistration
+from trailmark.models.execution import ExecutionFlow, ExecutionPoint
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeOrigin, TypeParameter, TypeRef
+from trailmark.source_policy import SourcePolicy
 from trailmark.storage.graph_store import GraphStore
 
 
@@ -44,6 +48,7 @@ class QueryEngine:
         detect_entrypoints_: bool = True,
         allow_empty: bool = False,
         strict: bool = False,
+        source_policy: SourcePolicy | None = None,
     ) -> QueryEngine:
         """Parse a directory and return a ready-to-query engine.
 
@@ -64,10 +69,16 @@ class QueryEngine:
         caller wants to drive detection separately).
         """
         graph = _parse_api.parse_directory(
-            path, language=language, allow_empty=allow_empty, strict=strict
+            path,
+            language=language,
+            allow_empty=allow_empty,
+            strict=strict,
+            source_policy=source_policy,
         )
         if detect_entrypoints_:
             graph.entrypoints.update(detect_entrypoints(graph, path))
+            discover_registrations(graph)
+            mark_registered_entrypoints(graph)
         store = GraphStore(graph)
         return cls(store)
 
@@ -90,6 +101,82 @@ class QueryEngine:
         schema.
         """
         return compute_diff(other._store._graph, self._store._graph)  # noqa: SLF001
+
+    def endpoint_inventory(self, name: str | None = None) -> dict[str, Any]:
+        """Export typed registrations and unresolved registration diagnostics.
+
+        This inventory does not equate source declarations with deployment.
+        ``name`` restricts bindings to a resolved handler name or node ID.
+        """
+        node_id = self._store.find_node_id(name) if name is not None else None
+        records = (
+            []
+            if name is not None and node_id is None
+            else [r.to_dict() for r in self._store.endpoint_registrations(node_id)]
+        )
+        return {
+            "schema_version": 1,
+            "registrations": records,
+            "diagnostics": list(self._store._graph.registration_diagnostics),  # noqa: SLF001
+        }
+
+    def add_registration(self, registration: EndpointRegistration) -> None:
+        """Add an explicitly supplied registration after validating its targets."""
+        self._store.add_registration(registration)
+
+    def add_execution_flow(self, flow: ExecutionFlow) -> None:
+        """Add an explicitly evidenced, source-ranged execution transition."""
+        self._store.add_execution_flow(flow)
+
+    def execution_evidence(self, name: str | None = None) -> list[dict[str, Any]]:
+        """Export supplied gate, rejection, middleware and continuation evidence."""
+        node_id = self._store.find_node_id(name) if name is not None else None
+        if name is not None and node_id is None:
+            return []
+        return [asdict(flow) for flow in self._store.execution_evidence(node_id)]
+
+    def authentication_paths(
+        self,
+        roots: tuple[ExecutionPoint, ...],
+        target: ExecutionPoint,
+        *,
+        max_depth: int = 40,
+        max_steps: int = 10_000,
+    ) -> dict[str, Any]:
+        """Query explicit execution facts from nonempty, reviewed pre-auth roots."""
+        from trailmark.analysis.execution import authentication_paths
+
+        for point in (*roots, target):
+            self._store.validate_execution_point(point)
+        return authentication_paths(
+            self._store._graph,
+            roots,
+            target,
+            max_depth=max_depth,
+            max_steps=max_steps,  # noqa: SLF001
+        )
+
+    def import_native_registrations(
+        self,
+        path: str,
+        *,
+        framework: str,
+        source_root: str | None = None,
+        path_mappings: tuple[tuple[str, str], ...] = (),
+    ) -> int:
+        """Opt in to a native Django/Symfony/Magento/Medusa registry snapshot."""
+        from trailmark.analysis._native_registrations import import_native_registrations
+
+        graph = self._store._graph  # noqa: SLF001
+        count = import_native_registrations(
+            graph, path, framework=framework, source_root=source_root, path_mappings=path_mappings
+        )
+        mark_registered_entrypoints(graph)
+        from trailmark.analysis._graphql_registrations import link_graphql_transports
+        from trailmark.analysis._registration_context import RegistrationContext
+
+        link_graphql_transports(RegistrationContext(graph))
+        return count
 
     def callers_of(self, name: str) -> list[dict[str, Any]]:
         """Find all callers of a function/method by name."""
@@ -334,6 +421,7 @@ class QueryEngine:
             "languages": list(source_file_counts),
             "source_files": sum(source_file_counts.values()),
             "source_file_counts": source_file_counts,
+            **({"source_policy": graph.source_policy} if graph.source_policy else {}),
             "parse_diagnostics": self.parse_diagnostics(),
         }
 
@@ -515,6 +603,13 @@ class QueryEngine:
             "nodes": {nid: _unit_to_dict(node) for nid, node in graph.nodes.items()},
             "edges": [_edge_to_dict(e) for e in graph.edges],
             "subgraphs": {name: sorted(ids) for name, ids in graph.subgraphs.items()},
+            **(
+                {"endpoint_inventory": self.endpoint_inventory()}
+                if graph.registrations or graph.registration_diagnostics
+                else {}
+            ),
+            **({"source_policy": graph.source_policy} if graph.source_policy else {}),
+            **({"execution_evidence": self.execution_evidence()} if graph.execution_flows else {}),
         }
         return json.dumps(data, indent=indent, default=str)
 

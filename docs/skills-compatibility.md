@@ -58,6 +58,31 @@ compatibility tests, not a claim that those external gates have been updated.
   the owner as a caller and `summary()["call_edges"]` counts deferred edges. Consumers
   needing to exclude them must inspect raw graph edges before traversal.
 
+Registration-aware consumers can use `endpoint_inventory()` and its versioned,
+complete export instead of treating generic attack-surface tags as HTTP route
+rows. Keep HTTP registrations, GraphQL operations and represented source
+handlers as separate cohorts. Consume the effective `source_policy` manifest
+before assigning a missing implementation to a detector. Native snapshots are
+explicit inputs, with their own provenance and source mappings.
+
+Source selection, registration export and execution evidence are common contracts
+across all 39 supported language frontends. Every existing entrypoint is retained;
+an unresolved framework registration uses `kind: entrypoint` and unknown transport.
+These guarantees concern source/graph contracts, not universal framework detection.
+
+Selected custom theme code is part of the source graph. PHP `.phtml` bodies and
+top-level `.php` calls are retained, and standalone `.sql`, JS and TS files use
+their respective frontends. Inspect `template` registrations and their layout
+bindings as well as HTTP records. Absence from `attack_surface()` does not remove
+a template's code from the graph or establish that it cannot execute. A consumer
+must use the new Trailmark version and select any dependency/theme roots explicitly.
+
+Authentication orchestration can consume `execution_evidence()` and bounded
+`authentication_paths()` over supplied source-ranged facts. Empty pre-auth roots
+are rejected. Trust/taint/privilege tags are not authentication labels. No mapper
+phase orchestration, skill display caps or environment pinning is implemented
+by these core contracts.
+
 ## Finding and state workflows
 
 Bind Solidity storage declarations as `state_variable` nodes and inspect

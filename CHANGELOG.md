@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Add typed endpoint registrations, explicit native registry imports, Django,
+  Symfony/API Platform and Magento source adapters, and GraphQL resolver and
+  transport associations. Static presence retains unknown deployment state.
+- Add named source roots, configurable source selection and file-level policy
+  diagnostics. Generated `var/cache` output is excluded by default.
+- Retain existing entrypoints across all 39 frontends in the registration
+  inventory. Parse PHP `.phtml` theme templates and top-level script execution,
+  including database calls, and preserve Magento layout/template candidates.
+- Add source-ranged execution evidence and bounded authentication-path queries;
+  trust tags and ordinary calls do not establish authentication.
+- Resolve Python HTTP decorator receivers to avoid `mock.patch` false positives,
+  identify Medusa file routes, discover `.graphqls`, and recover valid PHP
+  `TRUE`/`FALSE` class constant declarations without suppressing other errors.
+
 ## 0.7.0 (2026-10-23)
 
 This release adds nine language frontends, Solidity storage-access graphs, and

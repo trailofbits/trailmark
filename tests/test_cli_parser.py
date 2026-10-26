@@ -62,6 +62,7 @@ class TestTopLevelParser:
             "analyze",
             "augment",
             "entrypoints",
+            "endpoints",
             "diff",
             "diagram",
             "version",

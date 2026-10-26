@@ -12,6 +12,7 @@ from typing import Any, TextIO
 from trailmark import __version__
 from trailmark.diagram import add_diagram_arguments, build_engine, render_diagram
 from trailmark.query.api import QueryEngine
+from trailmark.source_policy import SourcePolicy, SourceRoot
 
 _VERSION_STRING = f"trailmark {__version__}"
 
@@ -164,7 +165,50 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_diagram_arguments(diagram)
 
-    for command in (analyze, diff_cmd, entrypoints, augment):
+    inventory = subparsers.add_parser(
+        "endpoints", help="Export typed endpoint registrations as JSON"
+    )
+    inventory.add_argument("path", help="Primary source directory")
+    inventory.add_argument(
+        "--language", "-l", default="auto", help="Source languages (default: auto)"
+    )
+    inventory.add_argument(
+        "--native-registry",
+        action="append",
+        default=[],
+        metavar="FRAMEWORK=FILE",
+        help="Opt in to a native Django/Symfony/Magento/Medusa registry snapshot",
+    )
+    for command in (analyze, entrypoints, inventory):
+        command.add_argument(
+            "--source-root",
+            action="append",
+            default=[],
+            metavar="NAME=PATH",
+            help="Add a deliberately selected dependency or plugin root",
+        )
+        command.add_argument(
+            "--exclude-source",
+            action="append",
+            default=[],
+            metavar="GLOB",
+            help="Exclude source paths relative to each root",
+        )
+        command.add_argument(
+            "--include-source",
+            action="append",
+            default=[],
+            metavar="GLOB",
+            help="Include source paths despite default exclusions",
+        )
+        command.add_argument(
+            "--auxiliary-source",
+            action="append",
+            default=[],
+            metavar="GLOB",
+            help="Use a selected artifact as auxiliary registration evidence",
+        )
+    for command in (analyze, diff_cmd, entrypoints, augment, inventory):
         command.add_argument(
             "--strict", action="store_true", help="Reject source analysis with parse diagnostics"
         )
@@ -199,6 +243,8 @@ def main() -> None:
             _run_diff(args)
         elif args.command == "diagram":
             _run_diagram(args)
+        elif args.command == "endpoints":
+            _run_endpoints(args)
     except (ValueError, OSError) as exc:
         parser.exit(2, f"trailmark: error: {exc}\n")
     except subprocess.CalledProcessError as exc:
@@ -214,6 +260,7 @@ def _run_analyze(args: argparse.Namespace) -> None:
         language=args.language,
         allow_empty=args.allow_empty,
         strict=args.strict,
+        source_policy=_source_policy(args),
     )
 
     if args.resolution:
@@ -227,6 +274,45 @@ def _run_analyze(args: argparse.Namespace) -> None:
         _print_complexity(engine, args.complexity)
     else:
         print(engine.to_json())
+
+
+def _source_policy(args: argparse.Namespace) -> SourcePolicy | None:
+    if not any((args.source_root, args.exclude_source, args.include_source, args.auxiliary_source)):
+        return None
+    roots = [SourceRoot(args.path, "app")]
+    for value in args.source_root:
+        name, separator, path = value.partition("=")
+        if not separator:
+            raise ValueError("--source-root requires NAME=PATH")
+        roots.append(SourceRoot(path, name, "dependency"))
+    base = SourcePolicy(tuple(roots))
+    return SourcePolicy(
+        tuple(roots),
+        exclude=(*base.exclude, *args.exclude_source),
+        include=tuple(args.include_source),
+        auxiliary=tuple(args.auxiliary_source),
+    )
+
+
+def _run_endpoints(args: argparse.Namespace) -> None:
+    engine = QueryEngine.from_directory(
+        args.path,
+        args.language,
+        allow_empty=args.allow_empty,
+        strict=args.strict,
+        source_policy=_source_policy(args),
+    )
+    for value in args.native_registry:
+        framework, separator, path = value.partition("=")
+        if not separator:
+            raise ValueError("--native-registry requires FRAMEWORK=FILE")
+        engine.import_native_registrations(path, framework=framework)
+    print(
+        json.dumps(
+            {**engine.endpoint_inventory(), "source_policy": engine.summary()["source_policy"]},
+            indent=2,
+        )
+    )
 
 
 def _print_summary(engine: QueryEngine) -> None:
@@ -308,7 +394,11 @@ def _print_augment_result(
 def _run_entrypoints(args: argparse.Namespace) -> None:
     """Execute the entrypoints subcommand."""
     engine = QueryEngine.from_directory(
-        args.path, language=args.language, allow_empty=args.allow_empty, strict=args.strict
+        args.path,
+        language=args.language,
+        allow_empty=args.allow_empty,
+        strict=args.strict,
+        source_policy=_source_policy(args),
     )
     surface = engine.attack_surface()
 

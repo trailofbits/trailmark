@@ -31,6 +31,18 @@ that are reachable from user input.
   Spring, ASP.NET Core, actix-web, NestJS, Solidity visibility, and more), each
   tagged with a trust level and asset value. Override or extend detection with
   `.trailmark/entrypoints.toml`.
+- **Endpoint registrations.** A separate, versioned inventory of HTTP routes,
+  GraphQL operations, CLI commands, tasks and templates, with handler bindings, source
+  roots, provenance and explicit unknowns. Static Django URLconfs,
+  Symfony/API Platform metadata and Magento registries supplement decorator
+  detection. Native registry snapshots are explicit opt-in inputs. See the
+  [registration contract](https://github.com/trailofbits/trailmark/blob/main/docs/entrypoints.md#endpoint-registrations).
+  Existing source entrypoints from every supported language remain represented
+  with unknown transport when no framework adapter resolves their registration.
+- **Explicit source scope and execution evidence.** Select named application,
+  dependency and plugin roots with replayable exclusions. Supply reviewed,
+  source-ranged gate and continuation facts for bounded authentication queries;
+  ordinary trust tags do not establish authentication.
 - **Reachability.** Direct callers and callees, transitive slices, and bounded
   call paths from entrypoints to a target.
 - **Structural diffs.** Compare two directories or git refs and report added or
@@ -215,7 +227,7 @@ for working with proxies.
 | R | `.r` | `r` | named/anonymous functions, closures, defaults, branches, calls, package/source dependencies |
 | JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | `javascript` | functions, classes, arrow functions |
 | TypeScript | `.ts`, `.tsx` | `typescript` | functions, classes, interfaces, enums |
-| PHP | `.php` | `php` | functions, classes, interfaces, traits |
+| PHP | `.php`, `.phtml` | `php` | functions, classes, interfaces, traits, script and template bodies |
 | Perl | `.pl`, `.pm` | `perl` | packages, subroutines, signatures/prototypes, anonymous subs, script calls, imports |
 | Ruby | `.rb` | `ruby` | methods, classes, modules |
 | Lua | `.lua` | `lua` | local/global functions, table methods, anonymous functions, chunks, imports, direct calls |
@@ -248,7 +260,7 @@ for working with proxies.
 | Rego | `.rego` | `rego` | packages, imports, policy rules, rule calls |
 | Proto | `.proto` | `proto` | services, RPCs, messages, fields, enums |
 | Thrift | `.thrift` | `thrift` | services, functions, structs, fields, enums |
-| GraphQL | `.graphql`, `.gql` | `graphql` | object types, root operations, fields, enums |
+| GraphQL | `.graphql`, `.gql`, `.graphqls` | `graphql` | object types, root operations, fields, enums |
 | SQL | `.sql` | `sql` | schemas, tables, views, functions, procedures |
 
 Pass `--language auto` to detect languages, or a comma-separated list such as

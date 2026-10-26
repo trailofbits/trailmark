@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from trailmark.models.annotations import Annotation, AnnotationKind, EntrypointTag
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.endpoints import EndpointRegistration
+from trailmark.models.execution import ExecutionFlow
 from trailmark.models.nodes import CodeUnit, NodeKind
 
 
@@ -28,6 +30,24 @@ class CodeGraph:
     root_path: str = ""
     source_file_counts: dict[str, int] = field(default_factory=dict)
     parse_diagnostics: list[ParseDiagnostic] = field(default_factory=list)
+    registrations: dict[str, EndpointRegistration] = field(default_factory=dict)
+    registration_diagnostics: list[dict[str, str]] = field(default_factory=list)
+    source_policy: dict[str, object] = field(default_factory=dict)
+    execution_flows: dict[str, ExecutionFlow] = field(default_factory=dict)
+
+    def add_execution_flow(self, flow: ExecutionFlow) -> None:
+        """Retain one source-ranged transition without replacing conflicting evidence."""
+        previous = self.execution_flows.get(flow.id)
+        if previous is not None and previous != flow:
+            raise ValueError(f"Conflicting execution flow: {flow.id}")
+        self.execution_flows[flow.id] = flow
+
+    def add_registration(self, registration: EndpointRegistration) -> None:
+        """Store one lossless registration, rejecting conflicting identities."""
+        existing = self.registrations.get(registration.id)
+        if existing is not None and existing != registration:
+            raise ValueError(f"Conflicting registration ID: {registration.id}")
+        self.registrations[registration.id] = registration
 
     def unresolved_calls(self) -> list[CodeEdge]:
         """Return calls with missing targets or explicit unresolved proxies."""
@@ -75,6 +95,11 @@ class CodeGraph:
         self.nodes.update(other.nodes)
         self.edges.extend(other.edges)
         self.parse_diagnostics.extend(other.parse_diagnostics)
+        for registration in other.registrations.values():
+            self.add_registration(registration)
+        self.registration_diagnostics.extend(other.registration_diagnostics)
+        for flow in other.execution_flows.values():
+            self.add_execution_flow(flow)
         for node_id, anns in other.annotations.items():
             self.annotations.setdefault(node_id, []).extend(anns)
         self.entrypoints.update(other.entrypoints)

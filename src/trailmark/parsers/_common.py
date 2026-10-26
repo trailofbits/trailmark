@@ -176,8 +176,16 @@ def walk_source_files(
     Skips common non-source directories (VCS, caches, vendored deps)
     and does not traverse directory symlinks.
     """
+    selected = _DIRECTORY_SOURCES.get()
+    if selected is not None and selected.root == _absolute_lexical_path(Path(dir_path)):
+        for path in sorted(selected.owners):
+            if str(path).lower().endswith(extensions):
+                yield str(path)
+        return
     for root, dirs, files in os.walk(dir_path, followlinks=False):
         dirs[:] = [d for d in dirs if not should_skip_dir(d)]
+        if Path(root).name == "var":
+            dirs[:] = [d for d in dirs if d != "cache"]
         dirs.sort()
         for fname in sorted(files):
             if fname.lower().endswith(extensions):

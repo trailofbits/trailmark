@@ -93,6 +93,16 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("README.md", "Endpoint registrations."),
+    ("docs/entrypoints.md", "source presence does not establish deployment"),
+    ("docs/entrypoints.md", "never terminal-name matching alone"),
+    ("docs/python-api.md", "Empty roots raise `ValueError`"),
+    ("docs/python-api.md", "The first root owns a canonical file"),
+    ("docs/languages.md", "source files and coordinates are unchanged"),
+    ("docs/languages.md", "synthetic `<template>` execution body"),
+    ("docs/skills-compatibility.md", "across all 39 supported language frontends"),
+    ("docs/entrypoints.md", "non-HTTP entrypoints without interpreting them as HTTP routes"),
+    ("docs/parser-coverage.md", "preserving direct database calls"),
     ("docs/parser-coverage.md", "Calls keep their normal confidence"),
     ("docs/parser-coverage.md", "the last definition keeps its plain ID"),
     ("docs/parser-coverage.md", "Java constructor binding also runs after the directory merge"),

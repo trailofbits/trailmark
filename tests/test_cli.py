@@ -16,6 +16,54 @@ from trailmark.cli import main
 from trailmark.query.api import QueryEngine
 
 
+def test_endpoints_cli_selects_dependency_root_and_imports_explicit_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    dependency = tmp_path / "vendor" / "shop"
+    dependency.mkdir(parents=True)
+    (tmp_path / "app.py").write_text("def boot(): pass\n")
+    source = dependency / "views.py"
+    source.write_text(
+        "from flask import Flask\napp = Flask(__name__)\n@app.get('/health')\ndef health(): pass\n"
+    )
+    snapshot = tmp_path / "routes.json"
+    snapshot.write_text(
+        json.dumps(
+            {
+                "routes": [
+                    {
+                        "handler": "views.health",
+                        "file": str(source),
+                        "line": 4,
+                        "path_pattern": "health/",
+                        "methods": ["GET"],
+                    }
+                ]
+            }
+        )
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "trailmark",
+            "endpoints",
+            str(tmp_path),
+            "--source-root",
+            f"shop={dependency}",
+            "--native-registry",
+            f"django={snapshot}",
+        ],
+    )
+    main()
+    result = json.loads(capsys.readouterr().out)
+    records = result["registrations"]
+    assert len(records) == 2
+    assert {r["enabled"] for r in records} == {None, True}
+    assert all(r["bindings"][0]["status"] == "resolved" for r in records)
+    assert result["source_policy"]["roots"][1]["name"] == "shop"
+
+
 def _write_finding_report(report: Path, source: str, source_file: str) -> None:
     if source == "sarif":
         payload = {
@@ -422,6 +470,7 @@ class TestAnalyzeCommand:
             "nodes",
             "edges",
             "subgraphs",
+            "source_policy",
         }
         # Summary has exact keys
         assert set(data["summary"].keys()) == {
@@ -436,6 +485,7 @@ class TestAnalyzeCommand:
             "source_files",
             "source_file_counts",
             "parse_diagnostics",
+            "source_policy",
         }
         # Nodes is a dict, edges is a list
         assert isinstance(data["nodes"], dict)

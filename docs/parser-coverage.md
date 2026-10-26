@@ -59,6 +59,10 @@ still does. Nullsafe and scoped calls retain sites. Local `self`, named-class an
 unambiguous `parent` targets can resolve; late-static dispatch stays uncertain.
 Free functions link across files by namespace and name, including fully qualified
 references. Unqualified namespace calls retain PHP's global-function fallback.
+Executable top-level PHP has a synthetic `<script>` owner. Mixed `.phtml`
+templates have a `<template>` owner, preserving direct database calls and their
+source ranges without absorbing nested function bodies. Rendering and theme
+selection remain registration evidence concerns, separate from parsing.
 
 Perl qualified subroutine names determine symbol ownership while body/default
 lookup retains the lexical package. Signature defaults retain calls and nested

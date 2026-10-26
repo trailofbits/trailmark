@@ -61,6 +61,78 @@ constructing the engine, then use the engine's methods for later changes.
 `from_graph()` does not run entrypoint detection. If you manage a `GraphStore`
 yourself, call `rebuild_index()` after direct structural edits.
 
+## Explicit roots and source policy
+
+```python
+from trailmark.parse import parse_roots
+from trailmark.source_policy import SourcePolicy, SourceRoot
+
+policy = SourcePolicy(
+    roots=(SourceRoot("app", "app"),
+           SourceRoot("app/vendor/selected-package", "framework", "dependency")),
+    exclude=("var/cache/**", "generated/**"),
+    include=(),
+    auxiliary=("var/cache/exported-routes.json",),
+)
+graph = parse_roots(policy, language="auto")
+engine = QueryEngine.from_directory("app", language="auto", source_policy=policy)
+```
+
+`parse_roots()` and the `source_policy=` keyword accept ordered, named roots.
+The first root owns a canonical file; overlapping or symlinked roots report
+duplicates instead of duplicating handlers. Multiple roots prefix graph IDs
+with `name::`. A deliberately selected dependency root bypasses exclusions on
+its parents; unrelated dependency directories remain excluded. Auxiliary files
+can supply registration evidence without becoming implementation source.
+
+`CodeGraph.source_policy`, `summary()["source_policy"]` and directory JSON
+exports report the effective roots, selected/auxiliary/skipped paths, source
+categories and reasons. Records distinguish files from skipped directory units.
+Categories are authored, dependency, generated, test/fixture and unknown;
+category is provenance, not activation. VCS object directories and directory
+symlinks are not traversed. `source_file_counts` counts inspected source files,
+independently of auxiliary files and skipped directories. Default public
+directory scans exclude `var/cache` and generated output, alongside common
+dependency/cache directories. Include overrides and explicit auxiliary paths
+are replayable in the manifest.
+
+## Registration and execution APIs
+
+`endpoint_inventory(name=None)` returns the versioned registration inventory;
+an optional handler name/ID restricts bindings. Missing handlers return an empty
+registration list. `add_registration(record)` validates resolved node references.
+`EndpointRegistration.to_dict()` and `EndpointRegistration.from_dict()` round-trip
+the versioned JSON representation with explicit nulls. See
+[Entrypoints](entrypoints.md#endpoint-registrations) for field semantics and adapter limits.
+
+`import_native_registrations(path, framework=..., source_root=None,
+path_mappings=())` explicitly imports a native registry snapshot and returns its
+row count. `path_mappings` is a tuple of `(native_prefix, source_prefix)` pairs.
+The native evidence remains separate from static detections.
+
+`add_execution_flow(flow)` validates an `ExecutionFlow` and its source/target
+`ExecutionPoint` ranges against real graph units. Flows express credential
+handling, middleware order, gate success, rejection sinks and dispatch.
+`execution_evidence(name=None)` exports their full evidence, optionally for one
+handler. Missing handlers return `[]`.
+
+`authentication_paths(roots, target, max_depth=40, max_steps=10000)` requires a nonempty tuple of
+explicit pre-auth `ExecutionPoint` roots and a precise target point. It follows
+only supplied execution facts, returning evidence chains, a range-specific
+classification, bounds and limitations. Gate evaluation and rejection remain
+pre-auth; a reviewed successful **user** gate can establish a post-auth
+continuation inside a public login handler. Supported public and protected
+paths can establish mixed execution. Capability/guest-cart keys, CSRF and
+unreviewed or uncertain dispatch do not establish user identity. Missing paths,
+unresolved alternatives and exhausted bounds remain unknown. Empty roots raise
+`ValueError`. Ordinary calls, entrypoint trust, taint and privilege-boundary tags
+are never converted into authentication labels. These facts are explicit inputs,
+not an automatic census of all authentication boundaries.
+
+Graph JSON includes nonempty registration, source-policy and execution-evidence
+exports as additive fields. Raw graphs without those records retain their
+existing export shape.
+
 ## Referring to nodes
 
 Every method that takes a `name` accepts a full node ID (`auth:Auth.verify`), a

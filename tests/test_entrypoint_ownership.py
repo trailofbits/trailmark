@@ -81,6 +81,8 @@ from trailmark.query.api import QueryEngine
 def test_attributes_do_not_tag_neighbouring_functions(
     tmp_path: Path, language: str, extension: str, source: str, expected: str
 ) -> None:
+    if language == "python":
+        source = "from flask import Flask\napp = Flask(__name__)\n" + source
     (tmp_path / f"app.{extension}").write_text(source)
     engine = QueryEngine.from_directory(str(tmp_path), language=language)
     assert {entry["node_id"] for entry in engine.attack_surface()} == {expected}
@@ -95,6 +97,7 @@ def test_attributes_do_not_tag_neighbouring_functions(
     ],
 )
 def test_python_does_not_inherit_markers_from_class_or_body(tmp_path: Path, source: str) -> None:
+    source = "from flask import Flask\napp = Flask(__name__)\n" + source
     (tmp_path / "app.py").write_text(source)
     engine = QueryEngine.from_directory(str(tmp_path), language="python")
     # Nested decorators belong only to the nested declaration.
@@ -104,6 +107,7 @@ def test_python_does_not_inherit_markers_from_class_or_body(tmp_path: Path, sour
 
 def test_python_multiline_decorator_and_long_stack(tmp_path: Path) -> None:
     source = '@app.get(\n    "/",\n)\n' + "@wrap\n" * 15 + "def route(): pass\n"
+    source = "from flask import Flask\napp = Flask(__name__)\n" + source
     (tmp_path / "app.py").write_text(source)
     engine = QueryEngine.from_directory(str(tmp_path), language="python")
     assert {entry["node_id"] for entry in engine.attack_surface()} == {"app:route"}

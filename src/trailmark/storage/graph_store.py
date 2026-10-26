@@ -11,6 +11,8 @@ from trailmark.models.annotations import (
 )
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.endpoints import EndpointRegistration
+from trailmark.models.execution import ExecutionFlow, ExecutionPoint
 from trailmark.models.graph import CodeGraph
 from trailmark.models.lookup import resolve_node_id
 from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin
@@ -34,10 +36,84 @@ class GraphStore:
     def __init__(self, graph: CodeGraph) -> None:
         self._graph = graph
         self.rebuild_index()
+        for registration in graph.registrations.values():
+            self.add_registration(registration)
+        for flow in graph.execution_flows.values():
+            self.add_execution_flow(flow)
 
     def source_file_counts(self) -> dict[str, int]:
         """Return inspected source-file counts by selected parser language."""
         return dict(self._graph.source_file_counts)
+
+    def add_registration(self, registration: EndpointRegistration) -> None:
+        """Validate resolved targets before adding registration evidence."""
+        for binding in registration.bindings:
+            if binding.node_id is not None and binding.node_id not in self._graph.nodes:
+                raise ValueError(f"Unknown registration handler: {binding.node_id}")
+        for node_id in registration.declaration_nodes:
+            if node_id not in self._graph.nodes:
+                raise ValueError(f"Unknown registration declaration: {node_id}")
+        for identifier in registration.transport_registrations:
+            transport = self._graph.registrations.get(identifier)
+            if transport is None or transport.kind != "http":
+                raise ValueError(f"Unknown HTTP transport registration: {identifier}")
+        self._graph.add_registration(registration)
+
+    def validate_execution_point(self, point: ExecutionPoint) -> None:
+        """Require a real code unit and a nonempty contained source range."""
+        unit = self._graph.nodes.get(point.node_id)
+        if unit is None:
+            raise ValueError(f"Unknown execution node: {point.node_id}")
+        span = point.location
+        owner = unit.location
+        if (
+            span.file_path != owner.file_path
+            or span.start_line > span.end_line
+            or span.start_line < owner.start_line
+            or span.end_line > owner.end_line
+            or (
+                span.start_line == owner.start_line
+                and span.start_col is not None
+                and owner.start_col is not None
+                and span.start_col < owner.start_col
+            )
+            or (
+                span.end_line == owner.end_line
+                and span.end_col is not None
+                and owner.end_col is not None
+                and span.end_col > owner.end_col
+            )
+        ):
+            raise ValueError("Execution point must be inside its source unit")
+
+    def add_execution_flow(self, flow: ExecutionFlow) -> None:
+        """Validate range and registration references before adding a transition."""
+        self.validate_execution_point(flow.source)
+        self.validate_execution_point(flow.target)
+        if (
+            flow.registration_id is not None
+            and flow.registration_id not in self._graph.registrations
+        ):
+            raise ValueError(f"Unknown execution registration: {flow.registration_id}")
+        self._graph.add_execution_flow(flow)
+
+    def execution_evidence(self, node_id: str | None = None) -> list[ExecutionFlow]:
+        """Return facts involving the selected node, or every supplied fact."""
+        return [
+            flow
+            for _, flow in sorted(self._graph.execution_flows.items())
+            if node_id is None or node_id in {flow.source.node_id, flow.target.node_id}
+        ]
+
+    def endpoint_registrations(self, node_id: str | None = None) -> list[EndpointRegistration]:
+        """Return all registrations, or those bound to an existing node."""
+        if node_id is not None and node_id not in self._graph.nodes:
+            return []
+        return [
+            registration
+            for _, registration in sorted(self._graph.registrations.items())
+            if node_id is None or any(b.node_id == node_id for b in registration.bindings)
+        ]
 
     def parse_diagnostics(self) -> list[ParseDiagnostic]:
         """Return source analysis diagnostics as immutable model objects."""

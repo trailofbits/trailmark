@@ -50,6 +50,8 @@ dependencies = [
     "tree-sitter-language-pack>=1.22.1,<2.0",
     "tree-sitter-sql>=0.3.11,<0.4",
     "rustworkx>=0.18.1,<1.0",
+    "pyyaml>=6,<7",
+    "defusedxml>=0.7.1,<1",
 ]
 
 [project.urls]

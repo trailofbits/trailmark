@@ -14,6 +14,7 @@ from trailmark.models.nodes import (
     BranchInfo,
     CodeUnit,
     NodeKind,
+    NodeOrigin,
     Parameter,
     TypeRef,
 )
@@ -29,6 +30,7 @@ from trailmark.parsers._common import (
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._php_linking import link_php_functions
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.php._syntax import parse_php
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -53,10 +55,18 @@ _CALL_TYPES = frozenset(
     }
 )
 _CALLABLE_TYPES = frozenset(
-    {"function_definition", "anonymous_function", "arrow_function", "class_declaration"}
+    {
+        "function_definition",
+        "anonymous_function",
+        "arrow_function",
+        "class_declaration",
+        "interface_declaration",
+        "trait_declaration",
+        "enum_declaration",
+    }
 )
 
-_EXTENSIONS = (".php",)
+_EXTENSIONS = (".php", ".phtml")
 
 _NAMESPACE: ContextVar[str] = ContextVar("_PHP_NAMESPACE", default="")
 
@@ -82,7 +92,7 @@ class PHPParser:
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single PHP file into a CodeGraph."""
         source = Path(file_path).read_bytes()
-        tree = self._parser.parse(source)
+        tree = parse_php(self._parser, source)
         graph = CodeGraph(language="php", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
@@ -90,7 +100,7 @@ class PHPParser:
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
-        """Parse all .php files under dir_path into a merged graph."""
+        """Parse PHP scripts and mixed PHP/HTML templates under dir_path."""
         return parse_directory(
             self.parse_file,
             "php",
@@ -108,6 +118,47 @@ def _visit_module(
     """Walk the top-level of a PHP module, extracting nodes."""
     add_module_node(root, file_path, module_id, graph)
     _walk_children(root, file_path, module_id, graph)
+    _extract_script(root, file_path, module_id, graph)
+
+
+def _extract_script(root: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:
+    """Retain executable file bodies without attributing nested functions' calls to them."""
+    template = Path(file_path).suffix.lower() == ".phtml"
+    statements = [
+        node
+        for node in walk_owned(root, root_is_owner=False, boundaries=_CALLABLE_TYPES)
+        if node.type
+        in {
+            "expression_statement",
+            "echo_statement",
+            "return_statement",
+            "if_statement",
+            "foreach_statement",
+            "while_statement",
+            "for_statement",
+        }
+    ]
+    if not statements and not template:
+        return
+    branches: list[BranchInfo] = []
+    exceptions: list[TypeRef] = []
+    calls: list[tuple[str, Node]] = []
+    _collect_php_body_info(root, file_path, branches, exceptions, calls)
+    name = "<template>" if template else "<script>"
+    identifier = f"{module_id}:{name}"
+    graph.nodes[identifier] = CodeUnit(
+        identifier,
+        name,
+        NodeKind.FUNCTION,
+        make_location(root, file_path),
+        origin=NodeOrigin.SYNTHETIC,
+        attributes=(("php_execution_kind", "template" if template else "script"),),
+        branches=tuple(branches),
+        exception_types=tuple(exceptions),
+        cyclomatic_complexity=compute_complexity(branches),
+    )
+    add_contains_edge(graph, module_id, identifier)
+    _add_call_edges(calls, identifier, module_id, None, file_path=file_path, graph=graph)
 
 
 def _walk_children(
