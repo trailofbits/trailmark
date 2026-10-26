@@ -143,6 +143,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "component unit tests run first"),
     ("CONTRIBUTING.md", "Shared-helper mutants retain tests from"),
     ("CONTRIBUTING.md", "`--workers=4` already enables parallel"),
+    ("CONTRIBUTING.md", "CI runs eight mutation shards concurrently"),
+    ("CONTRIBUTING.md", "--shard=INDEX/TOTAL"),
+    ("CONTRIBUTING.md", "tests.mutation_gate --shard=1/8"),
+    ("CONTRIBUTING.md", "requires all eight shards to pass"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
     ("docs/cli.md", "JSON to stdout"),

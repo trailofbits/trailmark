@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import subprocess
@@ -9,10 +10,88 @@ import sys
 from pathlib import Path
 
 import pytest
+from pytest_gremlins.instrumentation.transformer import transform_source
 
-from tests.run_mutations import RUNNER, VERSION
+from tests.mutation_gate import check
+from tests.run_mutations import RUNNER, VERSION, parse_shard, select_shard
 
 pytestmark = pytest.mark.mutation_infrastructure
+
+
+@pytest.mark.parametrize("value", ["0/4", "5/4", "1/0", "-1/4", "1", "1/2/3", "one/4"])
+def test_rejects_invalid_shard(value: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError, match="INDEX/TOTAL"):
+        parse_shard(value)
+
+
+def test_shards_are_disjoint_complete_and_independent_of_file_discovery_order() -> None:
+    source = "def checked(value):\n    return value > 0\n"
+    first, _ = transform_source(source, "first.py")
+    second, _ = transform_source(source, "second.py")
+    inventory = first + second
+    partitions = [select_shard(inventory, (index, 3)) for index in range(1, 4)]
+    ids = [g.gremlin_id for partition in partitions for g in partition]
+    assert len(ids) == len(set(ids)) == len(inventory)
+    assert set(ids) == {g.gremlin_id for g in inventory}
+    for index, partition in enumerate(partitions, 1):
+        assert partition == select_shard(second + first, (index, 3))
+    assert max(map(len, partitions)) - min(map(len, partitions)) <= 2
+
+
+def test_sharded_campaigns_match_complete_campaign(tmp_path: Path) -> None:
+    source = "def checked(value):\n    return value > 0\n"
+    for name in ("first", "second"):
+        (tmp_path / f"{name}.py").write_text(source)
+    (tmp_path / "test_targets.py").write_text(
+        "from first import checked as first\nfrom second import checked as second\n"
+        "def test_boundaries():\n"
+        "    for checked in (first, second):\n"
+        "        assert checked(0) is False\n        assert checked(1) is True\n"
+    )
+    baseline = {
+        "pytest_gremlins": VERSION,
+        "scope": {"first.py": "*", "second.py": "*"},
+        "exceptions": [],
+    }
+    runner = Path(__file__).with_name("run_mutations.py")
+    complete = set()
+    partitioned = []
+    for shard in ((1, 1), (1, 3), (2, 3), (3, 3), (99, 99)):
+        result = subprocess.run(  # noqa: S603
+            [
+                sys.executable,
+                str(runner),
+                "--targets=first.py,second.py",
+                "--workers=2",
+                f"--shard={shard[0]}/{shard[1]}",
+                "test_targets.py",
+            ],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
+        run = json.loads((tmp_path / "coverage/gremlins/run.json").read_text())
+        assert run["shard"] == list(shard)
+        assert check(tmp_path, report, run, baseline, shard=shard) == []
+        assert all(row["status"] == "zapped" for row in report["results"])
+        assert all(
+            row["selected_tests"] == ["test_targets.py::test_boundaries"]
+            for row in report["results"]
+        )
+        ids = {row["gremlin_id"] for row in report["results"]}
+        if shard == (1, 1):
+            complete = ids
+        elif shard == (99, 99):
+            assert not ids
+        else:
+            partitioned.extend(ids)
+    assert complete
+    assert len(partitioned) == len(set(partitioned)) == len(complete)
+    assert set(partitioned) == complete
 
 
 def test_runner_executes_fixtures_parameters_and_package_mutations(tmp_path: Path) -> None:
@@ -96,7 +175,8 @@ def test_weak(tmp_path, value):
     )
 
 
-def test_runner_rejects_order_dependent_baseline(tmp_path: Path) -> None:
+@pytest.mark.parametrize("shard", ["1/1", "99/99"])
+def test_runner_rejects_order_dependent_baseline(tmp_path: Path, shard: str) -> None:
     (tmp_path / "target.py").write_text("def checked(value):\n    return value > 0\n")
     (tmp_path / "state.py").write_text("ready = False\n")
     (tmp_path / "test_a_setup.py").write_text(
@@ -108,7 +188,7 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path) -> None:
     )
     runner = Path(__file__).with_name("run_mutations.py")
     result = subprocess.run(  # noqa: S603
-        [sys.executable, str(runner), "--targets=target.py", "."],
+        [sys.executable, str(runner), "--targets=target.py", f"--shard={shard}", "."],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -165,7 +245,8 @@ def test_checked_only_in_child(tmp_path):
     )
 
 
-def test_runner_rejects_skipped_instrumentation(tmp_path: Path) -> None:
+@pytest.mark.parametrize("shard", ["1/1", "99/99"])
+def test_runner_rejects_skipped_instrumentation(tmp_path: Path, shard: str) -> None:
     (tmp_path / "target.py").write_text("def checked(value):\n    return value > 0\n")
     (tmp_path / "test_target.py").write_text(
         "from target import checked\ndef test_checked():\n    assert checked(1)\n"
@@ -179,7 +260,13 @@ def test_runner_rejects_skipped_instrumentation(tmp_path: Path) -> None:
         f"    runpy.run_path({str(runner)!r}, run_name='__main__')\n"
     )
     result = subprocess.run(  # noqa: S603
-        [sys.executable, str(launcher), "--targets=target.py", "test_target.py"],
+        [
+            sys.executable,
+            str(launcher),
+            "--targets=target.py",
+            f"--shard={shard}",
+            "test_target.py",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,

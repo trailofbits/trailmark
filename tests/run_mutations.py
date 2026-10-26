@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+from collections import defaultdict
 from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
@@ -31,7 +32,26 @@ if __package__ in {None, ""}:
 from tests.mutation_order import prioritize_tests, relative_node_ids
 
 VERSION = "1.11.4"
-RUNNER = "trailmark-full-pytest-v3"
+RUNNER = "trailmark-full-pytest-v4"
+
+
+def parse_shard(value: str) -> tuple[int, int]:
+    try:
+        index, count = map(int, value.split("/"))
+        if 1 <= index <= count:
+            return index, count
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError("Shard must be INDEX/TOTAL with 1 <= INDEX <= TOTAL")
+
+
+def select_shard(gremlins: list[Gremlin], shard: tuple[int, int]) -> list[Gremlin]:
+    """Deal each file's mutants round-robin, independent of discovery order or root."""
+    index, count = shard
+    by_file: dict[str, list[Gremlin]] = defaultdict(list)
+    for gremlin in gremlins:
+        by_file[gremlin.file_path].append(gremlin)
+    return [g for path in sorted(by_file) for g in by_file[path][index - 1 :: count]]
 
 
 def _arguments() -> argparse.Namespace:
@@ -42,6 +62,9 @@ def _arguments() -> argparse.Namespace:
         "--reviewed", action="store_true", help="Mutate every file in mutation_baseline.json"
     )
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument(
+        "--shard", type=parse_shard, default=(1, 1), help="Run partition INDEX/TOTAL (one-based)"
+    )
     parser.add_argument("--test-order", choices=["component", "collection"], default="component")
     parser.add_argument("tests", nargs="*", default=["tests"])
     args = parser.parse_args()
@@ -120,6 +143,10 @@ def _instrumented_writer(
 
 
 class _RequireCompleteInstrumentation:
+    def __init__(self, shard: tuple[int, int]) -> None:
+        self.shard = shard
+        self.empty_shard = False
+
     @pytest.hookimpl(trylast=True)
     def pytest_collection_finish(self) -> None:
         session = plugin._get_session()
@@ -128,9 +155,14 @@ class _RequireCompleteInstrumentation:
             raise pytest.UsageError(
                 f"Mutation instrumentation skipped files: {session.skipped_files}"
             )
+        if session is not None:
+            selected = select_shard(session.gremlins, self.shard)
+            self.empty_shard = bool(session.gremlins) and not selected
+            session.gremlins = selected
 
 
 def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
+    instrumentation = _RequireCompleteInstrumentation(args.shard)
 
     def select_tests(gremlin: Gremlin, session: plugin.GremlinSession) -> list[str]:
         tests = list(session.test_node_ids)
@@ -148,7 +180,7 @@ def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
         patch.object(plugin, "_select_tests_for_gremlin_prioritized", side_effect=select_tests),
         patch.object(plugin, "_collect_coverage"),
     ):
-        return pytest.main(
+        result = pytest.main(
             [
                 "-q",
                 *args.tests,
@@ -162,8 +194,13 @@ def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
                 "--gremlin-report=json,html",
                 f"--gremlins-html-dir={report_dir}",
             ],
-            plugins=[_RequireCompleteInstrumentation()],
+            plugins=[instrumentation],
         )
+    if result == 0 and instrumentation.empty_shard:
+        (report_dir / "gremlins.json").write_text(
+            json.dumps({"summary": {"total": 0}, "results": []}) + "\n"
+        )
+    return result
 
 
 def main() -> int:
@@ -186,6 +223,7 @@ def main() -> int:
                     "pytest_gremlins": VERSION,
                     "runner": RUNNER,
                     "test_order": args.test_order,
+                    "shard": args.shard,
                     "targets": args.targets,
                     "sources": hashes,
                     "tests": args.tests,

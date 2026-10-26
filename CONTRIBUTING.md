@@ -53,6 +53,22 @@ uv run python -m tests.run_mutations --workers=4
 `--workers=4` already enables parallel execution. Reports are written to
 `coverage/gremlins/`.
 
+CI runs eight mutation shards concurrently, each with four workers. Each file's
+mutants are dealt round-robin across the shards, retaining the full selected test
+suite for every mutant. Every shard checks the clean and instrumented baselines
+and gates its exact share of the source inventory. The final `Mutation Testing`
+check requires all eight shards to pass; reports are uploaded separately per shard.
+
+To reproduce one CI shard locally, pass the same one-based `--shard=INDEX/TOTAL`
+to both commands (omit `--reviewed` for a full repository shard):
+
+```bash
+uv run python -m tests.run_mutations --reviewed --workers=4 --shard=1/8
+uv run python -m tests.mutation_gate --shard=1/8
+```
+
+Omitting `--shard` runs and gates the complete campaign as before.
+
 **Scope and gate.** Pull requests mutate the Rust/Verus files named in
 `tests/mutation_baseline.json` and gate new and changed functions there. Full
 repository campaigns run on pushes to main and through the mutation workflow's

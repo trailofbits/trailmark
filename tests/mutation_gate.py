@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import ast
 import copy
 import hashlib
@@ -15,7 +16,7 @@ from typing import Any
 from pytest_gremlins.instrumentation.gremlin import Gremlin
 from pytest_gremlins.instrumentation.transformer import transform_source
 
-from tests.run_mutations import RUNNER, VERSION
+from tests.run_mutations import RUNNER, VERSION, parse_shard, select_shard
 
 
 class _RemoveSwitches(ast.NodeTransformer):
@@ -99,12 +100,14 @@ def _validate_versions(run: dict[str, Any], baseline: dict[str, Any]) -> None:
         raise ValueError("Report lacks validated pytest execution")
 
 
-def _validate_report(report: dict[str, Any], baseline: dict[str, Any]) -> None:
+def _validate_report(
+    report: dict[str, Any], baseline: dict[str, Any], *, allow_empty: bool = False
+) -> None:
     skipped = report.get("skipped_files", {})
     if not isinstance(skipped, dict) or skipped:
         raise ValueError("Mutation report contains skipped files or invalid skip metadata")
     results = report["results"]
-    if not results or len(results) != report["summary"]["total"]:
+    if (not results and not allow_empty) or len(results) != report["summary"]["total"]:
         raise ValueError("Missing or incomplete mutation results")
     actual_counts = Counter(row["status"] for row in results)
     statuses = {"zapped", "survived", "error", "timeout", "pardoned"}
@@ -142,15 +145,16 @@ def _scope_failures(
     *,
     reviewed: dict[str, Any],
     legacy: dict[tuple[str, str], str],
+    shard: tuple[int, int],
 ) -> list[str]:
     source_path = root / path
     source = source_path.read_text()
     if run["sources"].get(path) != hashlib.sha256(source_path.read_bytes()).hexdigest():
         raise ValueError(f"Missing or stale mutation input: {path}")
     rows = [r for r in results if Path(r["file_path"]).resolve() == source_path.resolve()]
-    if not rows:
-        raise ValueError(f"Mutation scope missing from report: {path}")
-    mutants, _ = transform_source(source, rows[0]["file_path"])
+    file_path = rows[0]["file_path"] if rows else str(source_path.resolve())
+    mutants, _ = transform_source(source, file_path)
+    mutants = select_shard(mutants, shard)
     by_id = {r["gremlin_id"]: r for r in rows}
     if len(by_id) != len(rows) or set(by_id) != {g.gremlin_id for g in mutants}:
         raise ValueError(f"Mutation inventory does not match source: {path}")
@@ -170,10 +174,17 @@ def _scope_failures(
 
 
 def check(
-    root: Path, report: dict[str, Any], run: dict[str, Any], baseline: dict[str, Any]
+    root: Path,
+    report: dict[str, Any],
+    run: dict[str, Any],
+    baseline: dict[str, Any],
+    *,
+    shard: tuple[int, int] = (1, 1),
 ) -> list[str]:
     _validate_versions(run, baseline)
-    _validate_report(report, baseline)
+    if run.get("shard") != list(shard):
+        raise ValueError("Mutation report shard does not match the requested partition")
+    _validate_report(report, baseline, allow_empty=shard[1] > 1)
     reviewed = _reviewed_exceptions(baseline)
     legacy = {
         (entry["path"], entry["function"]): entry["source_hash"]
@@ -183,19 +194,29 @@ def check(
     for path, scope in baseline["scope"].items():
         failures.extend(
             _scope_failures(
-                root, path, scope, run, report["results"], reviewed=reviewed, legacy=legacy
+                root,
+                path,
+                scope,
+                run,
+                report["results"],
+                reviewed=reviewed,
+                legacy=legacy,
+                shard=shard,
             )
         )
     return failures
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--shard", type=parse_shard, default=(1, 1))
+    args = parser.parse_args()
     root = Path.cwd()
     try:
         report = json.loads((root / "coverage/gremlins/gremlins.json").read_text())
         run = json.loads((root / "coverage/gremlins/run.json").read_text())
         baseline = json.loads((root / "tests/mutation_baseline.json").read_text())
-        failures = check(root, report, run, baseline)
+        failures = check(root, report, run, baseline, shard=args.shard)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"Mutation gate failed: {exc}", file=sys.stderr)
         return 1

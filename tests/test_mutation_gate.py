@@ -38,6 +38,7 @@ def campaign(tmp_path: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, 
     run = {
         "pytest_gremlins": VERSION,
         "runner": RUNNER,
+        "shard": [1, 1],
         "sources": {"target.py": hashlib.sha256(source.encode()).hexdigest()},
     }
     baseline = {"pytest_gremlins": VERSION, "scope": {"target.py": "*"}, "exceptions": []}
@@ -63,6 +64,7 @@ def test_rejects_skipped_or_invalid_instrumentation(
         (1, "pytest_gremlins", "1.9.0"),
         (2, "pytest_gremlins", "1.9.0"),
         (1, "runner", "trailmark-full-pytest-v2"),
+        (1, "runner", "trailmark-full-pytest-v3"),
     ],
 )
 def test_rejects_previous_adapter_reports(
@@ -98,6 +100,46 @@ def test_requires_complete_inventory_even_if_summary_matches(
     campaign[0]["summary"]["zapped"] -= 1
     with pytest.raises(ValueError, match="inventory"):
         check(tmp_path, *campaign)
+
+
+@pytest.mark.parametrize("shard", [(1, 3), (2, 3), (3, 3), (99, 99)])
+def test_gate_requires_exact_shard_inventory(
+    tmp_path: Path, campaign: tuple, shard: tuple[int, int]
+) -> None:
+    report, run, baseline = campaign
+    report["results"] = report["results"][shard[0] - 1 :: shard[1]]
+    report["summary"] = {"total": len(report["results"]), "zapped": len(report["results"])}
+    run["shard"] = list(shard)
+    assert check(tmp_path, report, run, baseline, shard=shard) == []
+    with pytest.raises(ValueError, match="partition"):
+        check(tmp_path, report, run, baseline)
+    if report["results"]:
+        report["results"].pop()
+        report["summary"]["total"] -= 1
+        report["summary"]["zapped"] -= 1
+        with pytest.raises(ValueError, match="inventory"):
+            check(tmp_path, report, run, baseline, shard=shard)
+
+
+@pytest.mark.parametrize(
+    "corruption", ["duplicate", "other shard", "wrong metadata", "missing metadata"]
+)
+def test_gate_rejects_overlapping_or_mismatched_shards(
+    tmp_path: Path, campaign: tuple, corruption: str
+) -> None:
+    report, run, baseline = campaign
+    original = list(report["results"])
+    report["results"] = original[::2]
+    run["shard"] = [1, 2]
+    if corruption == "missing metadata":
+        del run["shard"]
+    elif corruption == "wrong metadata":
+        run["shard"] = [2, 2]
+    else:
+        report["results"].append(original[0 if corruption == "duplicate" else 1])
+    report["summary"] = {"total": len(report["results"]), "zapped": len(report["results"])}
+    with pytest.raises(ValueError, match="inventory|partition"):
+        check(tmp_path, report, run, baseline, shard=(1, 2))
 
 
 def test_rejects_stale_source_and_empty_report(tmp_path: Path, campaign: tuple) -> None:

@@ -16,8 +16,14 @@ permissions:
 
 jobs:
   gremlins:
-    name: Mutation Testing
+    name: Mutation shard ${{ matrix.shard }}/8
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    env:
+      MUTATION_SHARD: ${{ matrix.shard }}/8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -34,14 +40,14 @@ jobs:
 
       - name: Run reviewed mutation scope
         if: github.event_name == 'pull_request'
-        run: uv run --locked python -m tests.run_mutations --reviewed --workers=4
+        run: uv run --locked python -m tests.run_mutations --reviewed --workers=4 --shard="$MUTATION_SHARD"
 
       - name: Run full mutation campaign
         if: github.event_name != 'pull_request'
-        run: uv run --locked python -m tests.run_mutations --workers=4
+        run: uv run --locked python -m tests.run_mutations --workers=4 --shard="$MUTATION_SHARD"
 
       - name: Enforce reviewed Rust and Verus baseline
-        run: uv run --locked python -m tests.mutation_gate
+        run: uv run --locked python -m tests.mutation_gate --shard="$MUTATION_SHARD"
 
       - name: Record revision
         if: always()
@@ -53,6 +59,17 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
-          name: mutation-report-${{ github.sha }}
+          name: mutation-report-${{ github.sha }}-shard-${{ matrix.shard }}
           path: coverage/gremlins/
           if-no-files-found: error
+
+  mutation-gate:
+    name: Mutation Testing
+    if: always()
+    needs: gremlins
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all mutation shards to pass
+        env:
+          MUTATION_RESULT: ${{ needs.gremlins.result }}
+        run: test "$MUTATION_RESULT" = success
