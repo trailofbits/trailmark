@@ -196,7 +196,8 @@ Prints `trailmark X.Y.Z`.
 ## Version notes
 
 `trailmark diagram` was added in 0.4.0, and `trailmark analyze --resolution` in
-0.7.0. Every other subcommand and flag has been available since 0.2.2.
+0.7.0. Entrypoint `--evidence` and `--candidates`, along with source-selection
+`--source-root`, `--include`, and `--exclude` options, were added in 0.7.1.
 
 ## Strict source analysis
 

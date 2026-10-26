@@ -147,6 +147,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     # Mutation testing
     ("CONTRIBUTING.md", "tests.benchmark_analysis /path/to/corpus --language python --repeat 7"),
     ("CONTRIBUTING.md", "complete graph output with `graph_sha256`"),
+    ("docs/cli.md", "`--source-root`, `--include`, and `--exclude` options, were added in 0.7.1."),
+    ("docs/python-api.md", "| 0.7.1 | `SourceRoot`, `SourcePolicy`, `parse_roots`"),
     ("CONTRIBUTING.md", "tests.run_mutations --reviewed --workers=4"),
     ("CONTRIBUTING.md", "tests.run_mutations --workers=4"),
     ("CONTRIBUTING.md", "tests.mutation_gate"),

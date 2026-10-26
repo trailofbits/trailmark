@@ -18,4 +18,4 @@ __all__ = [
     "SourceRoot",
     "supported_languages",
 ]
-__version__ = "0.7.0"
+__version__ = "0.7.1"

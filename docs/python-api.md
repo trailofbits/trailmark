@@ -334,6 +334,7 @@ with older releases can check `trailmark.__version__` or probe with `hasattr()`.
 | 0.3.0 | `trailmark.parse` (`parse_file`, `parse_directory`, `detect_languages`, `supported_languages`) |
 | 0.4.0 | `connect_subgraphs`, `subgraph_edges`, `generic_parameters`, `type_references`, `augment_binary`, proxy nodes |
 | 0.7.0 | `state_read_by`, `state_written_by`, `readers_of`, `writers_of`, `unresolved_calls`, `call_resolution`; `replace_existing` on the finding importers; keyword-only `max_depth` on `paths_between`; directory `allow_empty`, source-file coverage in summaries and diffs, and the expanded structural diff fields above |
+| 0.7.1 | `SourceRoot`, `SourcePolicy`, `parse_roots`, directory `source_policy`; `source_policy()`, `entrypoint_evidence()`, `entrypoint_candidates()`, `add_entrypoint_evidence()`, `EntrypointEvidence`, and `EdgeKind.REFERENCES` |
 
 ## Source analysis diagnostics
 

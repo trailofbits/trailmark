@@ -1,5 +1,84 @@
 # Changelog
 
+## 0.7.1 (2026-10-26)
+
+This release adds source-backed entrypoint evidence and explicit source selection,
+improves Python analysis performance, and expands PHP and GraphQL coverage.
+
+### Added
+
+- **Entrypoint evidence and candidates:** `EntrypointEvidence` records source
+  occurrences, target bindings, discovery rules, and unresolved facts. Inspect
+  them with `entrypoint_evidence()`, `entrypoint_candidates()`, and
+  `trailmark entrypoints --evidence` or `--candidates`. Add observations through
+  `add_entrypoint_evidence()` without promoting a candidate to an entrypoint.
+- **Explicit source selection:** `SourceRoot`, `SourcePolicy`, and `parse_roots()`
+  select named application or dependency roots with include/exclude globs and
+  canonical file deduplication across every supported frontend. `analyze` and
+  `entrypoints` accept repeatable `--source-root`, `--include`, and `--exclude`
+  options. `source_policy()` and graph JSON retain the effective selection and
+  inspected, skipped, and unparsed file decisions.
+- **Indirect reference discovery:** Python and PHP callable values and supported
+  qualified symbol/file references in GraphQL, JSON, YAML, XML, and TOML retain
+  source provenance and ambiguous or unresolved targets. New `references` edges
+  remain separate from execution paths; a reference does not establish external
+  invocation, authentication, or registrar behavior.
+- **Executable PHP bodies:** `.phtml` templates and top-level `.php` statements
+  have synthetic `<template>` and `<script>` functions that own their direct
+  calls. Anchored `include`/`require` paths can link to inspected executable
+  bodies; dynamic and include-search-path-dependent targets stay unresolved.
+  GraphQL source discovery also accepts `.graphqls` files.
+
+### Changed
+
+- Resolve Python decorator bindings through imports, aliases, enclosing scopes,
+  and literal path constants. Exclude unrelated key-based decorators and proven
+  local identity decorators while retaining uncertainty for conditional bindings
+  and unknown arguments.
+- Require exported module-level callables for ECMAScript file-route conventions.
+  Preserve export aliases, default and CommonJS source occurrences, and wrapper
+  uncertainty without assigning a framework solely from the export name.
+
+### Performance
+
+- Select decorated Python functions before building lexical scopes and scan for
+  possible replacement writes only when an identity-decorator proof needs it.
+  A fixed 143-file Python corpus analyzed about 13% faster than the initial
+  entrypoint-evidence implementation in a local alternating benchmark, with
+  identical complete graph output. Results depend on the corpus; this is not a
+  comparison against 0.7.0.
+
+### Fixed
+
+- Recover valid PHP `TRUE`/`FALSE` class constant names without moving source
+  coordinates or hiding unrelated syntax diagnostics.
+- Recover valid GraphQL string escapes rejected by the packaged grammar while
+  preserving source offsets and decoding original literal values.
+- Preserve entrypoint detection and local override behavior under named source
+  roots, and keep callable ownership and binding uncertainty in discovery
+  evidence rather than inferring execution from references.
+
+### Packaging and development
+
+- Run mutation CI across eight shards with four workers each, validating clean
+  and instrumented baselines and requiring every shard to pass. Keep the complete
+  selected fallback suite for each mutant and prioritize private-helper tests.
+- Add a repeatable full-analysis benchmark with timing and complete-graph
+  fingerprints, plus binding and reference regressions that kill 21 mutants
+  surviving the preceding full CI campaign.
+
+### Upgrading from 0.7.0
+
+- Accept `EdgeKind.REFERENCES` and the additional `source_policy` and
+  `entrypoint_evidence` export fields. Export schema version remains `1`.
+  Rebuild saved graphs to obtain discovery evidence and executable PHP bodies;
+  matched data references can also add synthetic provenance modules and change
+  node counts. Compare code changes using graphs built with the same version.
+- Multiple selected roots prefix IDs with `root_name::`. Ordinary call linking
+  stays within each root unless explicit linking evidence connects them.
+  Directory parses deduplicate canonical files and exclude file symlinks that
+  escape their root, which can change inspected file counts.
+
 ## 0.7.0 (2026-10-23)
 
 This release adds nine language frontends, Solidity storage-access graphs, and
