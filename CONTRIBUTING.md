@@ -36,6 +36,20 @@ uv run pytest -q tests/
 uv run --no-project --with hatchling python tests/sdist_smoke.py
 ```
 
+## Performance Comparisons
+
+Benchmark full directory analysis, including entrypoint discovery, with:
+
+```bash
+uv run --locked python -m tests.benchmark_analysis /path/to/corpus --language python --repeat 7
+```
+
+Use the same unchanged corpus, path, Python version, and dependencies in both
+checkouts, without concurrent tests or mutation workers. The runner warms up
+grammar loading, reports every timing and the median, and fingerprints the
+complete graph output with `graph_sha256`. Compare the fingerprints as well as
+the timings; a speedup should preserve or explicitly account for graph changes.
+
 ## Mutation Testing
 
 Trailmark uses a pinned pytest-gremlins runner to verify test suite quality.
@@ -97,6 +111,9 @@ failure. Shared-helper mutants retain tests from every language. Tests stay in
 their existing files; `tests/mutation_order.py` defines the ordering, and
 unknown components keep collection order. Use `--test-order=collection` to
 compare against pytest's original order.
+
+Private helpers use their component test names without the leading underscore;
+Python decorator helpers start with `test_python_decorator_bindings.py`.
 
 **Focusing a campaign.** Pass `--targets` with comma-separated source paths,
 followed by the relevant test files.

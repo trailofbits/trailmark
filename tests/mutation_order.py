@@ -31,8 +31,10 @@ def prioritize_tests(source: str, node_ids: list[str]) -> list[str]:
         preferred = ["test_storage.py", "test_storage_edge_cases.py"]
     elif "query" in parts:
         preferred = ["test_query.py", "test_query_edge_cases.py", "test_hidden_apis.py"]
+    elif path.name == "_python_decorators.py":
+        preferred = ["test_python_decorator_bindings.py", "test_entrypoints.py"]
     else:
-        preferred = [f"test_{path.stem}.py"]
+        preferred = [f"test_{path.stem.removeprefix('_')}.py"]
     ranks = {name: rank for rank, name in enumerate(preferred)}
     return sorted(
         node_ids, key=lambda node: ranks.get(Path(node.split("::", 1)[0]).name, len(ranks))

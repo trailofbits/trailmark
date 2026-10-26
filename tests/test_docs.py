@@ -145,6 +145,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/installation.md", "Circom and Move use ABI 14; Verus uses ABI 15"),
     ("docs/installation.md", "installing published packages needs neither"),
     # Mutation testing
+    ("CONTRIBUTING.md", "tests.benchmark_analysis /path/to/corpus --language python --repeat 7"),
+    ("CONTRIBUTING.md", "complete graph output with `graph_sha256`"),
     ("CONTRIBUTING.md", "tests.run_mutations --reviewed --workers=4"),
     ("CONTRIBUTING.md", "tests.run_mutations --workers=4"),
     ("CONTRIBUTING.md", "tests.mutation_gate"),

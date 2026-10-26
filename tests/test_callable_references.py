@@ -532,6 +532,147 @@ def test_php_namespace_imports_resolve_class_constants(tmp_path: Path) -> None:
     assert {e.confidence for e in edges} == {EdgeConfidence.INFERRED}
 
 
+def test_python_method_references_are_case_sensitive(tmp_path: Path) -> None:
+    graph = _discover(
+        tmp_path,
+        {
+            "app.py": (
+                "class Handler:\n"
+                "    def Run(self): pass\n"
+                "    def run(self): pass\n"
+                "def setup():\n    attach(Handler.Run, Handler.run)\n"
+            )
+        },
+    )
+    facts = _evidence(graph)
+    assert [(f.node_id, f.binding, dict(f.details)["path"]) for f in facts] == [
+        ("app:Handler.Run", "resolved", "args[0]"),
+        ("app:Handler.run", "resolved", "args[1]"),
+    ]
+
+
+def test_python_package_initializer_resolves_sibling_imports(tmp_path: Path) -> None:
+    graph = _discover(
+        tmp_path,
+        {
+            "pkg/__init__.py": (
+                "from .handlers import h as handler\ndef setup():\n    attach(handler)\n"
+            ),
+            "pkg/handlers.py": "def h(): pass\n",
+        },
+    )
+    assert _references(graph) == {("pkg:setup", "pkg.handlers:h")}
+    (fact,) = _evidence(graph, "handler")
+    assert (fact.binding, fact.source_id) == ("resolved", "pkg:setup")
+
+
+def test_python_duplicate_module_suffixes_keep_all_candidates_ambiguous(tmp_path: Path) -> None:
+    graph = _discover(
+        tmp_path,
+        {
+            "left/pkg/handlers.py": "def h(): pass\n",
+            "right/pkg/handlers.py": "def h(): pass\n",
+            "app.py": "from pkg import handlers\ndef setup():\n    attach(handlers.h)\n",
+        },
+    )
+    assert _references(graph) == set()
+    assert {(f.node_id, f.binding) for f in _evidence(graph, "handlers.h")} == {
+        ("left.pkg.handlers:h", "ambiguous"),
+        ("right.pkg.handlers:h", "ambiguous"),
+    }
+
+
+def test_php_grouped_imports_and_absolute_callable_names(tmp_path: Path) -> None:
+    graph = _discover(
+        tmp_path,
+        {
+            "lib.php": (
+                r"<?php namespace Lib\Handlers; function f() {} "
+                "class Type { static function Run() {} }"
+            ),
+            "app.php": r"""<?php namespace App;
+use Lib\Handlers\{Type as Alias};
+use function Lib\Handlers\{f as handle};
+function setup() {
+    attach(Alias::RUN(...), \Lib\Handlers\Type::Run(...),
+           handle(...), \Lib\Handlers\f(...));
+    attach(["Lib\\Handlers\\Type", 'RUN']);
+}
+""",
+        },
+        "php",
+    )
+    facts = _evidence(graph)
+    assert [(f.node_id, dict(f.details)["form"], dict(f.details)["path"]) for f in facts] == [
+        ("lib:Lib.Handlers.Type.Run", "first_class_callable", "args[0]"),
+        ("lib:Lib.Handlers.Type.Run", "first_class_callable", "args[1]"),
+        ("lib:Lib.Handlers.f", "first_class_callable", "args[2]"),
+        ("lib:Lib.Handlers.f", "first_class_callable", "args[3]"),
+        ("lib:Lib.Handlers.Type.Run", "array", "args[0]"),
+    ]
+    assert {f.binding for f in facts} == {"resolved"}
+    assert {f.source_id for f in facts} == {"app:App.setup"}
+    assert {edge.confidence for edge in graph.edges if edge.kind == EdgeKind.REFERENCES} == {
+        EdgeConfidence.INFERRED
+    }
+
+
+def test_php_relative_class_scopes_preserve_dispatch_uncertainty(tmp_path: Path) -> None:
+    graph = _discover(
+        tmp_path,
+        {
+            "app.php": """<?php namespace App;
+class Base { static function Run() {} }
+class Child extends Base {
+    static function Run() {}
+    function setup() {
+        attach(self::RUN(...), static::run(...), parent::RUN(...));
+    }
+}
+"""
+        },
+        "php",
+    )
+    assert [(f.node_id, f.unresolved) for f in _evidence(graph)] == [
+        ("app:App.Child.Run", _UNRESOLVED),
+        ("app:App.Child.Run", (*_UNRESOLVED, "receiver_dispatch")),
+        ("app:App.Base.Run", _UNRESOLVED),
+    ]
+    assert [edge.confidence for edge in graph.edges if edge.kind == EdgeKind.REFERENCES] == [
+        EdgeConfidence.CERTAIN,
+        EdgeConfidence.INFERRED,
+        EdgeConfidence.CERTAIN,
+    ]
+
+
+def test_php_nested_consumers_and_data_arrays_preserve_reference_context(tmp_path: Path) -> None:
+    graph = _discover(
+        tmp_path,
+        {
+            "app.php": """<?php function h() {} class Type { static function run() {} }
+function setup() {
+    Type::attach(h(...));
+    new Registry(h(...));
+    $r?->attach(h(...));
+    attach(["Missing", "h"], [0 => "h", 1 => "h"]);
+}
+"""
+        },
+        "php",
+    )
+    facts = _evidence(graph)
+    assert {f.node_id for f in facts} == {"app:h"}
+    assert {f.binding for f in facts} == {"resolved"}
+    assert [(dict(f.details)["consumer"], dict(f.details)["path"]) for f in facts] == [
+        ("Type::attach", "args[0]"),
+        ("new Registry", "args[0]"),
+        ("$r->attach", "args[0]"),
+        ("attach", "args[0][1]"),
+        ("attach", "args[1][0]"),
+        ("attach", "args[1][1]"),
+    ]
+
+
 # --------------------------------------------------------------------------- Stability
 
 

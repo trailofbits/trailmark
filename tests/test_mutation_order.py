@@ -24,6 +24,9 @@ pytestmark = pytest.mark.mutation_infrastructure
         ("storage/graph_store.py", "test_storage.py"),
         ("query/api.py", "test_query.py"),
         ("analysis/entrypoints.py", "test_entrypoints.py"),
+        ("analysis/_callable_references.py", "test_callable_references.py"),
+        ("analysis/_reference_literals.py", "test_reference_literals.py"),
+        ("analysis/_python_decorators.py", "test_python_decorator_bindings.py"),
     ],
 )
 def test_component_first_retains_every_test(source: str, focused: str) -> None:
@@ -38,6 +41,23 @@ def test_component_first_retains_every_test(source: str, focused: str) -> None:
 def test_unknown_component_keeps_collection_order() -> None:
     ids = ["tests/test_other.py::test_one", "tests/test_integration.py::test_two"]
     assert prioritize_tests("src/trailmark/new_feature.py", ids) == ids
+
+
+def test_decorator_units_precede_framework_tests_and_keep_fallbacks() -> None:
+    ids = [
+        "tests/test_integration.py::test_end_to_end",
+        "tests/test_entrypoints.py::test_route",
+        "tests/test_python_decorator_bindings.py::test_alias",
+        "tests/test_callable_references.py::test_reference",
+        "tests/test_python_decorator_bindings.py::test_shadow",
+    ]
+    assert prioritize_tests("src/trailmark/analysis/_python_decorators.py", ids) == [
+        ids[2],
+        ids[4],
+        ids[1],
+        ids[0],
+        ids[3],
+    ]
 
 
 def test_parameter_ids_are_preserved_exactly(tmp_path: Path) -> None:

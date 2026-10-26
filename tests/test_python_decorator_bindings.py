@@ -700,3 +700,137 @@ def test_deep_and_cyclic_aliases_stay_bounded(tmp_path: Path) -> None:
     assert _only(facts, "cyclic").receiver_binding == "ambiguous"
     assert _only(facts, "cyclic").disposition == "unknown"
     assert _only(facts, "deep").consumer_path is None
+
+
+def test_only_function_decorators_are_reported_in_source_order(tmp_path: Path) -> None:
+    path = tmp_path / "subject.py"
+    path.write_text(
+        "@class_marker\nclass Views:\n"
+        "    @outer('/a')\n    @inner('/b')\n    async def method(self):\n"
+        "        @nested('/c')\n        def handler(): pass\n"
+        "@last('/d')\ndef final(): pass\n"
+    )
+    facts = python_decorators(str(path))
+    assert [(fact.method, fact.handler_line, fact.handler_col) for fact in facts] == [
+        ("outer", 5, 4),
+        ("inner", 5, 4),
+        ("nested", 7, 8),
+        ("last", 9, 0),
+    ]
+    assert [fact.location.start_line for fact in facts] == [3, 4, 6, 8]
+    assert [fact.path for fact in facts] == ["/a", "/b", "/c", "/d"]
+
+    # Reusing the syntax query must not reuse facts from an earlier file version.
+    path.write_text("@class_marker\nclass Views:\n    def method(self): pass\n")
+    assert python_decorators(str(path)) == []
+    path.write_text("@replacement('/new')\ndef handler(): pass\n")
+    assert [(f.method, f.path) for f in python_decorators(str(path))] == [("replacement", "/new")]
+
+
+def test_parenthesized_and_compound_receivers_keep_binding_precision(tmp_path: Path) -> None:
+    facts = _facts(
+        tmp_path,
+        """
+        from vendor import Router
+        app = Router()
+
+        @((app)).get('/known')
+        def known(): ...
+
+        @(app or fallback).get('/unknown')
+        def unknown(): ...
+        """,
+    )
+    assert _summary(_only(facts, "known")) == (
+        "vendor.Router().get",
+        "call_result",
+        "get",
+        "/known",
+        "path_decorator",
+        "literal_path",
+    )
+    assert _summary(_only(facts, "unknown")) == (
+        None,
+        "ambiguous",
+        "get",
+        "/unknown",
+        "unknown",
+        "ambiguous_binding",
+    )
+
+
+@pytest.mark.parametrize("returned", ["lambda fn: other", "lambda fn, extra: fn"])
+def test_nonidentity_factories_are_not_suppressed(tmp_path: Path, returned: str) -> None:
+    facts = _facts(
+        tmp_path,
+        f"def lookup(path):\n    return {returned}\n@lookup('/x')\ndef handler(): pass\n",
+    )
+    assert _summary(_only(facts, "handler")) == (
+        "lookup",
+        "enclosing_local",
+        "lookup",
+        "/x",
+        "path_decorator",
+        "literal_path",
+    )
+
+
+def test_nonlocal_writes_invalidate_the_enclosing_receiver(tmp_path: Path) -> None:
+    facts = _facts(
+        tmp_path,
+        """
+        from vendor import Router
+        def setup():
+            app = Router()
+            def replace():
+                nonlocal app
+                app = other
+            @app.get('/x')
+            def handler(): ...
+        """,
+    )
+    assert _summary(_only(facts, "handler")) == (
+        None,
+        "ambiguous",
+        "get",
+        "/x",
+        "unknown",
+        "ambiguous_binding",
+    )
+
+
+def test_pattern_capture_shadows_the_global_receiver(tmp_path: Path) -> None:
+    facts = _facts(
+        tmp_path,
+        """
+        from vendor import Router
+        app = Router()
+        def setup(value):
+            match value:
+                case app:
+                    pass
+            @app.get('/x')
+            def handler(): ...
+        """,
+    )
+    assert _summary(_only(facts, "handler")) == (
+        None,
+        "ambiguous",
+        "get",
+        "/x",
+        "unknown",
+        "ambiguous_binding",
+    )
+
+
+@pytest.mark.parametrize("length", [118, 120, 121, 200])
+def test_long_argument_evidence_is_bounded_without_truncating_paths(
+    tmp_path: Path, length: int
+) -> None:
+    path = "/" + "x" * (length - 3)
+    argument = repr(path)
+    assert len(argument) == length
+    facts = _facts(tmp_path, f"@app.get({argument})\ndef handler(): pass\n")
+    fact = _only(facts, "handler")
+    assert fact.path == path
+    assert fact.arguments == (argument if length <= 120 else argument[:117] + "...",)

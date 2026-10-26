@@ -20,10 +20,11 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field, replace
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Literal
 
-from tree_sitter import Node, Parser
+from tree_sitter import Node, Parser, Query, QueryCursor
 from tree_sitter_language_pack import get_language
 
 from trailmark.models.nodes import SourceLocation
@@ -147,7 +148,20 @@ def python_decorators(path: str) -> list[DecoratorFact]:
     except OSError:
         return []
     root = Parser(get_language("python")).parse(source).root_node
-    return _Analyzer(path, root).facts()
+    decorated = QueryCursor(_decorator_query()).captures(root).get("decorated", [])
+    if not decorated:
+        return []
+    return _Analyzer(path, root).facts(sorted(decorated, key=lambda node: node.start_byte))
+
+
+@lru_cache(maxsize=1)
+def _decorator_query() -> Query:
+    # Select functions before building lexical scopes: class decorators alone
+    # need no binding analysis. The full tree still supplies binding evidence.
+    return Query(
+        get_language("python"),
+        "(decorated_definition definition: (function_definition)) @decorated",
+    )
 
 
 class _Analyzer:
@@ -156,18 +170,17 @@ class _Analyzer:
         self._root = root
         self._scopes = _build_scopes(root)
         self._module = self._scopes[root.id]
-        self._stored, self._dynamic = _attribute_writes(root)
 
-    def facts(self) -> list[DecoratorFact]:
+    @cached_property
+    def _writes(self) -> tuple[frozenset[str], bool]:
+        # Only local identity proofs need the file-wide replacement scan.
+        return _attribute_writes(self._root)
+
+    def facts(self, decorated: list[Node]) -> list[DecoratorFact]:
         facts: list[DecoratorFact] = []
-        pending = [self._root]
-        while pending:
-            node = pending.pop()
-            pending.extend(reversed(node.named_children))
+        for node in decorated:
             definition = node.child_by_field_name("definition")
-            if node.type != "decorated_definition" or definition is None:
-                continue
-            if definition.type != "function_definition":
+            if definition is None:
                 continue
             scope = self._owner(node)
             position = node.start_byte if _statement_block(node) == scope.body else None
@@ -240,7 +253,8 @@ class _Analyzer:
 
     def _unreplaced(self, function: Node, callee: _Value) -> bool:
         """Whether nothing visible in the file can replace a local identity decorator."""
-        if self._dynamic:
+        stored, dynamic = self._writes
+        if dynamic:
             return False
         names = {_text(function.child_by_field_name("name") or function), callee.method}
         block = function.parent
@@ -250,7 +264,7 @@ class _Analyzer:
             if scope is None or not _plain_class(owner, scope):
                 return False
             names.add(_text(owner.child_by_field_name("name") or owner))
-        return not names & self._stored
+        return not names & stored
 
     def _literal(
         self, node: Node, scope: _Scope, position: int | None, depth: int
