@@ -11,13 +11,16 @@ from trailmark import __version__
 from trailmark.analysis.augment import augment_from_sarif, augment_from_weaudit
 from trailmark.analysis.binary import augment_from_binary_graph
 from trailmark.analysis.diff import compute_diff
+from trailmark.analysis.entrypoint_candidates import discover_entrypoint_candidates
 from trailmark.analysis.entrypoints import detect_entrypoints
 from trailmark.analysis.preanalysis import run_preanalysis
 from trailmark.analysis.proxies import ensure_proxy_nodes
 from trailmark.models.annotations import Annotation, AnnotationKind
 from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.entrypoints import EntrypointEvidence
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeOrigin, TypeParameter, TypeRef
+from trailmark.source_policy import SourcePolicy
 from trailmark.storage.graph_store import GraphStore
 
 
@@ -44,6 +47,7 @@ class QueryEngine:
         detect_entrypoints_: bool = True,
         allow_empty: bool = False,
         strict: bool = False,
+        source_policy: SourcePolicy | None = None,
     ) -> QueryEngine:
         """Parse a directory and return a ready-to-query engine.
 
@@ -64,10 +68,15 @@ class QueryEngine:
         caller wants to drive detection separately).
         """
         graph = _parse_api.parse_directory(
-            path, language=language, allow_empty=allow_empty, strict=strict
+            path,
+            language=language,
+            allow_empty=allow_empty,
+            strict=strict,
+            source_policy=source_policy,
         )
         if detect_entrypoints_:
             graph.entrypoints.update(detect_entrypoints(graph, path))
+            discover_entrypoint_candidates(graph)
         store = GraphStore(graph)
         return cls(store)
 
@@ -337,6 +346,36 @@ class QueryEngine:
             "parse_diagnostics": self.parse_diagnostics(),
         }
 
+    def source_policy(self) -> dict[str, object]:
+        """Report selected roots, exclusions, and the disposition of each source file."""
+        return self._store.source_policy()
+
+    def add_entrypoint_evidence(self, evidence: EntrypointEvidence) -> None:
+        """Store source evidence; this does not label a node externally reachable."""
+        self._store.add_entrypoint_evidence(evidence)
+
+    def entrypoint_evidence(self, name: str | None = None) -> list[dict[str, Any]]:
+        """Return source occurrences, their bindings, and remaining uncertainty."""
+        node_id = self._store.find_node_id(name) if name is not None else None
+        if name is not None and node_id is None:
+            return []
+        reported = {node for node, _tag in self._store.all_entrypoints()}
+        return [
+            {
+                "id": fact.id,
+                **asdict(fact),
+                "details": dict(fact.details),
+                "unresolved": list(fact.unresolved),
+                "arguments": list(fact.arguments),
+                "reported": fact.node_id in reported,
+            }
+            for fact in self._store.entrypoint_evidence(node_id)
+        ]
+
+    def entrypoint_candidates(self, name: str | None = None) -> list[dict[str, Any]]:
+        """Return discovery evidence for nodes outside the reported attack surface."""
+        return [fact for fact in self.entrypoint_evidence(name) if not fact["reported"]]
+
     def parse_diagnostics(self) -> list[dict[str, Any]]:
         """Report grammar errors and explicitly unsupported source constructs.
 
@@ -516,6 +555,10 @@ class QueryEngine:
             "edges": [_edge_to_dict(e) for e in graph.edges],
             "subgraphs": {name: sorted(ids) for name, ids in graph.subgraphs.items()},
         }
+        if graph.source_policy:
+            data["source_policy"] = self.source_policy()
+        if graph.entrypoint_evidence:
+            data["entrypoint_evidence"] = self.entrypoint_evidence()
         return json.dumps(data, indent=indent, default=str)
 
 

@@ -878,3 +878,23 @@ class TestQueryEngineFromDirectory:
         s = engine.summary()
         assert s["total_nodes"] > 5
         assert s["classes"] > 0
+
+
+def test_candidate_evidence_preserves_unknowns_and_name_resolution() -> None:
+    from trailmark.models.entrypoints import EntrypointEvidence
+
+    engine = _build_engine()
+    fact = EntrypointEvidence(
+        "handler",
+        "reference",
+        "callback",
+        SourceLocation("test.py", 2, 2),
+        unresolved=("dispatch",),
+    )
+    engine.add_entrypoint_evidence(fact)
+    facts = engine.entrypoint_evidence("handler")
+    assert facts[0]["unresolved"] == ["dispatch"]
+    assert facts[0]["reported"] is False
+    assert engine.entrypoint_candidates("handler") == facts
+    assert engine.entrypoint_candidates("missing") == []
+    assert json.loads(engine.to_json())["entrypoint_evidence"] == facts

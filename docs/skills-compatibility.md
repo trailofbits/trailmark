@@ -9,6 +9,15 @@ compatibility tests, not a claim that those external gates have been updated.
 
 ## Graph and diff consumers
 
+For entrypoint discovery, feature-detect `entrypoint_evidence()` and
+`entrypoint_candidates()` in addition to `attack_surface()`. Consume all three
+when reviewing executable templates or indirect registrations. Candidates retain
+source locations and unresolved facts; they are not confirmed external inputs.
+The common evidence/source-selection APIs apply to every frontend, while the
+automatic reference forms are listed in [Entrypoints](entrypoints.md).
+Selected dependency roots and effective exclusions are exposed by
+`source_policy()`. Reference edges never enter default execution traversals.
+
 - Graph JSON includes `schema_version` and `trailmark_version`. Inspect both;
   the export schema does not promise identical parser behavior across releases.
 - Graphs and summaries expose `source_file_counts`. Zero declarations can still

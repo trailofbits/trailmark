@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
+import pytest
+
 from trailmark.models import (
     Annotation,
     AnnotationKind,
@@ -22,6 +26,7 @@ from trailmark.models import (
     TypeParameter,
     TypeRef,
 )
+from trailmark.models.entrypoints import EntrypointEvidence
 
 
 def _make_location(
@@ -369,3 +374,30 @@ class TestCodeGraph:
         assert len(g1.nodes) == 2
         assert "bar" in g1.dependencies
         assert g1.dependencies.count("foo") == 1
+
+
+def test_entrypoint_evidence_preserves_occurrences_across_merge() -> None:
+    first = EntrypointEvidence("handler", "reference", "callback", _make_location())
+    second = replace(first, location=_make_location(start_line=11, end_line=11))
+    assert first.id != second.id
+    graph = CodeGraph()
+    graph.add_entrypoint_evidence(first)
+    other = CodeGraph()
+    other.add_entrypoint_evidence(first)
+    other.add_entrypoint_evidence(second)
+    graph.merge(other)
+    assert list(graph.entrypoint_evidence.values()) == [first, second]
+    assert not graph.entrypoints
+    with pytest.raises(ValueError, match="node ID"):
+        replace(first, node_id=None)
+
+
+def test_merged_source_policies_retain_each_selection_and_do_not_alias() -> None:
+    from trailmark.models.graph import source_manifests
+
+    graph = CodeGraph(source_policy={"roots": [{"name": "one"}]})
+    other = CodeGraph(source_policy={"roots": [{"name": "two"}]})
+    graph.merge(other)
+    assert source_manifests(graph) == [{"roots": [{"name": "one"}]}, {"roots": [{"name": "two"}]}]
+    other.source_policy.clear()
+    assert len(source_manifests(graph)) == 2

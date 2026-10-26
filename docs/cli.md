@@ -61,6 +61,11 @@ trailmark analyze --language rust --resolution path/to/project
 
 ## `trailmark entrypoints`
 
+`--evidence` emits all entrypoint observations as JSON; `--candidates` emits
+observations outside the reported attack surface. The flags are mutually
+exclusive. Bindings, source spans and unresolved facts are retained; see
+[Entrypoint evidence](entrypoints.md#evidence-and-candidates).
+
 ```bash
 trailmark entrypoints [--language LANG] [--allow-empty] [--json] PATH
 ```
@@ -74,6 +79,19 @@ entrypoints in `.trailmark/entrypoints.toml`. See [Entrypoints](entrypoints.md).
 ```bash
 trailmark entrypoints path/to/project
 trailmark entrypoints --language solidity --json contracts/
+```
+
+Both `analyze` and `entrypoints` accept repeatable `--source-root NAME=PATH`,
+`--include GLOB`, and `--exclude GLOB` options. The positional directory is the
+`root` source root; additional roots retain their supplied names. Globs are
+relative to each root, includes override exclusions, and canonical files are
+parsed once. A deliberately selected dependency root bypasses its parents'
+exclusions. Full graph JSON includes the effective source policy and decisions.
+
+```bash
+trailmark entrypoints --language auto --candidates \
+  --source-root plugin=project/vendor/selected \
+  --exclude 'generated/**' project
 ```
 
 ## `trailmark diff`

@@ -8,6 +8,9 @@ from trailmark.models.nodes import NodeKind
 
 
 def link_php_functions(graph: CodeGraph) -> None:
+    from trailmark.parsers.php._includes import link_php_includes
+
+    link_php_includes(graph)
     owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
     symbols: dict[str, list[str]] = {}
     for unit in graph.nodes.values():

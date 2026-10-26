@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import importlib
 import os
+from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
 from trailmark.analysis.links import apply_repository_links
 from trailmark.analysis.proxies import ensure_proxy_nodes, materialize_type_use_edges
@@ -14,10 +16,10 @@ from trailmark.parsers._common import (
     directory_sources,
     link_cross_file_calls,
     link_type_relationships,
-    should_skip_dir,
     walk_source_files,
 )
 from trailmark.parsers.base import LanguageParser
+from trailmark.source_policy import SourcePolicy, SourceRoot
 
 _PARSER_MAP: dict[str, tuple[str, str]] = {
     "python": ("trailmark.parsers.python", "PythonParser"),
@@ -68,7 +70,7 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "r": (".r",),
     "javascript": (".js", ".jsx", ".mjs", ".cjs"),
     "typescript": (".ts", ".tsx"),
-    "php": (".php",),
+    "php": (".php", ".phtml"),
     "perl": (".pl", ".pm"),
     "ruby": (".rb",),
     "lua": (".lua",),
@@ -103,7 +105,7 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "rego": (".rego",),
     "proto": (".proto",),
     "thrift": (".thrift",),
-    "graphql": (".graphql", ".gql"),
+    "graphql": (".graphql", ".gql", ".graphqls"),
     "sql": (".sql",),
 }
 
@@ -138,7 +140,12 @@ def parse_file(path: str, language: str | None = None, *, strict: bool = False) 
 
 
 def parse_directory(
-    path: str, language: str = "python", *, allow_empty: bool = False, strict: bool = False
+    path: str,
+    language: str = "python",
+    *,
+    allow_empty: bool = False,
+    strict: bool = False,
+    source_policy: SourcePolicy | None = None,
 ) -> CodeGraph:
     """Parse a directory into a raw ``CodeGraph``.
 
@@ -152,12 +159,21 @@ def parse_directory(
     ``strict=True`` raises ``ValueError`` when any file has parse or
     unsupported-syntax diagnostics.
     """
+    if source_policy is not None:
+        return parse_roots(source_policy, language, allow_empty=allow_empty, strict=strict)
     root = Path(path)
     if not root.is_dir():
         msg = f"Not a directory: {path}"
         raise ValueError(msg)
-    languages = _resolve_directory_languages(path, language, allow_empty=allow_empty)
-    graph = _parse_and_merge(path, languages)
+    manifest = SourcePolicy((SourceRoot(path, "root"),)).discover()
+    files = cast(list[dict[str, str]], manifest["files"])
+    selected = [f["path"] for f in files if f["status"] == "inspected" and f["unit"] == "file"]
+    languages = _resolve_directory_languages(
+        path, language, allow_empty=allow_empty, selected_files=selected
+    )
+    graph = _parse_and_merge(os.path.abspath(root), languages, selected)
+    _finish_source_manifest(manifest, languages)
+    graph.source_policy = manifest
     if not allow_empty and not sum(graph.source_file_counts.values()):
         msg = (
             f"No source files inspected under {path} for languages: {', '.join(languages)}. "
@@ -187,9 +203,19 @@ def detect_languages(path: str) -> list[str]:
     roughly corresponds to popularity and keeps deterministic behavior.
     """
     root = Path(path)
-    if not root.exists():
+    if not root.is_dir():
         return []
+    manifest = SourcePolicy((SourceRoot(path, "root"),)).discover()
+    return _languages_for_paths(
+        [
+            file["path"]
+            for file in cast(list[dict[str, str]], manifest["files"])
+            if file["status"] == "inspected" and file["unit"] == "file"
+        ]
+    )
 
+
+def _languages_for_paths(paths: list[str]) -> list[str]:
     ext_to_language: dict[str, str] = {}
     for lang, exts in _LANGUAGE_EXTENSIONS.items():
         for ext in exts:
@@ -198,15 +224,10 @@ def detect_languages(path: str) -> list[str]:
             ext_to_language.setdefault(ext, lang)
 
     found: set[str] = set()
-    for _dirpath, dirs, files in os.walk(root):
-        # Keep detection aligned with the parser walk rules.
-        dirs[:] = [d for d in dirs if not should_skip_dir(d)]
-        for name in files:
-            ext = _file_extension(name)
-            if ext in ext_to_language:
-                found.add(ext_to_language[ext])
-        if len(found) == len(_LANGUAGE_EXTENSIONS):
-            break
+    for path in paths:
+        ext = _file_extension(path)
+        if ext in ext_to_language:
+            found.add(ext_to_language[ext])
 
     return [lang for lang in _LANGUAGE_EXTENSIONS if lang in found]
 
@@ -239,10 +260,16 @@ def _resolve_file_language(path: Path, language: str | None) -> str:
     return language
 
 
-def _resolve_directory_languages(path: str, spec: str, *, allow_empty: bool = False) -> list[str]:
+def _resolve_directory_languages(
+    path: str, spec: str, *, allow_empty: bool = False, selected_files: list[str] | None = None
+) -> list[str]:
     """Expand a directory ``language`` argument into concrete languages."""
     if spec == "auto":
-        detected = detect_languages(path)
+        detected = (
+            detect_languages(path)
+            if selected_files is None
+            else _languages_for_paths(selected_files)
+        )
         if not detected and not allow_empty:
             msg = f"No supported languages detected under {path}"
             raise ValueError(msg)
@@ -258,7 +285,9 @@ def _resolve_directory_languages(path: str, spec: str, *, allow_empty: bool = Fa
     return names
 
 
-def _parse_and_merge(path: str, languages: list[str]) -> CodeGraph:
+def _parse_and_merge(
+    path: str, languages: list[str], selected_files: list[str] | None = None
+) -> CodeGraph:
     """Assign files once and plan collision-safe module IDs before parsing."""
     extensions = {
         lang: _LANGUAGE_EXTENSIONS[lang] + ((".h",) if lang in {"c", "objc"} else ())
@@ -266,15 +295,96 @@ def _parse_and_merge(path: str, languages: list[str]) -> CodeGraph:
     }
     all_extensions = tuple({ext for values in extensions.values() for ext in values})
     owners: dict[str, str] = {}
-    for file_path in walk_source_files(path, all_extensions):
+    paths = walk_source_files(path, all_extensions) if selected_files is None else selected_files
+    for file_path in paths:
         suffix = _file_extension(file_path)
         candidates = [lang for lang in languages if suffix in extensions[lang]]
+        if not candidates:
+            continue
         # Objective-C also accepts C declarations. Its visitor retains C
         # types, so mixed headers need neither reparsing nor record merging.
         owner = "objc" if len(candidates) > 1 and suffix == ".h" else candidates[0]
         owners[file_path] = "csharp" if owner == "c_sharp" else owner
     with directory_sources(path, owners, defer_proxies=True):
         return _merge_language_graphs(path, languages)
+
+
+def parse_roots(
+    policy: SourcePolicy, language: str = "auto", *, allow_empty: bool = False, strict: bool = False
+) -> CodeGraph:
+    """Parse explicit roots once, retaining root identity and effective policy."""
+    manifest = policy.discover()
+    files = cast(list[dict[str, str]], manifest["files"])
+    merged = CodeGraph(language="polyglot", root_path=os.path.abspath(policy.roots[0].path))
+    for selected in policy.roots:
+        paths = [
+            str(f["path"])
+            for f in files
+            if f["root"] == selected.name and f["status"] == "inspected"
+        ]
+        languages = _resolve_directory_languages(
+            selected.path, language, allow_empty=True, selected_files=paths
+        )
+        sub = _parse_and_merge(os.path.abspath(selected.path), languages, paths)
+        if len(policy.roots) == 1:
+            merged.language = sub.language
+        if len(policy.roots) > 1:
+            _namespace_root(sub, selected.name)
+        merged.merge(sub)
+        _finish_source_manifest(manifest, languages, root_name=selected.name)
+    merged.source_policy = manifest
+    from trailmark.parsers.php._includes import link_php_includes
+
+    link_php_includes(merged)
+    if not allow_empty and not sum(merged.source_file_counts.values()):
+        raise ValueError("No source files inspected under the selected source policy")
+    _check_diagnostics(merged, strict=strict)
+    return merged
+
+
+def _finish_source_manifest(
+    manifest: dict[str, object], languages: list[str], *, root_name: str | None = None
+) -> None:
+    extensions = {extension for lang in languages for extension in _LANGUAGE_EXTENSIONS[lang]}
+    if any(lang in {"c", "objc"} for lang in languages):
+        extensions.add(".h")
+    for file in cast(list[dict[str, str]], manifest["files"]):
+        if root_name is not None and file["root"] != root_name:
+            continue
+        if file["status"] == "inspected" and _file_extension(file["path"]) not in extensions:
+            file["status"], file["reason"] = "unparsed", "unsupported_extension"
+    for root in cast(list[dict[str, object]], manifest["roots"]):
+        counts: dict[str, int] = {}
+        for file in cast(list[dict[str, str]], manifest["files"]):
+            if file["root"] == root["name"]:
+                key = file["status"] + ":" + file["reason"]
+                counts[key] = counts.get(key, 0) + 1
+        root["counts"] = counts
+
+
+def _namespace_root(graph: CodeGraph, name: str) -> None:
+    mapping = {node_id: f"{name}::{node_id}" for node_id in graph.nodes}
+    graph.nodes = {mapping[k]: replace(v, id=mapping[k]) for k, v in graph.nodes.items()}
+    graph.edges = [
+        replace(
+            e,
+            source_id=mapping.get(e.source_id, e.source_id),
+            target_id=mapping.get(e.target_id, e.target_id),
+        )
+        for e in graph.edges
+    ]
+    graph.annotations = {mapping.get(k, k): v for k, v in graph.annotations.items()}
+    graph.entrypoints = {mapping.get(k, k): v for k, v in graph.entrypoints.items()}
+    evidence = [
+        replace(
+            fact,
+            node_id=mapping.get(fact.node_id, fact.node_id),
+            source_id=mapping.get(fact.source_id, fact.source_id),
+        )
+        for fact in graph.entrypoint_evidence.values()
+    ]
+    graph.entrypoint_evidence = {fact.id: fact for fact in evidence}
+    graph.subgraphs = {k: {mapping.get(n, n) for n in v} for k, v in graph.subgraphs.items()}
 
 
 def _merge_language_graphs(path: str, languages: list[str]) -> CodeGraph:
@@ -337,5 +447,6 @@ __all__ = [
     "detect_languages",
     "parse_directory",
     "parse_file",
+    "parse_roots",
     "supported_languages",
 ]

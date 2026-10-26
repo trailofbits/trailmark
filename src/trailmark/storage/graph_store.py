@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 import rustworkx as rx
 
 from trailmark.models.annotations import (
@@ -11,6 +13,7 @@ from trailmark.models.annotations import (
 )
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.entrypoints import EntrypointEvidence
 from trailmark.models.graph import CodeGraph
 from trailmark.models.lookup import resolve_node_id
 from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin
@@ -33,11 +36,32 @@ class GraphStore:
 
     def __init__(self, graph: CodeGraph) -> None:
         self._graph = graph
+        for fact in tuple(graph.entrypoint_evidence.values()):
+            self.add_entrypoint_evidence(fact)
         self.rebuild_index()
 
     def source_file_counts(self) -> dict[str, int]:
         """Return inspected source-file counts by selected parser language."""
         return dict(self._graph.source_file_counts)
+
+    def source_policy(self) -> dict[str, object]:
+        """Return a detached copy of source selection and file-level decisions."""
+        return deepcopy(self._graph.source_policy)
+
+    def entrypoint_evidence(self, node_id: str | None = None) -> list[EntrypointEvidence]:
+        """Return immutable discovery facts, optionally scoped to a known node."""
+        return [
+            fact
+            for fact in self._graph.entrypoint_evidence.values()
+            if node_id is None or fact.node_id == node_id
+        ]
+
+    def add_entrypoint_evidence(self, evidence: EntrypointEvidence) -> None:
+        """Validate referenced nodes without promoting candidates to entrypoints."""
+        for node_id in (evidence.node_id, evidence.source_id):
+            if node_id is not None and node_id not in self._graph.nodes:
+                raise ValueError(f"Unknown entrypoint evidence node: {node_id}")
+        self._graph.add_entrypoint_evidence(evidence)
 
     def parse_diagnostics(self) -> list[ParseDiagnostic]:
         """Return source analysis diagnostics as immutable model objects."""

@@ -597,7 +597,15 @@ class TestJavaScriptFrameworks:
         engine = QueryEngine.from_directory(str(tmp_path), language="typescript")
         surface = engine.attack_surface()
         descriptions = [ep["description"] for ep in surface if ep.get("description")]
-        assert any("Next.js App Router" in d for d in descriptions), surface
+        assert descriptions == ["HTTP-method export in route module (convention)"] * 2
+        assert {entry["node_id"] for entry in surface} == {"route:GET", "route:POST"}
+        facts = engine.entrypoint_evidence()
+        assert {fact["basis"] for fact in facts if fact["rule"] == "source_pattern"} == {
+            "heuristic"
+        }
+        assert {fact["basis"] for fact in facts if fact["rule"] == "module_export"} == {
+            "declaration"
+        }
 
 
 class TestJavaFrameworks:

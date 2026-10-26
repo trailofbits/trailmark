@@ -93,6 +93,16 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("README.md", "References stay separate from execution"),
+    ("docs/entrypoints.md", "Candidate discovery never promotes a reference to an entrypoint"),
+    ("docs/entrypoints.md", "terminal names alone never bind a declaration"),
+    ("docs/entrypoints.md", "contract apply to every supported frontend"),
+    ("docs/parser-coverage.md", "runtime include-path search stay unresolved"),
+    ("docs/python-api.md", "`SourcePolicy` applies the same selection contract"),
+    ("docs/python-api.md", "a canonical file belongs to the first root that selects it"),
+    ("docs/parser-coverage.md", "synthetic `<template>` function"),
+    ("docs/parser-coverage.md", "presence does not establish a public entrypoint"),
+    ("docs/parser-coverage.md", "`TRUE`/`FALSE` class constant identifiers"),
     ("docs/parser-coverage.md", "Calls keep their normal confidence"),
     ("docs/parser-coverage.md", "the last definition keeps its plain ID"),
     ("docs/parser-coverage.md", "Java constructor binding also runs after the directory merge"),
@@ -147,6 +157,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "--shard=INDEX/TOTAL"),
     ("CONTRIBUTING.md", "tests.mutation_gate --shard=1/8"),
     ("CONTRIBUTING.md", "requires all eight shards to pass"),
+    ("CONTRIBUTING.md", "inconclusive outcomes still fail the gate"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
     ("docs/cli.md", "JSON to stdout"),

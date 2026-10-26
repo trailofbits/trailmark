@@ -239,7 +239,7 @@ class TestNextJsDetectorTags:
         assert ep["kind"] == "api"
         assert ep["trust_level"] == "untrusted_external"
         assert ep["asset_value"] == "high"
-        assert ep["description"] == "Next.js App Router handler"
+        assert ep["description"] == "HTTP-method export in route module (convention)"
 
 
 class TestSwiftDetectorTags:

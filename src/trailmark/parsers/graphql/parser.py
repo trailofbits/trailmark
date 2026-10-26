@@ -19,8 +19,9 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._simple import descendants, first_child_type, named_children
+from trailmark.parsers.graphql._syntax import mask_graphql_escapes
 
-_EXTENSIONS = (".graphql", ".gql")
+_EXTENSIONS = (".graphql", ".gql", ".graphqls")
 
 
 class GraphQLParser:
@@ -35,10 +36,10 @@ class GraphQLParser:
 
     def parse_file(self, file_path: str) -> CodeGraph:
         source = Path(file_path).read_bytes()
-        tree = self._parser.parse(source)
+        tree = self._parser.parse(mask_graphql_escapes(source))
         graph = CodeGraph(language="graphql", root_path=file_path)
         module_id = module_id_from_path(file_path)
-        _visit_root(tree.root_node, file_path, module_id, graph)
+        _visit_root(tree.root_node, file_path, module_id, graph, source)
         _assign_roots(graph)
         return graph
 
@@ -49,7 +50,9 @@ class GraphQLParser:
         return graph
 
 
-def _visit_root(root: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:
+def _visit_root(
+    root: Node, file_path: str, module_id: str, graph: CodeGraph, source: bytes
+) -> None:
     add_module_node(root, file_path, module_id, graph)
     mappings = {}
     for node in descendants(root):
@@ -66,14 +69,16 @@ def _visit_root(root: Node, file_path: str, module_id: str, graph: CodeGraph) ->
             "interface_type_extension",
             "input_object_type_extension",
         }:
-            _extract_object(node, file_path, module_id, graph)
+            _extract_object(node, file_path, module_id, graph, source)
         elif node.type == "enum_type_definition":
             _extract_enum(node, file_path, module_id, graph)
     if mappings:
         graph.nodes[module_id] = replace(graph.nodes[module_id], attributes=tuple(mappings.items()))
 
 
-def _extract_object(node: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:
+def _extract_object(
+    node: Node, file_path: str, module_id: str, graph: CodeGraph, source: bytes
+) -> None:
     name_node = first_child_type(node, frozenset({"name"}))
     if name_node is None:
         return
@@ -94,10 +99,12 @@ def _extract_object(node: Node, file_path: str, module_id: str, graph: CodeGraph
         return
     for child in named_children(fields):
         if child.type in {"field_definition", "input_value_definition"}:
-            _extract_field(child, file_path, object_id, graph)
+            _extract_field(child, file_path, object_id, graph, source)
 
 
-def _extract_field(node: Node, file_path: str, object_id: str, graph: CodeGraph) -> None:
+def _extract_field(
+    node: Node, file_path: str, object_id: str, graph: CodeGraph, source: bytes
+) -> None:
     name_node = first_child_type(node, frozenset({"name"}))
     if name_node is None:
         return
@@ -108,7 +115,7 @@ def _extract_field(node: Node, file_path: str, object_id: str, graph: CodeGraph)
         name=name,
         kind=NodeKind.METHOD,
         location=make_location(node, file_path),
-        parameters=_arguments(node),
+        parameters=_arguments(node, source),
         return_type=_type_ref(node),
         attributes=(("schema_role", _field_role(object_id)),),
     )
@@ -122,7 +129,7 @@ def _field_role(object_id: str) -> str:
     return "field"
 
 
-def _arguments(node: Node) -> tuple[Parameter, ...]:
+def _arguments(node: Node, source: bytes) -> tuple[Parameter, ...]:
     args = first_child_type(node, frozenset({"arguments_definition"}))
     if args is None:
         return ()
@@ -138,7 +145,9 @@ def _arguments(node: Node) -> tuple[Parameter, ...]:
             Parameter(
                 name=node_text(name_node),
                 type_ref=_type_ref(arg),
-                default=node_text(default).lstrip("= ") if default else None,
+                default=source[default.start_byte : default.end_byte].decode().lstrip("= ")
+                if default
+                else None,
             )
         )
     return tuple(params)

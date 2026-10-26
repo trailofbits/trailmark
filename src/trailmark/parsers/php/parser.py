@@ -14,6 +14,7 @@ from trailmark.models.nodes import (
     BranchInfo,
     CodeUnit,
     NodeKind,
+    NodeOrigin,
     Parameter,
     TypeRef,
 )
@@ -29,6 +30,8 @@ from trailmark.parsers._common import (
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._php_linking import link_php_functions
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.php._includes import INCLUDE_NODES, include_attributes
+from trailmark.parsers.php._syntax import parse_php
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -44,7 +47,7 @@ _BRANCH_NODE_TYPES = frozenset(
 
 _THROW_TYPES = frozenset({"throw_expression"})
 
-_CALL_TYPES = frozenset(
+_CALL_TYPES = INCLUDE_NODES | frozenset(
     {
         "function_call_expression",
         "member_call_expression",
@@ -53,10 +56,19 @@ _CALL_TYPES = frozenset(
     }
 )
 _CALLABLE_TYPES = frozenset(
-    {"function_definition", "anonymous_function", "arrow_function", "class_declaration"}
+    {
+        "function_definition",
+        "method_declaration",
+        "anonymous_function",
+        "arrow_function",
+        "class_declaration",
+        "interface_declaration",
+        "trait_declaration",
+        "enum_declaration",
+    }
 )
 
-_EXTENSIONS = (".php",)
+_EXTENSIONS = (".php", ".phtml")
 
 _NAMESPACE: ContextVar[str] = ContextVar("_PHP_NAMESPACE", default="")
 
@@ -82,7 +94,7 @@ class PHPParser:
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single PHP file into a CodeGraph."""
         source = Path(file_path).read_bytes()
-        tree = self._parser.parse(source)
+        tree = parse_php(self._parser, source)
         graph = CodeGraph(language="php", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
@@ -90,7 +102,7 @@ class PHPParser:
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
-        """Parse all .php files under dir_path into a merged graph."""
+        """Parse PHP scripts and mixed PHP/HTML templates under dir_path."""
         return parse_directory(
             self.parse_file,
             "php",
@@ -108,6 +120,70 @@ def _visit_module(
     """Walk the top-level of a PHP module, extracting nodes."""
     add_module_node(root, file_path, module_id, graph)
     _walk_children(root, file_path, module_id, graph)
+    _extract_script(root, file_path, module_id, graph)
+
+
+def _extract_script(root: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:
+    """Retain executable file bodies without attributing nested functions' calls to them."""
+    template = Path(file_path).suffix.lower() == ".phtml"
+    statements = [
+        node
+        for node in walk_owned(root, root_is_owner=False, boundaries=_CALLABLE_TYPES)
+        if (
+            node.type.endswith("_statement")
+            and node.type not in {"compound_statement", "declare_statement", "empty_statement"}
+        )
+        or node.type == "text"
+        and node_text(node).strip()
+    ]
+    if not statements and not template:
+        return
+    branches: list[BranchInfo] = []
+    exceptions: list[TypeRef] = []
+    calls: list[tuple[str, Node]] = []
+    _collect_php_body_info(root, file_path, branches, exceptions, calls)
+    name = "<template>" if template else "<script>"
+    identifier = f"{module_id}:{name}"
+    graph.nodes[identifier] = CodeUnit(
+        identifier,
+        name,
+        NodeKind.FUNCTION,
+        make_location(root, file_path),
+        origin=NodeOrigin.SYNTHETIC,
+        attributes=(("php_execution_kind", "template" if template else "script"),),
+        branches=tuple(branches),
+        exception_types=tuple(exceptions),
+        cyclomatic_complexity=compute_complexity(branches),
+    )
+    add_contains_edge(graph, module_id, identifier)
+    for call, site in calls:
+        token = _NAMESPACE.set(_script_namespace(root, site))
+        try:
+            _add_call_edges(
+                [(call, site)], identifier, module_id, None, file_path=file_path, graph=graph
+            )
+        finally:
+            _NAMESPACE.reset(token)
+
+
+def _script_namespace(root: Node, site: Node) -> str:
+    current: Node | None = site
+    while current is not None:
+        if current.type == "namespace_definition":
+            name = current.child_by_field_name("name")
+            return node_text(name) if name is not None else ""
+        current = current.parent
+    namespace = ""
+    for statement in root.named_children:
+        if statement.start_byte > site.start_byte:
+            break
+        if (
+            statement.type == "namespace_definition"
+            and statement.child_by_field_name("body") is None
+        ):
+            name = statement.child_by_field_name("name")
+            namespace = node_text(name) if name is not None else ""
+    return namespace
 
 
 def _walk_children(
@@ -429,7 +505,9 @@ def _add_call_edges(
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
                 location=make_location(site, file_path),
-                attributes=_php_call_attributes(name, site, module_id),
+                attributes=include_attributes(site, file_path)
+                if site.type in INCLUDE_NODES
+                else _php_call_attributes(name, site, module_id),
             )
         )
 
@@ -450,6 +528,8 @@ def _php_call_target(
     owner: str | None,
     graph: CodeGraph,
 ) -> tuple[str, EdgeConfidence]:
+    if site.type in INCLUDE_NODES:
+        return f"{module}:{name}", EdgeConfidence.UNCERTAIN
     if site.type == "function_call_expression" and not name.startswith("$"):
         return _php_reference_id(site, module, name), _call_confidence(name)
     if site.type == "scoped_call_expression":
@@ -570,6 +650,8 @@ def _collect_throw_type(
 
 def _extract_php_call_name(node: Node) -> str:
     """Extract the function/method name from a PHP call node."""
+    if node.type in INCLUDE_NODES:
+        return f"$include@{node.start_point.row + 1}_{node.start_point.column}"
     if node.type == "function_call_expression":
         func = node.child_by_field_name("function")
         if func is not None:

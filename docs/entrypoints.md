@@ -19,6 +19,67 @@ do not.
 trailmark entrypoints --language auto path/to/project
 ```
 
+## Evidence and candidates
+
+`QueryEngine.entrypoint_evidence()` reports each discovery observation with its
+source span, target binding, rule, basis, and unresolved facts. Multiple source
+occurrences can reference the same handler. `entrypoint_candidates()` returns
+observations whose targets are outside the reported attack surface, including
+unresolved references with no target node. Both accept an optional node name.
+
+```bash
+trailmark entrypoints --language auto --evidence path/to/project
+trailmark entrypoints --language auto --candidates path/to/project
+```
+
+These JSON outputs expose evidence separately from the existing entrypoint tags.
+Candidate discovery never promotes a reference to an entrypoint. A `resolved`
+binding identifies a source declaration; external invocation can still be
+unknown. Ordinary call paths follow `calls` edges, so `references` edges do not
+establish execution or authentication. The evidence model and source-selection
+contract apply to every supported frontend; automatic reference extraction is
+currently bounded to the forms described below.
+
+- Python decorator lookup follows imports, aliases, enclosing bindings and
+  literal path constants. Unrelated key-based decorators and provable local
+  identity decorators are excluded. Existing HTTP method conventions retain
+  their heuristic tags for unknown arguments and conditional bindings, with
+  the uncertainty recorded in evidence. Even a matching path is a heuristic:
+  registrar semantics and runtime activation remain unknown. Binding analysis
+  does not model arbitrary dynamic writes or monkeypatches from other files.
+- ECMAScript file-route conventions require an exported module-level callable.
+  Aliases use the exported name; default and CommonJS exports retain their
+  source occurrences. Call wrappers record `export_value` uncertainty.
+  Their descriptions identify the convention without assigning a framework.
+- Python and PHP callable arguments and collection values retain references,
+  including supported aliases, imports and statically qualified members.
+  Dynamic member dispatch stays unresolved. Other frontends keep their existing
+  entrypoints and the common evidence API; automatic callable-value extraction
+  is not yet implemented for them.
+- Executable file bodies, including PHP `.phtml` templates, are candidates with
+  unknown invocation context. Their direct calls remain queryable. Anchored PHP
+  includes can link to inspected executable bodies through normal call edges.
+- Qualified symbol and file references in GraphQL values and selected
+  JSON, YAML, XML and TOML values are matched against inspected declarations.
+  Keys, comments and descriptions are excluded. Multiple exact qualified matches
+  stay ambiguous; terminal names alone never bind a declaration.
+  Relative `./` and `../` file references use their declaring file's directory;
+  suffix-only file matches retain `target_selection` uncertainty. Schema or
+  configuration references do not identify the runtime method a loader invokes.
+  Invalid or unsupported file syntax and unreadable/oversized files are reported
+  as unresolved scan evidence.
+
+Unmatched qualified strings are retained, so ordinary metadata such as hostnames
+can also appear among unresolved candidates. Review their consumer before
+treating them as code references. Data files with matched references gain a
+synthetic module node for provenance, which is included in graph node counts.
+
+The data reader accepts UTF-8 files up to 8 MiB. Unsupported literal forms,
+including custom XML entities and YAML block indentation indicators, are not
+resolved. It never expands custom or external XML entities,
+loads objects from YAML tags, or executes application code. Candidate strings may
+be ordinary data; reviewing their consumer semantics is required.
+
 ## Detection layers
 
 Detection runs four layers. When two layers tag the same function, the later
@@ -37,7 +98,7 @@ one wins.
 | Language | Detected |
 | --- | --- |
 | Python | Flask, FastAPI, aiohttp, Click, Typer, Celery |
-| JavaScript / TypeScript | NestJS, Next.js (App Router and Pages API), AWS Lambda |
+| JavaScript / TypeScript | NestJS, exported HTTP-method/file-route conventions, AWS Lambda |
 | Java | Spring MVC / WebFlux, JAX-RS, Kafka listeners, servlets |
 | Kotlin | Spring MVC / WebFlux annotations, Android component lifecycle methods (`onCreate`, `onReceive`, `onBind`, ...) |
 | C# | ASP.NET Core, Azure Functions |

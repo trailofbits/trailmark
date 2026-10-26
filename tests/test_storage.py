@@ -21,6 +21,7 @@ from trailmark.models import (
     SourceLocation,
     TrustLevel,
 )
+from trailmark.models.entrypoints import EntrypointEvidence
 from trailmark.storage.graph_store import GraphStore
 
 _LOC = SourceLocation(file_path="test.py", start_line=1, end_line=10)
@@ -33,6 +34,25 @@ def test_source_file_counts_are_copied_without_topology_rebuild() -> None:
     assert store.source_file_counts() == {"python": 1}
     graph.source_file_counts["rust"] = 2
     assert store.source_file_counts() == {"python": 1, "rust": 2}
+
+
+def test_entrypoint_evidence_validation_and_reference_edges() -> None:
+    graph = CodeGraph(nodes={"a": _make_node("a", "a"), "b": _make_node("b", "b")})
+    graph.edges.append(CodeEdge("a", "b", EdgeKind.REFERENCES))
+    store = GraphStore(graph)
+    fact = EntrypointEvidence(
+        "b", "reference", "callback", _LOC, source_id="a", unresolved=("dispatch",)
+    )
+    store.add_entrypoint_evidence(fact)
+    assert store.entrypoint_evidence("b") == [fact]
+    assert store.entrypoint_evidence("missing") == []
+    store.entrypoint_evidence().clear()
+    assert store.entrypoint_evidence() == [fact]
+    assert store.reachable_from("a") == set()
+    assert store.reachable_from("a", frozenset({EdgeKind.REFERENCES})) == {"b"}
+    assert not store.all_entrypoints()
+    with pytest.raises(ValueError, match="Unknown entrypoint evidence node"):
+        store.add_entrypoint_evidence(replace(fact, node_id="missing"))
 
 
 def _make_node(

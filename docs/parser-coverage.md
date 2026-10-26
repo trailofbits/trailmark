@@ -59,6 +59,15 @@ still does. Nullsafe and scoped calls retain sites. Local `self`, named-class an
 unambiguous `parent` targets can resolve; late-static dispatch stays uncertain.
 Free functions link across files by namespace and name, including fully qualified
 references. Unqualified namespace calls retain PHP's global-function fallback.
+Mixed PHP/HTML `.phtml` files have a synthetic `<template>` function; executable
+top-level `.php` statements have a synthetic `<script>` function. These bodies
+own direct calls, including database calls, while nested functions and classes
+retain their own calls. Their presence does not establish a public entrypoint.
+Valid `TRUE`/`FALSE` class constant identifiers receive a narrow grammar recovery
+that preserves source coordinates and diagnostics for unrelated syntax errors.
+`include` and `require` variants link to inspected executable bodies when their
+paths are absolute or derived from `__DIR__`/`__FILE__` with literal concatenation.
+Dynamic paths and paths dependent on runtime include-path search stay unresolved.
 
 Perl qualified subroutine names determine symbol ownership while body/default
 lookup retains the lexical package. Signature defaults retain calls and nested
@@ -80,6 +89,8 @@ recursive list/non-null wrappers retain named type relationships. Thrift uses
 source-file IDs, preserves target namespaces as metadata, and retains recursive
 container types and declared exceptions. These schema graphs contain no runtime
 call edges.
+The GraphQL frontend accepts `.graphqls` and preserves source offsets when
+recovering valid quoted-string escapes rejected by the packaged grammar.
 
 SQL retains overloads and separate relation/routine namespaces. Colliding routine
 IDs gain source-position suffixes. Relation matching folds unquoted PostgreSQL

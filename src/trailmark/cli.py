@@ -12,6 +12,7 @@ from typing import Any, TextIO
 from trailmark import __version__
 from trailmark.diagram import add_diagram_arguments, build_engine, render_diagram
 from trailmark.query.api import QueryEngine
+from trailmark.source_policy import SourcePolicy, SourceRoot
 
 _VERSION_STRING = f"trailmark {__version__}"
 
@@ -128,6 +129,37 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit entrypoints as JSON instead of a human-readable list",
     )
+    evidence = entrypoints.add_mutually_exclusive_group()
+    evidence.add_argument(
+        "--evidence", action="store_true", help="Emit all entrypoint evidence as JSON"
+    )
+    evidence.add_argument(
+        "--candidates",
+        action="store_true",
+        help="Emit candidates outside the attack surface as JSON",
+    )
+    for command in (analyze, entrypoints):
+        command.add_argument(
+            "--source-root",
+            action="append",
+            default=[],
+            metavar="NAME=PATH",
+            help="Add an explicitly selected source root (repeatable)",
+        )
+        command.add_argument(
+            "--include",
+            action="append",
+            default=[],
+            metavar="GLOB",
+            help="Include files despite exclusions, relative to each root (repeatable)",
+        )
+        command.add_argument(
+            "--exclude",
+            action="append",
+            default=[],
+            metavar="GLOB",
+            help="Exclude files relative to each root (repeatable)",
+        )
 
     augment = subparsers.add_parser(
         "augment",
@@ -214,6 +246,7 @@ def _run_analyze(args: argparse.Namespace) -> None:
         language=args.language,
         allow_empty=args.allow_empty,
         strict=args.strict,
+        source_policy=_source_policy(args),
     )
 
     if args.resolution:
@@ -308,8 +341,16 @@ def _print_augment_result(
 def _run_entrypoints(args: argparse.Namespace) -> None:
     """Execute the entrypoints subcommand."""
     engine = QueryEngine.from_directory(
-        args.path, language=args.language, allow_empty=args.allow_empty, strict=args.strict
+        args.path,
+        language=args.language,
+        allow_empty=args.allow_empty,
+        strict=args.strict,
+        source_policy=_source_policy(args),
     )
+    if args.evidence or args.candidates:
+        facts = engine.entrypoint_candidates() if args.candidates else engine.entrypoint_evidence()
+        print(json.dumps(facts, indent=2))
+        return
     surface = engine.attack_surface()
 
     if args.json:
@@ -331,6 +372,18 @@ def _run_entrypoints(args: argparse.Namespace) -> None:
         )
         if ep.get("description"):
             print(f"    {ep['description']}")
+
+
+def _source_policy(args: argparse.Namespace) -> SourcePolicy | None:
+    if not (args.source_root or args.include or args.exclude):
+        return None
+    roots = [SourceRoot(args.path, "root")]
+    for specification in args.source_root:
+        name, separator, path = specification.partition("=")
+        if not separator or not path:
+            raise ValueError("--source-root requires NAME=PATH")
+        roots.append(SourceRoot(path, name))
+    return SourcePolicy(tuple(roots), exclude=tuple(args.exclude), include=tuple(args.include))
 
 
 def _run_diff(args: argparse.Namespace) -> None:

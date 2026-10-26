@@ -43,6 +43,55 @@ one parser and counts once. `GraphStore.source_file_counts()` returns a copy.
 have no coverage metadata unless the caller supplies it. These counts describe
 the selected files, not parser completeness or coverage of unselected languages.
 
+### Selecting source roots
+
+`SourcePolicy` applies the same selection contract to every supported language.
+Select dependency or plugin directories explicitly when their code belongs in
+the analysis:
+
+```python
+from trailmark import SourcePolicy, SourceRoot, parse_roots
+
+policy = SourcePolicy(
+    roots=(
+        SourceRoot("project", "application"),
+        SourceRoot("project/vendor/selected", "dependency", "dependency"),
+    ),
+    exclude=("generated/**", "var/cache/**"),
+    include=("generated/reviewed.py",),
+)
+graph = parse_roots(policy, language="auto")
+```
+
+Roots are ordered: a canonical file belongs to the first root that selects it.
+An explicitly selected root bypasses its parents' exclusions. Multiple roots
+prefix node IDs with `root_name::` to preserve source identity. Include and
+exclude globs are relative to each root; explicit includes override exclusions.
+`*` and `?` match within a path segment; `**` spans directories. A matched
+directory excludes its descendants, including when a specific include keeps
+traversal open. Both `build` and `build/` exclude that directory.
+Directory symlinks are not followed, file symlinks cannot escape a root, and
+canonical files are parsed once. These rules also apply to the default directory
+parse. The supplied root's absolute lexical path is preserved in source locations;
+canonicalization is used only for containment and deduplication.
+Source selection does not prove deployment or
+external reachability.
+Ordinary calls are linked within each selected root. Cross-root execution needs
+explicit linking evidence; qualified declarative references and anchored PHP
+includes can span selected roots without assuming an import search path.
+
+`parse_directory(..., source_policy=policy)` and
+`QueryEngine.from_directory(..., source_policy=policy)` use the policy's roots
+instead of the path argument. `CodeGraph.source_policy` retains the effective
+policy and file decisions. `GraphStore.source_policy()` and
+`QueryEngine.source_policy()` return detached copies; JSON exports include the
+same manifest. Unsupported extensions are recorded as `unparsed`. Default
+dependency and cache directory exclusions are unchanged; additional generated
+directories require explicit exclude globs. Excluded directories are pruned and
+recorded once unless an include could select a file beneath them.
+When already-parsed graphs merge, each original policy is retained under
+`components`; the merge does not rerun source selection.
+
 ## Building a `QueryEngine`
 
 ```python
@@ -110,6 +159,25 @@ count (default 20) and must be positive; zero or a negative value raises
 | `functions_that_raise(exception_name)` | Functions whose parser-detected exception types include `exception_name` |
 | `summary()` | Total nodes; function, class, and proxy counts; call-edge count; dependencies; entrypoint count; selected languages and inspected source-file counts |
 | `parse_diagnostics()` | Grammar errors and explicitly unsupported constructs, with language, grammar, source span, kind and message |
+| `source_policy()` | Effective source roots, globs, and inspected/skipped/unparsed file decisions; empty for graphs without source-selection metadata |
+| `entrypoint_evidence(name=None)` | Source observations for reported entrypoints and candidates, including binding status and unresolved facts |
+| `entrypoint_candidates(name=None)` | Evidence whose target is outside the reported attack surface, including unresolved targets |
+| `add_entrypoint_evidence(evidence)` | Store a frozen `EntrypointEvidence` after validating referenced node IDs; never promotes an entrypoint |
+
+`EntrypointEvidence` lives in `trailmark.models.entrypoints`. Its basis is
+`language`, `declaration`, `heuristic`, `reference`, or `override`; its binding
+is `resolved`, `unresolved`, or `ambiguous`. Source patterns retain a heuristic
+basis even when they report an entrypoint. Facts include the source occurrence,
+optional source/target node IDs, symbol, scalar details, argument source text,
+and explicit unresolved facts. IDs derive from the complete observation, so
+distinct registrations of one handler are retained. `CodeGraph.merge()` retains
+evidence, and JSON exports include `entrypoint_evidence` when present.
+
+`QueryEngine.from_directory()` runs candidate discovery alongside detection.
+For a raw graph, call
+`trailmark.analysis.entrypoint_candidates.discover_entrypoint_candidates(graph)`
+before constructing an engine. This pass adds evidence and reference edges;
+it never labels candidates as externally reachable.
 
 ### Types
 

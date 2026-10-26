@@ -414,6 +414,7 @@ class TestAnalyzeCommand:
         data = json.loads(mock_out.getvalue())
         # Exact top-level keys
         assert set(data.keys()) == {
+            "source_policy",
             "trailmark_version",
             "schema_version",
             "language",
@@ -935,6 +936,7 @@ class TestDiagramCommand:
             patch("sys.stdout", new_callable=StringIO) as mock_out,
         ):
             main()
+
         output = mock_out.getvalue()
         assert output.startswith("flowchart TB")
         assert "helper" in output
@@ -971,3 +973,73 @@ class TestDiagramCommand:
             pytest.raises(SystemExit),
         ):
             main()
+
+
+@pytest.mark.parametrize("command", ["analyze", "entrypoints"])
+def test_source_policy_cli_selects_roots_and_reincludes_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+) -> None:
+    root = tmp_path / "app"
+    extra = tmp_path / "custom"
+    (root / "build").mkdir(parents=True)
+    extra.mkdir()
+    (root / "build/keep.py").write_text("def main(): pass")
+    (root / "build/drop.py").write_text("def main(): pass")
+    (extra / "source.py").write_text("def main(): pass")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "trailmark",
+            command,
+            str(root),
+            "--json",
+            "--source-root",
+            f"custom={extra}",
+            "--exclude",
+            "build",
+            "--include",
+            "build/keep.py",
+        ],
+    )
+    main()
+    data = json.loads(capsys.readouterr().out)
+    if command == "entrypoints":
+        assert {item["node_id"] for item in data} == {
+            "root::build.keep:main",
+            "custom::source:main",
+        }
+    else:
+        assert {item["id"] for item in data["nodes"].values() if item["kind"] == "function"} == {
+            "root::build.keep:main",
+            "custom::source:main",
+        }
+        assert {item["name"] for item in data["source_policy"]["roots"]} == {"root", "custom"}
+
+
+@pytest.mark.parametrize("flag", ["--evidence", "--candidates"])
+def test_entrypoint_evidence_cli_keeps_candidates_separate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], flag: str
+) -> None:
+    (tmp_path / "app.py").write_text("def main(): pass\ndef handler(): pass")
+    (tmp_path / "config.json").write_text('{"callback":"app:handler"}')
+    monkeypatch.setattr(sys, "argv", ["trailmark", "entrypoints", str(tmp_path), flag])
+    main()
+    facts = json.loads(capsys.readouterr().out)
+    assert any(fact["node_id"] == "app:handler" and not fact["reported"] for fact in facts)
+    assert any(fact["reported"] for fact in facts) == (flag == "--evidence")
+
+
+def test_source_root_cli_rejects_missing_name_separator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        sys, "argv", ["trailmark", "analyze", str(tmp_path), "--source-root", "oops"]
+    )
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "--source-root requires NAME=PATH" in capsys.readouterr().err

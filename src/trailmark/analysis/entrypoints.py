@@ -52,25 +52,25 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from trailmark._path_glob import compile_path_glob
 from trailmark.analysis._entrypoint_declarations import DeclarationCache
+from trailmark.analysis._python_decorators import DecoratorFact, python_decorators
 from trailmark.models.annotations import (
     AssetValue,
     EntrypointKind,
     EntrypointTag,
     TrustLevel,
 )
-from trailmark.models.edges import EdgeKind
-from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin
+from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.entrypoints import EntrypointEvidence
+from trailmark.models.graph import CodeGraph, source_manifests
+from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin, SourceLocation
 
 OVERRIDE_FILE = ".trailmark/entrypoints.toml"
 
-# Python HTTP web-framework decorator suffix on any receiver.
-#   Matches: @app.route(...), @router.get(...), @bp.post(...), @routes.put(...)
-#   (Flask, FastAPI, aiohttp, Sanic all share this shape.)
-_PY_HTTP_DECORATOR = re.compile(
-    r"^\s*@\s*[A-Za-z_][\w.]*\.(route|get|post|put|patch|delete|head|options|"
-    r"websocket|api_route)\s*\(",
+# Existing HTTP method conventions are applied to lexical binding evidence.
+_PY_HTTP_METHODS = frozenset(
+    {"route", "get", "post", "put", "patch", "delete", "head", "options", "websocket", "api_route"}
 )
 
 # @click.command / @click.group / @typer_app.command
@@ -243,20 +243,82 @@ def detect_entrypoints(graph: CodeGraph, root_path: str) -> dict[str, Entrypoint
         Mapping of node id -> EntrypointTag. Empty dict if no entrypoints
         are detected.
     """
-    root = Path(root_path).resolve()
-    repo_root = _find_repo_root(root)
-
     # Priority (least to most specific, later layers override earlier):
     #   1. Generic `main` functions — fallback heuristic.
     #   2. Framework-aware decorator/attribute scan.
     #   3. pyproject.toml [project.scripts] — explicitly-declared CLI targets.
     #   4. Override file — hand-curated, authoritative.
     detected: dict[str, EntrypointTag] = {}
-    detected.update(_detect_main_functions(graph))
-    detected.update(_detect_framework_entrypoints(graph))
-    detected.update(_detect_pyproject_scripts(graph, repo_root))
-    detected.update(_load_override_file(graph, repo_root))
+    for tags, rule in (
+        (_detect_main_functions(graph), "main_name"),
+        (_detect_framework_entrypoints(graph), "source_pattern"),
+    ):
+        detected.update(tags)
+        for node_id, tag in tags.items():
+            graph.add_entrypoint_evidence(
+                EntrypointEvidence(
+                    node_id,
+                    "heuristic",
+                    rule,
+                    graph.nodes[node_id].location,
+                    details=(("kind", tag.kind.value), ("description", tag.description)),
+                    unresolved=("runtime_activation",),
+                )
+            )
+    for selected, root in _configuration_scopes(graph, root_path):
+        repo_root = _find_repo_root(root)
+        for tags in (
+            _detect_pyproject_scripts(selected, repo_root),
+            _load_override_file(selected, repo_root),
+        ):
+            detected.update(tags)
+        graph.entrypoint_evidence.update(selected.entrypoint_evidence)
     return detected
+
+
+def _configuration_scopes(graph: CodeGraph, root_path: str) -> list[tuple[CodeGraph, Path]]:
+    """Evaluate local manifests against their selected root's identities."""
+    manifests = source_manifests(graph)
+    if not manifests:
+        return [(graph, Path(root_path).resolve())]
+    result = []
+    for manifest in manifests:
+        roots = manifest.get("roots")
+        if not isinstance(roots, list):
+            continue
+        for root in roots:
+            if not isinstance(root, dict):
+                continue
+            files = manifest.get("files", [])
+            selected = (
+                {
+                    item["path"]
+                    for item in files
+                    if isinstance(item, dict)
+                    and item.get("root") == root["name"]
+                    and item.get("status") == "inspected"
+                }
+                if isinstance(files, list)
+                else set()
+            )
+            nodes = {
+                key: unit
+                for key, unit in graph.nodes.items()
+                if unit.location.file_path in selected
+            }
+            result.append((CodeGraph(nodes=nodes, language=graph.language), Path(root["path"])))
+    covered = {node_id for selected, _root in result for node_id in selected.nodes}
+    uncovered = {node_id: unit for node_id, unit in graph.nodes.items() if node_id not in covered}
+    if uncovered:
+        result.append(
+            (CodeGraph(nodes=uncovered, language=graph.language), Path(root_path).resolve())
+        )
+    grouped: dict[Path, CodeGraph] = {}
+    for selected, root in result:
+        grouped.setdefault(_find_repo_root(root), CodeGraph(language=graph.language)).nodes.update(
+            selected.nodes
+        )
+    return [(selected, root) for root, selected in grouped.items()]
 
 
 def _detect_framework_entrypoints(graph: CodeGraph) -> dict[str, EntrypointTag]:
@@ -284,8 +346,76 @@ def _detect_framework_entrypoints(graph: CodeGraph) -> dict[str, EntrypointTag]:
         tag = _detect_for_unit(cache, unit, path, graph)
         if tag is not None:
             result[node_id] = tag
+        if Path(path).suffix.lower() in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
+            _record_module_exports(graph, unit, cache)
     _annotate_overridden_solidity_entrypoints(graph, result)
+    _record_python_decorators(graph, cache)
     return result
+
+
+def _record_module_exports(graph: CodeGraph, unit: CodeUnit, cache: _SourceCache) -> None:
+    for fact in cache.declarations.module_exports(unit):
+        graph.add_entrypoint_evidence(
+            EntrypointEvidence(
+                unit.id,
+                "declaration",
+                "module_export",
+                fact.location,
+                symbol=fact.name,
+                details=(("indirect", fact.indirect),),
+                unresolved=("export_value", "runtime_activation")
+                if fact.indirect
+                else ("runtime_activation",),
+            )
+        )
+
+
+def _record_python_decorators(graph: CodeGraph, cache: _SourceCache) -> None:
+    edges = set(graph.edges)
+    units = {
+        (unit.location.file_path, unit.location.start_line, unit.location.start_col): unit
+        for unit in graph.nodes.values()
+        if unit.kind in {NodeKind.FUNCTION, NodeKind.METHOD}
+    }
+    owners = {
+        edge.target_id: edge.source_id for edge in graph.edges if edge.kind == EdgeKind.CONTAINS
+    }
+    for path, facts in cache._python_decorators.items():
+        for fact in facts:
+            unit = units.get((path, fact.handler_line, fact.handler_col))
+            if unit is None or fact.disposition == "non_path_decorator":
+                continue
+            source = owners.get(unit.id)
+            details = (
+                ("consumer_path", fact.consumer_path),
+                ("receiver_binding", fact.receiver_binding),
+                ("decorator_method", fact.method),
+                ("path", fact.path),
+                ("reason", fact.reason),
+            )
+            graph.add_entrypoint_evidence(
+                EntrypointEvidence(
+                    unit.id,
+                    "heuristic" if fact.disposition == "path_decorator" else "reference",
+                    "python.decorator",
+                    fact.location,
+                    source_id=source,
+                    details=details,
+                    arguments=fact.arguments,
+                    unresolved=("registrar_semantics", "runtime_activation"),
+                )
+            )
+            if source is not None:
+                edge = CodeEdge(
+                    source,
+                    unit.id,
+                    EdgeKind.REFERENCES,
+                    location=fact.location,
+                    attributes=(("reference_context", "decorator"), *details),
+                )
+                if edge not in edges:
+                    edges.add(edge)
+                    graph.edges.append(edge)
 
 
 def _detect_for_unit(
@@ -332,15 +462,22 @@ def _detect_python(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    decorators = cache.declarations.decorators(unit)
-    for line in decorators:
-        if _PY_HTTP_DECORATOR.match(line):
+    for fact in cache.python_decorators(path):
+        if (
+            fact.handler_line == unit.location.start_line
+            and (unit.location.start_col is None or fact.handler_col == unit.location.start_col)
+            and fact.member_access
+            and fact.method in _PY_HTTP_METHODS
+            and fact.disposition != "non_path_decorator"
+        ):
             return EntrypointTag(
                 kind=EntrypointKind.API,
                 trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
                 description="Python HTTP route decorator",
                 asset_value=AssetValue.HIGH,
             )
+    decorators = cache.declarations.decorators(unit)
+    for line in decorators:
         if _PY_CLI_DECORATOR.match(line):
             return EntrypointTag(
                 kind=EntrypointKind.USER_INPUT,
@@ -488,10 +625,9 @@ def _detect_js_ts(
     unit: CodeUnit,
     path: str,
 ) -> EntrypointTag | None:
-    # File-path conventions first (Next.js).
-    nextjs_tag = _detect_nextjs_route(unit, path)
-    if nextjs_tag is not None:
-        return nextjs_tag
+    route_tag = _detect_file_route(cache, unit, path)
+    if route_tag is not None:
+        return route_tag
 
     # AWS Lambda — `exports.handler = ...` or `export const handler = ...`
     if unit.name in {"handler", "lambdaHandler"}:
@@ -517,31 +653,26 @@ def _detect_js_ts(
     return None
 
 
-_NEXTJS_VERBS = frozenset({"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"})
+_HTTP_EXPORT_NAMES = frozenset({"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"})
 
 
-def _detect_nextjs_route(unit: CodeUnit, path: str) -> EntrypointTag | None:
-    """Detect Next.js route handlers based on file path conventions.
-
-    - App Router: `app/**/route.{js,jsx,ts,tsx,mjs,cjs}` — named exports
-      matching HTTP verbs (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS).
-    - Pages API: `pages/api/**/*.{js,jsx,ts,tsx}` — any default export
-      (named `handler` or `default` in Trailmark's node IDs).
-    """
+def _detect_file_route(cache: _SourceCache, unit: CodeUnit, path: str) -> EntrypointTag | None:
+    """Retain file-route conventions without attributing a framework or activation."""
+    exported_names = {fact.name for fact in cache.declarations.module_exports(unit)}
     normalized = path.replace("\\", "/")
     basename = normalized.rsplit("/", 1)[-1]
-    if basename.startswith("route.") and unit.name in _NEXTJS_VERBS:
+    if basename.startswith("route.") and exported_names & _HTTP_EXPORT_NAMES:
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
-            description="Next.js App Router handler",
+            description="HTTP-method export in route module (convention)",
             asset_value=AssetValue.HIGH,
         )
-    if "/pages/api/" in normalized and unit.name in {"handler", "default"}:
+    if "/pages/api/" in normalized and exported_names & {"handler", "default"}:
         return EntrypointTag(
             kind=EntrypointKind.API,
             trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
-            description="Next.js Pages API handler",
+            description="Exported handler in API directory (convention)",
             asset_value=AssetValue.HIGH,
         )
     return None
@@ -1124,7 +1255,13 @@ class _SourceCache:
         self.servlet_bases: dict[str, list[str]] = {}
         self._lines: dict[str, list[str]] = {}
         self._scan_cache: dict[str, set[str]] = {}
+        self._python_decorators: dict[str, list[DecoratorFact]] = {}
         self.declarations = DeclarationCache(language)
+
+    def python_decorators(self, path: str) -> list[DecoratorFact]:
+        if path not in self._python_decorators:
+            self._python_decorators[path] = python_decorators(path)
+        return self._python_decorators[path]
 
     def _read(self, path: str) -> list[str]:
         cached = self._lines.get(path)
@@ -1290,7 +1427,8 @@ def _detect_pyproject_scripts(
         return {}
 
     try:
-        data = tomllib.loads(pyproject.read_text())
+        source = pyproject.read_text()
+        data = tomllib.loads(source)
     except (OSError, ValueError):
         return {}
 
@@ -1302,11 +1440,23 @@ def _detect_pyproject_scripts(
         return {}
 
     result: dict[str, EntrypointTag] = {}
-    for _script_name, target in scripts_raw.items():
+    for script_name, target in scripts_raw.items():
         if not isinstance(target, str) or ":" not in target:
             continue
         module_path, func_name = target.rsplit(":", 1)
         node_id = _resolve_script_target(graph, module_path, func_name)
+        graph.add_entrypoint_evidence(
+            EntrypointEvidence(
+                node_id,
+                "declaration",
+                "pyproject_script",
+                SourceLocation(str(pyproject), 1, max(1, len(source.splitlines()))),
+                symbol=target,
+                binding="resolved" if node_id else "unresolved",
+                details=(("script_name", script_name), ("location_precision", "file")),
+                unresolved=() if node_id else ("script_target",),
+            )
+        )
         if node_id is None:
             continue
         result[node_id] = EntrypointTag(
@@ -1393,7 +1543,8 @@ def _load_override_file(
         return {}
 
     try:
-        data = tomllib.loads(path.read_text())
+        source = path.read_text()
+        data = tomllib.loads(source)
     except (OSError, ValueError):
         return {}
 
@@ -1402,11 +1553,21 @@ def _load_override_file(
         return {}
 
     result: dict[str, EntrypointTag] = {}
-    for entry in entries:
+    for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
             continue
         for node_id, tag in _entry_to_matches(graph, entry, repo_root):
             result[node_id] = tag
+            graph.add_entrypoint_evidence(
+                EntrypointEvidence(
+                    node_id,
+                    "override",
+                    "entrypoint_override",
+                    SourceLocation(str(path), 1, max(1, len(source.splitlines()))),
+                    symbol=entry.get("node"),
+                    details=(("entry_index", index), ("location_precision", "file")),
+                )
+            )
     return result
 
 
@@ -1528,50 +1689,7 @@ def _matches_file_glob(path: str, pattern: re.Pattern[str], repo_root: Path) -> 
 
 
 def _glob_to_regex(pattern: str) -> re.Pattern[str]:
-    """Translate a shell-style glob with ``**`` support into a regex.
-
-    - ``**`` (with surrounding slashes) matches zero or more path segments.
-    - ``*`` matches any characters except ``/``.
-    - ``?`` matches one character other than ``/``.
-    - Other regex metacharacters are escaped.
-
-    Matches start at path-segment boundaries and extend to the end of the path.
-    The caller supplies configuration-root-relative paths with Windows and
-    POSIX separators normalized to ``/``.
-    """
-    out: list[str] = []
-    i = 0
-    n = len(pattern)
-    while i < n:
-        c = pattern[i]
-        if c == "*" and i + 1 < n and pattern[i + 1] == "*":
-            # `/**/` expands to `(?:/.*)?/` — zero or more segments.
-            if i > 0 and pattern[i - 1] == "/" and i + 2 < n and pattern[i + 2] == "/":
-                # Rewrite the trailing `/` of the preceding segment as
-                # part of the globstar expansion.
-                out[-1] = "(?:/.*)?/"
-                i += 3
-                continue
-            # Leading `**/` or trailing `/**`.
-            if i + 2 < n and pattern[i + 2] == "/":
-                out.append("(?:.*/)?")
-                i += 3
-                continue
-            out.append(".*")
-            i += 2
-        elif c == "*":
-            out.append("[^/]*")
-            i += 1
-        elif c == "?":
-            out.append("[^/]")
-            i += 1
-        elif c in r".+^$()[]{}|\\":
-            out.append("\\" + c)
-            i += 1
-        else:
-            out.append(c)
-            i += 1
-    return re.compile(r"(?:^|/)" + "".join(out) + r"\Z")
+    return compile_path_glob(pattern, suffix=True)
 
 
 def _resolve_override_node(graph: CodeGraph, reference: str) -> str | None:
@@ -1583,6 +1701,9 @@ def _resolve_override_node(graph: CodeGraph, reference: str) -> str | None:
     """
     if reference in graph.nodes:
         return reference
+    scoped = [node_id for node_id in graph.nodes if node_id.endswith("::" + reference)]
+    if len(scoped) == 1:
+        return scoped[0]
     if ":" in reference:
         module_path, func_name = reference.rsplit(":", 1)
         return _resolve_script_target(graph, module_path, func_name)
@@ -1597,7 +1718,7 @@ _SOURCE_DETECTORS = {
         ((".sol",), _detect_solidity),
         ((".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"), _detect_js_ts),
         ((".cs",), _detect_csharp),
-        ((".php",), _detect_php),
+        ((".php", ".phtml"), _detect_php),
         ((".cairo",), _detect_cairo),
         ((".circom",), _detect_circom),
         ((".masm",), _detect_masm),
@@ -1625,4 +1746,5 @@ _UNIT_DETECTORS = {
     ".rego": _detect_rego,
     ".graphql": _detect_graphql,
     ".gql": _detect_graphql,
+    ".graphqls": _detect_graphql,
 }

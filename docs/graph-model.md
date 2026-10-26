@@ -110,6 +110,7 @@ pairs, such as Solidity visibility or the raw text of an unresolved call.
 | `contains` | Owner &rarr; member (module &rarr; function, class &rarr; method, contract &rarr; state variable) |
 | `imports` | Module &rarr; imported module, when the frontend emits [import edges](#import-edges) |
 | `type_uses` | Function &rarr; type declaration named in its parameters, return type, exceptions, or generic bounds |
+| `references` | A callable or declarative source &rarr; a referenced symbol or file; does not imply execution |
 | `corresponds_to` | Source node &rarr; matching binary function, or SQL routine/view &rarr; object it depends on |
 | `resolves_to` | Reserved; no built-in pass emits it, but `.trailmark/links.toml` may declare it |
 | `specializes` | Reserved; no built-in pass emits it, but `.trailmark/links.toml` may declare it |

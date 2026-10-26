@@ -91,3 +91,7 @@ select = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["mutation_infrastructure: validate the runner once in its clean baseline"]
+
+[tool.pytest-gremlins]
+# A surviving mutant runs the full suite; allow for four concurrent subprocesses.
+mutant_timeout = 240

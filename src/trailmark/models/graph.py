@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 
 from trailmark.models.annotations import Annotation, AnnotationKind, EntrypointTag
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.entrypoints import EntrypointEvidence
 from trailmark.models.nodes import CodeUnit, NodeKind
 
 
@@ -28,6 +30,12 @@ class CodeGraph:
     root_path: str = ""
     source_file_counts: dict[str, int] = field(default_factory=dict)
     parse_diagnostics: list[ParseDiagnostic] = field(default_factory=list)
+    source_policy: dict[str, object] = field(default_factory=dict)
+    entrypoint_evidence: dict[str, EntrypointEvidence] = field(default_factory=dict)
+
+    def add_entrypoint_evidence(self, evidence: EntrypointEvidence) -> None:
+        """Retain distinct source occurrences and make repeated discovery idempotent."""
+        self.entrypoint_evidence[evidence.id] = evidence
 
     def unresolved_calls(self) -> list[CodeEdge]:
         """Return calls with missing targets or explicit unresolved proxies."""
@@ -72,12 +80,22 @@ class CodeGraph:
 
     def merge(self, other: CodeGraph) -> None:
         """Merge another graph into this one."""
+        if other.source_policy:
+            self.source_policy = (
+                {
+                    "schema_version": 1,
+                    "components": [deepcopy(self.source_policy), deepcopy(other.source_policy)],
+                }
+                if self.source_policy
+                else deepcopy(other.source_policy)
+            )
         self.nodes.update(other.nodes)
         self.edges.extend(other.edges)
         self.parse_diagnostics.extend(other.parse_diagnostics)
         for node_id, anns in other.annotations.items():
             self.annotations.setdefault(node_id, []).extend(anns)
         self.entrypoints.update(other.entrypoints)
+        self.entrypoint_evidence.update(other.entrypoint_evidence)
         for name, ids in other.subgraphs.items():
             self.subgraphs.setdefault(name, set()).update(ids)
         for dep in other.dependencies:
@@ -85,3 +103,17 @@ class CodeGraph:
                 self.dependencies.append(dep)
         for language, count in other.source_file_counts.items():
             self.source_file_counts[language] = self.source_file_counts.get(language, 0) + count
+
+
+def source_manifests(graph: CodeGraph) -> list[dict[str, object]]:
+    """Preserve each original selection policy when already-parsed graphs merge."""
+    result = []
+    pending = [graph.source_policy]
+    while pending:
+        manifest = pending.pop()
+        components = manifest.get("components")
+        if isinstance(components, list):
+            pending.extend(reversed([item for item in components if isinstance(item, dict)]))
+        elif manifest:
+            result.append(manifest)
+    return result

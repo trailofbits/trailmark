@@ -1,4 +1,4 @@
-Nodes: 20
+Nodes: 21
   Functions: 9
   Classes: 2
   Proxies: 8

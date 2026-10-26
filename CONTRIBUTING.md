@@ -86,6 +86,11 @@ mutating, skips the redundant coverage pre-scan, preserves exact parameter IDs,
 and rejects skipped instrumentation. The adapter uses private plugin APIs; its
 control tests must pass before upgrading the plugin.
 
+Each mutant subprocess may run for 240 seconds so the full fallback suite can
+finish with four workers competing for CI resources. A timeout is not counted
+as a kill unless the unmutated confirmation run establishes sufficient headroom;
+inconclusive outcomes still fail the gate.
+
 **Test ordering.** Each mutant keeps the full selected test suite: component
 unit tests run first, followed by the remaining tests, stopping at the first
 failure. Shared-helper mutants retain tests from every language. Tests stay in
