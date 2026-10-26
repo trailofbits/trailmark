@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import replace
 from pathlib import Path
-from xml.etree.ElementTree import Element
+from typing import TYPE_CHECKING
 
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
@@ -18,6 +18,11 @@ from trailmark.models.endpoints import (
     registration_id,
 )
 from trailmark.models.nodes import SourceLocation
+
+if TYPE_CHECKING:
+    # Annotation only; all XML input is parsed by defusedxml above.
+    # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+    from xml.etree.ElementTree import Element
 
 
 def discover_magento(context: RegistrationContext) -> None:

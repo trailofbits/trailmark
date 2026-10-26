@@ -307,6 +307,26 @@ def test_api_platform_xml_and_unsafe_xml_diagnostics(tmp_path: Path) -> None:
     )
 
 
+def test_magento_rejects_xml_entity_expansion(tmp_path: Path) -> None:
+    from trailmark.analysis._magento_registrations import discover_magento
+    from trailmark.analysis._registration_context import RegistrationContext
+
+    _write(
+        tmp_path,
+        {
+            "etc/module.xml": '<!DOCTYPE config [<!ENTITY x "Demo_Shop">]>'
+            '<config><module name="&x;"/></config>'
+        },
+    )
+    graph = CodeGraph(root_path=str(tmp_path))
+    discover_magento(RegistrationContext(graph))
+    assert not graph.registrations
+    assert len(graph.registration_diagnostics) == 1
+    diagnostic = graph.registration_diagnostics[0]
+    assert diagnostic["reason"] == "invalid_registration_input"
+    assert "EntitiesForbidden" in diagnostic["detail"]
+
+
 def test_native_ids_survive_snapshot_copy_and_reordering(tmp_path: Path) -> None:
     _write(tmp_path, {"views.py": "def one(): pass\ndef two(): pass\n"})
     engine = QueryEngine.from_directory(str(tmp_path))
