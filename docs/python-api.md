@@ -122,7 +122,7 @@ only supplied execution facts, returning evidence chains, a range-specific
 classification, bounds and limitations. Gate evaluation and rejection remain
 pre-auth; a reviewed successful **user** gate can establish a post-auth
 continuation inside a public login handler. Supported public and protected
-paths can establish mixed execution. Capability/guest-cart keys, CSRF and
+paths can establish mixed execution. Capability tokens, CSRF and
 unreviewed or uncertain dispatch do not establish user identity. Missing paths,
 unresolved alternatives and exhausted bounds remain unknown. Empty roots raise
 `ValueError`. Ordinary calls, entrypoint trust, taint and privilege-boundary tags

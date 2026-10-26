@@ -79,9 +79,7 @@ must use the new Trailmark version and select any dependency/theme roots explici
 
 Authentication orchestration can consume `execution_evidence()` and bounded
 `authentication_paths()` over supplied source-ranged facts. Empty pre-auth roots
-are rejected. Trust/taint/privilege tags are not authentication labels. No mapper
-phase orchestration, skill display caps or environment pinning is implemented
-by these core contracts.
+are rejected. Trust/taint/privilege tags are not authentication labels.
 
 ## Finding and state workflows
 

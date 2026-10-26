@@ -354,9 +354,9 @@ They are not assumed to be directly accessible HTTP endpoints.
 
 ### Class constant compatibility
 
-The packaged PHP grammar rejects valid `TRUE`/`FALSE` class constant names,
-including the uppercase declarations used by Magento. The integration recovers
-that specific identifier slot with an equal-length parser-input placeholder;
+The packaged PHP grammar rejects valid `TRUE`/`FALSE` class constant names.
+The integration recovers that specific identifier slot with an equal-length
+parser-input placeholder;
 source files and coordinates are unchanged. Constant identifiers are not graph
 units. Recovery re-parses the input and preserves diagnostics for other invalid
 syntax rather than suppressing error ranges. Typed constants, comma-separated

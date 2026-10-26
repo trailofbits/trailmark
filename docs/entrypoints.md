@@ -88,7 +88,7 @@ Cobra, axum, warp, clap, and others).
 or `trailmark endpoints` for registration identity. The inventory has
 `schema_version: 1`, a complete `registrations` list and registration
 `diagnostics`. HTTP routes, GraphQL operations, CLI commands and task handlers
-are separate `kind` values; do not combine their census denominators. `template`
+are separate `kind` values; count these kinds separately. `template`
 records describe executable PHP templates and layout references. `entrypoint`
 records retain other existing source entrypoints from every supported language,
 with unknown transport until framework-specific registration evidence is available.
@@ -124,7 +124,7 @@ exports (`routes`), Symfony `debug:router` JSON, Magento canonical HTTP registry
 rows and Medusa loader snapshots (`routes`). Supplied container-to-source prefix
 maps are explicit inputs. Compiled JavaScript paths are not silently mapped to
 TypeScript implementations. Native rows and static declarations remain separate
-records, so importing a reference census is never automatic detector coverage.
+records, distinguishing observed runtime registrations from source declarations.
 
 Supported static patterns and limits:
 
