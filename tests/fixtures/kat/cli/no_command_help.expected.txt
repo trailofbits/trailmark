@@ -1,5 +1,4 @@
-usage: trailmark [-h] [--version]
-                 {version,analyze,diff,entrypoints,augment,diagram,endpoints} ...
+usage: trailmark [-h] [--version] {version,analyze,diff,entrypoints,augment,diagram,endpoints} ...
 
 Parse source code into queryable graphs (<VERSION>)
 

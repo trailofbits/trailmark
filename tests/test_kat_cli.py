@@ -28,7 +28,7 @@ _VERSION_PATTERN = re.compile(r"\bv?\d+\.\d+\.\d+(?:[.\-+][\w.\-+]+)?\b")
 
 
 def _normalize(text: str) -> str:
-    """Replace absolute paths and the trailmark version with stable tokens.
+    """Normalize paths, versions and Python-dependent usage wrapping.
 
     Snapshots must remain stable across machines, pytest invocations, and
     point releases — the test would otherwise need to be regenerated for
@@ -38,6 +38,11 @@ def _normalize(text: str) -> str:
     text = text.replace(here, "<FIXTURE_DIR>")
     text = text.replace(str(FIXTURE_FILE.resolve()), "<FIXTURE_DIR>/taxonomy.py")
     text = _VERSION_PATTERN.sub("<VERSION>", text)
+    if text.startswith("usage: "):
+        # argparse 3.12 wraps a subparser's trailing ellipsis separately.
+        # Keep all usage tokens while ignoring only this paragraph's wrapping.
+        usage, separator, rest = text.partition("\n\n")
+        text = " ".join(usage.split()) + separator + rest
     return text
 
 
@@ -46,6 +51,7 @@ def _run_cli(argv: list[str]) -> str:
     buf = io.StringIO()
     with (
         redirect_stdout(buf),
+        patch.dict(os.environ, {"COLUMNS": "80", "NO_COLOR": "1"}),
         patch.object(sys, "argv", ["trailmark", *argv]),
         contextlib.suppress(SystemExit),
     ):
