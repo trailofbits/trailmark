@@ -107,11 +107,13 @@ def test_runner_executes_fixtures_parameters_and_package_mutations(tmp_path: Pat
         "def delegated(value):\n    return value > 0\n"
     )
     (tmp_path / "test_toy.py").write_text("""\
+import coverage
 import pytest
 from toy import checked, ignored, RESOURCE, VALUE
 
 @pytest.mark.parametrize(("value", "answer"), [(0, False), (1, True)], ids=["ZERO", "ONE"])
 def test_strong(tmp_path, value, answer):
+    assert coverage.Coverage.current() is None
     assert tmp_path.is_dir()
     assert RESOURCE == "known resource" and VALUE == 7
     assert checked(value) is answer

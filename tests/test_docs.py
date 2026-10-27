@@ -162,6 +162,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "tests.mutation_gate --shard=1/8"),
     ("CONTRIBUTING.md", "requires all eight shards to pass"),
     ("CONTRIBUTING.md", "inconclusive outcomes still fail the gate"),
+    ("CONTRIBUTING.md", "disables unused private coverage tracing"),
+    ("CONTRIBUTING.md", "deterministic work bounds rather than wall-clock thresholds"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
     ("docs/cli.md", "JSON to stdout"),

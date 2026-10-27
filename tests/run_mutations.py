@@ -156,6 +156,9 @@ class _RequireCompleteInstrumentation:
                 f"Mutation instrumentation skipped files: {session.skipped_files}"
             )
         if session is not None:
+            # Every mutant retains all tests, so private coverage is unused.
+            # Disable tracing as well as the pre-scan to keep baselines representative.
+            session.private_coverage = None
             selected = select_shard(session.gremlins, self.shard)
             self.empty_shard = bool(session.gremlins) and not selected
             session.gremlins = selected

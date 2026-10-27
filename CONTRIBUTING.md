@@ -96,9 +96,11 @@ that function requires reviewing its exceptions again.
 pytest subprocesses and import handling, including fixtures, parametrized tests,
 package metadata, and instrumentation in spawned child processes. Trailmark
 checks the clean baseline and each distinct instrumented test ordering before
-mutating, skips the redundant coverage pre-scan, preserves exact parameter IDs,
-and rejects skipped instrumentation. The adapter uses private plugin APIs; its
-control tests must pass before upgrading the plugin.
+mutating, skips the redundant coverage pre-scan and disables unused private
+coverage tracing, preserves exact parameter IDs, and rejects skipped
+instrumentation. Performance regressions should use deterministic work bounds
+rather than wall-clock thresholds in the mutation suite. The adapter uses private
+plugin APIs; its control tests must pass before upgrading the plugin.
 
 Each mutant subprocess may run for 240 seconds so the full fallback suite can
 finish with four workers competing for CI resources. A timeout is not counted

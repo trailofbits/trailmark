@@ -2,11 +2,14 @@
 
 from pathlib import Path
 from time import perf_counter
+from typing import cast
 
 import pytest
+from tree_sitter import Node
 
 from trailmark.models import EdgeKind, NodeKind
 from trailmark.parse import parse_directory, parse_file
+from trailmark.parsers.php import parser as php_parser
 
 
 @pytest.mark.parametrize("extension", ["php", "java"])
@@ -71,17 +74,34 @@ def test_class_field_arrows_are_methods(tmp_path: Path, extension: str) -> None:
     assert graph.nodes["a:Handler.make"].kind == NodeKind.METHOD
 
 
-def test_php_large_class_uses_constant_time_namespace_lookup(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("namespace", "owner", "reference"),
+    [("", "big", "big:A"), ("App\\Nested", "big:App.Nested", "big:App.Nested.A")],
+)
+def test_php_namespace_lookup_does_not_rescan_syntax_tree(
+    namespace: str, owner: str, reference: str
+) -> None:
+    # Any syntax-tree access fails: namespace lookup must use the traversal context.
+    node = cast(Node, object())
+    token = php_parser._NAMESPACE.set(namespace)
+    try:
+        assert php_parser._namespace_owner(node, "big") == owner
+        assert php_parser._php_reference_id(node, "big", "A") == reference
+        assert php_parser._php_reference_id(node, "big", "\\Vendor\\A") == "big:Vendor.A"
+    finally:
+        php_parser._NAMESPACE.reset(token)
+
+
+def test_php_large_class_preserves_namespace(tmp_path: Path) -> None:
     path = tmp_path / "big.php"
     path.write_text(
         "<?php namespace App; class A {\n"
         + "".join(f"function f{i}() {{\n x();\n}}\n" for i in range(6000))
         + "}"
     )
-    start = perf_counter()
     graph = parse_file(str(path))
-    assert perf_counter() - start < 1
     assert "big:App.A.f5999" in graph.nodes
+    assert len([unit for unit in graph.nodes.values() if unit.kind == NodeKind.METHOD]) == 6000
 
 
 def test_unbound_constructor_proxies_use_each_overload_id(tmp_path: Path) -> None:
