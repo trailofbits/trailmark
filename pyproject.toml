@@ -69,7 +69,7 @@ trailmark = "trailmark.cli:main"
 dev = [
     "hypothesis>=6.170.0",
     # tests.run_mutations adapts private APIs from this exact version.
-    "pytest-gremlins==1.11.4",
+    "pytest-gremlins==1.12.2",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.1,<1.0",
