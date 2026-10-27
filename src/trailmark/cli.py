@@ -6,11 +6,14 @@ import argparse
 import json
 import subprocess
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, TextIO
 
 from trailmark import __version__
 from trailmark.diagram import add_diagram_arguments, build_engine, render_diagram
+from trailmark.models.binary import BinaryImportOptions, BinaryLimits, BinarySelection
+from trailmark.models.graph import CodeGraph
 from trailmark.query.api import QueryEngine
 from trailmark.source_policy import SourcePolicy, SourceRoot
 
@@ -24,6 +27,74 @@ def _complexity_threshold(value: str) -> int:
         msg = "complexity threshold must be nonnegative"
         raise argparse.ArgumentTypeError(msg)
     return threshold
+
+
+def _binary_range(value: str) -> tuple[int, int]:
+    try:
+        left, right = value.split(":")
+        selection = BinarySelection(int(left, 0), int(right, 0))
+    except (ValueError, TypeError) as error:
+        raise argparse.ArgumentTypeError("expected START:END with 0 <= START < END") from error
+    return selection.start, selection.end
+
+
+def _path_map(value: str) -> tuple[str, str]:
+    old, separator, new = value.partition("=")
+    if not separator or not old or not new:
+        raise argparse.ArgumentTypeError("expected a nonempty OLD=NEW path prefix mapping")
+    return old, new
+
+
+def _add_binary_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--backend", choices=("auto", "llvm", "gnu"), default="auto")
+    parser.add_argument("--objdump", help="Path to the trusted host GNU or LLVM objdump")
+    parser.add_argument("--symbolizer", help="Path to llvm-symbolizer or GNU addr2line")
+    parser.add_argument("--debug-file", help="Identity-checked local ELF debug file, dSYM, or PDB")
+    parser.add_argument("--mapping-file", help="SHA-256-bound explicit source/range mappings JSON")
+    parser.add_argument(
+        "--path-map", action="append", type=_path_map, default=[], metavar="OLD=NEW"
+    )
+    parser.add_argument(
+        "--slice", dest="slice_index", type=int, help="Select one universal-image slice index"
+    )
+    for flag in ("range", "rva-range", "file-range"):
+        parser.add_argument(
+            f"--{flag}", action="append", type=_binary_range, default=[], metavar="START:END"
+        )
+    parser.add_argument(
+        "--mode", choices=("arm", "thumb"), help="Instruction mode for explicit ARM ranges"
+    )
+    parser.add_argument("--tool-timeout", type=float, default=30.0)
+    parser.add_argument("--import-timeout", type=float, default=300.0)
+    parser.add_argument("--max-tool-output-bytes", type=int, default=64 * 1024 * 1024)
+    parser.add_argument("--max-scan-instructions", type=int, default=1_000_000)
+
+
+def _binary_options(args: argparse.Namespace) -> BinaryImportOptions:
+    ranges = tuple(
+        BinarySelection(start, end, kind, args.mode)
+        for key, kind in (("range", "va"), ("rva_range", "rva"), ("file_range", "file_offset"))
+        for start, end in getattr(args, key)
+    )
+    if args.mode is not None and not ranges:
+        raise ValueError("--mode requires an explicit --range, --rva-range, or --file-range")
+    return BinaryImportOptions(
+        backend=args.backend,
+        objdump=args.objdump,
+        symbolizer=args.symbolizer,
+        debug_file=args.debug_file,
+        mapping_file=args.mapping_file,
+        path_mappings=tuple(args.path_map),
+        slice_index=args.slice_index,
+        ranges=ranges,
+        strict=args.strict if args.command == "binary" else args.binary_strict,
+        limits=BinaryLimits(
+            args.tool_timeout,
+            args.import_timeout,
+            args.max_tool_output_bytes,
+            args.max_scan_instructions,
+        ),
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -185,6 +256,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="weAudit file(s) to augment with (repeatable)",
     )
     augment.add_argument(
+        "--binary", action="append", default=[], help="Linked native image (repeatable)"
+    )
+    augment.add_argument(
+        "--binary-strict", action="store_true", help="Reject incomplete native evidence"
+    )
+    _add_binary_options(augment)
+    augment.add_argument(
         "--json",
         action="store_true",
         help="Export graph topology and selected node metadata as JSON (omits finding details)",
@@ -195,6 +273,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate a Mermaid diagram from the code graph",
     )
     add_diagram_arguments(diagram)
+
+    binary = subparsers.add_parser(
+        "binary", help="Inspect a linked native image and connect source ranges"
+    )
+    binary.add_argument("artifact", help="Linked ELF, Mach-O, or PE image")
+    binary.add_argument("--source-root", help="Optional source directory to connect")
+    binary.add_argument(
+        "--language", "-l", default="auto", help="Source language selection (default: auto)"
+    )
+    binary.add_argument(
+        "--strict", action="store_true", help="Reject incomplete source or binary evidence"
+    )
+    binary.add_argument("--allow-empty", action="store_true")
+    binary.add_argument(
+        "--function", help="Source/binary function whose ranges should be disassembled"
+    )
+    binary.add_argument(
+        "--disassemble", action="store_true", help="Include bounded instruction evidence"
+    )
+    binary.add_argument(
+        "--max-instructions",
+        type=int,
+        default=256,
+        help="Maximum returned instructions across ranges",
+    )
+    binary.add_argument(
+        "--json", action="store_true", help="Emit graph, report, and optional disassembly as JSON"
+    )
+    _add_binary_options(binary)
 
     for command in (analyze, diff_cmd, entrypoints, augment):
         command.add_argument(
@@ -231,6 +338,8 @@ def main() -> None:
             _run_diff(args)
         elif args.command == "diagram":
             _run_diagram(args)
+        elif args.command == "binary":
+            _run_binary(args)
     except (ValueError, OSError) as exc:
         parser.exit(2, f"trailmark: error: {exc}\n")
     except subprocess.CalledProcessError as exc:
@@ -294,6 +403,9 @@ def _print_complexity(engine: QueryEngine, threshold: int) -> None:
 
 def _run_augment(args: argparse.Namespace) -> None:
     """Execute the augment subcommand."""
+    if args.debug_file and len(args.binary) != 1:
+        raise ValueError("--debug-file requires exactly one --binary image")
+    options = _binary_options(args)
     engine = QueryEngine.from_directory(
         args.path,
         language=args.language,
@@ -310,8 +422,78 @@ def _run_augment(args: argparse.Namespace) -> None:
         result = engine.augment_weaudit(weaudit_path, replace_existing=index == 0)
         _print_augment_result("weAudit", weaudit_path, result, file=summary_stream)
 
+    complete = True
+    for binary_path in args.binary:
+        result = engine.augment_binary_file(binary_path, options=options)
+        complete = complete and bool(result["complete"])
+        print(
+            f"Binary {binary_path}: {result['binary_nodes']} nodes, "
+            f"{result['correspondences']} correspondences, complete={result['complete']}",
+            file=summary_stream,
+        )
+
     if args.json:
         print(engine.to_json())
+    if not complete:
+        sys.exit(3)
+
+
+def _run_binary(args: argparse.Namespace) -> None:
+    options = _binary_options(args)
+    if args.max_instructions <= 0:
+        raise ValueError("--max-instructions must be positive")
+    engine = (
+        QueryEngine.from_directory(
+            args.source_root,
+            language=args.language,
+            strict=args.strict,
+            allow_empty=args.allow_empty,
+        )
+        if args.source_root
+        else QueryEngine.from_graph(CodeGraph())
+    )
+    report = engine.augment_binary_file(args.artifact, options=options)
+    output: dict[str, object] = {"graph": json.loads(engine.to_json()), "report": report}
+    complete = report["complete"]
+    if args.disassemble:
+        if args.function:
+            ranges = engine.binary_ranges(args.function)
+            if not ranges:
+                raise ValueError(f"No compiled ranges match function: {args.function}")
+        else:
+            ranges = [asdict(row) for row in engine._store._graph.binary_ranges.values()]  # noqa: SLF001
+        remaining = args.max_instructions
+        disassembly = []
+        for index, row in enumerate(ranges):
+            if remaining <= 0:
+                break
+            result = engine.disassemble_binary(
+                row["artifact_id"], row["start"], row["end"], max_instructions=remaining
+            )
+            disassembly.append(result)
+            remaining -= len(result["instructions"])
+            complete = complete and result["complete"]
+            if remaining <= 0 and index + 1 < len(ranges):
+                result["truncated"] = True
+                result["complete"] = False
+                result["diagnostics"].append(
+                    {"code": "instruction_limit", "message": "Further ranges omitted"}
+                )
+                complete = False
+        output["disassembly"] = disassembly
+    if args.json:
+        print(json.dumps(output))
+    else:
+        print(
+            f"Binary {args.artifact}: {report['binary_nodes']} nodes, {report['ranges']} ranges, "
+            f"{report['correspondences']} correspondences, complete={report['complete']}"
+        )
+        for diagnostic in report["diagnostics"]:
+            print(f"  {diagnostic['code']}: {diagnostic['message']}")
+        if args.disassemble:
+            print(json.dumps(output["disassembly"], indent=2))
+    if not complete:
+        sys.exit(3)
 
 
 def _run_diagram(args: argparse.Namespace) -> None:

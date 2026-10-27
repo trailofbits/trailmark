@@ -49,6 +49,13 @@ that are reachable from user input.
 - **Links Trailmark cannot see.** Declare RPC, FFI, and subprocess edges in
   `.trailmark/links.toml`, or import a call graph produced by a binary-analysis
   tool.
+- **Compiled binary evidence.** Explicitly inspect linked ELF,
+  Mach-O, and PE images, connect source functions and lines to compiled ranges,
+  recover binary calls and inferred tail transfers, and query bounded disassembly
+  across 15 architecture/mode cases. Includes stripped-code mappings, universal
+  slices, verified local debug companions, folded aliases, and named import
+  entries. See [binary evidence](https://github.com/trailofbits/trailmark/blob/main/docs/binaries.md)
+  for the optional `trailmark[binary]` extra and host-tool requirements.
 - **Solidity storage access.** `reads` and `writes` edges between functions and
   the contract state variables they touch.
 

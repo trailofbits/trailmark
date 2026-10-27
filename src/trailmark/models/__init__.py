@@ -8,6 +8,17 @@ from trailmark.models.annotations import (
     EntrypointTag,
     TrustLevel,
 )
+from trailmark.models.binary import (
+    BinaryArtifact,
+    BinaryDiagnostic,
+    BinaryDisassembly,
+    BinaryImportOptions,
+    BinaryInstruction,
+    BinaryLimits,
+    BinaryRange,
+    BinarySelection,
+    BinarySourceMapping,
+)
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -31,6 +42,15 @@ __all__ = [
     "Attribute",
     "AttributeValue",
     "BranchInfo",
+    "BinaryArtifact",
+    "BinaryDiagnostic",
+    "BinaryDisassembly",
+    "BinaryImportOptions",
+    "BinaryInstruction",
+    "BinaryLimits",
+    "BinaryRange",
+    "BinarySelection",
+    "BinarySourceMapping",
     "CodeEdge",
     "CodeGraph",
     "CodeUnit",

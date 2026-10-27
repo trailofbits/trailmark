@@ -1,0 +1,298 @@
+{
+  "schema_version": 1,
+  "compiler": "Homebrew clang version 23.1.4",
+  "source_sha256": "3e1079e1cc680c18eb188ad57d12a77a2998f5d6e8dd4aa1fee7ef1c62ad1a88",
+  "images": [
+    {
+      "file": "elf-i386",
+      "format": "ELF",
+      "architecture": "i386",
+      "mode": "",
+      "triple": "i386-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector"
+      ]
+    },
+    {
+      "file": "elf-x86_64",
+      "format": "ELF",
+      "architecture": "x86_64",
+      "mode": "",
+      "triple": "x86_64-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector"
+      ]
+    },
+    {
+      "file": "elf-arm",
+      "format": "ELF",
+      "architecture": "arm",
+      "mode": "arm",
+      "triple": "armv7-linux-gnueabihf",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector",
+        "-marm"
+      ]
+    },
+    {
+      "file": "elf-thumb",
+      "format": "ELF",
+      "architecture": "arm",
+      "mode": "thumb",
+      "triple": "armv7-linux-gnueabihf",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector",
+        "-mthumb"
+      ]
+    },
+    {
+      "file": "elf-aarch64",
+      "format": "ELF",
+      "architecture": "aarch64",
+      "mode": "",
+      "triple": "aarch64-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector"
+      ]
+    },
+    {
+      "file": "elf-riscv32",
+      "format": "ELF",
+      "architecture": "riscv32",
+      "mode": "",
+      "triple": "riscv32-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector"
+      ]
+    },
+    {
+      "file": "elf-riscv64",
+      "format": "ELF",
+      "architecture": "riscv64",
+      "mode": "",
+      "triple": "riscv64-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector"
+      ]
+    },
+    {
+      "file": "elf-ppc64le",
+      "format": "ELF",
+      "architecture": "ppc64le",
+      "mode": "",
+      "triple": "powerpc64le-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector"
+      ]
+    },
+    {
+      "file": "elf-ppc64",
+      "format": "ELF",
+      "architecture": "ppc64",
+      "mode": "",
+      "triple": "powerpc64-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector",
+        "-mabi=elfv2"
+      ]
+    },
+    {
+      "file": "elf-s390x",
+      "format": "ELF",
+      "architecture": "s390x",
+      "mode": "",
+      "triple": "s390x-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector"
+      ]
+    },
+    {
+      "file": "elf-mipsel",
+      "format": "ELF",
+      "architecture": "mipsel",
+      "mode": "mips32r2",
+      "triple": "mipsel-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector",
+        "-march=mips32r2"
+      ]
+    },
+    {
+      "file": "elf-mips",
+      "format": "ELF",
+      "architecture": "mips",
+      "mode": "mips32r2",
+      "triple": "mips-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector",
+        "-march=mips32r2"
+      ]
+    },
+    {
+      "file": "elf-mips64el",
+      "format": "ELF",
+      "architecture": "mips64el",
+      "mode": "mips64r2",
+      "triple": "mips64el-linux-gnuabi64",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector",
+        "-march=mips64r2"
+      ]
+    },
+    {
+      "file": "elf-mips64",
+      "format": "ELF",
+      "architecture": "mips64",
+      "mode": "mips64r2",
+      "triple": "mips64-linux-gnuabi64",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector",
+        "-march=mips64r2"
+      ]
+    },
+    {
+      "file": "elf-loongarch64",
+      "format": "ELF",
+      "architecture": "loongarch64",
+      "mode": "",
+      "triple": "loongarch64-linux-gnu",
+      "flags": [
+        "-g",
+        "-gdwarf-4",
+        "-O2",
+        "-ffreestanding",
+        "-fno-stack-protector",
+        "-mno-relax"
+      ]
+    },
+    {
+      "file": "elf-mipsn32",
+      "format": "ELF",
+      "architecture": "mips64el",
+      "mode": "mips64r2"
+    },
+    {
+      "file": "macho-arm64",
+      "format": "Mach-O",
+      "architecture": "aarch64",
+      "mode": "",
+      "debug_file": "macho-arm64.dsym"
+    },
+    {
+      "file": "macho-x86_64",
+      "format": "Mach-O",
+      "architecture": "x86_64",
+      "mode": "",
+      "debug_file": "macho-x86_64.dsym"
+    },
+    {
+      "file": "pe-x86_64.exe",
+      "format": "PE",
+      "architecture": "x86_64",
+      "mode": "",
+      "debug_file": "pe-x86_64.pdb"
+    }
+  ],
+  "sha256": {
+    "README.md": "56c83640c48b91acd90be4169ab764c89e9ea2d3a927c2cff1ede76d751ee0e2",
+    "cold-arm64.s": "e35e29f0416beb20b64facc95dd76933a82660a53e69fd733228b7887fe52ec0",
+    "cold.c": "b72cc434e05bf4c8141f84ce0ee66973c7d12c06565a63f5fcfe1c3650b8934d",
+    "descriptors.S": "39d1a3e98296fd223fab924a5fdad2e3b8993264e7f8827b1b3d12396d588bc7",
+    "elf-aarch64": "95de80cf07448b43420b853a47564255d29884ebc9b66cb1f5461453298c1c86",
+    "elf-arm": "ded466e384e33258d77a6056719c60fc6104ff7664c6975b588ba91692e05888",
+    "elf-folded": "7a443e1e5b20c75f45e5314f72795e802e3521ed21cc892453857d61a28bd42e",
+    "elf-i386": "4fdb7c8d2779d03ea1231fd8da7f2bb9987c84be76eefe08308efbad83abd40c",
+    "elf-linkage.so": "cc1e35d6849a81b9c78e651cc0477f81c4191f392aa589c0c104328207e1daac",
+    "elf-loongarch64": "61217beb78212b60873e3266931bcad36f90363af656f5d2484398995546ed60",
+    "elf-mips": "ff6072f6d5385715d2a5120348becc2016ca5908f507796e7fb8218db8fb18d0",
+    "elf-mips64": "1485d6de8c6585f4d464394c8fb1ac141cf1e1456eb6bd4a3667370355228593",
+    "elf-mips64el": "f0bd1b22a912e50e264cd0c9ac649ae2c535d3f5c4a29058d466abbf4d269efa",
+    "elf-mipsel": "eea09215081c465242258e18274ccc18cfa7bd08fba08c1d0c1676edf6acda53",
+    "elf-mipsn32": "8c9a2e04205109650fd3159b004d373503156da44f670ddc72c639bc31937b9b",
+    "elf-mixed-arm": "c8625605f4a5484da9f3604bcafc2a07c74726ceb67516184554fc355d4038c2",
+    "elf-ppc64": "05c87b97fc29a26799aa52019712b0a5bb5f8edd0145e31f467dfe30a0d650b9",
+    "elf-ppc64-descriptors": "168173be3b9862ba748b15e093617b1474e608a9b66f8ca04ef35a8f4d130fa1",
+    "elf-ppc64le": "cdb8c06539ad3fb19f70368effe99d54b9e35c8e43589f5ec28725dead8e239c",
+    "elf-riscv32": "cb3ab45382097fc75b457833d08ba74f578535d2546dda388787c2b7bdcefcff",
+    "elf-riscv64": "add850ad7e4448d3e035d96b2cb4b16539027856f0deb843ab9cbb41eab63051",
+    "elf-s390x": "77b6f0c84cf3d5894f62def4d907238ae3767193f236e757423fb5c55b2aa130",
+    "elf-thumb": "a4d964604453177700e318ff8755fad38e3b213b061c4f71e265ac9c5a17b14e",
+    "elf-x86_64": "93aa48c7fc89c44447a592697c0df9f22163b2f5777ddce10e6ca895a7e03a29",
+    "elf-x86_64-debuglink": "5d17f66df3309d34412f6079801a5c14b3285049c2c93557c9d9fb60dd634dcb",
+    "elf-x86_64-sectionless": "7a29aeca770f0a7b9d94b82abcb3178dae52c708b8aabdc76a01aa7cf4d6be5c",
+    "elf-x86_64-stripped": "bc9f3a0ee2f8a744d1cd5786dee2d53300b323a0a15ae17678208735335f7f56",
+    "elf-x86_64.debug": "aa8602648aea01adc68d32cd47b9df42dd3a3542b8fba7fa9dc5e0f25a7c2e52",
+    "elf-x86_64.so": "5e8a9b1d468ab8ea173be34344ba4d37428ec8fa7202584089cc06d725e2d990",
+    "folded.c": "6b3ba5b8be0fec414cb6ae4cb4ad2331bf2e4314d5ff7e919f7c6358688f38e6",
+    "linkage.c": "abb286cfa01d73e138f13d61860baf0dc54b4863f3d9724e73b94c485b1fe856",
+    "macho-arm64": "a3a9d46eb65d4faf1f4d2019e484689796ec210eb51b007c369e6ddd87b3b5de",
+    "macho-arm64.dsym": "e4b02d5b4875c4b2bfb32cf94e3f1a9a2ba9d2b83f9d71979a70aa150b512174",
+    "macho-cold.dylib": "c161293cfc1656ec6bb8291d908bea57c4f7b726351d68036d49573a49c0b619",
+    "macho-linkage.dsym": "8f70fc2148d51f58a8743549c3c47f43f124ee44039e8374297c59217d6af6f4",
+    "macho-linkage.dylib": "aef6eb9f50741bc591a6370191dc395c31ed97e034d2c854d71fcb5e5c95fcd6",
+    "macho-same-cpu": "0170e9e048bdfbe7510ebc28046b2fddb2e109aaac70e5567161a3f629d22617",
+    "macho-universal": "61abc49f52aab9b580339e15560fd4ee42cb254e39d8e7b4a0e420d637ac0fe8",
+    "macho-x86_64": "718bfaabb8a511791b6f3abb2aba3efdf7208e81ffed3ad8f930c0e046ccd75f",
+    "macho-x86_64.dsym": "ab3238c29b5dedfbfa487b42ebf1e5697486d71d6c5b809c6128031f6fe1fdd9",
+    "mixed-arm.c": "8a868a1e0b7e58a40f0594fae13b26a75f3f8f438794977e33cd2d715c4df6c2",
+    "pe-x86_64.exe": "19790937f8497591d412d4a885e615e0ecc624542f78adcf38ada3d1a2211194",
+    "pe-x86_64.pdb": "217014500870316cc922e5f810a8e24584ea6cc546003acbcb3e8dfb3392453d",
+    "source.c": "3e1079e1cc680c18eb188ad57d12a77a2998f5d6e8dd4aa1fee7ef1c62ad1a88"
+  }
+}

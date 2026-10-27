@@ -31,6 +31,139 @@ def _calls(graph: CodeGraph, name: str) -> list[CodeEdge]:
     ]
 
 
+def test_guarded_cpp_namespace_preserves_c_functions(tmp_path: Path) -> None:
+    path = _source(
+        tmp_path,
+        "#ifdef OPTIONAL_NAMESPACE\nnamespace OPTIONAL_NAMESPACE {\n#endif\n"
+        "#define FOR(n) for (int i = 0; i < (n); ++i)\n"
+        "void helper(void) {}\n"
+        "void action(void) { FOR(3) { helper(); } }\n"
+        "#ifdef OPTIONAL_NAMESPACE\n}\n#endif\n",
+    )
+    graph = parse_file(str(path), "c")
+    functions = {n.name for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION}
+    assert functions == {"helper", "action"}
+    assert graph.nodes["sample:helper"].location.start_line == 5
+    assert graph.nodes["sample:action"].location.end_line == 6
+    assert "sample:helper" in {e.target_id for e in _calls(graph, "action")}
+    assert graph.parse_diagnostics  # Keep original syntax evidence.
+
+
+@pytest.mark.parametrize("closing", ["OTHER_NAMESPACE", "!OPTIONAL_NAMESPACE"])
+def test_cpp_namespace_recovery_requires_matching_positive_guards(
+    tmp_path: Path, closing: str
+) -> None:
+    closing_guard = "#ifndef OPTIONAL_NAMESPACE" if closing.startswith("!") else f"#ifdef {closing}"
+    path = _source(
+        tmp_path,
+        "#ifdef OPTIONAL_NAMESPACE\nnamespace OPTIONAL_NAMESPACE {\n#endif\n"
+        f"void helper(void) {{}}\n{closing_guard}\n}}\n#endif\n",
+    )
+    source = path.read_bytes()
+    parser = Parser(get_language("c"))
+    original = parser.parse(source)
+    masked, tree = _recovery._unwrap_cpp_namespace(source, original, parser)
+    assert masked == source
+    assert tree is original
+
+
+def test_namespace_type_name_is_still_a_c_function(tmp_path: Path) -> None:
+    path = _source(
+        tmp_path, "typedef int namespace;\nnamespace action(void) { return 1; }\nint broken = ;"
+    )
+    graph = parse_file(str(path), "c")
+    assert graph.nodes["sample:action"].kind == NodeKind.FUNCTION
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_cpp_namespace_masks_exact_tokens_and_preserves_positions(newline: str) -> None:
+    source = newline.join(
+        [
+            "#ifdef MONOCYPHER_CPP_NAMESPACE",
+            "namespace MONOCYPHER_CPP_NAMESPACE {",
+            "#endif",
+            "int action(void) { return 7; }",
+            "#ifdef MONOCYPHER_CPP_NAMESPACE",
+            "}",
+            "#endif",
+            "",
+        ]
+    ).encode()
+    parser = Parser(get_language("c"))
+    original = parser.parse(source)
+    masked, tree = _recovery._unwrap_cpp_namespace(source, original, parser)
+    opening = source.index(b"namespace")
+    brace = source.index(b"{", opening)
+    closing = source.rindex(b"}")
+    expected = bytearray(source)
+    expected[opening : brace + 1] = b" " * (brace + 1 - opening)
+    expected[closing] = 32
+    assert masked == bytes(expected)
+    assert len(masked) == len(source)
+    assert not tree.root_node.has_error
+    assert b"int action(void) { return 7; }" in masked
+
+
+def test_multiple_namespace_wrappers_preserve_function_text(tmp_path: Path) -> None:
+    def wrapped(body: str) -> str:
+        return (
+            "#ifdef WRAPPER\nnamespace WRAPPER {\n#endif\n" + body + "\n#ifdef WRAPPER\n}\n#endif\n"
+        )
+
+    path = _source(
+        tmp_path, wrapped("void helper(void) {}") + wrapped("void action(void) { helper(); }")
+    )
+    graph = parse_file(str(path), "c")
+    assert {n.name for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION} == {
+        "helper",
+        "action",
+    }
+    assert "sample:helper" in {e.target_id for e in _calls(graph, "action")}
+
+
+def test_namespace_header_does_not_invent_a_function(tmp_path: Path) -> None:
+    path = tmp_path / "sample.h"
+    path.write_text(
+        "#ifdef WRAPPER\nnamespace WRAPPER {\n#endif\nint action(void);\n"
+        "#ifdef WRAPPER\n}\n#endif\n"
+    )
+    graph = parse_file(str(path), "c")
+    assert not any(n.kind == NodeKind.FUNCTION for n in graph.nodes.values())
+
+
+def test_alternative_cpp_linkage_arms_are_not_guessed() -> None:
+    source = (
+        b'#ifdef WRAPPER\nnamespace WRAPPER {\n#elif defined(__cplusplus)\nextern "C" {\n#endif\n'
+        b"int action(void);\n#ifdef WRAPPER\n}\n#elif defined(__cplusplus)\n}\n#endif\n"
+    )
+    parser = Parser(get_language("c"))
+    original = parser.parse(source)
+    masked, tree = _recovery._unwrap_cpp_namespace(source, original, parser)
+    assert masked == source and tree is original
+
+
+def test_empty_guarded_cpp_namespace_is_not_a_function(tmp_path: Path) -> None:
+    path = _source(
+        tmp_path,
+        "#ifdef OPTIONAL_NAMESPACE\nnamespace OPTIONAL_NAMESPACE {\n#endif\n"
+        "#ifdef OPTIONAL_NAMESPACE\n}\n#endif\n",
+    )
+    graph = parse_file(str(path), "c")
+    assert not any(n.kind == NodeKind.FUNCTION for n in graph.nodes.values())
+
+
+def test_guarded_c_function_keeps_its_body(tmp_path: Path) -> None:
+    path = _source(
+        tmp_path,
+        "void helper(void) {}\n"
+        "#ifdef OPTIONAL_NAMESPACE\nvoid action(void) {\n#endif\n"
+        "helper();\n#ifdef OPTIONAL_NAMESPACE\n}\n#endif\n",
+    )
+    graph = parse_file(str(path), "c")
+    assert graph.nodes["sample:action"].location.start_line == 3
+    assert "sample:helper" in {e.target_id for e in _calls(graph, "action")}
+
+
 def test_unresolved_wrapper_keeps_same_file_targets(tmp_path: Path) -> None:
     path = _source(
         tmp_path, "#define DECL(n) DECL(n)\nvoid helper(void) {}\nDECL(left) { helper(); }"

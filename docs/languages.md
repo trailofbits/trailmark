@@ -281,6 +281,11 @@ parser handles `.hpp`, `.hh`, and `.hxx` but not `.h`. See
 [Directory parsing](graph-model.md#directory-parsing) for extension matching
 rules.
 
+The C parser also recovers definitions inside optional C++ namespace wrappers
+whose opening and closing braces use matching positive `#ifdef` guards. Original
+syntax diagnostics remain visible; arbitrary C++ syntax is not interpreted as C.
+Alternative `#elif`/`extern "C"` linkage arms are left intact with their diagnostics.
+
 The C and C++ parsers recover functions inside preprocessor conditional blocks
 and tree-sitter error nodes, so code that does not parse cleanly as a whole
 still yields its functions.

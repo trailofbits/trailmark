@@ -16,6 +16,7 @@ from typing import Any
 
 PUBLIC_GUIDES = {
     "docs/augmenting.md",
+    "docs/binaries.md",
     "docs/call-resolution.md",
     "docs/cli.md",
     "docs/entrypoint-patterns.md",

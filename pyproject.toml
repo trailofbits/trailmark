@@ -9,7 +9,7 @@ only-include = [
     "src", "tests", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "NOTICE",
     "pyproject.toml", "hatch_build.py", "package.json", "package-lock.json",
     # Keep local notes out of distributions by listing public guides explicitly.
-    "docs/augmenting.md", "docs/call-resolution.md", "docs/cli.md",
+    "docs/augmenting.md", "docs/binaries.md", "docs/call-resolution.md", "docs/cli.md",
     "docs/entrypoint-patterns.md", "docs/entrypoints.md", "docs/graph-model.md",
     "docs/installation.md", "docs/languages.md", "docs/links.md", "docs/python-api.md",
     "docs/parser-coverage.md", "docs/skills-compatibility.md",
@@ -52,6 +52,9 @@ dependencies = [
     "rustworkx>=0.18.1,<1.0",
 ]
 
+[project.optional-dependencies]
+binary = ["lief>=1.0,<2"]
+
 [project.urls]
 Homepage = "https://github.com/trailofbits/trailmark"
 Repository = "https://github.com/trailofbits/trailmark"
@@ -90,7 +93,10 @@ select = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["mutation_infrastructure: validate the runner once in its clean baseline"]
+markers = [
+    "mutation_infrastructure: validate the runner once in its clean baseline",
+    "binary_tools: integration checks requiring the binary extra and native host tools",
+]
 
 [tool.pytest-gremlins]
 # A surviving mutant runs the full suite; allow for four concurrent subprocesses.

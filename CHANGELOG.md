@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Recover C definitions inside matching guarded C++ namespace wrappers,
+  preserving source positions and original syntax diagnostics.
+- Add optional native ELF, Mach-O, and PE ingestion with `trailmark[binary]`,
+  GNU/LLVM adapters, all 15 architecture/mode cases, exact universal slices,
+  and identity-checked local ELF debug files, dSYM, and PDB companions.
+- Connect source functions, lines, and inline frames to half-open compiled
+  ranges; retain unresolved call evidence and unknown-boundary binary regions.
+  Preserve folded-function aliases, distinct import entries and dynamic binding
+  evidence, and inferred tail transfers between established function entries.
+  Expose artifact coverage, address lookup, and bounded disassembly through
+  `QueryEngine`, `trailmark binary`, and repeatable `augment --binary`.
+- Support SHA-256-bound explicit stripped-code mappings, source-path remapping,
+  resource limits, atomic strict imports, and artifact revalidation. Existing
+  JSON `augment_binary()` imports and call-only traversal defaults are preserved.
+
 ## 0.7.1 (2026-10-26)
 
 This release adds source-backed entrypoint evidence and explicit source selection,

@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 from trailmark.models.annotations import Annotation, AnnotationKind, EntrypointTag
+from trailmark.models.binary import BinaryArtifact, BinaryRange, BinarySourceMapping
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.entrypoints import EntrypointEvidence
@@ -32,6 +33,9 @@ class CodeGraph:
     parse_diagnostics: list[ParseDiagnostic] = field(default_factory=list)
     source_policy: dict[str, object] = field(default_factory=dict)
     entrypoint_evidence: dict[str, EntrypointEvidence] = field(default_factory=dict)
+    binary_artifacts: dict[str, BinaryArtifact] = field(default_factory=dict)
+    binary_ranges: dict[str, BinaryRange] = field(default_factory=dict)
+    binary_source_mappings: dict[str, BinarySourceMapping] = field(default_factory=dict)
 
     def add_entrypoint_evidence(self, evidence: EntrypointEvidence) -> None:
         """Retain distinct source occurrences and make repeated discovery idempotent."""
@@ -80,6 +84,33 @@ class CodeGraph:
 
     def merge(self, other: CodeGraph) -> None:
         """Merge another graph into this one."""
+        for key, artifact in other.binary_artifacts.items():
+            previous = self.binary_artifacts.get(key)
+            identity_fields = (
+                "sha256",
+                "slice_offset",
+                "slice_size",
+                "slice_index",
+                "format",
+                "architecture",
+                "bits",
+                "byte_order",
+                "image_base",
+                "cpu_subtype",
+                "abi",
+                "mode",
+                "build_id",
+                "uuid",
+            )
+            if previous is not None and any(
+                getattr(previous, field) != getattr(artifact, field) for field in identity_fields
+            ):
+                raise ValueError(f"Conflicting binary artifact identity: {key}")
+        for name in ("binary_ranges", "binary_source_mappings"):
+            current, incoming = getattr(self, name), getattr(other, name)
+            for key, evidence in incoming.items():
+                if key in current and current[key] != evidence:
+                    raise ValueError(f"Conflicting {name} record: {key}")
         if other.source_policy:
             self.source_policy = (
                 {
@@ -96,6 +127,9 @@ class CodeGraph:
             self.annotations.setdefault(node_id, []).extend(anns)
         self.entrypoints.update(other.entrypoints)
         self.entrypoint_evidence.update(other.entrypoint_evidence)
+        self.binary_artifacts.update(other.binary_artifacts)
+        self.binary_ranges.update(other.binary_ranges)
+        self.binary_source_mappings.update(other.binary_source_mappings)
         for name, ids in other.subgraphs.items():
             self.subgraphs.setdefault(name, set()).update(ids)
         for dep in other.dependencies:

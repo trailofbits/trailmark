@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import fields, replace
 
 import rustworkx as rx
 
@@ -11,12 +12,14 @@ from trailmark.models.annotations import (
     AnnotationKind,
     EntrypointTag,
 )
+from trailmark.models.binary import BinaryArtifact, BinaryRange, BinarySourceMapping
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.entrypoints import EntrypointEvidence
 from trailmark.models.graph import CodeGraph
 from trailmark.models.lookup import resolve_node_id
 from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin
+from trailmark.storage.binary_index import IntervalIndex
 
 _CALL_EDGE_KINDS = frozenset({EdgeKind.CALLS})
 
@@ -81,11 +84,213 @@ class GraphStore:
             ],
         ] = {}
         self._build_index()
+        self._binary_ranges = {
+            artifact: IntervalIndex(
+                row for row in self._graph.binary_ranges.values() if row.artifact_id == artifact
+            )
+            for artifact in self._graph.binary_artifacts
+        }
+        self._binary_mappings = {
+            artifact: IntervalIndex(
+                mapping
+                for mapping in self._graph.binary_source_mappings.values()
+                if mapping.range_id in self._graph.binary_ranges
+                and self._graph.binary_ranges[mapping.range_id].artifact_id == artifact
+            )
+            for artifact in self._graph.binary_artifacts
+        }
+        self._binary_node_ranges: dict[str, set[str]] = {}
+        self._binary_range_mappings: dict[str, list[BinarySourceMapping]] = {}
+        for row in self._graph.binary_ranges.values():
+            self._binary_node_ranges.setdefault(row.node_id, set()).add(row.id)
+        for mapping in self._graph.binary_source_mappings.values():
+            self._binary_range_mappings.setdefault(mapping.range_id, []).append(mapping)
+            if mapping.source_node_id is not None:
+                self._binary_node_ranges.setdefault(mapping.source_node_id, set()).add(
+                    mapping.range_id
+                )
         (
             self._call_digraph,
             self._call_id_to_idx,
             self._call_idx_to_id,
         ) = self._projection_for(_CALL_EDGE_KINDS)
+
+    def add_binary_graph(self, incoming: CodeGraph) -> None:
+        """Validate and commit native evidence atomically, deduplicating reimports."""
+        staged = deepcopy(self._graph)
+        incoming = deepcopy(incoming)
+        for key, node in incoming.nodes.items():
+            previous = staged.nodes.get(key)
+            if key != node.id or (
+                previous is not None and replace(previous, location=node.location) != node
+            ):
+                raise ValueError(f"Binary node collides with an existing node: {key}")
+        for key, artifact in incoming.binary_artifacts.items():
+            if (
+                key != artifact.id
+                or len(artifact.sha256) != 64
+                or any(c not in "0123456789abcdef" for c in artifact.sha256)
+            ):
+                raise ValueError("Malformed binary artifact identity")
+            previous = staged.binary_artifacts.get(key)
+            if previous is not None:
+                diagnostics = tuple(dict.fromkeys(previous.diagnostics + artifact.diagnostics))
+                incoming.binary_artifacts[key] = replace(
+                    artifact,
+                    diagnostics=diagnostics,
+                    complete=not diagnostics,
+                    scanned_ranges=tuple(
+                        sorted(set(previous.scanned_ranges + artifact.scanned_ranges))
+                    ),
+                )
+        for key, row in incoming.binary_ranges.items():
+            previous = staged.binary_ranges.get(key)
+            if previous is not None and replace(previous, symbols=row.symbols) == row:
+                incoming.binary_ranges[key] = replace(
+                    row, symbols=tuple(sorted(set(previous.symbols + row.symbols)))
+                )
+                staged.binary_ranges[key] = incoming.binary_ranges[key]
+        existing = set(staged.edges)
+        incoming.edges = list(
+            dict.fromkeys(edge for edge in incoming.edges if edge not in existing)
+        )
+        staged.merge(incoming)
+        for key, row in staged.binary_ranges.items():
+            artifact = staged.binary_artifacts.get(row.artifact_id)
+            node = staged.nodes.get(row.node_id)
+            if (
+                key != row.id
+                or artifact is None
+                or node is None
+                or node.origin != NodeOrigin.BINARY
+                or node.kind not in (NodeKind.FUNCTION, NodeKind.BINARY_REGION)
+                or row.start < artifact.image_base
+                or row.end <= row.start
+                or row.rva != row.start - artifact.image_base
+                or row.file_offset < artifact.slice_offset
+                or row.file_offset + row.end - row.start
+                > artifact.slice_offset + artifact.slice_size
+            ):
+                raise ValueError(f"Invalid binary range: {key}")
+        for key, mapping in staged.binary_source_mappings.items():
+            row = staged.binary_ranges.get(mapping.range_id)
+            source = staged.nodes.get(mapping.source_node_id) if mapping.source_node_id else None
+            if (
+                key != mapping.id
+                or row is None
+                or not row.start <= mapping.start < mapping.end <= row.end
+                or (
+                    mapping.source_node_id is not None
+                    and (source is None or source.origin != NodeOrigin.SOURCE)
+                )
+                or mapping.method not in ("debug", "symbol", "explicit")
+                or (mapping.line is not None and mapping.line <= 0)
+            ):
+                raise ValueError(f"Invalid binary source mapping: {key}")
+        if any(
+            edge.source_id not in staged.nodes or edge.target_id not in staged.nodes
+            for edge in incoming.edges
+        ):
+            raise ValueError("Binary edge has an unknown endpoint")
+        validated = GraphStore(staged)
+        for item in fields(staged):
+            setattr(self._graph, item.name, getattr(staged, item.name))
+        for key, value in validated.__dict__.items():
+            if key != "_graph":
+                setattr(self, key, value)
+
+    def binary_artifacts(self) -> list[BinaryArtifact]:
+        """Return immutable artifact records in stable identity order."""
+        return [self._graph.binary_artifacts[key] for key in sorted(self._graph.binary_artifacts)]
+
+    def binary_artifact(self, artifact_id: str) -> BinaryArtifact | None:
+        return self._graph.binary_artifacts.get(artifact_id)
+
+    def binary_ranges_for_artifact(self, artifact_id: str) -> list[BinaryRange]:
+        index = self._binary_ranges.get(artifact_id)
+        return list(index.rows) if index else []
+
+    def binary_mappings_for_artifact(self, artifact_id: str) -> list[BinarySourceMapping]:
+        index = self._binary_mappings.get(artifact_id)
+        return list(index.rows) if index else []
+
+    def binary_ranges_for_node(
+        self,
+        node_id: str,
+        *,
+        artifact: str | None = None,
+        line: int | None = None,
+    ) -> list[tuple[BinaryRange, tuple[BinarySourceMapping, ...]]]:
+        if node_id not in self._graph.nodes:
+            return []
+        result = []
+        for range_id in self._binary_node_ranges.get(node_id, ()):
+            row = self._graph.binary_ranges[range_id]
+            if artifact is not None and row.artifact_id != artifact:
+                continue
+            mappings = tuple(
+                mapping
+                for mapping in self._binary_range_mappings.get(row.id, ())
+                if (mapping.source_node_id == node_id or row.node_id == node_id)
+                and (line is None or mapping.line == line)
+            )
+            if row.node_id == node_id and line is None:
+                result.append((row, mappings))
+            else:
+                spans: list[tuple[int, int]] = []
+                for mapping in sorted(mappings, key=lambda item: (item.start, item.end)):
+                    if spans and spans[-1][1] >= mapping.start:
+                        spans[-1] = (spans[-1][0], max(spans[-1][1], mapping.end))
+                    else:
+                        spans.append((mapping.start, mapping.end))
+                for start, end in spans:
+                    result.append(
+                        (
+                            replace(
+                                row,
+                                start=start,
+                                end=end,
+                                rva=row.rva + start - row.start,
+                                file_offset=row.file_offset + start - row.start,
+                            ),
+                            tuple(
+                                mapping
+                                for mapping in mappings
+                                if mapping.start < end and start < mapping.end
+                            ),
+                        )
+                    )
+        return sorted(result, key=lambda pair: (pair[0].artifact_id, pair[0].start, pair[0].end))
+
+    def source_at_address(
+        self,
+        artifact_id: str,
+        address: int,
+        *,
+        address_kind: str = "va",
+    ) -> list[BinarySourceMapping]:
+        if address_kind not in ("va", "rva", "file_offset"):
+            raise ValueError("address_kind must be va, rva, or file_offset")
+        if not isinstance(address, int) or isinstance(address, bool) or address < 0:
+            raise ValueError("address must be a nonnegative integer")
+        artifact = self.binary_artifact(artifact_id)
+        if artifact is None:
+            return []
+        if address_kind == "rva":
+            address += artifact.image_base
+        elif address_kind == "file_offset":
+            addresses = {
+                row.start + address - row.file_offset
+                for row in self.binary_ranges_for_artifact(artifact_id)
+                if row.file_offset <= address < row.file_offset + row.end - row.start
+            }
+            if len(addresses) > 1:
+                raise ValueError("File offset maps to ambiguous virtual addresses")
+            if not addresses:
+                return []
+            address = next(iter(addresses))
+        index = self._binary_mappings.get(artifact_id)
+        return index.containing(address, address + 1) if index else []
 
     def _build_index(self) -> None:
         """Populate the rustworkx digraph from the CodeGraph."""

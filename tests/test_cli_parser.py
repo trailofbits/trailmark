@@ -61,6 +61,7 @@ class TestTopLevelParser:
         assert set(subparsers_map) == {
             "analyze",
             "augment",
+            "binary",
             "entrypoints",
             "diff",
             "diagram",

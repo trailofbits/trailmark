@@ -18,6 +18,7 @@ in the analysis summary; selecting one language does not cover the others.
 - [`trailmark diff`](#trailmark-diff)
 - [`trailmark diagram`](#trailmark-diagram)
 - [`trailmark augment`](#trailmark-augment)
+- [`trailmark binary`](#trailmark-binary)
 - [`trailmark version`](#trailmark-version)
 
 ## `trailmark analyze`
@@ -183,6 +184,55 @@ trailmark augment --sarif results.sarif path/to/project
 trailmark augment --sarif semgrep.sarif --sarif codeql.sarif --weaudit audit.json path/to/project
 trailmark augment --sarif results.sarif --json path/to/project > graph.json
 ```
+
+Repeatable `--binary ARTIFACT` additionally ingests linked native images. It
+accepts the binary tool/range options below. `--binary-strict` rejects incomplete
+binary imports; `--strict` continues to control source parsing. An explicit
+`--debug-file` requires exactly one `--binary` image. Incomplete evidence produces
+exit status 3 after printing the graph; invalid input produces status 2.
+
+## `trailmark binary`
+
+```bash
+trailmark binary ARTIFACT [--source-root PATH] [--language auto] [--disassemble] [--json]
+trailmark binary build/app --source-root . --function verify --disassemble --json
+```
+
+Inspect a linked ELF, Mach-O, or PE image, optionally connecting it to a source
+graph from `--source-root`. This command is unreleased and requires
+`trailmark[binary]`. Its source `--language`/`-l` default is `auto`; other
+source-reading commands keep their existing defaults. `--allow-empty` permits
+an empty source root. `--strict` rejects incomplete source or binary evidence.
+`--function NAME` selects source/binary ranges for `--disassemble`; it does not
+restrict ingestion. `--max-instructions N` bounds the total returned instructions
+(default 256). Unknown function selections are errors. `--json` emits an object
+containing `graph`, `report`, and optional `disassembly`. Exit status is 0 for
+complete requested evidence, 3 for retained gaps or truncated disassembly, and
+2 for invalid input. The inspected artifact is never executed.
+
+These options are shared with `augment --binary`:
+
+| Option | Meaning |
+| --- | --- |
+| `--backend auto\|llvm\|gnu` | Disassembler family; auto prefers compatible LLVM |
+| `--objdump PATH` | Explicit host disassembler; family detected by capabilities |
+| `--symbolizer PATH` | Explicit LLVM symbolizer or GNU addr2line |
+| `--debug-file PATH` | Identity-checked local ELF debug companion, dSYM, or PDB |
+| `--mapping-file PATH` | SHA-256-bound explicit source-node/range JSON |
+| `--path-map OLD=NEW` | Repeatable source-path prefix remapping |
+| `--slice INDEX` | One exact zero-based universal slice; default all supported slices |
+| `--range START:END` | Repeatable half-open link-time virtual-address selection |
+| `--rva-range START:END` | Repeatable RVA selection |
+| `--file-range START:END` | Repeatable whole-container executable file-offset selection |
+| `--mode arm\|thumb` | Explicit instruction mode; requires an ARM range selection |
+| `--tool-timeout SECONDS` | Per invocation, default 30 |
+| `--import-timeout SECONDS` | Per import, default 300 |
+| `--max-tool-output-bytes N` | Combined output per invocation, default 67108864 |
+| `--max-scan-instructions N` | Import scan budget, default 1000000 |
+
+Addresses accept decimal or a base prefix such as `0x1040`. Selections must not
+overlap. See [compiled binary evidence](binaries.md) for targets, tool requirements,
+exact slice identities, explicit mappings, inference, and coverage limitations.
 
 ## `trailmark version`
 

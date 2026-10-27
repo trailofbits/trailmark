@@ -88,6 +88,7 @@ pairs, such as Solidity visibility or the raw text of an unresolved call.
 | `view` | SQL views |
 | `procedure` | SQL procedures |
 | `proxy` | Placeholders for unresolved or external call targets |
+| `binary_region` | Selected executable ranges without established function boundaries |
 
 ## Node origins
 
@@ -95,7 +96,7 @@ pairs, such as Solidity visibility or the raw text of an unresolved call.
 | --- | --- |
 | `source` | Parsed from a source file |
 | `proxy` | Created for a call target that has no declaration in the graph |
-| `binary` | Imported from an external binary-analysis graph |
+| `binary` | Imported from an external binary-analysis graph or a linked native image |
 | `synthetic` | Created by a parser for a construct with no named declaration, such as a Circom `component main` or a Miden Assembly `begin` block |
 
 ## Edge kinds
@@ -111,7 +112,7 @@ pairs, such as Solidity visibility or the raw text of an unresolved call.
 | `imports` | Module &rarr; imported module, when the frontend emits [import edges](#import-edges) |
 | `type_uses` | Function &rarr; type declaration named in its parameters, return type, exceptions, or generic bounds |
 | `references` | A callable or declarative source &rarr; a referenced symbol or file; does not imply execution |
-| `corresponds_to` | Source node &rarr; matching binary function, or SQL routine/view &rarr; object it depends on |
+| `corresponds_to` | Source node &rarr; matching binary function/region, or SQL routine/view &rarr; object it depends on |
 | `resolves_to` | Reserved; no built-in pass emits it, but `.trailmark/links.toml` may declare it |
 | `specializes` | Reserved; no built-in pass emits it, but `.trailmark/links.toml` may declare it |
 

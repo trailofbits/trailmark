@@ -93,6 +93,29 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
+    (
+        "docs/binaries.md",
+        "Each unambiguous folded alias can add its own inferred source correspondence",
+    ),
+    ("docs/binaries.md", "Named import entries remain distinct binary functions"),
+    ("docs/binaries.md", "are inferred `tail` transfers"),
+    ("docs/binaries.md", "Explicit mappings take precedence within their byte ranges"),
+    ("docs/binaries.md", "transitions between matching hot/cold symbol fragments"),
+    ("docs/languages.md", 'Alternative `#elif`/`extern "C"` linkage arms are left intact'),
+    ("docs/languages.md", "opening and closing braces use matching positive `#ifdef` guards"),
+    ("README.md", "Compiled binary evidence."),
+    (
+        "docs/binaries.md",
+        "Native ingestion is explicit; directory parsing does not inspect binaries",
+    ),
+    ("docs/binaries.md", "All ranges are half-open"),
+    ("docs/binaries.md", "Ambiguous candidates remain unmatched"),
+    ("docs/binaries.md", "Default traversal still follows only `calls`"),
+    ("docs/binaries.md", "Strict mode rejects incomplete imports atomically"),
+    ("docs/binaries.md", "changed content is rejected"),
+    ("docs/binaries.md", "PDB GUID/age must match before symbolization"),
+    ("docs/augmenting.md", "`augment_binary()` imports a JSON call graph"),
     ("README.md", "References stay separate from execution"),
     ("docs/entrypoints.md", "Candidate discovery never promotes a reference to an entrypoint"),
     ("docs/entrypoints.md", "terminal names alone never bind a declaration"),
@@ -293,6 +316,21 @@ def test_language_pack_floor_matches_pyproject(pyproject_data: dict[str, object]
     project = cast("dict[str, object]", pyproject_data["project"])
     dependencies = cast("list[str]", project["dependencies"])
     assert "tree-sitter-language-pack>=1.22.1,<2.0" in dependencies
+
+
+def test_binary_extra_and_limits_match_public_contract(pyproject_data: dict[str, object]) -> None:
+    from trailmark.models import BinaryLimits
+
+    project = cast("dict[str, object]", pyproject_data["project"])
+    extras = cast("dict[str, list[str]]", project["optional-dependencies"])
+    assert extras["binary"] == ["lief>=1.0,<2"]
+    limits = BinaryLimits()
+    assert (limits.tool_timeout, limits.import_timeout) == (30, 300)
+    assert limits.max_output_bytes == 64 * 1024 * 1024
+    assert limits.max_instructions == 1_000_000
+    binary = _subparsers(build_parser())["binary"]
+    assert _find_option(binary, "--max-instructions").default == 256
+    assert _find_option(binary, "--language").default == "auto"
 
 
 def test_import_edge_frontends_match_documentation() -> None:

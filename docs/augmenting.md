@@ -60,9 +60,10 @@ fails before completion preserves the graph's previous state.
 
 ## Binary call graphs
 
-Trailmark does not disassemble binaries. It can import a call graph produced
-by another tool (a disassembler script, for example) and connect it to the
-source graph:
+`augment_binary()` imports a JSON call graph produced by another tool and
+connects it to the source graph. Native linked images use the separate
+`augment_binary_file()` interface with the optional `trailmark[binary]` extra;
+see [compiled binary evidence](binaries.md).
 
 ```python
 engine.augment_binary("build/app.callgraph.json")

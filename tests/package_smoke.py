@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from importlib.metadata import files
+from importlib.metadata import files, metadata
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -63,6 +63,17 @@ def _check_distribution_metadata() -> None:
         msg = "tree-sitter-sql distribution does not include its license metadata"
         raise RuntimeError(msg)
     trailmark_files = files("trailmark") or ()
+    required_binary_modules = {
+        "trailmark/models/binary.py",
+        "trailmark/storage/binary_index.py",
+        "trailmark/analysis/native_binary/__init__.py",
+        "trailmark/analysis/native_binary/linkage.py",
+    }
+    if not required_binary_modules <= {str(path) for path in trailmark_files}:
+        raise RuntimeError("distribution is missing binary evidence modules")
+    requirements = metadata("trailmark").get_all("Requires-Dist") or []
+    if not any(value.startswith("lief") and "binary" in value for value in requirements):
+        raise RuntimeError("distribution is missing the optional binary dependency")
     if not any(str(path).endswith("tree_sitter_custom/verus/LICENSE") for path in trailmark_files):
         msg = "trailmark distribution does not include the vendored Verus grammar license"
         raise RuntimeError(msg)
@@ -77,6 +88,17 @@ def _check_distribution_metadata() -> None:
         raise RuntimeError(
             f"distribution unexpectedly includes native grammar binaries: {binaries}"
         )
+
+
+def _check_binary_facade_without_optional_dependency() -> None:
+    from trailmark.models import BinaryImportOptions, CodeGraph
+    from trailmark.query.api import QueryEngine
+
+    assert BinaryImportOptions().backend == "auto"
+    engine = QueryEngine.from_graph(CodeGraph())
+    assert engine.binary_artifacts() == []
+    assert engine.binary_ranges("missing") == []
+    assert engine.source_at_address("missing", 0) == []
 
 
 def _check_installed_move_parser() -> None:
@@ -95,6 +117,7 @@ def _check_installed_move_parser() -> None:
 def main() -> None:
     _check_parser_fixtures(Path(sys.argv[1]).resolve())
     _check_distribution_metadata()
+    _check_binary_facade_without_optional_dependency()
     _check_installed_verus_parser()
     _check_installed_move_parser()
 

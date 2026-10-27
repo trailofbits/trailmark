@@ -212,6 +212,19 @@ counts as a read or write.
 | `augment_sarif(sarif_path, *, replace_existing=True)` | Match counts for a SARIF import |
 | `augment_weaudit(weaudit_path, *, replace_existing=True)` | Match counts for a weAudit import |
 | `augment_binary(graph_path, *, connect_sources=True)` | Counts of imported binary nodes, edges, and source correspondences |
+| `augment_binary_file(path, *, options=None)` | Native import counts, artifact IDs, completeness, and diagnostics |
+| `binary_artifacts()` | Artifact identity, metadata, decoding provenance, coverage and gaps |
+| `binary_ranges(name, *, artifact=None, line=None)` | Compiled ranges associated with a source or binary node, optionally filtered by artifact ID or source line |
+| `source_at_address(artifact, address, *, address_kind="va")` | Source mappings and inline frames at a link-time VA, RVA, or file offset |
+| `disassemble_binary(artifact, start, end, *, address_kind="va", max_instructions=256)` | Bounded instructions, source mappings, truncation, completeness, and diagnostics |
+
+Native methods are unreleased and require the optional `trailmark[binary]`
+extra plus host tools for ingestion/disassembly. Frozen `BinaryImportOptions`,
+`BinaryLimits`, and `BinarySelection` configure tool families, exact slices,
+verified local debug companions, path remapping, explicit ranges, and strictness.
+See [compiled binary evidence](binaries.md) for address spaces, matching order,
+stripped-code mapping files, and atomic failure behavior. Existing JSON
+`augment_binary()` remains independent of the extra.
 
 ```python
 from trailmark.models.annotations import AnnotationKind
@@ -313,6 +326,11 @@ The JSON export omits annotations, entrypoint tags, and call-site
 locations, so it does not preserve all analysis state. While the engine is
 available, use `findings()`, `annotations_of()`, `attack_surface()`, and
 `unresolved_calls()` for those details.
+
+Native imports add `binary_artifacts`, `binary_ranges`, and
+`binary_source_mappings` sections containing persistent evidence. Instruction
+text is obtained again through bounded disassembly and is not stored in the
+graph. Native call edges retain call-site addresses in edge attributes.
 
 ## Compatibility
 

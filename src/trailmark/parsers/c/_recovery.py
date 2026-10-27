@@ -35,6 +35,7 @@ def recover_bodies(source: bytes, tree: Tree, parser: Parser) -> tuple[Tree, fro
     """Verify each physical span independently and retain original diagnostics."""
     if not tree.root_node.has_error:
         return tree, frozenset()
+    source, tree = _unwrap_cpp_namespace(source, tree, parser)
     functions = _recovery_functions(tree.root_node, source)
     if not functions:
         return tree, frozenset()
@@ -49,6 +50,62 @@ def recover_bodies(source: bytes, tree: Tree, parser: Parser) -> tuple[Tree, fro
             return recovered, frozenset(verified)
         candidates = {start: candidates[start] for start in verified}
     return tree, frozenset()
+
+
+def _unwrap_cpp_namespace(source: bytes, tree: Tree, parser: Parser) -> tuple[bytes, Tree]:
+    """Expose C declarations inside a pair of guarded C++ namespace braces.
+
+    The C grammar reads ``namespace NAME {`` as a function definition, swallowing
+    the translation unit. Only unwrap the split, matching ``#ifdef NAME`` guards;
+    do not interpret arbitrary C++ or conditional compilation.
+    """
+    masked = bytearray(source)
+    changed = False
+    for node in walk_owned(tree.root_node, boundaries=_DECLARATION_BOUNDARIES):
+        if node.type != "function_definition":
+            continue
+        type_node = node.child_by_field_name("type")
+        declarator = node.child_by_field_name("declarator")
+        body = node.child_by_field_name("body")
+        parent = node.parent
+        if (
+            type_node is None
+            or type_node.text != b"namespace"
+            or declarator is None
+            or declarator.type != "identifier"
+            or body is None
+            or parent is None
+            or parent.type != "preproc_ifdef"
+            or parent.children[0].type != "#ifdef"
+        ):
+            continue
+        children = [child for child in body.named_children if child.type != "comment"]
+        if len(children) < 2:
+            continue
+        first, last = children[0], children[-1]
+        guard = parent.child_by_field_name("name")
+        closing_guard = last.child_by_field_name("name")
+        if (
+            guard is None
+            or first.type != "preproc_call"
+            or first.text is None
+            or first.text.strip() != b"#endif"
+            or last.type != "preproc_ifdef"
+            or last.children[0].type != "#ifdef"
+            or closing_guard is None
+            or closing_guard.text != guard.text
+            or source[body.end_byte - 1 : body.end_byte] != b"}"
+        ):
+            continue
+        for index in range(node.start_byte, body.start_byte + 1):
+            if masked[index] not in (10, 13):
+                masked[index] = 32
+        masked[body.end_byte - 1] = 32
+        changed = True
+    if not changed:
+        return source, tree
+    result = bytes(masked)
+    return result, parser.parse(result)
 
 
 def _needs_recovery(node: Node, source: bytes) -> bool:

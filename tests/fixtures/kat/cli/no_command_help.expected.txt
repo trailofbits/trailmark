@@ -1,10 +1,10 @@
 usage: trailmark [-h] [--version]
-                 {version,analyze,diff,entrypoints,augment,diagram} ...
+                 {version,analyze,diff,entrypoints,augment,diagram,binary} ...
 
 Parse source code into queryable graphs (<VERSION>)
 
 positional arguments:
-  {version,analyze,diff,entrypoints,augment,diagram}
+  {version,analyze,diff,entrypoints,augment,diagram,binary}
     version             Print the Trailmark version and exit
     analyze             Analyze a directory and output the code graph
     diff                Structural diff between two code graphs
@@ -12,6 +12,8 @@ positional arguments:
                         classification
     augment             Augment a code graph with SARIF or weAudit findings
     diagram             Generate a Mermaid diagram from the code graph
+    binary              Inspect a linked native image and connect source
+                        ranges
 
 options:
   -h, --help            show this help message and exit

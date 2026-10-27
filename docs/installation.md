@@ -9,6 +9,16 @@ Trailmark requires Python &ge; 3.12. CI tests Python 3.12 through 3.15.
 Wheel and source-distribution smoke tests run on Python 3.13 and 3.15 on
 Linux and macOS, including the bundled native grammars.
 
+## Optional binary ingestion
+
+Install `trailmark[binary]` for native ELF, Mach-O, and PE ingestion. The extra
+adds `lief>=1.0,<2` for container metadata; source-only installations and JSON
+binary call-graph imports do not require it. Install LLVM objdump/symbolizer or
+GNU binutils objdump/addr2line separately, with the targets you need enabled.
+Mach-O and PDB source operations need LLVM companions. Tool implementations are
+detected by capabilities, including executables named simply `objdump`.
+See [compiled binary evidence](binaries.md) for the target matrix and limits.
+
 ## Grammars
 
 Trailmark uses three sources of tree-sitter grammars.

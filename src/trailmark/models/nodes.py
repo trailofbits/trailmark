@@ -30,6 +30,7 @@ class NodeKind(Enum):
     VIEW = "view"
     PROCEDURE = "procedure"
     PROXY = "proxy"
+    BINARY_REGION = "binary_region"
 
 
 class NodeOrigin(Enum):

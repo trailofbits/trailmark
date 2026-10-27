@@ -13,9 +13,11 @@ from trailmark.analysis.binary import augment_from_binary_graph
 from trailmark.analysis.diff import compute_diff
 from trailmark.analysis.entrypoint_candidates import discover_entrypoint_candidates
 from trailmark.analysis.entrypoints import detect_entrypoints
+from trailmark.analysis.native_binary import augment_binary_file, disassemble_binary
 from trailmark.analysis.preanalysis import run_preanalysis
 from trailmark.analysis.proxies import ensure_proxy_nodes
 from trailmark.models.annotations import Annotation, AnnotationKind
+from trailmark.models.binary import BinaryImportOptions
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.entrypoints import EntrypointEvidence
 from trailmark.models.graph import CodeGraph
@@ -468,6 +470,74 @@ class QueryEngine:
             connect_sources=connect_sources,
         )
 
+    def augment_binary_file(
+        self,
+        path: str,
+        *,
+        options: BinaryImportOptions | None = None,
+    ) -> dict[str, Any]:
+        """Inspect a linked native image and atomically attach binary evidence."""
+        return augment_binary_file(self._store, path, options=options)
+
+    def binary_artifacts(self) -> list[dict[str, Any]]:
+        """Return identity, decoding provenance, and coverage for each image slice."""
+        return [asdict(artifact) for artifact in self._store.binary_artifacts()]
+
+    def binary_ranges(
+        self,
+        name: str,
+        *,
+        artifact: str | None = None,
+        line: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Find compiled ranges; a line filter returns matching source subranges."""
+        if line is not None and (not isinstance(line, int) or isinstance(line, bool) or line <= 0):
+            raise ValueError("line must be a positive integer")
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        return [
+            {**asdict(row), "source_mappings": [asdict(mapping) for mapping in mappings]}
+            for row, mappings in self._store.binary_ranges_for_node(
+                node_id, artifact=artifact, line=line
+            )
+        ]
+
+    def source_at_address(
+        self,
+        artifact: str,
+        address: int,
+        *,
+        address_kind: str = "va",
+    ) -> list[dict[str, Any]]:
+        """Find source occurrences and inline frames at an artifact-specific address."""
+        return [
+            asdict(mapping)
+            for mapping in self._store.source_at_address(
+                artifact, address, address_kind=address_kind
+            )
+        ]
+
+    def disassemble_binary(
+        self,
+        artifact: str,
+        start: int,
+        end: int,
+        *,
+        address_kind: str = "va",
+        max_instructions: int = 256,
+    ) -> dict[str, Any]:
+        """Verify the artifact hash and return bounded instructions and source evidence."""
+        result = disassemble_binary(
+            self._store,
+            artifact,
+            start,
+            end,
+            address_kind=address_kind,
+            max_instructions=max_instructions,
+        )
+        return {**asdict(result), "complete": not result.truncated and not result.diagnostics}
+
     def findings(
         self,
         kind: AnnotationKind | None = None,
@@ -559,6 +629,16 @@ class QueryEngine:
             data["source_policy"] = self.source_policy()
         if graph.entrypoint_evidence:
             data["entrypoint_evidence"] = self.entrypoint_evidence()
+        if graph.binary_artifacts:
+            data["binary_artifacts"] = {
+                key: asdict(value) for key, value in graph.binary_artifacts.items()
+            }
+            data["binary_ranges"] = {
+                key: asdict(value) for key, value in graph.binary_ranges.items()
+            }
+            data["binary_source_mappings"] = {
+                key: asdict(value) for key, value in graph.binary_source_mappings.items()
+            }
         return json.dumps(data, indent=indent, default=str)
 
 

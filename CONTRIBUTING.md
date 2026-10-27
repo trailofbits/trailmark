@@ -36,6 +36,23 @@ uv run pytest -q tests/
 uv run --no-project --with hatchling python tests/sdist_smoke.py
 ```
 
+Native-image tests require the `binary` extra and both GNU and LLVM tools.
+Set `TRAILMARK_REQUIRE_BINARY_TOOLS=1` to fail on missing dependencies instead
+of skipping those tests; `TRAILMARK_LLVM_OBJDUMP`, `TRAILMARK_LLVM_SYMBOLIZER`,
+`TRAILMARK_GNU_OBJDUMP`, and `TRAILMARK_GNU_SYMBOLIZER` select explicit tools.
+The fixture manifest and regeneration commands live in
+[`tests/fixtures/binary/README.md`](tests/fixtures/binary/README.md).
+
+`python -m tests.smoke_binary_projects --help` describes the optional pinned
+arm64 library checks. Supply local builds and checkouts; the harness neither
+downloads nor executes them. It compares executable coverage against
+`llvm-readobj`, symbol boundaries against `llvm-nm`, and direct calls against
+raw AArch64 instruction encodings. For a stripped image, `--reference-image`
+supplies unstripped symbols only after every executable byte matches.
+`--compare-graph` checks a graph exported by a separate process. Whole-tree
+source-function counts include inactive code and are regression floors,
+not build-specific source recall.
+
 ## Performance Comparisons
 
 Benchmark full directory analysis, including entrypoint discovery, with:
@@ -177,6 +194,7 @@ lives in `docs/`:
 | `docs/entrypoints.md` | Detection layers and `.trailmark/entrypoints.toml` |
 | `docs/links.md` | `.trailmark/links.toml` |
 | `docs/augmenting.md` | SARIF, weAudit, binary imports, annotations, preanalysis |
+| `docs/binaries.md` | Native linked images, address ranges, disassembly, debug identities |
 | `docs/call-resolution.md` | Resolution diagnostics and limits |
 | `docs/languages.md` | Per-language behavior |
 | `docs/parser-coverage.md` | Callable ownership, identity changes, grammar limits |
