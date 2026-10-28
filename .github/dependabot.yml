@@ -7,6 +7,8 @@ updates:
     cooldown:
       default-days: 7
     ignore:
+      # Mutation runner adapts private APIs; upgrades need manual revalidation.
+      - dependency-name: pytest-gremlins
       # Native Point lifetime regression; upgrading segfaults parser tests.
       # https://github.com/tree-sitter/py-tree-sitter/issues/472
       - dependency-name: tree-sitter
