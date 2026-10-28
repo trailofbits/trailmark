@@ -12,6 +12,7 @@ from tree_sitter import Node, Parser
 from trailmark.parsers._common import node_text
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c._headers import HeaderSources
+from trailmark.parsers.c._recovery import _directive_text
 
 _IDENTIFIER = re.compile(r"[A-Za-z_]\w*\Z")
 
@@ -72,10 +73,10 @@ class DeclarationMacros:
 
     def _record_definition(self, node: Node, position: int, conditions: dict[int, bool]) -> None:
         if node.type == "preproc_call":
-            directive = node.child_by_field_name("directive")
-            argument = node.child_by_field_name("argument")
-            if directive is not None and node_text(directive) == "#undef" and argument:
-                self._record(node_text(argument).strip(), None, position)
+            # Preserve the name spelling recorded by tree-sitter, including UTF-8.
+            undef = re.match(rb"\s*#\s*undef\s+(\S+)", _directive_text(node.text or b""))
+            if undef is not None:
+                self._record(undef[1].decode("utf-8", errors="replace"), None, position)
             return
         name = node.child_by_field_name("name")
         if name is None:
@@ -86,7 +87,7 @@ class DeclarationMacros:
         macro = _macro(
             node_text(name),
             params,
-            node_text(value).replace("\\\n", " ") if value is not None else "",
+            re.sub(r"\\\r?\n", "", node_text(value)) if value is not None else "",
         )
         self._record(
             node_text(name),
@@ -197,8 +198,16 @@ class DeclarationMacros:
             if expanded is None:
                 return None
             text = expanded
-        text = re.sub(r"\s*##\s*", "", text)
+        text = _paste_tokens(text)
         return None if "#" in text else text
+
+
+def _paste_tokens(text: str) -> str:
+    """Trim only token-paste boundaries without rescanning whitespace runs."""
+    parts = text.split("##")
+    if len(parts) == 1:
+        return text
+    return parts[0].rstrip() + "".join(part.strip() for part in parts[1:-1]) + parts[-1].lstrip()
 
 
 def _wrapper_candidate(node: Node) -> tuple[str, str, bool] | None:
@@ -325,6 +334,7 @@ def _conditional(node: Node, cache: dict[int, bool] | None = None) -> bool:
                 "preproc_ifdef",
                 "preproc_else",
                 "preproc_elif",
+                "preproc_elifdef",
             }
             and not _include_guard(ancestor)
         )
@@ -345,7 +355,10 @@ def _include_guard(node: Node) -> bool:
 
 
 def _has_alternative(node: Node) -> bool:
-    return any(child.type in {"preproc_else", "preproc_elif"} for child in node.named_children)
+    return any(
+        child.type in {"preproc_else", "preproc_elif", "preproc_elifdef"}
+        for child in node.named_children
+    )
 
 
 def _defines(node: Node, name: str) -> bool:

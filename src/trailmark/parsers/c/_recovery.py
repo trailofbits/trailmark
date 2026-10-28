@@ -3,23 +3,38 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from tree_sitter import Node, Parser, Tree
 
 from trailmark.parsers._walk import walk_owned
 
-_TOKENS = re.compile(
-    rb"(?m)^[ \t]*\#(?:\\\r?\n|\\[^\n]|[^\n\\])*"
-    rb"|//[^\n]*|/\*[\s\S]*?\*/"
-    rb"|\"(?:\\[\s\S]|[^\"\\\r\n])*\"|'(?:\\[\s\S]|[^'\\\r\n])*'"
-    rb"|[A-Za-z_]\w*|[^\s]"
+_LINE_SPLICE = re.compile(rb"\\\r?\n")
+_COMMENT_START = re.compile(rb"/(?:\\\r?\n)*[/*]")
+_LINE_COMMENT = rb"/(?:\\\r?\n)*/(?:\\\r?\n|[^\n])*+"
+_BLOCK_COMMENT = rb"/(?:\\\r?\n)*\*[\s\S]*?(?:\*(?:\\\r?\n)*/|\Z)"
+_COMMENTS = _LINE_COMMENT + rb"|" + _BLOCK_COMMENT
+_LITERALS = (
+    rb'"(?:\\\r?\n|\\(?:\\\r?\n)*+[^\r\n]|[^"\\\r\n])*+"'
+    rb"|'(?:\\\r?\n|\\(?:\\\r?\n)*+[^\r\n]|[^'\\\r\n])*+'"
 )
-_KEYWORDS = frozenset({b"else", b"do", b"struct", b"union", b"enum"})
-_BLOCK_START = re.compile(rb"\b([A-Za-z_]\w*)(?:\s|/\*[^*]*\*+(?:[^/*][^*]*\*+)*/|//[^\n]*\n)*\{")
+_OPAQUE = re.compile(_COMMENTS + rb"|" + _LITERALS)
+_TOKENS = re.compile(
+    rb"(?m)^[ \t\v\f\r]*(?:"
+    + _BLOCK_COMMENT
+    + rb"[ \t\v\f\r]*)*+\#(?:"
+    + _COMMENTS
+    + rb"|"
+    + _LITERALS
+    + rb"|\\\r?\n|[^\n])*+"
+    rb"|" + _COMMENTS + rb"|" + _LITERALS + rb"|[A-Za-z_](?:\w|\\\r?\n)*+|\\\r?\n|[^\s]"
+)
+_KEYWORDS = frozenset({b"else", b"do", b"struct", b"union", b"enum", b"__try", b"__finally"})
 _IDENTIFIER = re.compile(rb"[A-Za-z_]\w*\Z")
-_CONDITIONAL = re.compile(rb"\s*#\s*(if|ifdef|ifndef|else|elif|endif)\b")
-_DISABLED_START = re.compile(rb"\s*#\s*if\s+0\s*(?://[^\n]*|/\*.*?\*/\s*)?\Z")
+_CONDITIONAL = re.compile(rb"\s*#\s*(if|ifdef|ifndef|else|elif|elifdef|elifndef|endif)\b")
+_DISABLED_START = re.compile(rb"\s*#\s*(?:if|elif)\s+0\s*\Z")
+_ENDIF = re.compile(rb"#\s*endif\Z")
 _DECLARATION_BOUNDARIES = frozenset(
     {"function_definition", "declaration", "type_definition", "struct_specifier", "enum_specifier"}
 )
@@ -29,18 +44,44 @@ _DECLARATION_BOUNDARIES = frozenset(
 class _Candidate:
     end: int
     masks: tuple[tuple[int, int], ...]
+    literals: tuple[tuple[int, int], ...] = ()
 
 
 def recover_bodies(source: bytes, tree: Tree, parser: Parser) -> tuple[Tree, frozenset[int]]:
     """Verify each physical span independently and retain original diagnostics."""
-    if not tree.root_node.has_error:
+    # Spliced macro names can look like valid nested definitions to the grammar.
+    if not tree.root_node.has_error and (
+        _LINE_SPLICE.search(source) is None
+        or not any(
+            node.type == "function_definition"
+            and (body := node.child_by_field_name("body")) is not None
+            and _LINE_SPLICE.search(source, body.start_byte, body.end_byte) is not None
+            for node in walk_owned(tree.root_node, boundaries=_DECLARATION_BOUNDARIES)
+        )
+    ):
         return tree, frozenset()
     source, tree = _unwrap_cpp_namespace(source, tree, parser)
-    functions = _recovery_functions(tree.root_node, source)
+    ignored: list[tuple[int, int]] = []
+    literals: list[tuple[int, int]] = []
+    tokens = _source_tokens(source, ignored, literals)
+    # Opaque preprocessor text can hide the function in the original error tree.
+    # This view is only for discovery; each candidate must verify its own masks.
+    provisional = (
+        parser.parse(_masked_source(source, ignored, literals)) if ignored or literals else tree
+    )
+    functions = _recovery_functions(provisional.root_node, source)
     if not functions:
         return tree, frozenset()
-    tokens = _source_tokens(source)
     candidates = _candidates(functions, tokens)
+    candidates = {
+        start: _Candidate(
+            candidate.end,
+            candidate.masks
+            + tuple(span for span in ignored if start <= span[0] and span[1] <= candidate.end),
+            tuple(span for span in literals if start <= span[0] and span[1] <= candidate.end),
+        )
+        for start, candidate in candidates.items()
+    }
     for _ in range(4):
         if not candidates:
             break
@@ -85,11 +126,13 @@ def _unwrap_cpp_namespace(source: bytes, tree: Tree, parser: Parser) -> tuple[by
         first, last = children[0], children[-1]
         guard = parent.child_by_field_name("name")
         closing_guard = last.child_by_field_name("name")
+        directive = first.child_by_field_name("directive")
         if (
             guard is None
             or first.type != "preproc_call"
-            or first.text is None
-            or first.text.strip() != b"#endif"
+            or directive is None
+            or _ENDIF.fullmatch(directive.text or b"") is None
+            or any(child.type != "comment" and child != directive for child in first.named_children)
             or last.type != "preproc_ifdef"
             or last.children[0].type != "#ifdef"
             or closing_guard is None
@@ -109,13 +152,16 @@ def _unwrap_cpp_namespace(source: bytes, tree: Tree, parser: Parser) -> tuple[by
 
 
 def _needs_recovery(node: Node, source: bytes) -> bool:
-    if node.type != "function_definition" or not node.has_error:
+    if node.type != "function_definition":
         return False
     body = node.child_by_field_name("body")
-    return body is not None and any(
-        match[1] not in _KEYWORDS
-        for match in _BLOCK_START.finditer(source, body.start_byte, body.end_byte)
-    )
+    if body is None:
+        return False
+    body_source = source[body.start_byte : body.end_byte]
+    if not node.has_error and _LINE_SPLICE.search(body_source) is None:
+        return False
+    tokens = _source_tokens(body_source)
+    return bool(_mask_ranges(tokens, 0, len(tokens) - 1))
 
 
 def _recovery_functions(root: Node, source: bytes) -> tuple[Node, ...]:
@@ -126,32 +172,56 @@ def _recovery_functions(root: Node, source: bytes) -> tuple[Node, ...]:
     )
 
 
-def _source_tokens(source: bytes) -> list[re.Match[bytes]]:
+def _directive_text(text: bytes) -> bytes:
+    """Remove directive trivia after line splicing; never evaluate expressions."""
+    if b"#" not in text:
+        return text
+    text = _LINE_SPLICE.sub(b"", text)
+    return _OPAQUE.sub(
+        lambda match: b" " if _COMMENT_START.match(match[0]) is not None else match[0], text
+    )
+
+
+def _source_tokens(
+    source: bytes,
+    ignored: list[tuple[int, int]] | None = None,
+    literals: list[tuple[int, int]] | None = None,
+) -> list[re.Match[bytes]]:
+    """Keep physical offsets while omitting comments and literal-zero arms."""
     tokens = []
-    inactive = 0
+    parents: list[bool] = []
+    inactive = False
     for token in _TOKENS.finditer(source):
         text = token.group()
-        if inactive:
-            directive = _CONDITIONAL.match(text)
-            if directive is not None:
-                inactive = _disabled_depth(directive[1], inactive)
-                tokens.append(token)
-        elif text[0] in (35, 32, 9) and _DISABLED_START.fullmatch(text):
-            inactive = 1
+        normalized = _directive_text(text)
+        directive = _CONDITIONAL.match(normalized)
+        if directive is not None:
+            if directive[1] in {b"if", b"ifdef", b"ifndef"}:
+                parents.append(inactive)
+                inactive = inactive or _DISABLED_START.fullmatch(normalized) is not None
+            elif parents:
+                if directive[1] == b"endif":
+                    inactive = parents.pop()
+                else:
+                    inactive = parents[-1] or _DISABLED_START.fullmatch(normalized) is not None
             tokens.append(token)
-        elif not text.startswith((b"//", b"/*")):
+        elif inactive or _LINE_SPLICE.fullmatch(text) is not None:
+            if ignored is not None:
+                ignored.append((token.start(), token.end()))
+        elif _COMMENT_START.match(text) is None or normalized.lstrip().startswith(b"#"):
             tokens.append(token)
+            if ignored is not None and normalized.lstrip().startswith(b"#"):
+                ignored.append((token.start(), token.end()))
+            if (
+                literals is not None
+                and text[:1] in (b'"', b"'")
+                and _LINE_SPLICE.search(text) is not None
+            ):
+                literals.append((token.start(), token.end()))
+        elif ignored is not None and _LINE_SPLICE.search(text) is not None:
+            # The grammar cannot read comment delimiters split across lines.
+            ignored.append((token.start(), token.end()))
     return tokens
-
-
-def _disabled_depth(directive: bytes, depth: int) -> int:
-    if directive in {b"if", b"ifdef", b"ifndef"}:
-        return depth + 1
-    if directive == b"endif":
-        return depth - 1
-    if depth == 1 and directive in {b"else", b"elif"}:
-        return 0
-    return depth
 
 
 def _candidates(
@@ -167,8 +237,6 @@ def _candidates(
         end = _physical_end(tokens, start)
         if end is None or tokens[end].end() < body.end_byte:
             continue
-        if tokens[end].end() == body.end_byte and not body.has_error:
-            continue
         masks = _mask_ranges(tokens, start, end)
         if masks:
             candidates[function.start_byte] = _Candidate(tokens[end].end(), masks)
@@ -180,7 +248,7 @@ def _physical_end(tokens: list[re.Match[bytes]], start: int) -> int | None:
     groups: list[int] = []
     for index in range(start, len(tokens)):
         text = tokens[index].group()
-        conditional = _CONDITIONAL.match(text)
+        conditional = _CONDITIONAL.match(_directive_text(text))
         if conditional is not None:
             if not _conditional_depth(conditional[1], groups, depth):
                 return None
@@ -207,7 +275,9 @@ def _mask_ranges(
     tokens: list[re.Match[bytes]], start: int, end: int
 ) -> tuple[tuple[int, int], ...]:
     statements = [
-        token for token in tokens[start : end + 1] if not token.group().lstrip().startswith(b"#")
+        token
+        for token in tokens[start : end + 1]
+        if not _directive_text(token.group()).lstrip().startswith(b"#")
     ]
     return tuple(
         (statements[index].start(), statements[index].end())
@@ -217,7 +287,7 @@ def _mask_ranges(
 
 
 def _block_macro(tokens: list[re.Match[bytes]], index: int) -> bool:
-    text = tokens[index].group()
+    text = _LINE_SPLICE.sub(b"", tokens[index].group())
     return (
         tokens[index + 1].group() == b"{"
         and tokens[index - 1].group() in {b"{", b"}", b";", b":"}
@@ -227,11 +297,25 @@ def _block_macro(tokens: list[re.Match[bytes]], index: int) -> bool:
 
 
 def _reparse(source: bytes, parser: Parser, candidates: dict[int, _Candidate]) -> Tree:
+    masks = (span for candidate in candidates.values() for span in candidate.masks)
+    literals = (span for candidate in candidates.values() for span in candidate.literals)
+    return parser.parse(_masked_source(source, masks, literals))
+
+
+def _masked_source(
+    source: bytes,
+    masks: Iterable[tuple[int, int]],
+    literals: Iterable[tuple[int, int]] = (),
+) -> bytes:
     masked = bytearray(source)
-    for candidate in candidates.values():
-        for start, end in candidate.masks:
-            masked[start:end] = b" " * (end - start)
-    return parser.parse(bytes(masked))
+    for start, end in masks:
+        masked[start:end] = bytes(byte if byte in (10, 13) else 32 for byte in masked[start:end])
+    for start, end in literals:
+        # The grammar can misread line splices inside literals. Use an opaque
+        # expression in the verified body without exposing their contents.
+        masked[start:end] = bytes(byte if byte in (10, 13) else 32 for byte in masked[start:end])
+        masked[start] = ord("0")
+    return bytes(masked)
 
 
 def _verified(root: Node, candidates: dict[int, _Candidate]) -> set[int]:

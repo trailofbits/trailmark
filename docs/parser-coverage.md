@@ -156,6 +156,8 @@ excluded from cross-file free-function
 fallback. Static functions follow the header and include visibility rules below. Header
 export annotations currently need to be repeated on extracted definitions; matching
 prototype attributes through preprocessing/includes is not implemented.
+C functions returning function pointers retain their own parameters, so callback
+parameters still shadow same-named globals through nested declarators.
 
 C can recover a balanced physical function body around bare block macros, including
 a comment between the macro and brace, while
@@ -165,13 +167,39 @@ uncertain. This is source-span recovery, not preprocessing or a model of nonloca
 control flow. Conditional preprocessor groups are allowed when every branch
 boundary preserves brace depth and the group closes inside the body. Brace-changing
 conditionals and unbalanced bodies are not recovered as one configuration.
+During recovery, literal `#if 0` and `#elif 0` arms are masked while preserving
+byte offsets and line breaks. Nested branches remain disabled until their enclosing
+disabled arm ends; other conditions, including C23 `#elifdef` and `#elifndef` arms,
+remain potentially active. A provisional parse
+can expose a function hidden by disabled prose, but masks are committed only inside
+independently verified function spans.
+Directives may follow leading whitespace or comments at the start of a line.
+Directive classification removes line splices and comments; an
+expression such as `0 /* comment */ + 1` remains potentially active.
+Line-spliced comments and literals with LF or CRLF cannot contribute braces or
+calls to a recovered body. Comments, spliced literals, and nonconditional directives
+that the grammar misreads use opaque placeholders in that verified view; the original
+byte offsets, CR/LF bytes, and diagnostics remain intact.
+Unterminated block comments keep their trailing bytes opaque and remain diagnosed.
+Line splices in block-macro names and adjacent comments are recognized even when
+the grammar reports no syntax error; those recovered calls remain uncertain.
+Standalone line splices between tokens are omitted before span verification.
+Native `__try` and `__finally` blocks retain their syntax and call confidence.
 Recovery verifies each function independently, so a failed candidate does not
 cancel other verified spans. Unrelated remaining syntax errors remain diagnosed.
 
 Single-identifier declaration macros can recover a concrete function signature
 from unambiguous definitions in the file or literal quoted headers. Simple token
 pasting and object-like wrapper aliases are supported; lookup and expansion are
-bounded. Quoted includes must resolve inside the analyzed directory (or the source
+bounded. Expansion text is capped at 16,384 characters. Line splices join macro
+tokens before declaration expansion, including
+with LF or CRLF, while locations retain their original physical lines.
+Whitespace and trailing comments on `#undef` invalidate earlier macro definitions.
+Extra tokens after its macro name also invalidate the definition conservatively.
+The recorded spelling of UTF-8 macro names is preserved by `#undef`.
+Declaration lookup follows at most 16 include edges and visits at most 128 files,
+including the entry source.
+Quoted includes must resolve inside the analyzed directory (or the source
 file's parent for single-file parsing), including through symlinks. Header trees
 and directive indexes are cached only for the current directory operation. The concrete
 symbol becomes the callable ID, with `macro_wrapper`, `source_alias`, and

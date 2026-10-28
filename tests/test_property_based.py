@@ -8,8 +8,10 @@ annotation round-trips, graph traversal duality, and diagram safety.
 from __future__ import annotations
 
 import re
+from copy import deepcopy
+from dataclasses import replace
 
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
 from trailmark.diagram import sanitize_id
@@ -96,27 +98,25 @@ def test_index_bijection(graph: CodeGraph) -> None:
 
 
 @given(g1=_graph_st(), g2=_graph_st())  # type: ignore[misc]  # st.composite ParamSpec
-@settings(max_examples=200)
-def test_merge_monotonic(g1: CodeGraph, g2: CodeGraph) -> None:
-    """Merging never loses nodes, edges, or dependencies."""
-    orig_nodes = len(g1.nodes)
-    orig_edges = len(g1.edges)
-    orig_deps = len(g1.dependencies)
-    g2_node_ids = set(g2.nodes.keys())
-    g2_dep_set = set(g2.dependencies)
-
+@example(
+    g1=CodeGraph(nodes={"shared": _make_unit("shared")}, dependencies=["old", "common"]),
+    g2=CodeGraph(
+        nodes={"shared": replace(_make_unit("shared"), name="replacement")},
+        edges=[CodeEdge("shared", "shared", EdgeKind.CALLS)] * 2,
+        dependencies=["common", "new"],
+    ),
+)
+@settings(max_examples=200, deadline=None)
+def test_merge_preserves_exact_nodes_edges_and_dependency_order(
+    g1: CodeGraph, g2: CodeGraph
+) -> None:
+    """Merge replaces nodes, retains repeated edges, and stably deduplicates dependencies."""
+    before, incoming = deepcopy(g1), deepcopy(g2)
     g1.merge(g2)
-
-    assert len(g1.nodes) >= orig_nodes
-    assert len(g1.edges) >= orig_edges
-    assert len(g1.dependencies) >= orig_deps
-    # All of g2's nodes are present after merge
-    for nid in g2_node_ids:
-        assert nid in g1.nodes
-    # All of g2's deps are present, and no duplicates
-    for dep in g2_dep_set:
-        assert dep in g1.dependencies
-    assert len(g1.dependencies) == len(set(g1.dependencies))
+    assert g1.nodes == before.nodes | incoming.nodes
+    assert g1.edges == before.edges + incoming.edges
+    assert g1.dependencies == list(dict.fromkeys([*before.dependencies, *incoming.dependencies]))
+    assert g2 == incoming
 
 
 # ── 3. Annotation add/clear round-trip ──────────────────────────
@@ -138,18 +138,14 @@ def test_annotation_add_clear_roundtrip(
     for ann in annotations:
         assert store.add_annotation("n", ann) is True
 
-    assert len(store.annotations_for("n")) == len(annotations)
+    assert store.annotations_for("n") == annotations
+    detached = store.annotations_for("n")
+    detached.clear()
+    assert store.annotations_for("n") == annotations
 
-    store.clear_annotations("n", clear_kind)
-
-    if clear_kind is None:
-        assert store.annotations_for("n") == []
-    else:
-        remaining = store.annotations_for("n")
-        expected_count = sum(1 for a in annotations if a.kind != clear_kind)
-        assert len(remaining) == expected_count
-        for r in remaining:
-            assert r.kind != clear_kind
+    assert store.clear_annotations("n", clear_kind) is True
+    expected = [] if clear_kind is None else [ann for ann in annotations if ann.kind != clear_kind]
+    assert store.annotations_for("n") == expected
 
 
 # ── 4. reachable_from / ancestors_of duality ─────────────────────

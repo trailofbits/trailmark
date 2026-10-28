@@ -527,18 +527,23 @@ def _extract_parameters(node: Node, macros: DeclarationMacros | None = None) -> 
 
 
 def _find_func_declarator(node: Node | None) -> Node | None:
-    """Find the function_declarator inside a declarator chain."""
-    if node is None:
-        return None
-    if node.type == "function_declarator":
-        return node
-    declarator = node.child_by_field_name("declarator")
-    if declarator is not None:
-        return _find_func_declarator(declarator)
-    for child in node.children:
-        if child.type == "function_declarator":
-            return child
-    return None
+    """Find the defining function's parameters, before any returned function type."""
+    result = None
+    while node is not None:
+        if node.type == "function_declarator":
+            result = node
+        declarator = node.child_by_field_name("declarator")
+        if declarator is None:
+            declarator = next(
+                (
+                    child
+                    for child in node.named_children
+                    if child.type.endswith("_declarator") or child.type == "identifier"
+                ),
+                None,
+            )
+        node = declarator
+    return result
 
 
 def _parse_param_declaration(node: Node) -> Parameter | None:

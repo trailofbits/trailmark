@@ -284,7 +284,13 @@ rules.
 The C parser also recovers definitions inside optional C++ namespace wrappers
 whose opening and closing braces use matching positive `#ifdef` guards. Original
 syntax diagnostics remain visible; arbitrary C++ syntax is not interpreted as C.
+Whitespace and trailing comments on the separating `#endif` are accepted.
 Alternative `#elif`/`extern "C"` linkage arms are left intact with their diagnostics.
+Physical-body recovery respects line-spliced comments and literals with LF or CRLF.
+It also recognizes spliced block-macro names and comments before directives.
+Recovery retains potentially active C23 `#elifdef` and `#elifndef` arms and native
+`__try`/`__finally` blocks.
+C functions returning function pointers keep their own parameters and callback shadows.
 
 The C and C++ parsers recover functions inside preprocessor conditional blocks
 and tree-sitter error nodes, so code that does not parse cleanly as a whole
