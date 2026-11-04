@@ -98,7 +98,7 @@ one wins.
 | Language | Detected |
 | --- | --- |
 | Python | Flask, FastAPI, aiohttp, Click, Typer, Celery |
-| JavaScript / TypeScript | NestJS, exported HTTP-method/file-route conventions, AWS Lambda |
+| JavaScript / TypeScript | NestJS, Elysia HTTP registrations, exported HTTP-method/file-route conventions, AWS Lambda |
 | Java | Spring MVC / WebFlux, JAX-RS, Kafka listeners, servlets |
 | Kotlin | Spring MVC / WebFlux annotations, Android component lifecycle methods (`onCreate`, `onReceive`, `onBind`, ...) |
 | C# | ASP.NET Core, Azure Functions |
@@ -142,6 +142,39 @@ Use the override file for handlers that are not covered by these patterns.
 authors: markers, suggested classifications, and grep-ready patterns, including
 frameworks that are not detected yet (Express, Koa, Fastify, Django, Laravel,
 Cobra, axum, warp, clap, and others).
+
+### Elysia
+
+JavaScript/TypeScript HTTP handlers registered with `get`, `post`, `put`,
+`patch`, `delete`, `head`, `options`, `all`, or `route(method, path, handler)`
+are tagged `api`, `untrusted_external`, `high`. The receiver must trace to an
+Elysia ES import: default, named `Elysia` (including aliases), or namespace
+`Elysia`/`default`. Local `const` aliases, inline arrows/function expressions,
+local named handlers, and chains through known Elysia builder methods are
+supported. Type-only imports and shadowed names do not establish provenance.
+
+```typescript
+import { Elysia } from 'elysia';
+function status() { return 'ok'; }
+new Elysia().get('/status', status).post('/echo', ({ body }) => body);
+```
+
+Each registration produces `elysia.route` evidence with its source location,
+HTTP method and local path expression. Repeated registrations of one handler
+retain separate evidence. Literal paths are recorded without prefix expansion;
+dynamic paths/methods retain uncertainty. Static response values have no handler
+node. Registration does not create a call edge to the handler.
+
+Detection is heuristic: mounting, listening, middleware, authentication, and
+runtime activation are not established. Imported handlers, member dispatch,
+handler factories, mutable bindings, CommonJS constructors, computed method
+names, group/guard callback receivers, and WebSocket/lifecycle callbacks are
+not resolved by this detector. A recognized registration with an unresolved
+handler remains a candidate; an unrecognized receiver is skipped. Writes to
+an identifier anywhere in the file conservatively block resolving that name.
+Arbitrary property mutation, monkeypatching, and cross-file value flow are not
+modeled. Alias/builder traversal is bounded to 64 recursive resolution steps.
+Use `.trailmark/entrypoints.toml` for handlers outside these bounds.
 
 ### Solidity
 

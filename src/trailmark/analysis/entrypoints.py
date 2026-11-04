@@ -14,7 +14,7 @@ Detection layers (later layers override earlier ones):
      Click / Typer (``@click.command``, ``@app.command``); Celery
      (``@app.task``, ``@shared_task``).
    - JavaScript / TypeScript: NestJS decorators (``@Get``, ``@Post``,
-     etc.), Next.js route handlers (App Router ``route.ts`` + HTTP-verb
+     etc.), Elysia HTTP registrations, Next.js route handlers (App Router ``route.ts`` + HTTP-verb
      exports, Pages API ``pages/api/**``), AWS Lambda handlers.
    - Java: Spring (``@GetMapping``, ``@PostMapping``, ...), JAX-RS
      (``@GET``, ``@POST``), Kafka ``@KafkaListener``, servlet
@@ -53,6 +53,7 @@ from pathlib import Path
 from typing import Any
 
 from trailmark._path_glob import compile_path_glob
+from trailmark.analysis._elysia import detect_elysia_entrypoints
 from trailmark.analysis._entrypoint_declarations import DeclarationCache
 from trailmark.analysis._python_decorators import DecoratorFact, python_decorators
 from trailmark.models.annotations import (
@@ -348,6 +349,7 @@ def _detect_framework_entrypoints(graph: CodeGraph) -> dict[str, EntrypointTag]:
             result[node_id] = tag
         if Path(path).suffix.lower() in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
             _record_module_exports(graph, unit, cache)
+    result.update(detect_elysia_entrypoints(graph, cache.declarations))
     _annotate_overridden_solidity_entrypoints(graph, result)
     _record_python_decorators(graph, cache)
     return result

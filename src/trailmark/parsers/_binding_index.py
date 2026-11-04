@@ -80,6 +80,7 @@ def sort_syntax(nodes: list[Node]) -> None:
 @dataclass
 class _Scope:
     parent: int | None
+    kind: str = ""
     declarations: dict[str, list[Node]] = field(default_factory=dict)
     latest: dict[str, Node] = field(default_factory=dict)
     unordered: bool = False
@@ -171,11 +172,14 @@ class ScopeIndex:
         scopes: frozenset[str],
         fields: dict[str, str],
     ) -> int | None:
-        # A function's name belongs to its enclosing scope, not its body.
-        if node.type in fields and owner is not None:
+        # Function names belong outside; catch/loop targets belong inside their scope.
+        inner_binding = node.type in {"catch_clause", "for_in_statement"} and node.type in scopes
+        if node.type in fields and owner is not None and not inner_binding:
             self._declaration(node, owner, fields)
         if node.type in scopes or self._python and node.type == "class_definition":
             owner = self._new_scope(node, owner)
+        if inner_binding and owner is not None:
+            self._declaration(node, owner, fields)
         self.owners[node.id] = owner
         if self._python:
             self._directives(node, owner)
@@ -191,10 +195,11 @@ class ScopeIndex:
         self.callback_names.update(parameters)
         self.scopes[node.id] = _Scope(
             owner,
+            kind=node.type,
             callback_parameters=parameters,
             unordered=node.type in {"class_body", "enum_class_body", "enum_body"},
         )
-        if node.type in {"function_expression", "function", "generator_function"}:
+        if node.type in {"function_expression", "function", "generator_function", "class"}:
             name = node.child_by_field_name("name")
             if name is not None:
                 self._remember(node.id, {_text(name)}, node)
@@ -224,6 +229,22 @@ class ScopeIndex:
         field_name = fields.get(node.type)
         if field_name is None:
             return
+        if _ecmascript_var(node):
+            while self.scopes[owner].parent is not None and self.scopes[owner].kind not in {
+                "program",
+                "function_declaration",
+                "generator_function_declaration",
+                "function_expression",
+                "function",
+                "generator_function",
+                "arrow_function",
+                "method_definition",
+                "class_static_block",
+            }:
+                parent = self.scopes[owner].parent
+                if parent is None:
+                    break
+                owner = parent
         if self._c_declarations and node.type in {"declaration", "field_declaration"}:
             for declarator in node.children_by_field_name("declarator"):
                 prototype = function_prototype_name(declarator, cpp_block=self._cpp_declarations)
@@ -314,6 +335,16 @@ class ScopeIndex:
         for node_id in pending:
             self.owners[node_id] = owner
         return owner
+
+
+def _ecmascript_var(node: Node) -> bool:
+    """JavaScript var bindings escape block scopes, including for-in/of targets."""
+    declaration = node.parent if node.type == "variable_declarator" else node
+    return (
+        declaration is not None
+        and declaration.type in {"variable_declaration", "for_in_statement"}
+        and any(child.type == "var" for child in declaration.children)
+    )
 
 
 def _callback_parameters(node: Node) -> set[str]:

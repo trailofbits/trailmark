@@ -186,6 +186,28 @@ Any function called from an `if __name__ == "__main__":` block is a script entry
 
 ## JavaScript / TypeScript
 
+### Elysia
+
+`new Elysia().get/post/...(path, handler)` and
+`app.route(method, path, handler)` register HTTP handlers.
+
+```ts
+import { Elysia as Web } from 'elysia';
+const app = new Web();
+app.get('/health', () => ({ ok: true }));
+```
+
+- **Scope:** the handler callable, including inline arrows/function expressions
+- **Kind:** `api` · **Trust:** `untrusted_external` · **Asset:** `high`
+- **Pattern:** HTTP method calls on receivers traced through local `const`
+  bindings and known builder chains to an Elysia ES import and construction.
+- **Gotcha:** matching `.get`/`.post` alone also matches HTTP clients and other
+  libraries. Respect lexical shadowing, and do not treat plugin callbacks or
+  static response values as HTTP handlers. Registration is not a call edge.
+- **Coverage:** see [Elysia detection limits](entrypoints.md#elysia).
+- **Source:** <https://elysiajs.com/essential/route>
+
+
 ### Express
 
 `app.get/post/put/delete/patch/all/use("/path", handler)` — handler is typically the callback. `app` is any variable of `Express` type.

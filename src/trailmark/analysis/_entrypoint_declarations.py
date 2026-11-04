@@ -137,6 +137,7 @@ class DeclarationCache:
     def __init__(self, language: str | None = None) -> None:
         self._files: dict[str, dict[tuple[int, int], Node]] = {}
         self._exports: dict[str, _ModuleExports] = {}
+        self._ecmascript_roots: dict[str, Node] = {}
         self._language = language
 
     def _load(self, path: str) -> None:
@@ -148,6 +149,7 @@ class DeclarationCache:
         pending = [] if language is None else _parse_roots(path, language)
         if language in _ECMASCRIPT:
             self._exports[path] = _index_exports(pending[0], path)
+            self._ecmascript_roots[path] = pending[0]
         while pending:
             node = pending.pop()
             if node.type in _CALLABLE_NODES:
@@ -157,6 +159,12 @@ class DeclarationCache:
                 declarations.setdefault(point, node)
             pending.extend(reversed(node.named_children))
         self._files[path] = declarations
+
+    def ecmascript_root(self, path: str) -> Node | None:
+        """Reuse the parsed ECMAScript tree for framework registration analysis."""
+        if path not in self._files:
+            self._load(path)
+        return self._ecmascript_roots.get(path)
 
     def _declaration(self, unit: CodeUnit) -> Node | None:
         path = unit.location.file_path
