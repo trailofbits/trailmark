@@ -28,7 +28,7 @@ that are reachable from user input.
   modules, connected by calls, inheritance, containment, and type use.
   `--language auto` merges every supported language in a tree into one graph.
 - **Attack surface.** Framework-aware entrypoint detection (Flask, FastAPI,
-  Spring, ASP.NET Core, actix-web, NestJS, Solidity visibility, and more), each
+  Spring, ASP.NET Core, actix-web, NestJS, Elysia HTTP registrations, Solidity visibility, and more), each
   tagged with a trust level and asset value. Override or extend detection with
   `.trailmark/entrypoints.toml`.
 - **Entrypoint evidence.** Inspect callable and declarative references, executable
