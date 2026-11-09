@@ -108,6 +108,8 @@ enter the gate automatically when edited. The gate rejects unreviewed
 survivors, missing tests or results, errors, and timeouts. An exception
 requires a reason and a fingerprint of the function and mutation; changing
 that function requires reviewing its exceptions again.
+Source hashes and mutation fingerprints use a canonical AST representation so
+reviews remain valid across supported Python versions.
 
 **How the runner works.** The runner pins pytest-gremlins 1.11.4 and uses its
 pytest subprocesses and import handling, including fixtures, parametrized tests,

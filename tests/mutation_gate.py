@@ -30,8 +30,30 @@ class _RemoveSwitches(ast.NodeTransformer):
         return self.generic_visit(node)
 
 
+def _ast_dump(value: Any) -> str:
+    """Serialize AST fields explicitly, independent of ast.dump's display defaults."""
+    if isinstance(value, ast.AST):
+        fields = []
+        for name, field in sorted(ast.iter_fields(value)):
+            # Eager imports predate Python 3.15's optional lazy-import flag.
+            if isinstance(value, (ast.Import, ast.ImportFrom)) and name == "is_lazy" and not field:
+                continue
+            # Type parameter defaults were added in Python 3.13.
+            if (
+                isinstance(value, (ast.TypeVar, ast.ParamSpec, ast.TypeVarTuple))
+                and name == "default_value"
+                and field is None
+            ):
+                continue
+            fields.append(f"{name}={_ast_dump(field)}")
+        return f"{type(value).__name__}({', '.join(fields)})"
+    if isinstance(value, list):
+        return f"[{', '.join(_ast_dump(item) for item in value)}]"
+    return repr(value)
+
+
 def _code(node: ast.AST) -> str:
-    return ast.dump(_RemoveSwitches().visit(copy.deepcopy(node)))
+    return _ast_dump(_RemoveSwitches().visit(copy.deepcopy(node)))
 
 
 def functions_in(
@@ -69,7 +91,7 @@ def describe(
     fingerprint_context = {
         "path": path,
         "function": name,
-        "function_source": ast.dump(owner),
+        "function_source": _ast_dump(owner),
         "offset": [
             gremlin.line_number - getattr(owner, "lineno", 1),
             gremlin.original_node.col_offset,
@@ -83,7 +105,7 @@ def describe(
     ).hexdigest()
     return {
         "fingerprint": fingerprint,
-        "source_hash": hashlib.sha256(ast.dump(owner).encode()).hexdigest(),
+        "source_hash": hashlib.sha256(_ast_dump(owner).encode()).hexdigest(),
         "path": path,
         "function": name,
         "line": gremlin.line_number,

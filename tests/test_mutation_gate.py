@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -10,7 +12,7 @@ from typing import Any
 import pytest
 from pytest_gremlins.instrumentation.transformer import transform_source
 
-from tests.mutation_gate import check, describe
+from tests.mutation_gate import _ast_dump, check, describe
 from tests.run_mutations import RUNNER, VERSION
 
 pytestmark = pytest.mark.mutation_infrastructure
@@ -176,6 +178,65 @@ def test_fingerprints_are_stable_across_line_moves_but_distinguish_mutations() -
     second = [describe(g, moved, "target.py")["fingerprint"] for g in relocated]
     assert first == second
     assert len(set(first)) == len(first)
+
+
+def test_fingerprint_format_is_portable_across_supported_python_versions() -> None:
+    # Imports gain is_lazy in 3.15, type parameters gain default_value in 3.13,
+    # and ast.dump changes its handling of empty fields and Load contexts.
+    source = (
+        "from dataclasses import dataclass\n\n"
+        "@dataclass(frozen=True)\n"
+        "class Record[T]:\n"
+        "    value: T\n\n"
+        "def bounded[T](value: T):\n"
+        "    return value is None\n"
+    )
+    mutants, _ = transform_source(source, "target.py")
+    mutant = next(g for g in mutants if g.line_number == 3)
+    detail = describe(mutant, source, "target.py")
+    assert detail["fingerprint"] == (
+        "5cb55843d8dce16029f51d4caa56c9444e0bb99108b1fb77fad6486fa6d95b31"
+    )
+    assert detail["source_hash"] == (
+        "f9d6283db108408ebddf571e1179a55b6e663712ea97959a7fc8cf9c3d6ecf44"
+    )
+
+
+@pytest.mark.parametrize(
+    ("original", "changed", "minimum"),
+    [
+        ("import example", "lazy import example", (3, 15)),
+        ("type Record[T] = list[T]", "type Record[T = int] = list[T]", (3, 13)),
+    ],
+)
+def test_new_ast_fields_retain_semantic_changes(
+    original: str, changed: str, minimum: tuple[int, int]
+) -> None:
+    if sys.version_info < minimum:
+        pytest.skip("Syntax requires a newer Python version")
+    assert _ast_dump(ast.parse(original)) != _ast_dump(ast.parse(changed))
+
+
+@pytest.mark.parametrize("review", ["exceptions", "unchanged_legacy_functions"])
+def test_reviews_expire_after_real_source_edits(
+    tmp_path: Path, campaign: tuple, review: str
+) -> None:
+    report, run, baseline = campaign
+    target = tmp_path / "target.py"
+    source = target.read_text()
+    mutants, _ = transform_source(source, str(target))
+    baseline[review] = [
+        {**describe(mutants[0], source, "target.py"), "reason": "Reviewed original source."}
+    ]
+    report["results"][0]["status"] = "survived"
+    report["summary"]["zapped"] -= 1
+    report["summary"]["survived"] = 1
+    assert check(tmp_path, report, run, baseline) == []
+
+    changed = source.replace("> 0", "> 1")
+    target.write_text(changed)
+    run["sources"]["target.py"] = hashlib.sha256(target.read_bytes()).hexdigest()
+    assert len(check(tmp_path, report, run, baseline)) == 1
 
 
 def test_legacy_exclusion_expires_when_function_changes(tmp_path: Path, campaign: tuple) -> None:
