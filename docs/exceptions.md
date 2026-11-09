@@ -19,13 +19,24 @@ and `declares` separately. They retain unknown operands, handler headers, type
 hints, source coordinates and lexical protected regions where available.
 A protected region is not a runtime dispatch edge. Events inside a modeled nested
 callable belong to that callable, including declarations sharing one source line.
+Only a callable's own signature declares exceptions; function types in its
+parameters, return type, locals or lambdas do not. Events outside any modeled
+callable belong to the module, but they do not make it a raising function.
 Go function literals, Rust closures/async blocks and Ruby blocks without their own graph nodes
 are omitted from events rather than assigned to the enclosing function. Embedded
 Verus macro bodies are also omitted. Their absence does not establish safety.
 
 Constructor-like call names are syntactic type hints; they can denote factories.
-Variable operands remain expressions rather than invented type names. Handler
-types are separate from directly raised types. A TypeScript catch annotation is
+Variable operands remain expressions rather than invented type names.
+Python bare raises infer unshadowed builtin exception names and explicit,
+undecorated classes defined in the same file, including nested class members.
+Explicit imports from `builtins` keep their source aliases. Parameters, assigned
+values, conditional definitions, unknown imports and dynamic writes leave the
+type unknown; constructor calls retain syntactic hints without binding proof.
+Swift `throw Type.member(...)` names `Type` for a lowercase member, such as an enum
+case or factory, and the full name for a capitalized nested type. Solidity
+`revert("reason")` has no error type. Handler types are separate from directly
+raised types. A TypeScript catch annotation is
 not an exception filter. Thrift throws describe declarations, not implementation
 execution. Query type references include raised, caught and declared type hints.
 The legacy `exception_types` field retains frontend-specific metadata, including
@@ -35,6 +46,11 @@ and coverage boundaries when examining direct source evidence.
 `certain` means the exceptional construct itself is explicit syntax. Failure-API
 calls and macros whose dispatch is unresolved remain `uncertain` candidates.
 Known local callable targets or callable parameters suppress such candidates.
+A bare Ruby `raise` or `fail` is an uncertain `rethrow` of the current exception.
+Bare names used as assignment values or call arguments are not classified.
+Call-based wrappers whose arguments include the protected body, such as R
+`tryCatch`, Lua `pcall`, Ruby `catch` and Haskell `bracket`, record the callee
+name as their expression.
 These confidence values do not establish that a statement executes, that a call
 reaches the builtin, or that an exception escapes its function.
 

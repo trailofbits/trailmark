@@ -366,3 +366,21 @@ class TestSubgraphAPI:
         data = json.loads(engine.to_json())
         assert "subgraphs" in data
         assert "tainted" in data["subgraphs"]
+
+    def test_stale_entrypoints_do_not_abort_preanalysis(self) -> None:
+        """Entrypoint IDs and call edges without nodes are skipped, not stored."""
+        engine = _build_mixed_trust_graph()
+        graph = engine._store._graph  # noqa: SLF001
+        graph.entrypoints["ghost"] = EntrypointTag(
+            kind=EntrypointKind.USER_INPUT,
+            trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+        )
+        graph.edges.append(CodeEdge("ghost", "ep_trusted", EdgeKind.CALLS))
+        result = engine.preanalysis()
+        assert result["entrypoints"]["total_entrypoints"] == 2
+        members = {node["id"] for node in engine.subgraph("entrypoints")}
+        assert members == {"ep_untrusted", "ep_trusted"}
+        assert "ghost" not in graph.subgraphs["entrypoints"]
+        assert "ghost" not in graph.subgraphs["tainted"]
+        assert "ghost" not in graph.subgraphs["privilege_boundary"]
+        assert "ghost" not in graph.annotations

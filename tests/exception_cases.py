@@ -15,7 +15,7 @@ EXCEPTION_CASES: tuple[tuple[str, str, frozenset[str], bool], ...] = tuple(
         ("typescript", "typescript.ts", "raise handler cleanup", False),
         ("php", "php.php", "raise handler cleanup", False),
         ("perl", "perl.pl", "raise handler", False),
-        ("ruby", "ruby.rb", "raise handler cleanup", False),
+        ("ruby", "ruby.rb", "raise rethrow handler cleanup", False),
         ("lua", "lua.lua", "raise handler", False),
         ("c", "c.c", "handler propagate", False),
         ("bash", "bash.sh", "handler", False),

@@ -184,7 +184,9 @@ class _Analyzer:
             if definition is None:
                 continue
             scope = self._owner(node)
-            position = node.start_byte if _statement_block(node) == scope.body else None
+            # Decorators run where the def executes in its own scope, even inside
+            # if/try/with/for blocks, so later bindings are not yet visible.
+            position = node.start_byte
             for decorator in node.named_children:
                 expression = _first_named(decorator) if decorator.type == "decorator" else None
                 if expression is not None:

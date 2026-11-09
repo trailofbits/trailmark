@@ -2,19 +2,23 @@
 
 ## Unreleased
 
-- Reject unknown subgraph members and ignore stale IDs during queries and JSON
-  export. Keep distinct graph nodes separate in all six Mermaid diagram types.
+- Reject unknown subgraph members and ignore stale IDs during queries, JSON
+  export and preanalysis. Keep distinct graph nodes separate in all six Mermaid
+  diagram types.
 - Bound XML numeric reference conversion while accepting legal leading zeroes.
   Keep future and conditional Python bindings out of definite decorator provenance.
 - Preserve Unicode code points in Rust and Verus block-comment scanners. Bundle
-  the pinned Rust grammar with the correction; ordinary Rust now requires the
-  same first-use C compilation setup as the other bundled grammars.
+  the pinned Rust grammar with the correction. Ordinary Rust compiles it on first
+  use like the other bundled grammars and falls back to the language-pack grammar,
+  with a warning, when that build is unavailable.
 - Retain source-located exception events, including unknown throws, handlers,
   cleanup, rethrows, propagation syntax and declarations. Expose
   `exception_events()` and per-frontend `exception_support()` through the Python
   API and graph JSON, with an audit corpus covering all 39 registered frontends.
   Recover missing Kotlin, Swift and Dart throws and qualified PHP constructor
   names; keep handler and declared types separate from direct throw hints.
+  Infer Python bare raises from unshadowed builtins and in-file class definitions;
+  associate C++ exception declarations with the callable's own function type.
   Runtime dispatch, implicit execution and binary unwinding remain unsupported.
 - Recover C definitions inside matching guarded C++ namespace wrappers,
   preserving source positions and original syntax diagnostics.

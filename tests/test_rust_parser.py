@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,7 +14,9 @@ import pytest
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind, SourceLocation
-from trailmark.parsers.rust.parser import RustParser, _extract_parameters
+from trailmark.parse import parse_file
+from trailmark.parsers.rust import parser as rust_module
+from trailmark.parsers.rust.parser import RustParser, _extract_parameters, parse_syntax_roots
 from trailmark.tree_sitter_custom import verus as verus_mod
 
 SAMPLE_CODE = """\
@@ -571,3 +574,44 @@ class TestRustParseDirectory:
                 f.write("not source code")
             graph = parser.parse_directory(tmpdir)
         assert len(graph.nodes) == 0
+
+
+class TestRustGrammarLoading:
+    @pytest.fixture(autouse=True)
+    def _fresh_grammar(self) -> Iterator[None]:
+        rust_module._rust_grammar.cache_clear()
+        yield
+        rust_module._rust_grammar.cache_clear()
+
+    def test_bundled_grammar_loads_once_per_process(self) -> None:
+        with patch.object(rust_module, "rust_language", wraps=rust_module.rust_language) as loader:
+            RustParser()
+            RustParser()
+            for _ in range(3):
+                parse_syntax_roots(b"fn f() {}", "a.rs")
+        assert loader.call_count == 1
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            ImportError("Grammar compilation failed (exit 1): cc missing"),
+            FileNotFoundError("cc"),
+            PermissionError("read-only site-packages"),
+        ],
+    )
+    def test_falls_back_to_language_pack_without_a_toolchain(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture, error: Exception
+    ) -> None:
+        path = tmp_path / "a.rs"
+        path.write_text("fn caller() { callee(); }\nfn callee() {}\n")
+        with patch.object(rust_module, "rust_language", side_effect=error) as loader:
+            graph = parse_file(str(path), strict=True)
+            RustParser()
+            parse_syntax_roots(path.read_bytes(), str(path))
+        assert {node.name for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION} == {
+            "caller",
+            "callee",
+        }
+        assert any(edge.target_id == "a:callee" for edge in graph.edges)
+        assert loader.call_count == 1
+        assert caplog.text.count("Could not load the bundled Rust grammar") == 1

@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import subprocess
 from dataclasses import replace
+from functools import cache
 from pathlib import Path
 
 from tree_sitter import Language, Node, Parser, Range, Tree
+from tree_sitter_language_pack import get_language
 
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
@@ -38,6 +40,13 @@ from trailmark.parsers.rust._scopes import resolve_calls
 from trailmark.tree_sitter_custom.rust import language as rust_language
 
 _LOGGER = logging.getLogger(__name__)
+_GRAMMAR_LOAD_ERRORS = (
+    OSError,
+    subprocess.SubprocessError,
+    ImportError,
+    ValueError,
+    AttributeError,
+)
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -66,6 +75,20 @@ _RUST_TYPE_NODES = frozenset(
 )
 
 
+@cache
+def _rust_grammar() -> Language:
+    """Load the bundled Rust grammar once per process.
+
+    Without a C compiler, Python headers or a writable install, fall back to
+    the language-pack grammar, which can misread Unicode in block comments.
+    """
+    try:
+        return Language(rust_language())
+    except _GRAMMAR_LOAD_ERRORS as exc:
+        _LOGGER.warning("Could not load the bundled Rust grammar; using the language pack: %s", exc)
+        return get_language("rust")
+
+
 class RustParser:
     """Parses Rust source files into CodeGraph using tree-sitter."""
 
@@ -74,7 +97,7 @@ class RustParser:
         return "rust"
 
     def __init__(self) -> None:
-        self._parser = Parser(Language(rust_language()))
+        self._parser = Parser(_rust_grammar())
         self._verus_parser: Parser | None = None
         self._verus_load_failed = False
         self._uses: list[tuple[str, Node]] = []
@@ -153,13 +176,7 @@ class RustParser:
                 from trailmark.tree_sitter_custom.verus import language as verus_language
 
                 self._verus_parser = Parser(Language(verus_language()))
-            except (
-                OSError,
-                subprocess.SubprocessError,
-                ImportError,
-                ValueError,
-                AttributeError,
-            ) as exc:
+            except _GRAMMAR_LOAD_ERRORS as exc:
                 self._verus_load_failed = True
                 _LOGGER.warning("Could not load the Verus grammar; skipping verus! blocks: %s", exc)
         return self._verus_parser

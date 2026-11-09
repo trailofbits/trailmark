@@ -7,10 +7,12 @@ infer exception propagation, or decide which handler will run.
 from __future__ import annotations
 
 from bisect import bisect_right
+from collections.abc import Callable, Iterable
 from dataclasses import replace
 
 from tree_sitter import Node
 
+from trailmark.analysis._python_exceptions import PythonRaisedNames
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.exceptions import ExceptionEvent, ExceptionEventKind
 from trailmark.models.graph import CodeGraph
@@ -210,6 +212,84 @@ _NESTED_CALLABLES = {
     "rust": frozenset({"closure_expression", "async_block"}),
     "ruby": frozenset({"block", "do_block", "lambda"}),
 }
+# These frontends previously omitted throws or only accepted unqualified
+# constructor names, so direct raise events replace their legacy type hints.
+_TYPED_RAISES = frozenset(
+    {
+        "python",
+        "javascript",
+        "typescript",
+        "cpp",
+        "java",
+        "csharp",
+        "objc",
+        "kotlin",
+        "swift",
+        "dart",
+        "php",
+        "vb",
+        "solidity",
+    }
+)
+_BARE_RETHROWS = frozenset({"python", "cpp", "csharp", "objc", "vb"})
+_EXTRA_SYNTAX = {"swift": frozenset({"call_expression"}), "ruby": frozenset({"identifier"})}
+# Call-based handlers that take the protected body as an argument. The callee
+# identifies them, so edits inside that body are not handler changes.
+_WRAPPERS = {
+    "r": frozenset({"tryCatch", "withCallingHandlers"}),
+    "lua": frozenset({"pcall", "xpcall"}),
+    "ruby": frozenset({"catch"}),
+    "haskell": frozenset({"catch", "handle", "try", "bracket", "finally", "onException"}),
+}
+# A callable declares exceptions only in its own signature: (declarator nodes
+# between the clause and the declaration, declaration node types). Function
+# types in parameters, return types, locals and lambdas carry their own contracts.
+_SIGNATURES = {
+    "cpp": (
+        frozenset(
+            {
+                "function_declarator",
+                "pointer_declarator",
+                "reference_declarator",
+                "parenthesized_declarator",
+                "qualified_identifier",
+                "pointer_type_declarator",
+            }
+        ),
+        frozenset({"function_definition"}),
+    ),
+    "java": (frozenset(), frozenset({"method_declaration", "constructor_declaration"})),
+    "swift": (
+        frozenset(),
+        frozenset({"function_declaration", "init_declaration", "protocol_function_declaration"}),
+    ),
+    "thrift": (frozenset(), frozenset({"function_definition"})),
+}
+_NEW_FIELDS = {"javascript": "constructor", "typescript": "constructor", "vb": "type"}
+_CALLEE_FIELDS = ("function", "name", "method", "macro")
+_RUBY_STATEMENTS = frozenset(
+    {
+        "program",
+        "body_statement",
+        "begin",
+        "then",
+        "else",
+        "ensure",
+        "do",
+        "block_body",
+        "parenthesized_statements",
+    }
+)
+_RUBY_MODIFIERS = frozenset(
+    {"if_modifier", "unless_modifier", "while_modifier", "until_modifier", "rescue_modifier"}
+)
+_SWIFT_TRY = {"try?": ExceptionEventKind.HANDLER, "try!": ExceptionEventKind.TERMINATE}
+_CATCH_SKIPPED = frozenset({"block", "compound_statement", "catch_filter_clause"})
+_CATCH_NAMES = frozenset({"type_identifier", "qualified_identifier"})
+
+_Classification = tuple[ExceptionEventKind, EdgeConfidence]
+_Refiner = Callable[[Node, _Classification | None], _Classification | None]
+_Types = tuple[TypeRef, ...]
 
 
 def _start(location: SourceLocation) -> tuple[int, int]:
@@ -270,6 +350,7 @@ class _Owners:
                 unit.kind == NodeKind.MODULE,
                 unit.location.end_line - unit.location.start_line,
                 _end(unit.location)[1] - _start(unit.location)[1],
+                unit.name in {"<chunk>", "<script>"},
                 unit.id,
             ),
         )
@@ -277,12 +358,95 @@ class _Owners:
 
 def collect_exception_events(root: Node, file_path: str, graph: CodeGraph) -> None:
     """Attach ordered, source-located evidence to already extracted owners."""
-    kinds = _KINDS.get(graph.language, {})
-    call_kinds = _CALLS.get(graph.language, {})
-    if not kinds and not call_kinds:
+    if graph.language not in _KINDS and graph.language not in _CALLS:
         return
-    owners = _Owners(graph, file_path)
-    resolved_calls: set[SourceLocation] = {
+    collector = _Collector(graph, file_path, root)
+    events: dict[str, list[ExceptionEvent]] = {}
+    for node in syntax_nodes(root, collector.selected()):
+        classification = collector.classify(node)
+        if classification is None:
+            continue
+        owner = collector.owners.owner(node)
+        if owner is None or not collector.accepts(node, owner, classification):
+            continue
+        events.setdefault(owner.id, []).append(collector.event(node, classification))
+    for identifier, collected in events.items():
+        collected.sort(key=lambda event: (_start(event.location), _end(event.location)))
+        unit = graph.nodes[identifier]
+        graph.nodes[identifier] = replace(
+            unit,
+            exception_events=tuple(collected),
+            exception_types=_exception_types(unit, collected, graph.language),
+        )
+
+
+class _Collector:
+    """Classify, own and describe the exceptional syntax of one parsed file."""
+
+    def __init__(self, graph: CodeGraph, file_path: str, root: Node) -> None:
+        self.language = graph.language
+        self.file_path = file_path
+        self.kinds = _KINDS.get(graph.language, {})
+        self.call_kinds = _CALLS.get(graph.language, {})
+        self.owners = _Owners(graph, file_path)
+        self.resolved = _resolved_call_sites(graph)
+        self.python_names = PythonRaisedNames(root) if self.language == "python" else None
+
+    def selected(self) -> frozenset[str]:
+        calls = _CALL_NODES if self.call_kinds else frozenset()
+        return frozenset(self.kinds) | calls | _EXTRA_SYNTAX.get(self.language, frozenset())
+
+    def classify(self, node: Node) -> _Classification | None:
+        kind = self.kinds.get(node.type)
+        base = (kind, EdgeConfidence.CERTAIN) if kind is not None else None
+        if node.type in _CALL_NODES and self.call_kinds:
+            call_kind = self.call_kinds.get(_callee(node))
+            if call_kind is not None:
+                base = ExceptionEventKind(call_kind), EdgeConfidence.UNCERTAIN
+        refine = _REFINERS.get(self.language)
+        return refine(node, base) if refine is not None else base
+
+    def accepts(self, node: Node, owner: CodeUnit, classification: _Classification) -> bool:
+        kind, confidence = classification
+        if _inside_unmodeled_callable(node, owner, self.language):
+            return False
+        if kind == ExceptionEventKind.DECLARES:
+            return _declares_signature(node, owner, self.language)
+        if confidence == EdgeConfidence.UNCERTAIN:
+            # A known local callable or a callable parameter shadows the failure API.
+            parameters = {parameter.name for parameter in owner.parameters}
+            return (
+                make_location(node, self.file_path) not in self.resolved
+                and _callee(node) not in parameters
+            )
+        return True
+
+    def event(self, node: Node, classification: _Classification) -> ExceptionEvent:
+        kind, confidence = classification
+        expression, types = _payload(node, classification, self.language)
+        if kind == ExceptionEventKind.RAISE and self.python_names is not None:
+            operand = next(iter(node.named_children), None)
+            name = self.python_names.type_name(operand) if operand is not None else None
+            types = (TypeRef(name=name),) if name is not None else types
+        bare = kind == ExceptionEventKind.RAISE and expression is None
+        if bare and self.language in _BARE_RETHROWS:
+            kind = ExceptionEventKind.RETHROW
+        event = ExceptionEvent(
+            kind=kind,
+            location=make_location(node, self.file_path),
+            syntax="defer" if _swift_defer(node) else node.type,
+            expression=expression,
+            types=types,
+            protected_region=_protected_region(node, self.file_path, kind),
+            confidence=confidence,
+        )
+        reshape = _RESHAPERS.get((self.language, node.type))
+        return reshape(node, event, self.file_path) if reshape is not None else event
+
+
+def _resolved_call_sites(graph: CodeGraph) -> frozenset[SourceLocation]:
+    """Call sites bound to a local callable, or deliberately blocked from binding."""
+    return frozenset(
         edge.location
         for edge in graph.edges
         if edge.kind == EdgeKind.CALLS
@@ -291,157 +455,70 @@ def collect_exception_events(root: Node, file_path: str, graph: CodeGraph) -> No
             (edge.target_id in graph.nodes and graph.nodes[edge.target_id].kind in _CALLABLES)
             or dict(edge.attributes).get("binding_blocked")
         )
-    }
-    events: dict[str, list[ExceptionEvent]] = {}
-    selected = frozenset(kinds) | (_CALL_NODES if call_kinds else frozenset())
-    if graph.language == "swift":
-        selected |= {"call_expression"}
-    if graph.language == "ruby":
-        selected |= {"identifier"}
-    for node in syntax_nodes(root, selected):
-        kind = kinds.get(node.type)
-        confidence = EdgeConfidence.CERTAIN
-        if (
-            graph.language == "ruby"
-            and node.type == "identifier"
-            and node_text(node)
-            in {
-                "raise",
-                "fail",
-            }
-            and node.parent is not None
-            and node.parent.type in {"body_statement", "then", "begin"}
-        ):
-            kind = ExceptionEventKind.RAISE
-            confidence = EdgeConfidence.UNCERTAIN
-        if node.type in _CALL_NODES and call_kinds:
-            call_kind = call_kinds.get(_callee(node))
-            if call_kind is not None:
-                kind = ExceptionEventKind(call_kind)
-                confidence = EdgeConfidence.UNCERTAIN
-        if graph.language == "swift" and _swift_defer(node):
-            kind = ExceptionEventKind.CLEANUP
-        if graph.language == "swift" and node.type == "try_expression":
-            operator = next(
-                (child for child in node.named_children if child.type == "try_operator"), None
-            )
-            if operator is not None:
-                kind = {
-                    "try?": ExceptionEventKind.HANDLER,
-                    "try!": ExceptionEventKind.TERMINATE,
-                }.get(node_text(operator), kind)
-        if kind is None:
-            continue
-        if (
-            kind == ExceptionEventKind.RAISE
-            and graph.language in {"kotlin", "swift", "powershell"}
-            and not any(node_text(child).lower() == "throw" for child in node.children[:1])
-        ):
-            continue
-        if graph.language == "zig" and not _zig_event(node):
-            continue
-        if node.type == "local_declaration_statement" and not any(
-            node_text(child) == "using" for child in node.children[:2]
-        ):
-            continue
-        if graph.language == "dart" and node.type == "type_identifier" and not _dart_on_only(node):
-            continue
-        owner = owners.owner(node)
-        if owner is None or _inside_unmodeled_callable(node, owner, graph.language):
-            continue
-        if confidence == EdgeConfidence.UNCERTAIN and (
-            make_location(node, file_path) in resolved_calls
-            or _callee(node) in {parameter.name for parameter in owner.parameters}
-        ):
-            continue
-        expression = _operand(node) if kind == ExceptionEventKind.RAISE else None
-        if confidence == EdgeConfidence.UNCERTAIN or kind in {
-            ExceptionEventKind.PROPAGATE,
-            ExceptionEventKind.TERMINATE,
-        }:
-            expression = node_text(node)
-        types = ()
-        if kind == ExceptionEventKind.RAISE:
-            types = (
-                _raised_types(node, graph.language) if confidence == EdgeConfidence.CERTAIN else ()
-            )
-            if expression is None and graph.language in {"python", "cpp", "csharp", "objc", "vb"}:
-                kind = ExceptionEventKind.RETHROW
-        elif kind == ExceptionEventKind.HANDLER:
-            types = _handler_types(node, graph.language)
-            expression = _header(node)
-        elif kind == ExceptionEventKind.DECLARES:
-            types = _declared_types(node, graph.language)
-            expression = node_text(node)
-        location = make_location(node, file_path)
-        protected = _protected_region(node, file_path, kind)
-        syntax = "defer" if _swift_defer(node) else node.type
-        if graph.language == "dart" and node.type == "type_identifier":
-            syntax = "on_clause"
-            expression = "on " + node_text(node)
-            begin, end = node.prev_sibling, node.next_named_sibling
-            if begin is not None and end is not None:
-                location = _span(begin, end, file_path)
-        if graph.language == "func" and node.type == "try_statement":
-            catch = next((child for child in node.children if node_text(child) == "catch"), None)
-            if catch is not None:
-                syntax = "catch"
-                location = _span(catch, node, file_path)
-                before = [child for child in node.children if child.end_byte <= catch.start_byte]
-                begin = next((child for child in before if node_text(child) == "{"), None)
-                end = next((child for child in reversed(before) if node_text(child) == "}"), None)
-                if begin is not None and end is not None:
-                    protected = _span(begin, end, file_path)
-                raw = node.text or b""
-                start = catch.start_byte - node.start_byte
-                expression = raw[start:].decode("utf-8", errors="replace").split("{", 1)[0].strip()
-        events.setdefault(owner.id, []).append(
-            ExceptionEvent(
-                kind=kind,
-                location=location,
-                syntax=syntax,
-                expression=expression,
-                types=types,
-                protected_region=protected,
-                confidence=confidence,
-            )
-        )
-    for identifier, collected in events.items():
-        collected.sort(key=lambda event: (_start(event.location), _end(event.location)))
-        unit = graph.nodes[identifier]
-        # These frontends previously omitted throws or only accepted unqualified
-        # constructor names. Unknown operands stay in events without becoming types.
-        raised = tuple(
-            dict.fromkeys(
-                ref
-                for event in collected
-                if event.kind == ExceptionEventKind.RAISE
-                for ref in event.types
-            )
-        )
-        updated_types = (
-            raised
-            if graph.language
-            in {
-                "python",
-                "javascript",
-                "typescript",
-                "cpp",
-                "java",
-                "csharp",
-                "objc",
-                "kotlin",
-                "swift",
-                "dart",
-                "php",
-                "vb",
-                "solidity",
-            }
-            else unit.exception_types
-        )
-        graph.nodes[identifier] = replace(
-            unit, exception_events=tuple(collected), exception_types=updated_types
-        )
+    )
+
+
+def _exception_types(unit: CodeUnit, events: list[ExceptionEvent], language: str) -> _Types:
+    """Derive legacy hints from direct raises; module and class bodies are not raisers."""
+    if language not in _TYPED_RAISES or unit.kind not in _CALLABLES:
+        return unit.exception_types
+    raised = (
+        ref for event in events if event.kind == ExceptionEventKind.RAISE for ref in event.types
+    )
+    return tuple(dict.fromkeys(raised))
+
+
+def _payload(
+    node: Node, classification: _Classification, language: str
+) -> tuple[str | None, _Types]:
+    """Return the event's operand or header and its syntactic type hints."""
+    kind, confidence = classification
+    if confidence == EdgeConfidence.UNCERTAIN and _callee(node) in _WRAPPERS.get(language, ()):
+        return _callee(node), ()
+    if kind == ExceptionEventKind.HANDLER:
+        return _header(node), _handler_types(node, language)
+    if kind == ExceptionEventKind.DECLARES:
+        return node_text(node), _declared_types(node, language)
+    if confidence == EdgeConfidence.UNCERTAIN or kind in {
+        ExceptionEventKind.PROPAGATE,
+        ExceptionEventKind.TERMINATE,
+    }:
+        return node_text(node), ()
+    if kind == ExceptionEventKind.RAISE:
+        return _operand(node), _raised_types(node, language)
+    return None, ()
+
+
+def _declares_signature(node: Node, owner: CodeUnit, language: str) -> bool:
+    """Whether a throws/noexcept clause belongs to the owner's own signature."""
+    if owner.kind not in _CALLABLES:
+        return False
+    passthrough, declarations = _SIGNATURES.get(language, (frozenset(), frozenset()))
+    parent = node.parent
+    while parent is not None and parent.type in passthrough:
+        parent = parent.parent
+    return (
+        parent is not None
+        and parent.type in declarations
+        and (parent.end_point.row + 1, parent.end_point.column) == _end(owner.location)
+        and (language != "cpp" or node.parent == _cpp_callable_declarator(parent))
+    )
+
+
+def _cpp_callable_declarator(declaration: Node) -> Node | None:
+    """The function declarator nearest the name, excluding returned function types."""
+    current = declaration.child_by_field_name("declarator")
+    function = None
+    while current is not None:
+        if current.type == "function_declarator":
+            function = current
+        if current.type in {"parenthesized_declarator", "reference_declarator"}:
+            current = next(iter(current.named_children), None)
+        elif current.type == "qualified_identifier":
+            current = current.child_by_field_name("name")
+        else:
+            current = current.child_by_field_name("declarator")
+    return function
 
 
 def _inside_unmodeled_callable(node: Node, owner: CodeUnit, language: str) -> bool:
@@ -463,23 +540,75 @@ def _inside_unmodeled_callable(node: Node, owner: CodeUnit, language: str) -> bo
 def _callee(node: Node) -> str:
     if node.type == "identifier":
         return node_text(node)
-    target = node.child_by_field_name("function")
-    if target is None:
-        target = node.child_by_field_name("name")
-    if target is None:
-        target = node.child_by_field_name("method")
-    if target is None:
-        target = node.child_by_field_name("macro")
+    fields = (node.child_by_field_name(field) for field in _CALLEE_FIELDS)
+    target = next((child for child in fields if child is not None), None)
     if target is None and node.named_children:
         target = node.named_children[0]
     name = node_text(target) if target is not None else ""
     if receiver := node.child_by_field_name("receiver"):
         return node_text(receiver) + "." + name
+    return _remote_callee(node, name)
+
+
+def _remote_callee(node: Node, name: str) -> str:
+    """Qualify an Erlang remote call with the module held by its parent."""
     if node.parent is not None and node.parent.type == "remote":
         module = node.parent.child_by_field_name("module")
         if module is not None:
             return node_text(module).rstrip(":") + ":" + name
     return name
+
+
+def _ruby_refine(node: Node, base: _Classification | None) -> _Classification | None:
+    """Bare ``raise``/``fail`` re-raises ``$!``; method names and receivers do not."""
+    if node.type != "identifier":
+        return base
+    if node_text(node) not in {"raise", "fail"} or not _ruby_statement(node):
+        return None
+    return ExceptionEventKind.RETHROW, EdgeConfidence.UNCERTAIN
+
+
+def _ruby_statement(node: Node) -> bool:
+    parent = node.parent
+    if parent is None:
+        return False
+    if parent.type in _RUBY_MODIFIERS:
+        return parent.child_by_field_name("condition") != node
+    return parent.type in _RUBY_STATEMENTS
+
+
+def _swift_refine(node: Node, base: _Classification | None) -> _Classification | None:
+    if _swift_defer(node):
+        return ExceptionEventKind.CLEANUP, EdgeConfidence.CERTAIN
+    if base is None or node.type != "try_expression":
+        return _throw_only(node, base)
+    operator = next((child for child in node.named_children if child.type == "try_operator"), None)
+    if operator is None:
+        return base
+    return _SWIFT_TRY.get(node_text(operator), base[0]), base[1]
+
+
+def _throw_only(node: Node, base: _Classification | None) -> _Classification | None:
+    """Kotlin, Swift and PowerShell share one jump node for throw, return and break."""
+    if base is None or base[0] != ExceptionEventKind.RAISE:
+        return base
+    return base if any(node_text(child).lower() == "throw" for child in node.children[:1]) else None
+
+
+def _zig_refine(node: Node, base: _Classification | None) -> _Classification | None:
+    return base if base is not None and _zig_event(node) else None
+
+
+def _csharp_refine(node: Node, base: _Classification | None) -> _Classification | None:
+    if node.type != "local_declaration_statement":
+        return base
+    return base if any(node_text(child) == "using" for child in node.children[:2]) else None
+
+
+def _dart_refine(node: Node, base: _Classification | None) -> _Classification | None:
+    if node.type != "type_identifier":
+        return base
+    return base if _dart_on_only(node) else None
 
 
 def _zig_event(node: Node) -> bool:
@@ -557,102 +686,148 @@ def _operand(node: Node) -> str | None:
     return raw[start:end].decode("utf-8", errors="replace")
 
 
-def _raised_types(node: Node, language: str) -> tuple[TypeRef, ...]:
+def _raised_types(node: Node, language: str) -> _Types:
     children = [child for child in node.named_children if child.type != "throw_keyword"]
     if not children:
         return ()
-    expression = children[0]
-    if expression.type == "expression" and language == "vb" and expression.named_children:
-        expression = expression.named_children[0]
-    if expression.type == "object_creation_expression":
-        target = expression.child_by_field_name("type")
-        if target is None:
-            target = next(
-                (c for c in expression.named_children if c.type in _IDENTIFIERS | _QUALIFIED), None
-            )
-    elif expression.type in {"call_expression", "call"}:
-        target = expression.child_by_field_name("function")
-        if target is None and expression.named_children:
-            target = expression.named_children[0]
-    elif expression.type == "new_expression" and language in {"javascript", "typescript"}:
-        target = expression.child_by_field_name("constructor")
-    elif language == "dart" and expression.type == "new_expression":
-        name = node_text(expression).removeprefix("new").strip().split("(", 1)[0]
-        return (TypeRef(name=name),)
-    elif language == "vb" and expression.type == "new_expression":
-        target = expression.child_by_field_name("type")
-    elif language == "solidity":
-        target = node.child_by_field_name("error")
-    elif language == "dart" and any(
-        c.type == "selector" and node_text(c).startswith("(") for c in children[1:]
-    ):
-        name = (_operand(node) or "").split("(", 1)[0]
-        return (TypeRef(name=name),)
-    elif language == "swift" and expression.type == "navigation_expression":
-        name = node_text(expression).rsplit(".", 1)[0]
-        return (TypeRef(name=name),) if name else ()
-    else:
-        return ()
-    return (TypeRef(name=node_text(target)),) if target is not None else ()
+    operand = children[0]
+    if operand.type == "expression" and language == "vb" and operand.named_children:
+        operand = operand.named_children[0]
+    special = _RAISED_NAMES.get(language)
+    name = special(node, operand) if special is not None else None
+    if name is None:
+        target = _constructed_type(operand, language)
+        name = node_text(target) if target is not None else None
+    return (TypeRef(name=name),) if name else ()
 
 
-def _handler_types(node: Node, language: str) -> tuple[TypeRef, ...]:
-    if language in {"javascript", "typescript"}:
-        return ()
+def _constructed_type(operand: Node, language: str) -> Node | None:
+    """Constructor-like syntax names a type hint; other operands stay expressions."""
+    if operand.type == "object_creation_expression":
+        target = operand.child_by_field_name("type")
+        if target is not None:
+            return target
+        names = _IDENTIFIERS | _QUALIFIED
+        return next((child for child in operand.named_children if child.type in names), None)
+    if operand.type in {"call_expression", "call"}:
+        target = operand.child_by_field_name("function")
+        if target is None and operand.named_children:
+            return operand.named_children[0]
+        return target
+    field = _NEW_FIELDS.get(language)
+    if operand.type == "new_expression" and field is not None:
+        return operand.child_by_field_name(field)
+    return None
+
+
+def _swift_raised(node: Node, operand: Node) -> str | None:
+    if operand.type == "navigation_expression":
+        # A thrown member is an enum case or static value of its containing type.
+        return node_text(operand).rsplit(".", 1)[0] or None
+    if operand.type != "call_expression" or not operand.named_children:
+        return None
+    callee = operand.named_children[0]
+    if callee.type != "navigation_expression":
+        return None
+    container, _, member = node_text(callee).rpartition(".")
+    # Lowercase members are payload cases or factories; capitalized ones are nested types.
+    return container if member[:1].islower() else node_text(callee)
+
+
+def _dart_raised(node: Node, operand: Node) -> str | None:
+    if operand.type == "new_expression":
+        return node_text(operand).removeprefix("new").strip().split("(", 1)[0]
+    following = [child for child in node.named_children if child.type != "throw_keyword"][1:]
+    if any(child.type == "selector" and node_text(child).startswith("(") for child in following):
+        return (_operand(node) or "").split("(", 1)[0]
+    return None
+
+
+def _solidity_raised(node: Node, operand: Node) -> str | None:
+    """Only ``revert Error(...)`` names an error; ``revert("reason")`` does not."""
+    error = node.child_by_field_name("error")
+    if error is None or not any(child.type == "revert_arguments" for child in node.children):
+        return None
+    return node_text(error)
+
+
+def _handler_types(node: Node, language: str) -> _Types:
+    extract = _HANDLER_TYPES.get(language)
+    return extract(node) if extract is not None else _type_ref(node.child_by_field_name("type"))
+
+
+def _type_ref(node: Node | None) -> _Types:
+    return (TypeRef(name=node_text(node)),) if node is not None else ()
+
+
+def _type_refs(nodes: Iterable[Node]) -> _Types:
+    return tuple(TypeRef(name=node_text(child)) for child in nodes)
+
+
+def _no_handler_types(node: Node) -> _Types:
+    """A TypeScript catch annotation is not an exception filter."""
+    return ()
+
+
+def _php_handler(node: Node) -> _Types:
     target = node.child_by_field_name("type")
-    if language == "php" and target is not None:
-        return tuple(TypeRef(name=node_text(child)) for child in target.named_children)
-    if language == "python":
-        target = node.child_by_field_name("value")
-        if target is not None and target.type == "as_pattern":
-            target = target.named_children[0] if target.named_children else None
-        if target is not None and target.type == "tuple":
-            return tuple(TypeRef(name=node_text(child)) for child in target.named_children)
-    if language == "kotlin":
-        target = next((child for child in node.named_children if child.type == "user_type"), None)
-    if language == "dart":
-        if node.type == "type_identifier":
-            return (TypeRef(name=node_text(node)),)
-        previous = node.prev_named_sibling
-        target = previous if previous is not None and previous.type == "type_identifier" else None
-    if language == "ruby":
-        exceptions = node.child_by_field_name("exceptions")
-        return (
-            tuple(TypeRef(name=node_text(child)) for child in exceptions.named_children)
-            if exceptions is not None
-            else ()
-        )
-    if language == "erlang":
-        category = node.child_by_field_name("class")
-        return (TypeRef(name=node_text(category)),) if category is not None else ()
-    if language == "solidity":
-        selector = next(
-            (child for child in node.named_children if child.type == "identifier"), None
-        )
-        return (TypeRef(name=node_text(selector)),) if selector is not None else ()
-    if language in {"java", "csharp", "cpp", "objc"}:
-        pending = list(reversed(node.named_children))
-        while pending:
-            child = pending.pop()
-            if child.type in {"block", "compound_statement", "catch_filter_clause"}:
-                continue
-            if child.type == "catch_type":
-                return tuple(TypeRef(name=node_text(ref)) for ref in child.named_children)
-            if child.type in {"parameter_declaration", "catch_declaration"}:
-                target = child.child_by_field_name("type")
-                break
-            if child.type == "type_name":
-                target = next(
-                    (
-                        ref
-                        for ref in child.named_children
-                        if ref.type in {"type_identifier", "qualified_identifier"}
-                    ),
-                    None,
-                )
-                break
-            pending.extend(reversed(child.named_children))
-    return (TypeRef(name=node_text(target)),) if target is not None else ()
+    return _type_refs(target.named_children) if target is not None else ()
+
+
+def _python_handler(node: Node) -> _Types:
+    target = node.child_by_field_name("value")
+    if target is not None and target.type == "as_pattern":
+        target = target.named_children[0] if target.named_children else None
+    if target is not None and target.type == "tuple":
+        return _type_refs(target.named_children)
+    return _type_ref(target)
+
+
+def _kotlin_handler(node: Node) -> _Types:
+    return _type_ref(
+        next((child for child in node.named_children if child.type == "user_type"), None)
+    )
+
+
+def _dart_handler(node: Node) -> _Types:
+    if node.type == "type_identifier":
+        return _type_ref(node)
+    previous = node.prev_named_sibling
+    return _type_ref(
+        previous if previous is not None and previous.type == "type_identifier" else None
+    )
+
+
+def _ruby_handler(node: Node) -> _Types:
+    exceptions = node.child_by_field_name("exceptions")
+    return _type_refs(exceptions.named_children) if exceptions is not None else ()
+
+
+def _erlang_handler(node: Node) -> _Types:
+    return _type_ref(node.child_by_field_name("class"))
+
+
+def _solidity_handler(node: Node) -> _Types:
+    return _type_ref(
+        next((child for child in node.named_children if child.type == "identifier"), None)
+    )
+
+
+def _catch_declaration(node: Node) -> _Types:
+    pending = list(reversed(node.named_children))
+    while pending:
+        child = pending.pop()
+        if child.type in _CATCH_SKIPPED:
+            continue
+        if child.type == "catch_type":
+            return _type_refs(child.named_children)
+        if child.type in {"parameter_declaration", "catch_declaration"}:
+            return _type_ref(child.child_by_field_name("type"))
+        if child.type == "type_name":
+            names = (ref for ref in child.named_children if ref.type in _CATCH_NAMES)
+            return _type_ref(next(names, None))
+        pending.extend(reversed(child.named_children))
+    return _type_ref(node.child_by_field_name("type"))
 
 
 def _header(node: Node) -> str:
@@ -718,3 +893,73 @@ def _protected_region(
             None,
         )
     return make_location(body, file_path) if body is not None else None
+
+
+def _dart_on_clause(node: Node, event: ExceptionEvent, file_path: str) -> ExceptionEvent:
+    """An on-only Dart handler spans ``on Type { ... }`` around its type name."""
+    begin, end = node.prev_sibling, node.next_named_sibling
+    location = _span(begin, end, file_path) if begin is not None and end is not None else None
+    return replace(
+        event,
+        syntax="on_clause",
+        expression="on " + node_text(node),
+        location=location if location is not None else event.location,
+    )
+
+
+def _func_catch(node: Node, event: ExceptionEvent, file_path: str) -> ExceptionEvent:
+    """FunC try/catch has no handler node, so the catch keyword starts the handler."""
+    catch = next((child for child in node.children if node_text(child) == "catch"), None)
+    if catch is None:
+        return event
+    before = [child for child in node.children if child.end_byte <= catch.start_byte]
+    begin = next((child for child in before if node_text(child) == "{"), None)
+    end = next((child for child in reversed(before) if node_text(child) == "}"), None)
+    raw = (node.text or b"")[catch.start_byte - node.start_byte :]
+    return replace(
+        event,
+        syntax="catch",
+        location=_span(catch, node, file_path),
+        protected_region=(
+            _span(begin, end, file_path)
+            if begin is not None and end is not None
+            else event.protected_region
+        ),
+        expression=raw.decode("utf-8", errors="replace").split("{", 1)[0].strip(),
+    )
+
+
+# Per-frontend hooks. Frontends without an entry use the shared rules above.
+_REFINERS: dict[str, _Refiner] = {
+    "ruby": _ruby_refine,
+    "swift": _swift_refine,
+    "kotlin": _throw_only,
+    "powershell": _throw_only,
+    "zig": _zig_refine,
+    "csharp": _csharp_refine,
+    "dart": _dart_refine,
+}
+_RAISED_NAMES: dict[str, Callable[[Node, Node], str | None]] = {
+    "swift": _swift_raised,
+    "dart": _dart_raised,
+    "solidity": _solidity_raised,
+}
+_HANDLER_TYPES: dict[str, Callable[[Node], _Types]] = {
+    "javascript": _no_handler_types,
+    "typescript": _no_handler_types,
+    "php": _php_handler,
+    "python": _python_handler,
+    "kotlin": _kotlin_handler,
+    "dart": _dart_handler,
+    "ruby": _ruby_handler,
+    "erlang": _erlang_handler,
+    "solidity": _solidity_handler,
+    "java": _catch_declaration,
+    "csharp": _catch_declaration,
+    "cpp": _catch_declaration,
+    "objc": _catch_declaration,
+}
+_RESHAPERS: dict[tuple[str, str], Callable[[Node, ExceptionEvent, str], ExceptionEvent]] = {
+    ("dart", "type_identifier"): _dart_on_clause,
+    ("func", "try_statement"): _func_catch,
+}

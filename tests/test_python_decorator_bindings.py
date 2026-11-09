@@ -313,6 +313,11 @@ def test_conditional_and_external_rebinding_are_ambiguous(tmp_path: Path) -> Non
         "if enabled:\n def route(path): pass\n@route('/')\ndef handler(): pass\n",
         "if enabled:\n from vendor import app\n"
         "def outer():\n @app.get('/')\n def handler(): pass\n",
+        "if enabled:\n @app.get('/')\n def handler(): pass\nfrom vendor import app\n",
+        "try:\n @app.get('/')\n def handler(): pass\nexcept Exception:\n pass\n"
+        "from vendor import app\n",
+        "with context:\n @app.get('/')\n def handler(): pass\nfrom vendor import app\n",
+        "for item in items:\n @app.get('/')\n def handler(): pass\nfrom vendor import app\n",
     ],
 )
 def test_single_binding_requires_visible_unconditional_provenance(
@@ -340,6 +345,13 @@ def test_sole_parameters_and_deferred_unconditional_imports_remain_distinct(tmp_
     )
     assert _only(facts, "parameter_handler").receiver_binding == "parameter"
     assert _only(facts, "deferred_handler").consumer_path == "vendor.app.get"
+
+
+def test_nested_handlers_still_follow_earlier_unconditional_imports(tmp_path: Path) -> None:
+    source = "from vendor import app\nif enabled:\n @app.get('/')\n def handler(): pass\n"
+    fact = _only(_facts(tmp_path, source), "handler")
+    assert fact.consumer_path == "vendor.app.get"
+    assert fact.receiver_binding == "import_name"
 
 
 def test_sequential_unconditional_rebinding_follows_source_order(tmp_path: Path) -> None:

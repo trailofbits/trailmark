@@ -142,7 +142,7 @@ def materialize_type_use_edges(graph: CodeGraph) -> None:
     type_index = _type_index(graph)
     new_edges: list[CodeEdge] = []
     for unit in graph.nodes.values():
-        for type_ref in _iter_unit_types(unit):
+        for type_ref in unit_type_refs(unit):
             target_id = _resolve_type_ref(type_ref, type_index, unit.id)
             if target_id is None:
                 continue
@@ -260,23 +260,24 @@ def _resolve_type_ref(
     return None
 
 
-def _iter_unit_types(unit: CodeUnit) -> list[TypeRef]:
-    refs: list[TypeRef] = []
-    for param in unit.parameters:
-        if param.type_ref is not None:
-            refs.extend(_flatten_type_ref(param.type_ref))
+def unit_type_refs(unit: CodeUnit) -> list[TypeRef]:
+    """Return parameter, return, exception and generic-bound type references.
+
+    Generic arguments are flattened after their containing reference. Exception
+    event hints already present in the list are not repeated.
+    """
+    declared = [param.type_ref for param in unit.parameters if param.type_ref is not None]
     if unit.return_type is not None:
-        refs.extend(_flatten_type_ref(unit.return_type))
-    for exc in unit.exception_types:
-        refs.extend(_flatten_type_ref(exc))
+        declared.append(unit.return_type)
+    declared.extend(unit.exception_types)
+    refs = [item for ref in declared for item in _flatten_type_ref(ref)]
     for event in unit.exception_events:
         for ref in event.types:
             refs.extend(item for item in _flatten_type_ref(ref) if item not in refs)
     for type_param in unit.type_parameters:
-        for constraint in type_param.constraints:
-            refs.extend(_flatten_type_ref(constraint))
-        if type_param.default is not None:
-            refs.extend(_flatten_type_ref(type_param.default))
+        defaults = [type_param.default] if type_param.default is not None else []
+        bounds = [*type_param.constraints, *defaults]
+        refs.extend(item for bound in bounds for item in _flatten_type_ref(bound))
     return refs
 
 

@@ -10,7 +10,13 @@ import pytest
 
 from tests.exception_cases import EXCEPTION_CASES
 from trailmark.analysis.diff import compute_diff
-from trailmark.models import CodeGraph, EdgeKind, ExceptionEventKind, ExceptionSupportStatus
+from trailmark.models import (
+    CodeGraph,
+    EdgeKind,
+    ExceptionEventKind,
+    ExceptionSupportStatus,
+    NodeKind,
+)
 from trailmark.models.exception_support import _PROFILES
 from trailmark.parse import parse_file, supported_languages
 from trailmark.query.api import QueryEngine
@@ -230,7 +236,9 @@ def test_solidity_catch_protects_attempt_not_success_block() -> None:
 def test_ruby_bare_raise_and_rescue_header_are_preserved() -> None:
     graph = parse_file(str(_FIXTURES / "ruby.rb"), strict=True)
     unit = next(unit for unit in graph.nodes.values() if unit.name == "f")
-    assert sum(event.kind == ExceptionEventKind.RAISE for event in unit.exception_events) == 2
+    kinds = [event.kind for event in unit.exception_events]
+    assert kinds.count(ExceptionEventKind.RAISE) == 1
+    assert kinds.count(ExceptionEventKind.RETHROW) == 1
     handler = next(
         event for event in unit.exception_events if event.kind == ExceptionEventKind.HANDLER
     )
@@ -365,3 +373,282 @@ def test_exception_diff_ignores_movement_but_detects_changed_handlers() -> None:
     after.nodes[unit.id] = replace(unit, exception_events=(unit.exception_events[0], changed))
     changes = compute_diff(before, after)["nodes"]["modified"][0]["changes"]
     assert "exception_events" in changes
+
+
+def _events(tmp_path: Path, name: str, source: str) -> dict[str, list[str]]:
+    """Parse ``source`` and map each unit name to its event kinds."""
+    path = tmp_path / name
+    path.write_text(source)
+    graph = parse_file(str(path), strict=True)
+    return {
+        unit.name: [event.kind.value for event in unit.exception_events]
+        for unit in graph.nodes.values()
+        if unit.exception_events
+    }
+
+
+@pytest.mark.parametrize(
+    ("name", "source", "expected"),
+    [
+        (
+            "app.swift",
+            "func run(_ body: () throws -> Void) { }\n"
+            "func make() throws -> () throws -> Int {\n"
+            "    let h: (Int) throws -> Void = { _ in }\n    return { 1 }\n}\n"
+            "func pass(_ f: () throws -> Void) rethrows { }\n"
+            "protocol P { func p() throws -> () throws -> Int }\n",
+            {"make": ["declares"], "pass": ["declares"], "p": ["declares"]},
+        ),
+        (
+            "app.java",
+            "class C { @A public <T> void f() throws Bad {} C() throws Worse {} }",
+            {"f": ["declares"], "C": ["declares"]},
+        ),
+        (
+            "app.thrift",
+            "exception Bad {1: string reason} service S {void f() throws (1: Bad err)}",
+            {"f": ["declares"]},
+        ),
+        (
+            "app.swift",
+            "@discardableResult func f<T>() throws -> T { fatalError() }\n",
+            {"f": ["declares"]},
+        ),
+        (
+            "app.cpp",
+            "void f() { std::function<void() noexcept> cb; }\n"
+            "void g(void (*cb)() noexcept) noexcept { }\n"
+            "auto h() -> void (*)() noexcept { return nullptr; }\n"
+            "struct S { void m() const noexcept {} void d() noexcept; };\n"
+            "int* p() noexcept { return 0; }\n"
+            "template <class T> void t() noexcept { }\n"
+            "void q() throw(Bad) { void (*fp)() throw(X); }\n",
+            {"g": ["declares"], "m": ["declares"], "p": ["declares"], "t": ["declares"]}
+            | {"q": ["declares"]},
+        ),
+    ],
+)
+def test_declarations_come_only_from_the_owners_signature(
+    tmp_path: Path, name: str, source: str, expected: dict[str, list[str]]
+) -> None:
+    assert _events(tmp_path, name, source) == expected
+
+
+def test_raises_outside_callables_are_evidence_without_raising_functions(tmp_path: Path) -> None:
+    path = tmp_path / "app.py"
+    path.write_text(
+        "import sys\nif sys.version_info < (3, 8):\n    raise RuntimeError('old')\n"
+        "class C:\n    raise TypeError('body')\n"
+        "def f():\n    raise ValueError('call')\n"
+    )
+    engine = QueryEngine.from_directory(str(tmp_path), language="python")
+    module = engine.exception_events("app")
+    assert [event["kind"] for event in module] == ["raise", "raise"]
+    assert engine.functions_that_raise("RuntimeError") == []
+    assert engine.functions_that_raise("TypeError") == []
+    assert [unit["name"] for unit in engine.functions_that_raise("ValueError")] == ["f"]
+
+
+def test_python_bare_class_raises_keep_type_hints(tmp_path: Path) -> None:
+    path = tmp_path / "app.py"
+    path.write_text(
+        "def plain():\n    raise ValueError\n"
+        "def chained():\n    raise ValueError from None\n"
+        "def rebound():\n    try:\n        work()\n    except Bad as err:\n        raise err\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    types = {unit.name: [ref.name for ref in unit.exception_types] for unit in graph.nodes.values()}
+    assert types["plain"] == ["ValueError"]
+    assert types["chained"] == ["ValueError"]
+    assert types["rebound"] == []
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("def f():\n    raise ValueError\n", "ValueError"),
+        ("def f():\n    raise PythonFinalizationError\n", "PythonFinalizationError"),
+        ("class bad(Exception): pass\ndef f():\n    raise bad\n", "bad"),
+        ("def f():\n    class Bad(Exception): pass\n    raise Bad\n", "Bad"),
+        (
+            "class Outer:\n    class Bad(Exception): pass\ndef f():\n    raise Outer.Bad\n",
+            "Outer.Bad",
+        ),
+        ("from builtins import ValueError as Bad\ndef f():\n    raise Bad\n", "Bad"),
+        ("import builtins as b\ndef f():\n    raise b.ValueError\n", "b.ValueError"),
+        ("def f(ValueError):\n    raise ValueError\n", None),
+        ("def f(ValueError=ValueError):\n    raise ValueError\n", None),
+        ("ValueError = object()\ndef f():\n    raise ValueError\n", None),
+        ("def f():\n    raise ValueError\n    ValueError = object()\n", None),
+        ("def f():\n    ValueError: object\n    raise ValueError\n", None),
+        (
+            "def f():\n    try: pass\n    except Exception as ValueError:\n"
+            "        raise ValueError\n",
+            None,
+        ),
+        ("def f():\n    with manager() as ValueError:\n        raise ValueError\n", None),
+        ("def f():\n    for ValueError in values:\n        raise ValueError\n", None),
+        ("def f(x):\n    match x:\n        case ValueError:\n            raise ValueError\n", None),
+        ("def f():\n    del ValueError\n    raise ValueError\n", None),
+        ("from other import ValueError\ndef f():\n    raise ValueError\n", None),
+        ("import other as b\ndef f():\n    raise b.ValueError\n", None),
+        ("import builtins.ValueError as Bad\ndef f():\n    raise Bad\n", None),
+        ("from other import *\ndef f():\n    raise ValueError\n", None),
+        ("if flag:\n    class Bad(Exception): pass\ndef f():\n    raise Bad\n", None),
+        ("@decorate\nclass Bad(Exception): pass\ndef f():\n    raise Bad\n", None),
+        ("def Bad(): pass\ndef f():\n    raise Bad\n", None),
+        ("class Bad(Exception): pass\nerr = Bad()\ndef f():\n    raise err\n", None),
+        ("def f():\n    raise UnknownError\n", None),
+        ("class Bad(Exception): pass\ndef f():\n    raise Bad\n    Bad = object()\n", None),
+        (
+            "class Bad(Exception): pass\ndef mutate():\n    global Bad\n    Bad = object()\n"
+            "def f():\n    raise Bad\n",
+            None,
+        ),
+        (
+            "class Outer:\n    class Bad(Exception): pass\nOuter.Bad = object()\n"
+            "def f():\n    raise Outer.Bad\n",
+            None,
+        ),
+        ("import builtins\nbuiltins.ValueError = object()\ndef f():\n    raise ValueError\n", None),
+        ("import builtins as b\nb.ValueError = object()\ndef f():\n    raise b.ValueError\n", None),
+        ("globals()['ValueError'] = object()\ndef f():\n    raise ValueError\n", None),
+        (
+            "class C:\n    ValueError = object()\n    def f(self):\n        raise ValueError\n",
+            "ValueError",
+        ),
+        ("def f():\n    ValueError = object()\n    def g():\n        raise ValueError\n", None),
+    ],
+)
+def test_python_bare_raise_types_follow_lexical_class_bindings(
+    tmp_path: Path, source: str, expected: str | None
+) -> None:
+    path = tmp_path / "app.py"
+    path.write_text(source)
+    graph = parse_file(str(path), strict=True)
+    (event,) = (
+        event
+        for unit in graph.nodes.values()
+        for event in unit.exception_events
+        if event.kind == ExceptionEventKind.RAISE
+    )
+    assert [ref.name for ref in event.types] == ([] if expected is None else [expected])
+    assert event.expression is not None
+
+
+@pytest.mark.parametrize(
+    ("source", "column"),
+    [
+        ("void (*f() noexcept)() noexcept { return nullptr; }", 11),
+        ("void (*f())() noexcept { return nullptr; }", None),
+        ("void (&f() noexcept)() { return target; }", 11),
+        ("void f() noexcept try { work(); } catch (...) {}", 9),
+        ("void (C::*f())() noexcept { return nullptr; }", None),
+    ],
+)
+def test_cpp_declarations_follow_the_callable_through_returned_function_types(
+    tmp_path: Path, source: str, column: int | None
+) -> None:
+    path = tmp_path / "app.cpp"
+    path.write_text(source)
+    graph = parse_file(str(path), strict=True)
+    unit = next(unit for unit in graph.nodes.values() if unit.kind == NodeKind.FUNCTION)
+    declarations = [
+        event for event in unit.exception_events if event.kind == ExceptionEventKind.DECLARES
+    ]
+    assert [event.location.start_col for event in declarations] == (
+        [] if column is None else [column]
+    )
+
+
+@pytest.mark.parametrize(
+    ("filename", "source", "synthetic", "kind"),
+    [
+        ("app.lua", 'function f() error("bad") end', "<chunk>", ExceptionEventKind.RAISE),
+        ("app.sh", "f() { exit 1; }", "<script>", ExceptionEventKind.TERMINATE),
+    ],
+)
+def test_callable_owns_events_when_its_span_equals_the_file_body(
+    tmp_path: Path, filename: str, source: str, synthetic: str, kind: ExceptionEventKind
+) -> None:
+    path = tmp_path / filename
+    path.write_text(source)
+    graph = parse_file(str(path), strict=True)
+    units = {unit.name: unit for unit in graph.nodes.values()}
+    assert [event.kind for event in units["f"].exception_events] == [kind]
+    assert units[synthetic].exception_events == ()
+
+
+@pytest.mark.parametrize(
+    ("statement", "expected"),
+    [
+        ("throw Err.bad", ["Err"]),
+        ("throw Err.bad(code: 1)", ["Err"]),
+        ("throw Err.make(reason)", ["Err"]),
+        ("throw Module.Failure(code: 1)", ["Module.Failure"]),
+        ("throw Failure(code: 1)", ["Failure"]),
+    ],
+)
+def test_swift_enum_payload_cases_name_their_containing_type(
+    tmp_path: Path, statement: str, expected: list[str]
+) -> None:
+    path = tmp_path / "app.swift"
+    path.write_text(f"func f() throws {{ {statement} }}")
+    graph = parse_file(str(path), strict=True)
+    unit = next(unit for unit in graph.nodes.values() if unit.name == "f")
+    assert [ref.name for ref in unit.exception_types] == expected
+
+
+def test_solidity_revert_reasons_are_not_error_types(tmp_path: Path) -> None:
+    path = tmp_path / "app.sol"
+    path.write_text(
+        "contract C { error Bad(uint x);\n"
+        "function f() public { revert Bad(1); }\n"
+        "function g() public { revert('reason'); }\n"
+        "function h() public { revert(); } }"
+    )
+    graph = parse_file(str(path), strict=True)
+    types = {unit.name: [ref.name for ref in unit.exception_types] for unit in graph.nodes.values()}
+    assert (types["f"], types["g"], types["h"]) == (["Bad"], [], [])
+
+
+@pytest.mark.parametrize(
+    ("name", "source", "expression"),
+    [
+        ("app.r", "f <- function() {\n  tryCatch({\n    heavy()\n  }, error = h)\n}\n", "tryCatch"),
+        ("app.lua", "function f()\n  pcall(function()\n    heavy()\n  end)\nend\n", "pcall"),
+        ("app.hs", "module App where\nf = catch (heavy 1) handler\n", "catch"),
+        ("app.rb", "def f\n  catch(:done) do\n    heavy\n  end\nend\n", "catch"),
+        ("app.sh", "f() {\n  trap cleanup ERR\n}\n", "trap cleanup ERR"),
+        ("app.r", "f <- function() {\n  on.exit(cleanup())\n}\n", "on.exit(cleanup())"),
+    ],
+)
+def test_call_based_wrappers_omit_their_protected_body(
+    tmp_path: Path, name: str, source: str, expression: str
+) -> None:
+    path = tmp_path / name
+    path.write_text(source)
+    graph = parse_file(str(path), strict=True)
+    (event,) = (
+        event
+        for unit in graph.nodes.values()
+        for event in unit.exception_events
+        if event.kind in {ExceptionEventKind.HANDLER, ExceptionEventKind.CLEANUP}
+    )
+    assert event.expression == expression
+
+
+def test_ruby_bare_raises_are_rethrows_in_every_statement_position(tmp_path: Path) -> None:
+    source = (
+        "def f\n  begin\n    work\n  rescue Bad\n    raise\n  else\n    raise\n"
+        "  ensure\n    fail\n  end\nend\n"
+        "def g(x)\n  case x\n  when 1\n    raise\n  end\n  while x do raise end\n"
+        "  raise if x\nend\n"
+        "def h(obj)\n  obj.raise\n  raise unless obj\n  (raise)\nend\n"
+        "def k\n  raise Bad, 'message'\nend\n"
+    )
+    events = _events(tmp_path, "app.rb", source)
+    assert events["f"] == ["handler", "rethrow", "rethrow", "cleanup", "rethrow"]
+    assert events["g"] == ["rethrow"] * 3
+    assert events["h"] == ["rethrow"] * 2
+    assert events["k"] == ["raise"]

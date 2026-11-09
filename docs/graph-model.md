@@ -83,8 +83,9 @@ syntax hints, not resolved runtime types; call syntax can also invoke a factory.
 Unknown operands remain visible in `expression` without becoming type names.
 Thrown variable names and handler binding annotations are not exception types.
 `functions_that_raise()` searches the legacy `exception_types` field, not
-transitive effects. That field can also contain declaration metadata in schema
-frontends such as Thrift. Use event kinds to distinguish direct throws, handler
+transitive effects. Module-level raises remain module events and are not
+reported as raising functions. That field can also contain declaration
+metadata in schema frontends such as Thrift. Use event kinds to distinguish direct throws, handler
 types and declarations.
 `exception_events(name)` returns JSON-serializable evidence; missing names return
 `[]`. GraphStore and CodeGraph return immutable event objects for known IDs and

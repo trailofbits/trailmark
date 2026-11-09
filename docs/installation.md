@@ -63,6 +63,11 @@ Verus blocks, records a structured parse diagnostic, and continues parsing ordin
 Strict parsing rejects that diagnostic. A compiler failure's warning
 includes the exit status and stderr.
 
+If the bundled Rust grammar cannot be built or loaded, Trailmark logs one warning
+per process and parses Rust with the language-pack grammar instead. That scanner
+can misread Unicode inside block comments; install the build requirements above
+to restore the corrected scanner.
+
 Compiled bindings are cached under a key derived from the compiled source
 contents, Python ABI, platform, and compiler options. When any of those change,
 Trailmark builds a new binding. Completed builds are published atomically, so

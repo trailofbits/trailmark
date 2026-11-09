@@ -645,7 +645,7 @@ def _collect_throw_type(
     for child in node.children:
         if child.type == "object_creation_expression":
             for sub in child.children:
-                if sub.type in {"name", "qualified_name", "relative_name"}:
+                if sub.type == "name":
                     exception_types.append(TypeRef(name=node_text(sub)))
                     return
 

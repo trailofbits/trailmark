@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from tests.binary_oracle import aarch64_branches, inspect_image, merged_ranges
+from trailmark.analysis.native_binary.formats import lief_module
 from trailmark.models import BinaryImportOptions, BinaryLimits, BinarySelection
 from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
@@ -774,9 +775,7 @@ def test_exception_metadata_does_not_imply_recovered_exception_dispatch(tmp_path
         check=True,
         timeout=60,
     )
-    import lief
-
-    binary = lief.parse(str(image))
+    binary = lief_module().parse(str(image))
     assert binary is not None
     names = {section.name for section in binary.sections}
     assert names & {".gcc_except_table", "__gcc_except_tab"}

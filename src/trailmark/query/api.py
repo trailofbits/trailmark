@@ -15,7 +15,7 @@ from trailmark.analysis.entrypoint_candidates import discover_entrypoint_candida
 from trailmark.analysis.entrypoints import detect_entrypoints
 from trailmark.analysis.native_binary import augment_binary_file, disassemble_binary
 from trailmark.analysis.preanalysis import run_preanalysis
-from trailmark.analysis.proxies import ensure_proxy_nodes
+from trailmark.analysis.proxies import ensure_proxy_nodes, unit_type_refs
 from trailmark.models.annotations import Annotation, AnnotationKind
 from trailmark.models.binary import BinaryImportOptions
 from trailmark.models.edges import CodeEdge, EdgeKind
@@ -621,7 +621,7 @@ class QueryEngine:
         unit = graph.nodes.get(node_id)
         if unit is None:
             return []
-        refs = _unit_type_refs(unit)
+        refs = unit_type_refs(unit)
         return [_type_ref_to_dict(ref) for ref in refs]
 
     def to_json(self, indent: int = 2) -> str:
@@ -741,33 +741,6 @@ def _type_parameter_to_dict(type_parameter: TypeParameter) -> dict[str, Any]:
         ),
         "variance": type_parameter.variance,
     }
-
-
-def _unit_type_refs(unit: CodeUnit) -> list[TypeRef]:
-    refs: list[TypeRef] = []
-    for param in unit.parameters:
-        if param.type_ref is not None:
-            refs.extend(_flatten_type_ref(param.type_ref))
-    if unit.return_type is not None:
-        refs.extend(_flatten_type_ref(unit.return_type))
-    for exc in unit.exception_types:
-        refs.extend(_flatten_type_ref(exc))
-    for event in unit.exception_events:
-        for ref in event.types:
-            refs.extend(item for item in _flatten_type_ref(ref) if item not in refs)
-    for type_param in unit.type_parameters:
-        for constraint in type_param.constraints:
-            refs.extend(_flatten_type_ref(constraint))
-        if type_param.default is not None:
-            refs.extend(_flatten_type_ref(type_param.default))
-    return refs
-
-
-def _flatten_type_ref(type_ref: TypeRef) -> list[TypeRef]:
-    refs = [type_ref]
-    for arg in type_ref.generic_args:
-        refs.extend(_flatten_type_ref(arg))
-    return refs
 
 
 def _sort_by_complexity(nodes: list[CodeUnit]) -> list[CodeUnit]:
