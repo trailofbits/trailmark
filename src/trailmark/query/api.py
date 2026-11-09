@@ -20,6 +20,7 @@ from trailmark.models.annotations import Annotation, AnnotationKind
 from trailmark.models.binary import BinaryImportOptions
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.entrypoints import EntrypointEvidence
+from trailmark.models.exceptions import ExceptionEvent
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeOrigin, TypeParameter, TypeRef
 from trailmark.source_policy import SourcePolicy
@@ -241,9 +242,10 @@ class QueryEngine:
         """Return functions/methods whose parser-detected exception list
         includes the named exception.
 
-        Looks at the ``exception_types`` field parsers populate when they
-        extract ``raise``/``throw`` statements. Match is by type name
-        (``TypeRef.name``) — modules/generics are ignored.
+        Looks at the legacy ``exception_types`` field; schema frontends such as
+        Thrift also use it for declarations. Match is by type name
+        (``TypeRef.name``) — modules/generics are ignored. Use exception event
+        kinds to distinguish throws, handlers and declarations.
         """
         result: list[dict[str, Any]] = []
         for unit in self._store._graph.nodes.values():  # noqa: SLF001
@@ -252,6 +254,21 @@ class QueryEngine:
                     result.append(_unit_to_dict(unit))
                     break
         return result
+
+    def exception_events(self, name: str) -> list[dict[str, Any]]:
+        """Return throws, handlers and cleanup syntax owned by a resolved node.
+
+        These events describe syntax, not runtime handler matching, propagation,
+        cleanup guarantees, or a complete list of operations that may fail.
+        """
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        return [_exception_event_to_dict(event) for event in self._store.exception_events(node_id)]
+
+    def exception_support(self) -> list[dict[str, Any]]:
+        """Describe inspected frontends' partial, unsupported and inapplicable capabilities."""
+        return [asdict(support) for support in self._store.exception_support()]
 
     def attack_surface(self) -> list[dict[str, Any]]:
         """List all entrypoints with their trust levels."""
@@ -623,10 +640,12 @@ class QueryEngine:
             "summary": self.summary(),
             "nodes": {nid: _unit_to_dict(node) for nid, node in graph.nodes.items()},
             "edges": [_edge_to_dict(e) for e in graph.edges],
-            "subgraphs": {name: sorted(ids) for name, ids in graph.subgraphs.items()},
+            "subgraphs": {name: sorted(ids) for name, ids in self._store.all_subgraphs().items()},
         }
         if graph.source_policy:
             data["source_policy"] = self.source_policy()
+        if support := self.exception_support():
+            data["exception_support"] = support
         if graph.entrypoint_evidence:
             data["entrypoint_evidence"] = self.entrypoint_evidence()
         if graph.binary_artifacts:
@@ -655,6 +674,10 @@ def _unit_to_dict(unit: CodeUnit) -> dict[str, Any]:
     """Convert a CodeUnit to a serializable dict."""
     d = asdict(unit)
     d["kind"] = unit.kind.value
+    if not unit.exception_events:
+        d.pop("exception_events", None)
+    else:
+        d["exception_events"] = [_exception_event_to_dict(event) for event in unit.exception_events]
     if unit.origin == NodeOrigin.SOURCE:
         d.pop("origin", None)
     else:
@@ -666,6 +689,13 @@ def _unit_to_dict(unit: CodeUnit) -> dict[str, Any]:
     else:
         d.pop("attributes", None)
     return d
+
+
+def _exception_event_to_dict(event: ExceptionEvent) -> dict[str, Any]:
+    result = asdict(event)
+    result["kind"] = event.kind.value
+    result["confidence"] = event.confidence.value
+    return result
 
 
 def _edge_to_dict(edge: CodeEdge) -> dict[str, Any]:
@@ -722,6 +752,9 @@ def _unit_type_refs(unit: CodeUnit) -> list[TypeRef]:
         refs.extend(_flatten_type_ref(unit.return_type))
     for exc in unit.exception_types:
         refs.extend(_flatten_type_ref(exc))
+    for event in unit.exception_events:
+        for ref in event.types:
+            refs.extend(item for item in _flatten_type_ref(ref) if item not in refs)
     for type_param in unit.type_parameters:
         for constraint in type_param.constraints:
             refs.extend(_flatten_type_ref(constraint))

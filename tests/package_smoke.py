@@ -17,8 +17,10 @@ from trailmark.parsers.rust.parser import RustParser
 def _check_installed_verus_parser() -> None:
     """Exercise the vendored grammar from the installed distribution."""
     source = """\
+/* Ī/ į* ordinary Unicode comment contents */
 fn host() {}
 verus! {
+    /* Ī/ į* ordinary Unicode comment contents */
     proof fn verified() {
         host();
     }
@@ -77,6 +79,10 @@ def _check_distribution_metadata() -> None:
     if not any(str(path).endswith("tree_sitter_custom/verus/LICENSE") for path in trailmark_files):
         msg = "trailmark distribution does not include the vendored Verus grammar license"
         raise RuntimeError(msg)
+    if not any(str(path).endswith("tree_sitter_custom/rust/LICENSE") for path in trailmark_files):
+        raise RuntimeError(
+            "trailmark distribution does not include the bundled Rust grammar license"
+        )
     if not any(str(path).endswith("tree_sitter_custom/move/LICENSE") for path in trailmark_files):
         raise RuntimeError(
             "trailmark distribution does not include the bundled Move grammar license"

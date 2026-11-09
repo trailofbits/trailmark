@@ -33,6 +33,7 @@ from trailmark.parsers._ecmascript import (
     declared_name,
     discover_callables,
 )
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._receiver_index import concrete_receiver, receiver_scope
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -86,6 +87,7 @@ class TypeScriptParser:
         module_id = module_id_from_path(file_path)
         with callable_scope(graph), receiver_scope():
             _visit_module(tree.root_node, file_path, module_id, graph)
+        collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

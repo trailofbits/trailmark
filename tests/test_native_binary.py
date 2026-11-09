@@ -17,6 +17,7 @@ import pytest
 
 from tests.binary_oracle import aarch64_branches, inspect_image, merged_ranges
 from trailmark.models import BinaryImportOptions, BinaryLimits, BinarySelection
+from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 pytestmark = pytest.mark.binary_tools
@@ -745,3 +746,53 @@ def test_malformed_and_excluded_containers_are_atomic(
     with pytest.raises(ValueError):
         engine.augment_binary_file(str(image), options=options)
     assert engine.to_json() == before
+
+
+def test_exception_metadata_does_not_imply_recovered_exception_dispatch(tmp_path: Path) -> None:
+    """Inspect a real linked image with RAII unwinding, without executing it."""
+    compiler = shutil.which("clang++") or shutil.which("g++")
+    if compiler is None:
+        _required_or_skip("A C++ compiler is required for the exception evidence audit")
+        raise AssertionError("unreachable")
+    if sys.platform not in {"darwin", "linux"}:
+        _required_or_skip("The linked exception fixture currently targets host ELF or Mach-O")
+    fixture = ROOT / "tests/fixtures/exceptions/unwind.cpp"
+    image = tmp_path / "unwind"
+    subprocess.run(  # noqa: S603
+        [
+            compiler,
+            "-std=c++17",
+            "-O0",
+            "-g",
+            "-fexceptions",
+            "-fno-inline",
+            str(fixture),
+            "-o",
+            str(image),
+        ],
+        capture_output=True,
+        check=True,
+        timeout=60,
+    )
+    import lief
+
+    binary = lief.parse(str(image))
+    assert binary is not None
+    names = {section.name for section in binary.sections}
+    assert names & {".gcc_except_table", "__gcc_except_tab"}
+    graph = parse_file(str(fixture), "cpp")
+    source = next(unit for unit in graph.nodes.values() if unit.name == "guarded")
+    assert [event.kind.value for event in source.exception_events] == ["handler"]
+    engine = QueryEngine.from_graph(graph)
+    report = engine.augment_binary_file(
+        str(image),
+        options=BinaryImportOptions(
+            objdump=_tool("llvm", "objdump"),
+            symbolizer=_tool("llvm", "symbolizer"),
+        ),
+    )
+    assert report["ranges"] > 0
+    assert engine.binary_ranges("guarded")
+    support = engine.exception_support()[0]
+    assert support["binary_exception_flow"] == "unsupported"
+    assert support["interprocedural_propagation"] == "unsupported"

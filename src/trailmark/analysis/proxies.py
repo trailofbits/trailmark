@@ -269,6 +269,9 @@ def _iter_unit_types(unit: CodeUnit) -> list[TypeRef]:
         refs.extend(_flatten_type_ref(unit.return_type))
     for exc in unit.exception_types:
         refs.extend(_flatten_type_ref(exc))
+    for event in unit.exception_events:
+        for ref in event.types:
+            refs.extend(item for item in _flatten_type_ref(ref) if item not in refs)
     for type_param in unit.type_parameters:
         for constraint in type_param.constraints:
             refs.extend(_flatten_type_ref(constraint))

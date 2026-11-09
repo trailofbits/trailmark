@@ -40,6 +40,20 @@
       "target": "taxonomy:LoginRequest"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "not_applicable",
+      "cleanup": "not_applicable",
+      "declarations": "partial",
+      "events": "partial",
+      "handlers": "not_applicable",
+      "implicit_execution": "not_applicable",
+      "interprocedural_propagation": "not_applicable",
+      "language": "thrift",
+      "notes": "Declared exceptions describe the RPC contract, not implementation throws or runtime handling.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "thrift",
   "nodes": {
     "taxonomy": {

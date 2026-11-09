@@ -100,6 +100,20 @@
       "target": "proxy.unresolved:d.bark"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "javascript",
+      "notes": "Arbitrary thrown values remain unknown; promise failures and coercion callbacks are not inferred.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "javascript",
   "nodes": {
     "proxy.unresolved:Math.floor": {
@@ -283,6 +297,29 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "new Error(\"too loud\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 40,
+            "end_line": 65,
+            "file_path": "taxonomy.js",
+            "start_col": 12,
+            "start_line": 65
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "Error"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],
@@ -438,6 +475,50 @@
       ],
       "cyclomatic_complexity": 7,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "catch (e)",
+          "kind": "handler",
+          "location": {
+            "end_col": 5,
+            "end_line": 36,
+            "file_path": "taxonomy.js",
+            "start_col": 6,
+            "start_line": 34
+          },
+          "protected_region": {
+            "end_col": 5,
+            "end_line": 34,
+            "file_path": "taxonomy.js",
+            "start_col": 8,
+            "start_line": 32
+          },
+          "syntax": "catch_clause",
+          "types": []
+        },
+        {
+          "confidence": "certain",
+          "expression": "new Error(\"bad mode\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 36,
+            "end_line": 35,
+            "file_path": "taxonomy.js",
+            "start_col": 8,
+            "start_line": 35
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "Error"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],

@@ -1,0 +1,4 @@
+proc f
+    push.0
+    assert
+end

@@ -130,6 +130,20 @@
       "target": "taxonomy:dog_bark"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "c",
+      "notes": "setjmp/longjmp are uncertain named calls; signals, SEH and cleanup extensions are not modeled.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "c",
   "nodes": {
     "proxy.unresolved:taxonomy:snprintf": {

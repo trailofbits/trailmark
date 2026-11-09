@@ -32,6 +32,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import add_callable, add_type, callable_scope
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c._callbacks import resolve_constant_callbacks
 from trailmark.parsers.c._calls import syntax_error_context
@@ -93,6 +94,7 @@ class CParser:
                     child, file_path, module_id, graph, macros=macros, recovered=recovered
                 )
         resolve_constant_callbacks(tree.root_node, module_id, graph)
+        collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

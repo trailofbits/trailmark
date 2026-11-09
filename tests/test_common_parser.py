@@ -9,8 +9,73 @@ from tree_sitter_language_pack import get_parser
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit, NodeKind, SourceLocation
-from trailmark.parsers._common import extract_call_name, module_id_from_path, parse_directory
+from trailmark.models.nodes import CodeUnit, NodeKind, SourceLocation, TypeRef
+from trailmark.parsers._common import (
+    _generic_parameter_block,
+    _parse_type_parameter,
+    _split_top_level,
+    collect_body_info,
+    extract_call_name,
+    module_id_from_path,
+    parse_directory,
+)
+
+
+@pytest.mark.parametrize(
+    "header,expected",
+    [
+        ("public <T extends Base> T run() {}", "T extends Base"),
+        ("<T>(value: T) => value", "T"),
+        ("[T](value) => value", "T"),
+        ("public <T T run() {}", None),
+    ],
+)
+def test_generic_header_scanning_preserves_parameter_text(
+    header: str, expected: str | None
+) -> None:
+    assert _generic_parameter_block(header) == expected
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("A(B, C), D", ["A(B, C)", "D"]),
+        ("A<B, C>, D[E, F]", ["A<B, C>", "D[E, F]"]),
+        ("A), B", ["A)", "B"]),
+        ("A], B>, C", ["A]", "B>", "C"]),
+    ],
+)
+def test_type_parameter_splitting_handles_nested_and_unmatched_delimiters(
+    text: str, expected: list[str]
+) -> None:
+    assert _split_top_level(text) == expected
+
+
+def test_type_parameter_bounds_survive_defaults_and_unhandled_modifiers() -> None:
+    parameter = _parse_type_parameter("T any")
+    assert parameter is not None
+    assert parameter.name == "T"
+    assert parameter.constraints == (TypeRef("any"),)
+    modified = _parse_type_parameter("reified T : Comparable<T>")
+    assert modified is not None
+    assert modified.constraints == (TypeRef("Comparable<T>"),)
+
+
+@pytest.mark.parametrize("operand,expected", [("new Bad()", "Bad"), ("problem", "problem")])
+def test_legacy_body_collection_preserves_throw_operands(operand: str, expected: str) -> None:
+    root = get_parser("javascript").parse(f"throw {operand};".encode()).root_node
+    exceptions: list[TypeRef] = []
+    collect_body_info(
+        root,
+        "sample.js",
+        frozenset(),
+        "call_expression",
+        frozenset({"throw_statement"}),
+        [],
+        exceptions,
+        [],
+    )
+    assert exceptions == [TypeRef(expected)]
 
 
 @pytest.mark.parametrize(

@@ -10,10 +10,8 @@ services. Extracts:
 - Return types from the type node that follows ``:`` on the signature.
 - Imports (``import_header``).
 
-Known gap (deferred, parallel to Swift): ``throw`` statements are wrapped
-in ``jump_expression`` nodes that also cover ``return``/``break``/
-``continue``. Capturing exception types requires a Kotlin-specific walk
-that filters by the leading ``throw`` token. Not implemented in this pass.
+Throw expressions retain source evidence and constructor type hints.
+
 """
 
 from __future__ import annotations
@@ -52,6 +50,7 @@ from trailmark.parsers._declarations import (
     bind_lexical_calls,
     callable_scope,
 )
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
@@ -104,6 +103,7 @@ class KotlinParser:
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
         bind_lexical_calls(graph)
+        collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

@@ -499,6 +499,20 @@
       "target": "taxonomy:Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "haskell",
+      "notes": "Named applications are uncertain; laziness, saturation, masking and asynchronous exceptions are not resolved.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "haskell",
   "nodes": {
     "proxy.unresolved:taxonomy:$operator.greater": {

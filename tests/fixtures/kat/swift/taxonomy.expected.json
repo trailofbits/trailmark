@@ -115,6 +115,20 @@
       "target": "taxonomy:Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "partial",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "swift",
+      "notes": "throws and throw remain distinct; typed throws grammar coverage, try variants and cancellation are incomplete.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "swift",
   "nodes": {
     "proxy.unresolved:Int": {
@@ -278,7 +292,51 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
-      "exception_types": [],
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "throws",
+          "kind": "declares",
+          "location": {
+            "end_col": 40,
+            "end_line": 63,
+            "file_path": "taxonomy.swift",
+            "start_col": 34,
+            "start_line": 63
+          },
+          "protected_region": null,
+          "syntax": "throws",
+          "types": []
+        },
+        {
+          "confidence": "certain",
+          "expression": "NSError(domain: \"taxonomy\", code: 2)",
+          "kind": "raise",
+          "location": {
+            "end_col": 54,
+            "end_line": 65,
+            "file_path": "taxonomy.swift",
+            "start_col": 12,
+            "start_line": 65
+          },
+          "protected_region": null,
+          "syntax": "control_transfer_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "NSError"
+            }
+          ]
+        }
+      ],
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "NSError"
+        }
+      ],
       "id": "taxonomy:Dog.bark",
       "kind": "method",
       "location": {
@@ -518,7 +576,51 @@
       ],
       "cyclomatic_complexity": 7,
       "docstring": null,
-      "exception_types": [],
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "throws",
+          "kind": "declares",
+          "location": {
+            "end_col": 45,
+            "end_line": 20,
+            "file_path": "taxonomy.swift",
+            "start_col": 39,
+            "start_line": 20
+          },
+          "protected_region": null,
+          "syntax": "throws",
+          "types": []
+        },
+        {
+          "confidence": "certain",
+          "expression": "NSError(domain: \"taxonomy\", code: 1)",
+          "kind": "raise",
+          "location": {
+            "end_col": 50,
+            "end_line": 36,
+            "file_path": "taxonomy.swift",
+            "start_col": 8,
+            "start_line": 36
+          },
+          "protected_region": null,
+          "syntax": "control_transfer_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "NSError"
+            }
+          ]
+        }
+      ],
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "NSError"
+        }
+      ],
       "id": "taxonomy:branchy",
       "kind": "function",
       "location": {
@@ -559,6 +661,38 @@
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "throws",
+          "kind": "declares",
+          "location": {
+            "end_col": 31,
+            "end_line": 75,
+            "file_path": "taxonomy.swift",
+            "start_col": 25,
+            "start_line": 75
+          },
+          "protected_region": null,
+          "syntax": "throws",
+          "types": []
+        },
+        {
+          "confidence": "certain",
+          "expression": "try d.bark(loud: false)",
+          "kind": "propagate",
+          "location": {
+            "end_col": 34,
+            "end_line": 76,
+            "file_path": "taxonomy.swift",
+            "start_col": 11,
+            "start_line": 76
+          },
+          "protected_region": null,
+          "syntax": "try_expression",
+          "types": []
+        }
+      ],
       "exception_types": [],
       "id": "taxonomy:useAnimal",
       "kind": "function",

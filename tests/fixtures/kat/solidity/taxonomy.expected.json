@@ -201,6 +201,20 @@
       "target": "taxonomy:Dog.bark"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "solidity",
+      "notes": "Catch regions protect the attempted external call; rollback, low-level return flags and panic matching are not inferred.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "solidity",
   "nodes": {
     "proxy.unresolved:abi.encodePacked": {
@@ -446,7 +460,36 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
-      "exception_types": [],
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "TooLoud()",
+          "kind": "raise",
+          "location": {
+            "end_col": 29,
+            "end_line": 62,
+            "file_path": "taxonomy.sol",
+            "start_col": 12,
+            "start_line": 62
+          },
+          "protected_region": null,
+          "syntax": "revert_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "TooLoud"
+            }
+          ]
+        }
+      ],
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "TooLoud"
+        }
+      ],
       "id": "taxonomy:Dog.bark",
       "kind": "method",
       "location": {

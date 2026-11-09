@@ -182,4 +182,10 @@ rejects incomplete imports atomically. Invalid inputs, identity mismatches, and
 collisions leave graph data and indexes unchanged. Repeated identical imports
 are idempotent. Reimports retain previously observed gaps as provenance.
 Completeness describes the inspected scope and available decoding/debug evidence;
-it does not certify source/build equivalence or constant-time behavior.
+it does not certify source/build equivalence, exception-flow recovery, or
+constant-time behavior. Exception tables, personality functions, landing pads,
+handler dispatch and implicit unwind cleanup are not reconstructed for any
+supported container. A decoded call to a throw or unwind helper is ordinary call
+evidence. `complete=true` does not certify exceptional control-flow completeness.
+See the [exception support audit](exceptions.md) for the compiled C++ regression
+and the separate `exception_support()` capability report.

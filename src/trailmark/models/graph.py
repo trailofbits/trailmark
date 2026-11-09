@@ -10,6 +10,8 @@ from trailmark.models.binary import BinaryArtifact, BinaryRange, BinarySourceMap
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.entrypoints import EntrypointEvidence
+from trailmark.models.exception_support import ExceptionSupport, exception_support_for
+from trailmark.models.exceptions import ExceptionEvent
 from trailmark.models.nodes import CodeUnit, NodeKind
 
 
@@ -40,6 +42,16 @@ class CodeGraph:
     def add_entrypoint_evidence(self, evidence: EntrypointEvidence) -> None:
         """Retain distinct source occurrences and make repeated discovery idempotent."""
         self.entrypoint_evidence[evidence.id] = evidence
+
+    def exception_events(self, node_id: str) -> tuple[ExceptionEvent, ...]:
+        """Return source exception evidence, or an empty tuple for a missing node."""
+        unit = self.nodes.get(node_id)
+        return unit.exception_events if unit is not None else ()
+
+    def exception_support(self) -> tuple[ExceptionSupport, ...]:
+        """Return capability limits for inspected or explicitly identified languages."""
+        languages = set(self.source_file_counts) or set(filter(None, self.language.split(",")))
+        return tuple(exception_support_for(language) for language in sorted(languages))
 
     def unresolved_calls(self) -> list[CodeEdge]:
         """Return calls with missing targets or explicit unresolved proxies."""

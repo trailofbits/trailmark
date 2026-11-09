@@ -94,6 +94,20 @@
       "target": "taxonomy:main"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "lua",
+      "notes": "Protected-call and error candidates can be shadowed; closing and GC metamethods are not inferred.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "lua",
   "nodes": {
     "proxy.unresolved:taxonomy:M.handle._dynamic_.self:other": {

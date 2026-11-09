@@ -1,0 +1,3 @@
+syntax = "proto3";
+message Request {}
+service App { rpc F(Request) returns (Request); }

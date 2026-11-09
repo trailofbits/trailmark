@@ -139,6 +139,20 @@
       "target": "taxonomy:Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "typescript",
+      "notes": "Catch binding annotations are not handler filters; disposal and promise effects are not inferred.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "typescript",
   "nodes": {
     "proxy.unresolved:Math.floor": {
@@ -330,6 +344,29 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "new Error(\"too loud\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 40,
+            "end_line": 76,
+            "file_path": "taxonomy.ts",
+            "start_col": 12,
+            "start_line": 76
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "Error"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],
@@ -616,6 +653,50 @@
       ],
       "cyclomatic_complexity": 7,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "catch (e)",
+          "kind": "handler",
+          "location": {
+            "end_col": 5,
+            "end_line": 43,
+            "file_path": "taxonomy.ts",
+            "start_col": 6,
+            "start_line": 41
+          },
+          "protected_region": {
+            "end_col": 5,
+            "end_line": 41,
+            "file_path": "taxonomy.ts",
+            "start_col": 8,
+            "start_line": 39
+          },
+          "syntax": "catch_clause",
+          "types": []
+        },
+        {
+          "confidence": "certain",
+          "expression": "new Error(\"bad mode\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 36,
+            "end_line": 42,
+            "file_path": "taxonomy.ts",
+            "start_col": 8,
+            "start_line": 42
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "Error"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],

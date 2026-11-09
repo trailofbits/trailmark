@@ -22,6 +22,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._simple import first_child_type
 
 _LOG = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ class LuaParser:
         add_module_node(root, file_path, module, graph)
         extractor = _Extractor(graph, module, file_path)
         extractor.chunk(root)
+        collect_exception_events(root, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

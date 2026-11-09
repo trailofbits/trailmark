@@ -76,6 +76,20 @@
       "target": "example.auth:helper.$clause@taxonomy_13_0"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "not_applicable",
+      "declarations": "not_applicable",
+      "events": "unsupported",
+      "handlers": "not_applicable",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "rego",
+      "notes": "Undefined policy results and builtin evaluation errors require runtime configuration; no exception events are emitted.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "rego",
   "nodes": {
     "example.auth": {

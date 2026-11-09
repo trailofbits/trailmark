@@ -27,6 +27,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._php_linking import link_php_functions
 from trailmark.parsers._walk import walk_owned
@@ -99,6 +100,7 @@ class PHPParser:
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
         link_php_functions(graph)
+        collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -643,7 +645,7 @@ def _collect_throw_type(
     for child in node.children:
         if child.type == "object_creation_expression":
             for sub in child.children:
-                if sub.type == "name":
+                if sub.type in {"name", "qualified_name", "relative_name"}:
                     exception_types.append(TypeRef(name=node_text(sub)))
                     return
 

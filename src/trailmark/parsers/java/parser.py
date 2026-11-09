@@ -36,6 +36,7 @@ from trailmark.parsers._declarations import (
     bind_lexical_calls,
     callable_scope,
 )
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
@@ -90,6 +91,7 @@ class JavaParser:
         link_type_relationships(graph)
         bind_lexical_calls(graph)
         _bind_constructors(graph)
+        collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

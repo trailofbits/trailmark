@@ -76,6 +76,20 @@
       "target": "proxy.unresolved:Vec::new"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "unsupported",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "rust",
+      "notes": "The ? operator propagates values; panic candidates do not establish unwind versus abort, Drop or FFI behavior. Embedded Verus macro bodies and unmodeled closures or async blocks are omitted from events.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "rust",
   "nodes": {
     "proxy.unresolved:Vec::new": {

@@ -49,6 +49,8 @@ prints JSON. Negative thresholds are rejected.
 
 The JSON graph contains nodes, edges, subgraphs, a summary, and the
 `trailmark_version` and `schema_version` export provenance fields (v0.7+).
+It also includes `exception_support` for identified frontend languages and
+nonempty node `exception_events`; see the [exception audit](exceptions.md).
 It does not contain annotations, entrypoint tags, or per-call-site locations; see
 [JSON export](python-api.md#json-export) for what is omitted and how to get it.
 
@@ -150,6 +152,8 @@ Prints a [Mermaid](https://mermaid.js.org/) diagram. `--target` (`-t`) and
 is measured in edges. `--direction` sets top-to-bottom (`TB`, the default) or
 left-to-right (`LR`) layout. Edge styles show confidence; `data-flow` uses the
 weakest confidence when one function calls another from several sites.
+Distinct graph nodes receive distinct Mermaid identifiers even when punctuation
+or Unicode characters give their IDs the same sanitized spelling.
 
 Diagrams with more than 100 rendered nodes print a warning to stderr. For class
 diagrams, each class counts as one node; its listed members do not add nodes.

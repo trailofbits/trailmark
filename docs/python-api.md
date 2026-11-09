@@ -157,6 +157,8 @@ count (default 20) and must be positive; zero or a negative value raises
 | `attack_surface()` | Each entrypoint's node ID, kind, trust level, asset value, description, and parser attributes such as Solidity visibility |
 | `complexity_hotspots(threshold=10)` | Functions with cyclomatic complexity &ge; `threshold` |
 | `functions_that_raise(exception_name)` | Functions whose parser-detected exception types include `exception_name` |
+| `exception_events(name)` | Source-located throws, rethrows, handlers, cleanup and throwing declarations owned by a node |
+| `exception_support()` | Capability limits for the inspected frontend languages, including unsupported propagation and implicit execution |
 | `summary()` | Total nodes; function, class, and proxy counts; call-edge count; dependencies; entrypoint count; selected languages and inspected source-file counts |
 | `parse_diagnostics()` | Grammar errors and explicitly unsupported constructs, with language, grammar, source span, kind and message |
 | `source_policy()` | Effective source roots, globs, and inspected/skipped/unparsed file decisions; empty for graphs without source-selection metadata |
@@ -184,7 +186,7 @@ it never labels candidates as externally reachable.
 | Method | Returns |
 | --- | --- |
 | `generic_parameters(name)` | Generic type parameters declared by `name` |
-| `type_references(name)` | Type references in `name`'s parameters, return type, raised exceptions, and generic bounds |
+| `type_references(name)` | Type references in `name`'s parameters, return type, raised/caught/declared exceptions, and generic bounds |
 
 ### Persistent state (Solidity)
 
@@ -257,8 +259,11 @@ them, for example `tainted`, `entrypoints:untrusted_external`, and
 | `subgraph_edges(name, *, edge_kinds=None)` | Edges whose endpoints are both in the subgraph, optionally filtered by kind |
 | `connect_subgraphs(source, target, *, max_depth=20, edge_kinds=("calls",))` | Paths from any node in one subgraph to any node in another |
 
-If the two subgraphs share a node, `connect_subgraphs()` can return that node as
-a one-node path.
+`GraphStore.add_subgraph()` copies membership and rejects unknown node IDs
+without changing an existing group. Subgraph reads, paths, and JSON export
+ignore stale members left in the mutable `CodeGraph`.
+If the two subgraphs share an existing node, `connect_subgraphs()` can return
+that node as a one-node path.
 
 ### Call resolution
 
@@ -291,7 +296,9 @@ each changed field has `before` and `after` values. Comparison covers:
 - `name`, `kind`, `origin`, `cyclomatic_complexity`, and `line_span`;
 - `parameters` (the ordered parameter names), `parameter_types`, and
   `parameter_defaults` (parallel ordered lists);
-- `return_type`, `exception_types`, `type_parameters`, and `attributes`.
+- `return_type`, `exception_types`, `type_parameters`, and `attributes`;
+- `exception_events` (kind, syntax, confidence, expression, type hints and presence of a
+  protected region; moving source locations alone does not change this field).
 
 Type references are objects with `name`, `module`, and recursive `generic_args`,
 or `null` for an absent type. Type parameters contain `name`, `constraints`,
@@ -321,6 +328,10 @@ rebuild both snapshots with one tested version before interpreting a diff.
 These fields identify the exporter, not the source revision or all settings
 used to construct a graph. Trailmark does not import graph exports or
 automatically validate their compatibility.
+
+Graph exports include `exception_support` for identified frontend languages and
+nonempty node `exception_events`. The [exception audit](exceptions.md) describes
+their source-evidence contract and runtime coverage limits.
 
 The JSON export omits annotations, entrypoint tags, and call-site
 locations, so it does not preserve all analysis state. While the engine is

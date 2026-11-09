@@ -46,6 +46,10 @@ that are reachable from user input.
   coarse taint) that store their results as annotations and named subgraphs.
 - **Visible gaps.** Calls that cannot be resolved become proxy nodes instead of
   disappearing, and `trailmark analyze --resolution` counts them.
+- **Exception evidence.** Inspect source-located throws, rethrows, handlers and
+  cleanup syntax with `exception_events()`; unknown thrown operands remain
+  visible. See the [graph model](https://github.com/trailofbits/trailmark/blob/main/docs/graph-model.md#exception-evidence) for
+  frontend coverage and the limits of this syntax evidence.
 - **Links Trailmark cannot see.** Declare RPC, FFI, and subprocess edges in
   `.trailmark/links.toml`, or import a call graph produced by a binary-analysis
   tool.
@@ -75,7 +79,7 @@ lists what each published release includes, and the CLI and Python API guides
 note the version that added each newer feature.
 
 Most grammars are downloaded and cached on first use. The bundled Circom, Miden
-Assembly, Move, and Verus grammars are compiled on first use, which needs a C
+Assembly, Move, Rust, and Verus grammars are compiled on first use, which needs a C
 compiler. See [Installation](https://github.com/trailofbits/trailmark/blob/main/docs/installation.md)
 for offline machines, TLS-inspecting proxies, and building from a checkout.
 

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
 from collections import deque
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 from trailmark.models.lookup import resolve_node_id
@@ -38,6 +40,29 @@ def sanitize_id(node_id: str) -> str:
     if safe[0].isdigit():
         safe = f"n_{safe}"
     return safe
+
+
+def _mermaid_ids(node_ids: Iterable[str]) -> dict[str, str]:
+    """Allocate deterministic, distinct IDs, keeping unambiguous spellings."""
+    groups: dict[str, list[str]] = {}
+    for node_id in sorted(set(node_ids)):
+        groups.setdefault(sanitize_id(node_id), []).append(node_id)
+    used = set(groups)
+    result: dict[str, str] = {}
+    for base, originals in groups.items():
+        if len(originals) == 1:
+            result[originals[0]] = base
+            continue
+        for original in originals:
+            suffix = hashlib.sha256(original.encode()).hexdigest()[:12]
+            candidate = f"{base}__{suffix}"
+            index = 1
+            while candidate in used:
+                candidate = f"{base}__{suffix}_{index}"
+                index += 1
+            used.add(candidate)
+            result[original] = candidate
+    return result
 
 
 def node_label(node: dict[str, Any]) -> str:
@@ -230,6 +255,7 @@ def emit_class_hierarchy(
     """Emit a Mermaid classDiagram of inheritance relationships."""
     graph = _load_graph(engine)
     nodes = graph.get("nodes", {})
+    ids = _mermaid_ids(set(nodes))
     edges = graph.get("edges", [])
 
     type_nodes = {nid: n for nid, n in nodes.items() if n.get("kind") in _CONTAINER_KINDS}
@@ -239,15 +265,15 @@ def emit_class_hierarchy(
     _warn_if_large(type_nodes)
     lines = ["classDiagram", f"    direction {direction}"]
     for nid, n in type_nodes.items():
-        lines.append(f"    class {sanitize_id(nid)} {{\n        {n.get('kind', '')}\n    }}")
+        lines.append(f"    class {ids[nid]} {{\n        {n.get('kind', '')}\n    }}")
 
     for e in edges:
         src, tgt = e.get("source"), e.get("target")
         kind = e.get("kind")
         if kind == "inherits" and src in type_nodes and tgt in type_nodes:
-            lines.append(f"    {sanitize_id(tgt)} <|-- {sanitize_id(src)}")
+            lines.append(f"    {ids[tgt]} <|-- {ids[src]}")
         elif kind == "implements" and src in type_nodes and tgt in type_nodes:
-            lines.append(f"    {sanitize_id(tgt)} <|.. {sanitize_id(src)}")
+            lines.append(f"    {ids[tgt]} <|.. {ids[src]}")
 
     return "\n".join(lines)
 
@@ -283,6 +309,7 @@ def emit_containment(
     """Emit a Mermaid classDiagram showing class members."""
     graph = _load_graph(engine)
     nodes = graph.get("nodes", {})
+    ids = _mermaid_ids(set(nodes))
     edges = graph.get("edges", [])
 
     containers: dict[str, list[str]] = {}
@@ -302,7 +329,7 @@ def emit_containment(
     lines = ["classDiagram", f"    direction {direction}"]
     for parent_id, children in containers.items():
         parent = nodes[parent_id]
-        sid = sanitize_id(parent_id)
+        sid = ids[parent_id]
         lines.append(f"    class {sid} {{")
         for child_id in children:
             child = nodes.get(child_id, {})
@@ -325,6 +352,7 @@ def emit_complexity(
     """Emit a flowchart with nodes color-coded by complexity."""
     graph = _load_graph(engine)
     nodes = graph.get("nodes", {})
+    ids = _mermaid_ids(set(nodes))
     edges = graph.get("edges", [])
 
     cc_nodes = {
@@ -346,13 +374,13 @@ def emit_complexity(
     _warn_if_large(cc_nodes)
     lines = [f"flowchart {direction}"]
     for nid, n in cc_nodes.items():
-        sid = sanitize_id(nid)
+        sid = ids[nid]
         label = mermaid_label(n)
         cls = complexity_class(n.get("cyclomatic_complexity"))
         lines.append(f'    {sid}["{label}"]:::{cls}')
 
     for src, tgt, conf in call_edges:
-        lines.append(f"    {sanitize_id(src)} {edge_style(conf)} {sanitize_id(tgt)}")
+        lines.append(f"    {ids[src]} {edge_style(conf)} {ids[tgt]}")
 
     lines.append("    classDef low fill:rgba(40,167,69,0.2),stroke:#28a745,color:#28a745")
     lines.append("    classDef medium fill:rgba(255,193,7,0.2),stroke:#e6a817,color:#e6a817")
@@ -383,6 +411,7 @@ def emit_data_flow(
 
     graph = _load_graph(engine)
     nodes = graph.get("nodes", {})
+    ids = _mermaid_ids(set(nodes))
     ep_ids = {ep["node_id"] for ep in surface}
 
     all_path_nodes: dict[str, dict[str, Any]] = {}
@@ -406,7 +435,7 @@ def emit_data_flow(
     _warn_if_large(all_path_nodes)
     lines = [f"flowchart {direction}"]
     for nid, n in all_path_nodes.items():
-        sid = sanitize_id(nid)
+        sid = ids[nid]
         label = mermaid_label(n)
         if nid in ep_ids:
             lines.append(f'    {sid}(["{label}"]):::entrypoint')
@@ -418,7 +447,7 @@ def emit_data_flow(
         key = (src, tgt)
         if key not in seen_edges:
             seen_edges.add(key)
-            lines.append(f"    {sanitize_id(src)} {edge_style(conf)} {sanitize_id(tgt)}")
+            lines.append(f"    {ids[src]} {edge_style(conf)} {ids[tgt]}")
 
     lines.append("    classDef entrypoint fill:rgba(0,123,255,0.2),stroke:#007bff,color:#007bff")
 
@@ -477,13 +506,14 @@ def _render_flowchart(
     direction: str,
 ) -> str:
     """Render a generic Mermaid flowchart from nodes and edges."""
+    ids = _mermaid_ids(set(nodes) | {endpoint for src, tgt, _ in edges for endpoint in (src, tgt)})
     lines = [f"flowchart {direction}"]
     for nid, n in nodes.items():
-        sid = sanitize_id(nid)
+        sid = ids[nid]
         label = mermaid_label(n)
         lines.append(f'    {sid}["{label}"]')
     for src, tgt, conf in edges:
-        lines.append(f"    {sanitize_id(src)} {edge_style(conf)} {sanitize_id(tgt)}")
+        lines.append(f"    {ids[src]} {edge_style(conf)} {ids[tgt]}")
     return "\n".join(lines)
 
 

@@ -3,6 +3,7 @@
   "scope": {
     "src/trailmark/parsers/rust/parser.py": "*",
     "src/trailmark/tree_sitter_custom/verus/__init__.py": "*",
+    "src/trailmark/tree_sitter_custom/rust/__init__.py": "*",
     "src/trailmark/parsers/_common.py": "*",
     "src/trailmark/parsers/rust/_scopes.py": "*",
     "src/trailmark/tree_sitter_custom/_native.py": "*",
@@ -11,37 +12,59 @@
   },
   "exceptions": [
     {
-      "fingerprint": "f551eb89c77d46fda9075c67560e296561644504b1430d1540f3e41d115e3ad5",
-      "source_hash": "d061f4e0b30fae2572b0c250a7d8c43d39f373425cc8647f32841aa47eb0cbce",
-      "path": "src/trailmark/parsers/rust/_scopes.py",
-      "function": "<module>",
-      "line": 60,
-      "operator": "boolean",
-      "original": "True",
-      "mutated": "False",
-      "reason": "Equivalent in the parser workflow: each private resolution context is constructed with its field values, read only, and never returned to callers. dataclasses.replace creates new context objects rather than assigning fields. Changing dataclass field immutability leaves graph construction and resolution results identical. NativeGrammar configuration immutability is separately tested and is not exempted. Re-reviewed after lexical binding guards: those guards inspect edge attributes and use the existing read-only context; neither they nor any resolution caller rebind its fields."
+      "fingerprint": "6fb70907a980ba3b1ffc406e6b527cc7429e3d7f0043f726c381cf336be5da68",
+      "function": "_extract_impl_type_name",
+      "line": 521,
+      "mutated": "return",
+      "operator": "return",
+      "original": "return ''",
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "source_hash": "d47950048fb971b088590d734b75969b631ac54e091f1c556ec2c6a4294a4532",
+      "reason": "Equivalent in the parser workflow: the helper's sole caller is _extract_impl, which immediately returns None when the extracted name is falsy. Returning None instead of an empty string when there is no type therefore takes the same branch and emits no nodes or edges, including during Verus extraction. Other return paths and nonempty type names are not exempted."
     },
     {
-      "fingerprint": "4d331456cfd656a1715473a544dc9eb6da9ca261d7f299be379160ac98bd743e",
+      "fingerprint": "89aa204ff861e5cd832a077f69ab40d3900bfb1f27813a0c5057dab6fd707abf",
+      "function": "_first_path_segment",
+      "line": 793,
+      "mutated": "return",
+      "operator": "return",
+      "original": "return ''",
+      "path": "src/trailmark/parsers/rust/parser.py",
+      "source_hash": "bd5800b1f5f59c268f2eed8cedad3ebeddd43174bc64fd41876ca1c8065b54eb",
+      "reason": "Equivalent in the parser workflow: this helper only recurses into itself or supplies _extract_import. A no-match result is propagated unchanged through recursion and tested for truthiness before appending a dependency. Both an empty string and None suppress that append. Nonempty identifier returns and import deduplication have behavioral regressions and are not exempted."
+    },
+    {
+      "fingerprint": "4d98c80bff240b926917586c3a705a57d0a026ad63d55406b16c8358cccf076a",
+      "function": "<module>",
+      "line": 59,
+      "mutated": "False",
+      "operator": "boolean",
+      "original": "True",
+      "path": "src/trailmark/parsers/_common.py",
+      "source_hash": "4e65ba46b45c98d981f41f713a74c2e9949de2197c24f2dac46693347fce3548",
+      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, stored in a private ContextVar, read by directory parsing and module ID planning, and reset in finally. directory_sources yields None rather than exposing the record. No consumer rebinds its fields or hashes, serializes, or compares the record. Mutable nested maps remain equally mutable under either decorator. Re-reviewed against the current source and graph callers during exception-evidence review preparation; public NativeGrammar immutability remains separately tested and is not exempted."
+    },
+    {
+      "fingerprint": "6d8059f8f49400e63d3c9ee0815b0eaf0eed771042190352259c11b5ee6b9eea",
+      "function": "<module>",
+      "line": 60,
+      "mutated": "False",
+      "operator": "boolean",
+      "original": "True",
+      "path": "src/trailmark/parsers/rust/_scopes.py",
+      "source_hash": "9080b5b48d421fbf8c6bf4446bba5d376edac504a033542ad450be1600403889",
+      "reason": "Equivalent private resolution-record mutability: _Resolution is constructed with graph, imports, locals, declarations and root; consumers read its fields or mutate the referenced graph. Updates use dataclasses.replace to construct another record, not field rebinding. It is neither returned by the parser nor hashed, serialized, or compared. Re-reviewed against current resolver callers; the frozen-field guard has no observable parser effect."
+    },
+    {
+      "fingerprint": "419d303aeafe1779f8c5512bf44c93605afcb8261a61132761b9af4e2f3711db",
       "function": "_visible",
-      "line": 99,
+      "line": 81,
       "mutated": "parent.start_point < position < parent.end_point",
       "operator": "comparison",
       "original": "parent.start_point <= position < parent.end_point",
       "path": "src/trailmark/parsers/rust/_scopes.py",
-      "source_hash": "2fe5d79d8db55d6b0a44f3511191753ec656279fa57d894c2a0f28da00c7895e",
-      "reason": "Equivalent for parser-produced call locations: a call starts at an expression token, never at the enclosing block opening-brace token. Equality with block.start_point cannot occur. The upper boundary is observably different for a call adjacent to the closing brace and has a regression test."
-    },
-    {
-      "fingerprint": "3bf39e69239895152a01d8b915d1464a0780feec41926947a02e94e8efaf5220",
-      "source_hash": "3d47774c6044fbe04358f96431fc2aa01655f0339cb97a4dcd5e0257eb100a25",
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "<module>",
-      "line": 59,
-      "operator": "boolean",
-      "original": "True",
-      "mutated": "False",
-      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, installed in a private ContextVar, read only by module_id_from_path/parse_directory, and reset in finally. directory_sources yields None, never the record; no field assignments, hashing, equality checks, or serialization consume it. Frozen guards field rebinding only; nested map mutation is possible in both variants and parser consumers do neither. The independent core review checked call sites and tested the mutable-decorator variant against directory parsing. Existing semantic tests verify IDs, ownership, header linking, collision expansion, and package modules rather than asserting this private decorator implementation. Re-reviewed after adding source-file coverage and frontend diagnostics/binding filters: those paths mutate only graph data and local counters; the private planning record remains read-only and does not escape. Re-reviewed after indexed linking and linear diagnostic traversal: _DirectorySources still only carries read-only operation context and is reset in finally; no consumer assigns its fields. Re-reviewed after include-aware linking and per-file recursion diagnostics: link callbacks read graph and include context only; the source ownership, module IDs, and proxy-deferral record still have no field writes or escaping references. Re-reviewed after header-static and reverse-include visibility: the new resolver reads the graph root and separate HeaderSources context, and still neither assigns nor exposes _DirectorySources fields. Re-reviewed after include preferences, prototype guards, and header provenance: these operate on graph edges and a separate header cache; the directory context remains read-only and private. Re-reviewed after final Python candidate selection and call-result extraction: these only read the directory context; the private planning record remains read-only and non-escaping. Re-reviewed after explicit source selection: walk_source_files reads the existing context root and iterates its owners map; it neither mutates nor exposes the planning record. All other context consumers remain unchanged, so removing frozen still has no observable effect."
+      "source_hash": "8a25adb8ac264b7e8ae185a55124f8bb64be8dcbfec23b2395c9487044f334db",
+      "reason": "Equivalent for parser-produced call and trait locations: a location starts at an expression or trait token, never the opening-brace token of the declaration's enclosing block. Equality with that enclosing block's start_point cannot occur. Removing equality at the lower bound therefore changes no resolver decision. The closing bound and other comparisons remain gated; arbitrary manually fabricated locations passed to this private helper are outside this exception."
     }
   ],
   "legacy_policy": "These functions match the pre-PR base f7e19d3. Their existing mutation outcomes are reported but not gated until their AST changes. New functions and changed functions in the scoped files are gated automatically.",

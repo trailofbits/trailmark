@@ -139,6 +139,20 @@
       "target": "taxonomy:Taxonomy.main.<lambda>@372"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "julia",
+      "notes": "Named throw/rethrow/error calls are uncertain; task failures and finalizers are not inferred.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "julia",
   "nodes": {
     "proxy.unresolved:taxonomy:Taxonomy.choose@15_0._dynamic_.length": {

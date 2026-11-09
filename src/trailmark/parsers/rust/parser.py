@@ -8,7 +8,6 @@ from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Language, Node, Parser, Range, Tree
-from tree_sitter_language_pack import get_language
 
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
@@ -34,7 +33,9 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers.rust._scopes import resolve_calls
+from trailmark.tree_sitter_custom.rust import language as rust_language
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ class RustParser:
         return "rust"
 
     def __init__(self) -> None:
-        self._parser = Parser(get_language("rust"))
+        self._parser = Parser(Language(rust_language()))
         self._verus_parser: Parser | None = None
         self._verus_load_failed = False
         self._uses: list[tuple[str, Node]] = []
@@ -91,6 +92,7 @@ class RustParser:
         add_module_node(tree.root_node, file_path, module_id, graph)
         self._visit_scope(tree.root_node, source, file_path, module_id, graph)
         resolve_calls(graph, self._uses, module_id, self._declarations)
+        collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
     def _visit_scope(

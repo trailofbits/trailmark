@@ -137,6 +137,20 @@
       "target": "taxonomy:Taxonomy.Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "php",
+      "notes": "Exception and Error handlers retain distinct names; magic methods, callbacks and fatal bailouts are not inferred.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "php",
   "nodes": {
     "proxy.unresolved:$d-_bark": {
@@ -383,7 +397,36 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
-      "exception_types": [],
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "new \\RuntimeException(\"too loud\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 51,
+            "end_line": 67,
+            "file_path": "taxonomy.php",
+            "start_col": 12,
+            "start_line": 67
+          },
+          "protected_region": null,
+          "syntax": "throw_expression",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "\\RuntimeException"
+            }
+          ]
+        }
+      ],
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "\\RuntimeException"
+        }
+      ],
       "id": "taxonomy:Taxonomy.Dog.bark",
       "kind": "method",
       "location": {
@@ -594,7 +637,63 @@
       ],
       "cyclomatic_complexity": 6,
       "docstring": null,
-      "exception_types": [],
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "catch (\\Exception $e)",
+          "kind": "handler",
+          "location": {
+            "end_col": 5,
+            "end_line": 40,
+            "file_path": "taxonomy.php",
+            "start_col": 6,
+            "start_line": 38
+          },
+          "protected_region": {
+            "end_col": 5,
+            "end_line": 38,
+            "file_path": "taxonomy.php",
+            "start_col": 8,
+            "start_line": 36
+          },
+          "syntax": "catch_clause",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "\\Exception"
+            }
+          ]
+        },
+        {
+          "confidence": "certain",
+          "expression": "new \\RuntimeException(\"bad mode\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 47,
+            "end_line": 39,
+            "file_path": "taxonomy.php",
+            "start_col": 8,
+            "start_line": 39
+          },
+          "protected_region": null,
+          "syntax": "throw_expression",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "\\RuntimeException"
+            }
+          ]
+        }
+      ],
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "\\RuntimeException"
+        }
+      ],
       "id": "taxonomy:Taxonomy.branchy",
       "kind": "function",
       "location": {

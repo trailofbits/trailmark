@@ -155,7 +155,7 @@
                 postInstall = (old.postInstall or "") + ''
                   # Bindings include a digest of their installed path and source files.
                   # Build them before the Nix store becomes read-only.
-                  for grammar in circom masm move verus; do
+                  for grammar in circom masm move rust verus; do
                     PYTHONPATH="$out/${final.python.sitePackages}" ${grammarPython}/bin/python \
                       -c "from trailmark.tree_sitter_custom.$grammar import language; language()"
                   done

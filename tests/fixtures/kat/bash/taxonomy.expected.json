@@ -55,6 +55,20 @@
       "target": "taxonomy:main"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "bash",
+      "notes": "trap names are uncertain; errexit contexts, pipeline statuses and trap execution are not modeled.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "bash",
   "nodes": {
     "proxy.unresolved:taxonomy:helper._command_.echo": {

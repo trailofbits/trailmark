@@ -123,8 +123,9 @@ class TestRaiseBareIdentifier:
         code = "def fail():\n    err = ValueError('bad')\n    raise err\n"
         _, graph = _parse_code(code)
         func = next(n for n in graph.nodes.values() if n.name == "fail")
-        assert len(func.exception_types) == 1
-        assert func.exception_types[0].name == "err"
+        assert func.exception_types == ()
+        assert func.exception_events[0].expression == "err"
+        assert func.exception_events[0].kind.value == "raise"
 
 
 class TestAttributeCallEdge:

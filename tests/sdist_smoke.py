@@ -21,12 +21,14 @@ PUBLIC_GUIDES = {
     "docs/cli.md",
     "docs/entrypoint-patterns.md",
     "docs/entrypoints.md",
+    "docs/exceptions.md",
     "docs/graph-model.md",
     "docs/installation.md",
     "docs/languages.md",
     "docs/links.md",
     "docs/python-api.md",
     "docs/parser-coverage.md",
+    "docs/roadmap.md",
     "docs/skills-compatibility.md",
 }
 

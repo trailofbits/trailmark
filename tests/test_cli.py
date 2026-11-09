@@ -423,6 +423,7 @@ class TestAnalyzeCommand:
             "nodes",
             "edges",
             "subgraphs",
+            "exception_support",
         }
         # Summary has exact keys
         assert set(data["summary"].keys()) == {

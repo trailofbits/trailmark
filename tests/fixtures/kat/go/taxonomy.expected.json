@@ -136,6 +136,20 @@
       "target": "proxy.unresolved:d.Bark"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "go",
+      "notes": "panic/recover candidates are uncertain; defer syntax does not prove recovery or goroutine propagation. Unmodeled function literals are omitted from events.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "go",
   "nodes": {
     "proxy.unresolved:d.Bark": {

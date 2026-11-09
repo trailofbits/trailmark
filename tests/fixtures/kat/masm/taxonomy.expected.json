@@ -61,6 +61,20 @@
       "target": "taxonomy:branchy"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "not_applicable",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "not_applicable",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "masm",
+      "notes": "Assertion instructions may fail; VM failure and proof validity are not modeled as typed exceptions.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "masm",
   "nodes": {
     "taxonomy": {

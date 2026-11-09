@@ -35,6 +35,20 @@
       "target": "taxonomy:0x1::taxonomy:helper"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "not_applicable",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "not_applicable",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "move",
+      "notes": "abort syntax is retained; transaction rollback and returned Result-like values are not inferred.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "move",
   "nodes": {
     "taxonomy": {

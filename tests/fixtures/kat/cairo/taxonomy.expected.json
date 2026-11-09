@@ -103,6 +103,20 @@
       "target": "taxonomy:Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "not_applicable",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "cairo",
+      "notes": "Named panic candidates are uncertain; result effects and transaction rollback are not inferred.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "cairo",
   "nodes": {
     "taxonomy": {

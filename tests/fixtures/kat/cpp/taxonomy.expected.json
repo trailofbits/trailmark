@@ -142,6 +142,20 @@
       "target": "taxonomy:Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "partial",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "cpp",
+      "notes": "Catch syntax is retained; implicit RAII cleanup, constructor failure, noexcept and ABI dispatch are not inferred.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "cpp",
   "nodes": {
     "proxy.unresolved:d.bark": {
@@ -403,6 +417,29 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "std::runtime_error(\"too loud\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 49,
+            "end_line": 74,
+            "file_path": "taxonomy.cpp",
+            "start_col": 12,
+            "start_line": 74
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "std::runtime_error"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],
@@ -661,6 +698,56 @@
       ],
       "cyclomatic_complexity": 7,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "catch (const std::invalid_argument &)",
+          "kind": "handler",
+          "location": {
+            "end_col": 5,
+            "end_line": 45,
+            "file_path": "taxonomy.cpp",
+            "start_col": 6,
+            "start_line": 43
+          },
+          "protected_region": {
+            "end_col": 5,
+            "end_line": 43,
+            "file_path": "taxonomy.cpp",
+            "start_col": 8,
+            "start_line": 41
+          },
+          "syntax": "catch_clause",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "std::invalid_argument"
+            }
+          ]
+        },
+        {
+          "confidence": "certain",
+          "expression": "std::runtime_error(\"bad mode\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 45,
+            "end_line": 44,
+            "file_path": "taxonomy.cpp",
+            "start_col": 8,
+            "start_line": 44
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "std::runtime_error"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],

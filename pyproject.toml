@@ -10,9 +10,9 @@ only-include = [
     "pyproject.toml", "hatch_build.py", "package.json", "package-lock.json",
     # Keep local notes out of distributions by listing public guides explicitly.
     "docs/augmenting.md", "docs/binaries.md", "docs/call-resolution.md", "docs/cli.md",
-    "docs/entrypoint-patterns.md", "docs/entrypoints.md", "docs/graph-model.md",
+    "docs/entrypoint-patterns.md", "docs/entrypoints.md", "docs/exceptions.md", "docs/graph-model.md",
     "docs/installation.md", "docs/languages.md", "docs/links.md", "docs/python-api.md",
-    "docs/parser-coverage.md", "docs/skills-compatibility.md",
+    "docs/parser-coverage.md", "docs/roadmap.md", "docs/skills-compatibility.md",
 ]
 exclude = ["docs/audits/**"]
 

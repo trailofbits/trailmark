@@ -43,6 +43,20 @@
       "target": "taxonomy:helper"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "not_applicable",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "sway",
+      "notes": "Named revert/assert candidates are uncertain; contract rollback and external call failure are not inferred.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "sway",
   "nodes": {
     "taxonomy": {
