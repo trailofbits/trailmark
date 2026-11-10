@@ -20,6 +20,9 @@
   Infer Python bare raises from unshadowed builtins and in-file class definitions;
   associate C++ exception declarations with the callable's own function type.
   Runtime dispatch, implicit execution and binary unwinding remain unsupported.
+- Detect Elysia HTTP handlers through ES imports, local const aliases, and
+  known builder chains. Retain per-registration evidence and unresolved handler
+  candidates; document the bounded receiver and handler resolution.
 - Recover C definitions inside matching guarded C++ namespace wrappers,
   preserving source positions and original syntax diagnostics.
 - Add optional native ELF, Mach-O, and PE ingestion with `trailmark[binary]`,
