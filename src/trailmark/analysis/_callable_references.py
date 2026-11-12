@@ -25,7 +25,8 @@ Python
 
 PHP
     First-class callable syntax (``f(...)``, ``Type::m(...)``, ``$this->m(...)``)
-    anywhere; array callables (``['Type', 'm']``, ``[Type::class, 'm']``,
+    and partial application (``f(?, 1)``, ``Type::m(1, ...)``) anywhere;
+    array callables (``['Type', 'm']``, ``[Type::class, 'm']``,
     ``[$this, 'm']``); and quoted strings (``'f'``, ``'NS\\f'``, ``'Type::m'``) in
     argument or array-value positions. Code names use the file's namespace and
     ``use`` imports, with the global-function fallback. Quoted strings are
@@ -63,6 +64,7 @@ from trailmark.models.entrypoints import EntrypointEvidence
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import Attribute, NodeKind, NodeOrigin
 from trailmark.parsers._common import make_location
+from trailmark.parsers.php._callables import acquisition_form
 from trailmark.parsers.php._syntax import parse_php
 
 _UNRESOLVED = ("consumer_semantics", "invocation_context")
@@ -959,13 +961,6 @@ def _php_consumer(parent: Node, child: Node) -> tuple[str, str, str]:
     return parent.type, "", ""
 
 
-def _acquisition(node: Node) -> bool:
-    arguments = node.child_by_field_name("arguments")
-    return arguments is not None and any(
-        child.type == "variadic_placeholder" for child in arguments.named_children
-    )
-
-
 class _PhpSymbols:
     """Namespace-qualified PHP functions and classes from every PHP file in the graph."""
 
@@ -1010,8 +1005,8 @@ class _PhpFile:
     def discover(self) -> None:
         consumed: set[int] = set()
         for node in _walk(self.root):
-            if node.type in _PHP_CALLS and _acquisition(node):
-                self._record(node, "first_class_callable", self._acquired(node))
+            if node.type in _PHP_CALLS and (form := acquisition_form(node)) is not None:
+                self._record(node, form, self._acquired(node))
             elif node.type == "array_creation_expression":
                 targets = self._array(node)
                 if targets is not None:
