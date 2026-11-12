@@ -154,6 +154,20 @@
       "target": "taxonomy:Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "python",
+      "notes": "No exception-group matching, context-manager suppression or cancellation analysis.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "python",
   "nodes": {
     "proxy.unresolved:d.bark": {
@@ -511,6 +525,29 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "ValueError(\"too loud\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 40,
+            "end_line": 78,
+            "file_path": "taxonomy.py",
+            "start_col": 12,
+            "start_line": 78
+          },
+          "protected_region": null,
+          "syntax": "raise_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "ValueError"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],
@@ -657,6 +694,56 @@
       ],
       "cyclomatic_complexity": 7,
       "docstring": "Function with multiple branch types for complexity counting.",
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "except ValueError:",
+          "kind": "handler",
+          "location": {
+            "end_col": 48,
+            "end_line": 39,
+            "file_path": "taxonomy.py",
+            "start_col": 4,
+            "start_line": 38
+          },
+          "protected_region": {
+            "end_col": 32,
+            "end_line": 37,
+            "file_path": "taxonomy.py",
+            "start_col": 8,
+            "start_line": 37
+          },
+          "syntax": "except_clause",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "ValueError"
+            }
+          ]
+        },
+        {
+          "confidence": "certain",
+          "expression": "RuntimeError(\"bad mode\") from None",
+          "kind": "raise",
+          "location": {
+            "end_col": 48,
+            "end_line": 39,
+            "file_path": "taxonomy.py",
+            "start_col": 8,
+            "start_line": 39
+          },
+          "protected_region": null,
+          "syntax": "raise_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "RuntimeError"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],

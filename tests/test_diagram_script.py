@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import sys
 from collections.abc import Callable
 from itertools import pairwise
@@ -26,6 +28,71 @@ from trailmark.models import (
 from trailmark.query.api import QueryEngine
 
 _LOC = SourceLocation(file_path="test.py", start_line=1, end_line=10)
+
+
+@pytest.mark.parametrize("diagram_type", diagram._DIAGRAM_TYPES)
+def test_colliding_node_spellings_stay_distinct(diagram_type: str) -> None:
+    left, right = "a-b:Work", "a_b:Work"
+    nodes = {
+        nid: _make_node(nid, name, kind=NodeKind.CLASS, complexity=12)
+        for nid, name in ((left, "Left"), (right, "Right"))
+    }
+    nodes.update(
+        {
+            f"{nid}.run": _make_node(f"{nid}.run", "run", kind=NodeKind.METHOD)
+            for nid in (left, right)
+        }
+    )
+    graph = CodeGraph(
+        nodes=nodes,
+        edges=[
+            CodeEdge(source_id=left, target_id=right, kind=kind)
+            for kind in (EdgeKind.CALLS, EdgeKind.IMPORTS, EdgeKind.INHERITS)
+        ]
+        + [
+            CodeEdge(source_id=nid, target_id=f"{nid}.run", kind=EdgeKind.CONTAINS)
+            for nid in (left, right)
+        ],
+        entrypoints={
+            left: EntrypointTag(
+                kind=EntrypointKind.USER_INPUT, trust_level=TrustLevel.UNTRUSTED_EXTERNAL
+            )
+        },
+    )
+    engine = QueryEngine.from_graph(graph)
+    if diagram_type == "call-graph":
+        result = diagram.emit_call_graph(engine, None, 2, "TB")
+    elif diagram_type == "class-hierarchy":
+        result = diagram.emit_class_hierarchy(engine, "TB")
+    elif diagram_type == "module-deps":
+        result = diagram.emit_module_deps(engine, "TB")
+    elif diagram_type == "containment":
+        result = diagram.emit_containment(engine, "TB")
+    elif diagram_type == "complexity":
+        result = diagram.emit_complexity(engine, 10, "TB")
+    else:
+        result = diagram.emit_data_flow(engine, right, 2, "TB")
+    if diagram_type in {"class-hierarchy", "containment"}:
+        declared = re.findall(r"^    class (\w+) \{", result, re.MULTILINE)
+        assert len(declared) == len(set(declared)) == 2
+        if diagram_type == "class-hierarchy":
+            assert f"{declared[1]} <|-- {declared[0]}" in result
+    else:
+        declared = re.findall(r'^    (\w+)\(?\["(?:Left|Right),', result, re.MULTILINE)
+        assert len(declared) == len(set(declared)) == 2
+        assert f"{declared[0]} --> {declared[1]}" in result
+
+
+def test_mermaid_identity_allocation_is_order_independent_and_reserves_names() -> None:
+    left = "a-b"
+    reserved = f"a_b__{hashlib.sha256(left.encode()).hexdigest()[:12]}"
+    nodes = [left, "a_b", reserved, "", "n_empty", "1", "n_1", "α", "β", "_"]
+    forward = diagram._mermaid_ids(nodes)
+    reverse = diagram._mermaid_ids(reversed(nodes))
+    assert forward == reverse
+    assert len(set(forward.values())) == len(nodes)
+    assert forward[reserved] == reserved
+    assert all(re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", value) for value in forward.values())
 
 
 def _make_node(

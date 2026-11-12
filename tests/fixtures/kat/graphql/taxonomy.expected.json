@@ -73,6 +73,20 @@
       "target": "taxonomy:LoginResult"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "not_applicable",
+      "cleanup": "not_applicable",
+      "declarations": "not_applicable",
+      "events": "not_applicable",
+      "handlers": "not_applicable",
+      "implicit_execution": "not_applicable",
+      "interprocedural_propagation": "not_applicable",
+      "language": "graphql",
+      "notes": "This frontend describes schemas; resolver exceptions and null propagation are outside the input.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "graphql",
   "nodes": {
     "taxonomy": {

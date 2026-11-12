@@ -36,6 +36,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import add_callable, callable_scope, prepare_call_bindings
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import owned_syntax
 
@@ -86,6 +87,7 @@ class PythonParser:
         with callable_scope(graph), _call_sites() as calls, _overload_scope(tree.root_node):
             _visit_module(tree.root_node, file_path, module_id, graph)
             _bind_complete_calls(calls, graph)
+        collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

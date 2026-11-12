@@ -16,6 +16,8 @@ from trailmark.models.binary import BinaryArtifact, BinaryRange, BinarySourceMap
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.entrypoints import EntrypointEvidence
+from trailmark.models.exception_support import ExceptionSupport
+from trailmark.models.exceptions import ExceptionEvent
 from trailmark.models.graph import CodeGraph
 from trailmark.models.lookup import resolve_node_id
 from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin
@@ -46,6 +48,14 @@ class GraphStore:
     def source_file_counts(self) -> dict[str, int]:
         """Return inspected source-file counts by selected parser language."""
         return dict(self._graph.source_file_counts)
+
+    def exception_events(self, node_id: str) -> tuple[ExceptionEvent, ...]:
+        """Return owned exception syntax; missing nodes have no recorded evidence."""
+        return self._graph.exception_events(node_id)
+
+    def exception_support(self) -> tuple[ExceptionSupport, ...]:
+        """Return immutable capability profiles, including unsupported dimensions."""
+        return self._graph.exception_support()
 
     def source_policy(self) -> dict[str, object]:
         """Return a detached copy of source selection and file-level decisions."""
@@ -599,16 +609,19 @@ class GraphStore:
         return node.id if node is not None else None
 
     def add_subgraph(self, name: str, node_ids: set[str]) -> None:
-        """Register a named subgraph (set of node IDs)."""
-        self._graph.subgraphs[name] = node_ids
+        """Register copied membership, rejecting unknown node IDs atomically."""
+        unknown = node_ids - self._graph.nodes.keys()
+        if unknown:
+            raise ValueError(f"Unknown subgraph node IDs: {', '.join(sorted(unknown))}")
+        self._graph.subgraphs[name] = set(node_ids)
 
     def subgraph(self, name: str) -> set[str]:
-        """Return a copy of the node IDs in a named subgraph, or empty set."""
-        return set(self._graph.subgraphs.get(name, ()))
+        """Return existing members of a named subgraph, or an empty set."""
+        return set(self._graph.subgraphs.get(name, ())) & self._graph.nodes.keys()
 
     def all_subgraphs(self) -> dict[str, set[str]]:
         """Return all named subgraphs with copied membership sets."""
-        return {name: set(ids) for name, ids in self._graph.subgraphs.items()}
+        return {name: self.subgraph(name) for name in self._graph.subgraphs}
 
     def subgraph_edges(
         self,

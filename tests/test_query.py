@@ -201,6 +201,18 @@ class TestQueryEnginePaths:
 
 
 class TestQueryEngineSubgraphs:
+    def test_stale_members_are_omitted_from_queries_and_export(self) -> None:
+        node = CodeUnit(id="real", name="real", kind=NodeKind.FUNCTION, location=_LOC)
+        graph = CodeGraph(nodes={node.id: node}, subgraphs={"left": {"ghost"}, "right": {"ghost"}})
+        engine = QueryEngine.from_graph(graph)
+        assert engine.subgraph("left") == []
+        assert engine.connect_subgraphs("left", "right") == []
+        assert json.loads(engine.to_json())["subgraphs"] == {"left": [], "right": []}
+        graph.subgraphs["left"].add("real")
+        graph.subgraphs["right"].add("real")
+        assert engine.connect_subgraphs("left", "right") == [["real"]]
+        assert [node["id"] for node in engine.subgraph("left")] == ["real"]
+
     def test_subgraph_edges(self) -> None:
         nodes = {
             "a": _make_node("a", "a"),
@@ -898,3 +910,25 @@ def test_candidate_evidence_preserves_unknowns_and_name_resolution() -> None:
     assert engine.entrypoint_candidates("handler") == facts
     assert engine.entrypoint_candidates("missing") == []
     assert json.loads(engine.to_json())["entrypoint_evidence"] == facts
+
+
+def test_exception_events_resolve_names_and_return_detached_json_data() -> None:
+    from dataclasses import replace
+
+    from trailmark.models import ExceptionEvent, ExceptionEventKind
+
+    event = ExceptionEvent(
+        ExceptionEventKind.HANDLER,
+        _LOC,
+        "catch_clause",
+        types=(TypeRef("Bad"),),
+        protected_region=_LOC,
+    )
+    unit = replace(_make_node("mod:f", "f"), exception_events=(event,))
+    engine = QueryEngine.from_graph(CodeGraph(nodes={unit.id: unit}))
+    result = engine.exception_events("f")
+    assert json.loads(json.dumps(result))[0]["kind"] == "handler"
+    result[0]["types"][0]["name"] = "Changed"
+    assert engine.exception_events(unit.id)[0]["types"][0]["name"] == "Bad"
+    assert engine.exception_events("missing") == []
+    assert engine.functions_that_raise("Bad") == []

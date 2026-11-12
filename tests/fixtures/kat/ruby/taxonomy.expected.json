@@ -170,6 +170,20 @@
       "target": "proxy.unresolved:d.bark"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "ruby",
+      "notes": "raise/catch/throw calls can be overridden; retry, nonlocal targets and coercion effects are not resolved. Unmodeled blocks are omitted from events.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "ruby",
   "nodes": {
     "proxy.unresolved:_0...value_.each": {
@@ -458,6 +472,23 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "uncertain",
+          "expression": "raise \"too loud\"",
+          "kind": "raise",
+          "location": {
+            "end_col": 22,
+            "end_line": 61,
+            "file_path": "taxonomy.rb",
+            "start_col": 6,
+            "start_line": 61
+          },
+          "protected_region": null,
+          "syntax": "call",
+          "types": []
+        }
+      ],
       "exception_types": [],
       "id": "taxonomy:Taxonomy.Dog.bark",
       "kind": "method",
@@ -571,6 +602,23 @@
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "uncertain",
+          "expression": "raise NotImplementedError",
+          "kind": "raise",
+          "location": {
+            "end_col": 31,
+            "end_line": 8,
+            "file_path": "taxonomy.rb",
+            "start_col": 6,
+            "start_line": 8
+          },
+          "protected_region": null,
+          "syntax": "call",
+          "types": []
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],
@@ -720,6 +768,44 @@
       ],
       "cyclomatic_complexity": 8,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "rescue ArgumentError",
+          "kind": "handler",
+          "location": {
+            "end_col": 22,
+            "end_line": 32,
+            "file_path": "taxonomy.rb",
+            "start_col": 4,
+            "start_line": 31
+          },
+          "protected_region": null,
+          "syntax": "rescue",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "ArgumentError"
+            }
+          ]
+        },
+        {
+          "confidence": "uncertain",
+          "expression": "raise \"bad mode\"",
+          "kind": "raise",
+          "location": {
+            "end_col": 22,
+            "end_line": 32,
+            "file_path": "taxonomy.rb",
+            "start_col": 6,
+            "start_line": 32
+          },
+          "protected_region": null,
+          "syntax": "call",
+          "types": []
+        }
+      ],
       "exception_types": [],
       "id": "taxonomy:Taxonomy.self.branchy",
       "kind": "method",

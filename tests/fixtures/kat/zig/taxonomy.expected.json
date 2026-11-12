@@ -85,6 +85,20 @@
       "target": "taxonomy:helper"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "zig",
+      "notes": "try/catch/defer/errdefer syntax is retained; error-set inference, panic and cleanup guarantees are not analyzed.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "zig",
   "nodes": {
     "taxonomy": {

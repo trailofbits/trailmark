@@ -21,6 +21,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._exceptions import collect_exception_events
 
 _LOG = logging.getLogger(__name__)
 _BRANCHES = {
@@ -267,4 +268,5 @@ class BashParser:
                     location=make_location(command, file_path),
                 )
             )
+        collect_exception_events(root, file_path, graph)
         return graph

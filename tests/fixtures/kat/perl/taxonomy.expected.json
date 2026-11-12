@@ -94,6 +94,20 @@
       "target": "taxonomy:<script>.<lambda>@182"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "perl",
+      "notes": "die calls are uncertain; eval syntax does not model $@, destructor timing or string-generated code.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "perl",
   "nodes": {
     "proxy.unresolved:taxonomy:Example.legacy._dynamic_.shift": {

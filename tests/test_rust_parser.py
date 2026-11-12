@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,7 +14,9 @@ import pytest
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind, SourceLocation
-from trailmark.parsers.rust.parser import RustParser
+from trailmark.parse import parse_file
+from trailmark.parsers.rust import parser as rust_module
+from trailmark.parsers.rust.parser import RustParser, _extract_parameters, parse_syntax_roots
 from trailmark.tree_sitter_custom import verus as verus_mod
 
 SAMPLE_CODE = """\
@@ -142,6 +145,9 @@ def _parse_verus_sample() -> tuple[RustParser, CodeGraph]:
 
 
 class TestRustParserNodes:
+    def test_language_matches_the_public_frontend_name(self) -> None:
+        assert RustParser().language == "rust"
+
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
@@ -196,6 +202,10 @@ class TestRustParserNodes:
 
 
 class TestRustParserParameters:
+    def test_missing_parameter_node_returns_an_empty_collection(self) -> None:
+        root = RustParser()._parser.parse(b"").root_node
+        assert _extract_parameters(root) == []
+
     def test_function_params(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -286,6 +296,12 @@ class TestRustParserEdges:
 
 
 class TestRustParserDependencies:
+    def test_plain_import_names_are_retained_once(self, tmp_path: Path) -> None:
+        path = tmp_path / "imports.rs"
+        path.write_text("use dependency;\nuse dependency;\nuse std::io;\nuse std::fmt;\n")
+        graph = RustParser().parse_file(str(path))
+        assert graph.dependencies == ["dependency", "std"]
+
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "std" in graph.dependencies
@@ -343,16 +359,11 @@ class TestRustParserVerus:
             for edge in graph.edges
         )
 
-    def test_plain_rust_does_not_compile_verus_grammar(self, tmp_path: Path) -> None:
-        with (
-            patch.object(
-                type(verus_mod._GRAMMAR), "binding_path", return_value=tmp_path / "unbuilt.so"
-            ),
-            patch.object(subprocess, "run") as compiler,
-        ):
+    def test_plain_rust_does_not_compile_verus_grammar(self) -> None:
+        with patch.object(verus_mod, "language", side_effect=AssertionError("unused")) as loader:
             _, graph = _parse_sample()
 
-        compiler.assert_not_called()
+        loader.assert_not_called()
         assert any(node.name == "abs" for node in graph.nodes.values())
 
     @pytest.mark.parametrize(
@@ -502,13 +513,14 @@ class TestRustParseDirectory:
         (tmp_path / "a.rs").write_text("fn host() {}\nverus! { proof fn first() {} }")
         (tmp_path / "b.rs").write_text("fn caller() { host(); }\nverus! { proof fn second() {} }")
         (tmp_path / "c.rs").write_text("fn plain() {}")
+        parser = RustParser()
         with (
             patch.object(
                 type(verus_mod._GRAMMAR), "binding_path", return_value=tmp_path / "unbuilt.so"
             ),
             patch.object(subprocess, "run", side_effect=error) as compiler,
         ):
-            graph = RustParser().parse_directory(str(tmp_path))
+            graph = parser.parse_directory(str(tmp_path))
 
         compiler.assert_called_once()
         assert {node.name for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION} == {
@@ -562,3 +574,44 @@ class TestRustParseDirectory:
                 f.write("not source code")
             graph = parser.parse_directory(tmpdir)
         assert len(graph.nodes) == 0
+
+
+class TestRustGrammarLoading:
+    @pytest.fixture(autouse=True)
+    def _fresh_grammar(self) -> Iterator[None]:
+        rust_module._rust_grammar.cache_clear()
+        yield
+        rust_module._rust_grammar.cache_clear()
+
+    def test_bundled_grammar_loads_once_per_process(self) -> None:
+        with patch.object(rust_module, "rust_language", wraps=rust_module.rust_language) as loader:
+            RustParser()
+            RustParser()
+            for _ in range(3):
+                parse_syntax_roots(b"fn f() {}", "a.rs")
+        assert loader.call_count == 1
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            ImportError("Grammar compilation failed (exit 1): cc missing"),
+            FileNotFoundError("cc"),
+            PermissionError("read-only site-packages"),
+        ],
+    )
+    def test_falls_back_to_language_pack_without_a_toolchain(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture, error: Exception
+    ) -> None:
+        path = tmp_path / "a.rs"
+        path.write_text("fn caller() { callee(); }\nfn callee() {}\n")
+        with patch.object(rust_module, "rust_language", side_effect=error) as loader:
+            graph = parse_file(str(path), strict=True)
+            RustParser()
+            parse_syntax_roots(path.read_bytes(), str(path))
+        assert {node.name for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION} == {
+            "caller",
+            "callee",
+        }
+        assert any(edge.target_id == "a:callee" for edge in graph.edges)
+        assert loader.call_count == 1
+        assert caplog.text.count("Could not load the bundled Rust grammar") == 1

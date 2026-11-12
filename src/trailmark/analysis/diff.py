@@ -121,6 +121,10 @@ def _compare_units(before: CodeUnit, after: CodeUnit) -> dict[str, Any]:
     b_attributes, a_attributes = dict(before.attributes), dict(after.attributes)
     if b_attributes != a_attributes:
         changes["attributes"] = {"before": b_attributes, "after": a_attributes}
+    before_events = _exception_events(before)
+    after_events = _exception_events(after)
+    if before_events != after_events:
+        changes["exception_events"] = {"before": before_events, "after": after_events}
     b_span = max(0, before.location.end_line - before.location.start_line + 1)
     a_span = max(0, after.location.end_line - after.location.start_line + 1)
     if b_span != a_span:
@@ -136,6 +140,21 @@ def _type_summary(ref: TypeRef | None) -> dict[str, Any] | None:
         "module": ref.module,
         "generic_args": [_type_summary(arg) for arg in ref.generic_args],
     }
+
+
+def _exception_events(unit: CodeUnit) -> list[dict[str, Any]]:
+    """Compare semantic syntax evidence without treating moved lines as changes."""
+    return [
+        {
+            "kind": event.kind.value,
+            "syntax": event.syntax,
+            "expression": event.expression,
+            "types": [_type_summary(ref) for ref in event.types],
+            "protected": event.protected_region is not None,
+            "confidence": event.confidence.value,
+        }
+        for event in unit.exception_events
+    ]
 
 
 def _signature(unit: CodeUnit) -> dict[str, Any]:

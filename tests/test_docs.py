@@ -175,7 +175,17 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/parser-coverage.md", "`parse_incomplete` and `syntax_recovered` attributes"),
     ("docs/parser-coverage.md", "`macro_wrapper`, `source_alias`, and `expansion_alias`"),
     ("docs/parser-coverage.md", "file-local `static const` objects"),
-    ("docs/installation.md", "Move, and Verus ship as C sources"),
+    ("docs/installation.md", "Move, Rust, and Verus ship as C sources"),
+    ("docs/installation.md", "Both scanners preserve Unicode code points in block comments"),
+    (
+        "docs/entrypoints.md",
+        "Future imports and conditional bindings do not establish definite decorator",
+    ),
+    ("docs/entrypoints.md", "XML numeric references accept leading zeroes"),
+    ("docs/python-api.md", "copies membership and rejects unknown node IDs"),
+    ("docs/python-api.md", "ignore stale members left in the mutable `CodeGraph`"),
+    ("docs/cli.md", "Distinct graph nodes receive distinct Mermaid identifiers"),
+    ("docs/roadmap.md", "These corrections do not close the wider language audit backlog"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
     ("README.md", "bounded C declaration wrappers can be expanded"),
@@ -189,11 +199,19 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/installation.md", "Python development headers"),
     ("docs/installation.md", "write access"),
     ("docs/installation.md", "continues parsing ordinary Rust"),
+    ("docs/installation.md", "parses Rust with the language-pack grammar instead"),
+    ("docs/exceptions.md", "Only a callable's own signature declares exceptions"),
+    ("docs/exceptions.md", "Python bare raises infer unshadowed builtin exception names"),
+    ("docs/exceptions.md", "they do not make it a raising function"),
+    ("docs/exceptions.md", "A bare Ruby `raise` or `fail` is an uncertain `rethrow`"),
+    ("docs/exceptions.md", "record the callee name as their expression"),
+    ("docs/exceptions.md", "has no error type"),
+    ("docs/graph-model.md", "Module-level raises remain module events"),
     ("docs/installation.md", "compiled source contents, Python ABI"),
     ("docs/installation.md", "Tree-sitter CLI 0.27.1"),
     ("docs/installation.md", "run `npm ci` with npm install scripts enabled"),
     ("docs/installation.md", "generated parser and headers are gitignored"),
-    ("docs/installation.md", "Circom and Move use ABI 14; Verus uses ABI 15"),
+    ("docs/installation.md", "Circom, Move, and Rust use ABI 14; Verus uses ABI 15"),
     ("docs/installation.md", "installing published packages needs neither"),
     # Mutation testing
     ("CONTRIBUTING.md", "tests.benchmark_analysis /path/to/corpus --language python --repeat 7"),
@@ -465,6 +483,54 @@ def test_every_public_query_method_is_documented() -> None:
     api_doc = _raw("docs/python-api.md")
     for name in _public_query_methods():
         assert f"{name}(" in api_doc, f"QueryEngine.{name}() is not documented"
+
+
+def test_exception_evidence_contract_is_documented() -> None:
+    from trailmark.models import ExceptionEventKind
+
+    guide = _raw("docs/graph-model.md")
+    for kind in ExceptionEventKind:
+        assert f"`{kind.value}`" in guide
+    assert "does not mean a function cannot fail" in guide
+    assert "Events do not establish runtime handler matching" in guide
+    assert "Unknown operands remain visible" in guide
+    assert "`exception_events(name)`" in guide
+    assert "`exception_events`" in _raw("docs/python-api.md")
+    assert "`exception_support()`" in _raw("docs/python-api.md")
+    for document in ("docs/cli.md", "docs/python-api.md"):
+        assert "`exception_support` for identified frontend languages" in _raw(document)
+        assert "nonempty node `exception_events`" in _raw(document)
+    from trailmark.models.exception_support import exception_support_for
+
+    audit = _raw("docs/exceptions.md")
+    rows = re.findall(r"^\| ([a-z_]+) \|", audit, re.MULTILINE)
+    assert set(rows) == set(supported_languages())
+    for language in supported_languages():
+        support = exception_support_for(language)
+        row = (
+            "| "
+            + " | ".join(
+                [
+                    language,
+                    support.events.value,
+                    support.type_hints.value,
+                    support.handlers.value,
+                    support.cleanup.value,
+                    support.declarations.value,
+                    support.notes,
+                ]
+            )
+            + " |"
+        )
+        assert row in audit
+    assert "ordinary calls alone do not recover exceptional control flow" in audit
+    assert "2009 interruption research" in audit
+    assert "vulnerability claims about current runtimes" in audit
+    assert "PHP 8.5.12" in audit
+    assert "Cross-language review seeds" in audit
+    binaries = _raw("docs/binaries.md")
+    assert "`complete=true` does not certify exceptional control-flow completeness" in binaries
+    assert "handler dispatch and implicit unwind cleanup are not reconstructed" in binaries
 
 
 def test_documented_methods_exist() -> None:

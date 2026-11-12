@@ -37,6 +37,20 @@
       "target": "taxonomy:Demo.App.Helper"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "vb",
+      "notes": "Structured handlers are retained; legacy On Error/Resume and disposal effects are not modeled.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "vb",
   "nodes": {
     "taxonomy": {

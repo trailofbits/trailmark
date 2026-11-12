@@ -169,6 +169,20 @@
       "target": "taxonomy:bark/2"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "erlang",
+      "notes": "Exception classes and after syntax are retained; process exit signals and catch dispatch are not resolved.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "erlang",
   "nodes": {
     "proxy.unresolved:lists:seq_2": {

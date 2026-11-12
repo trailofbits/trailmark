@@ -121,7 +121,8 @@ class _Scope:
     star_imports: list[int] = field(default_factory=list)
 
     def bind(self, name: str, kind: str, node: Node, target: Node | str | None) -> None:
-        binding = _Binding(kind, node.start_byte, _statement_block(node) == self.body, target)
+        direct = kind == "parameter" or _statement_block(node) == self.body
+        binding = _Binding(kind, node.start_byte, direct, target)
         self.bindings.setdefault(name, []).append(binding)
 
 
@@ -183,7 +184,9 @@ class _Analyzer:
             if definition is None:
                 continue
             scope = self._owner(node)
-            position = node.start_byte if _statement_block(node) == scope.body else None
+            # Decorators run where the def executes in its own scope, even inside
+            # if/try/with/for blocks, so later bindings are not yet visible.
+            position = node.start_byte
             for decorator in node.named_children:
                 expression = _first_named(decorator) if decorator.type == "decorator" else None
                 if expression is not None:
@@ -379,12 +382,12 @@ def _select(found: list[_Binding], position: int | None) -> _Binding:
     """Pick the binding visible at ``position``; competing or remote ones are opaque."""
     if any(binding.kind == "remote" for binding in found):
         return _OPAQUE
-    if len(found) == 1:
-        return found[0]
     if position is not None:
         prior = [binding for binding in found if binding.start < position]
         if prior and prior[-1].direct:
             return prior[-1]
+    elif len(found) == 1 and found[0].direct:
+        return found[0]
     return _OPAQUE
 
 

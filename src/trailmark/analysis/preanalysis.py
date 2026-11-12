@@ -16,6 +16,7 @@ import rustworkx as rx
 from trailmark.models.annotations import (
     Annotation,
     AnnotationKind,
+    EntrypointTag,
     TrustLevel,
 )
 from trailmark.models.edges import EdgeKind
@@ -47,6 +48,11 @@ def _clear_prior_preanalysis(store: GraphStore) -> None:
     for name in list(graph.subgraphs):
         if name in _PREANALYSIS_SUBGRAPHS or name.startswith("entrypoints:"):
             del graph.subgraphs[name]
+
+
+def _known_entrypoints(graph: CodeGraph) -> dict[str, EntrypointTag]:
+    """Entrypoints that name graph nodes; stale IDs from edits or merges are skipped."""
+    return {node_id: tag for node_id, tag in graph.entrypoints.items() if node_id in graph.nodes}
 
 
 def run_preanalysis(store: GraphStore) -> dict[str, Any]:
@@ -155,7 +161,7 @@ def _enumerate_entrypoints(store: GraphStore) -> dict[str, Any]:
     reachable_all: set[str] = set()
     by_trust: dict[str, set[str]] = {}
 
-    for ep_id, tag in graph.entrypoints.items():
+    for ep_id, tag in _known_entrypoints(graph).items():
         ep_ids.add(ep_id)
         trust_key = tag.trust_level.value
         by_trust.setdefault(trust_key, set()).add(ep_id)
@@ -203,9 +209,9 @@ def _detect_privilege_boundaries(
     boundary_nodes: set[str] = set()
 
     for edge in graph.edges:
-        if edge.kind != EdgeKind.CALLS:
-            continue
         src, tgt = edge.source_id, edge.target_id
+        if edge.kind != EdgeKind.CALLS or src not in graph.nodes or tgt not in graph.nodes:
+            continue
         src_trust = _node_trust_set(
             src,
             untrusted_reachable,
@@ -244,7 +250,7 @@ def _reachable_from_trust(
     """Return all nodes reachable from entrypoints at a trust level."""
     graph = store._graph  # noqa: SLF001
     result: set[str] = set()
-    for ep_id, tag in graph.entrypoints.items():
+    for ep_id, tag in _known_entrypoints(graph).items():
         if tag.trust_level == trust:
             result.add(ep_id)
             result.update(store.reachable_from(ep_id))
@@ -285,7 +291,7 @@ def _propagate_taint(store: GraphStore) -> dict[str, Any]:
     tainted_all: set[str] = set()
     taint_sources: dict[str, list[str]] = {}
 
-    for ep_id, tag in graph.entrypoints.items():
+    for ep_id, tag in _known_entrypoints(graph).items():
         if tag.trust_level == TrustLevel.TRUSTED_INTERNAL:
             continue
         reachable = store.reachable_from(ep_id)

@@ -13,10 +13,10 @@ from typing import Any
 
 GENERATOR_VERSION = "0.27.1"
 GRAMMAR_ROOT = Path("src/trailmark/tree_sitter_custom")
-GRAMMARS = {"circom": "14", "move": "14", "verus": "15"}
+GRAMMARS = {"circom": "14", "move": "14", "rust": "14", "verus": "15"}
 GENERATED_FILES = {
     name: ("src/parser.c", "src/tree_sitter/parser.h")
-    + (("src/tree_sitter/alloc.h", "src/tree_sitter/array.h") if name == "verus" else ())
+    + (("src/tree_sitter/alloc.h", "src/tree_sitter/array.h") if name in {"rust", "verus"} else ())
     for name in GRAMMARS
 }
 

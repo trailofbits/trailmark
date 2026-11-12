@@ -45,6 +45,20 @@
       "target": "taxonomy:audit.events"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "unsupported",
+      "events": "unsupported",
+      "handlers": "unsupported",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "sql",
+      "notes": "PL/pgSQL RAISE bodies produce syntax diagnostics; dialect-specific handlers and transactional effects remain unsupported.",
+      "type_hints": "unsupported"
+    }
+  ],
   "language": "sql",
   "nodes": {
     "taxonomy": {

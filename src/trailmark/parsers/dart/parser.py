@@ -16,9 +16,8 @@ Extracts:
 - Annotations tracked as they precede a declaration so
   ``@pragma('vm:entry-point')`` can be surfaced to the entrypoint detector.
 
-Known gap: ``throw`` statements are not currently captured into
-``exception_types``. The ``throw_expression`` node exists but Dart also
-exposes standalone ``throw``-statement forms that need a dedicated walk.
+Throw and rethrow expressions retain source evidence and constructor type hints.
+
 """
 
 from __future__ import annotations
@@ -53,6 +52,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import bind_lexical_calls
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 
@@ -103,6 +103,7 @@ class DartParser:
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
         bind_lexical_calls(graph)
+        collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

@@ -47,6 +47,8 @@ currently bounded to the forms described below.
   the uncertainty recorded in evidence. Even a matching path is a heuristic:
   registrar semantics and runtime activation remain unknown. Binding analysis
   does not model arbitrary dynamic writes or monkeypatches from other files.
+  Future imports and conditional bindings do not establish definite decorator
+  provenance. Deferred scopes may use a sole unconditional enclosing binding.
 - ECMAScript file-route conventions require an exported module-level callable.
   Aliases use the exported name; default and CommonJS exports retain their
   source occurrences. Call wrappers record `export_value` uncertainty.
@@ -79,6 +81,8 @@ including custom XML entities and YAML block indentation indicators, are not
 resolved. It never expands custom or external XML entities,
 loads objects from YAML tags, or executes application code. Candidate strings may
 be ordinary data; reviewing their consumer semantics is required.
+XML numeric references accept leading zeroes but reject invalid code points
+before converting oversized significant digits to integers.
 
 ## Detection layers
 

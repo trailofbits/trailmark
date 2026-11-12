@@ -126,6 +126,20 @@
       "target": "taxonomy:Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "dart",
+      "notes": "Throw/rethrow and on-only handlers are retained; futures, zones and async cleanup are incomplete.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "dart",
   "nodes": {
     "proxy.unresolved:StateError": {
@@ -353,7 +367,36 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
-      "exception_types": [],
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "StateError(\"too loud\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 34,
+            "end_line": 57,
+            "file_path": "taxonomy.dart",
+            "start_col": 6,
+            "start_line": 57
+          },
+          "protected_region": null,
+          "syntax": "throw_expression",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "StateError"
+            }
+          ]
+        }
+      ],
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "StateError"
+        }
+      ],
       "id": "taxonomy:Dog.bark",
       "kind": "method",
       "location": {
@@ -577,7 +620,63 @@
       ],
       "cyclomatic_complexity": 7,
       "docstring": null,
-      "exception_types": [],
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "on FormatException",
+          "kind": "handler",
+          "location": {
+            "end_col": 3,
+            "end_line": 32,
+            "file_path": "taxonomy.dart",
+            "start_col": 4,
+            "start_line": 30
+          },
+          "protected_region": {
+            "end_col": 3,
+            "end_line": 30,
+            "file_path": "taxonomy.dart",
+            "start_col": 6,
+            "start_line": 28
+          },
+          "syntax": "on_clause",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "FormatException"
+            }
+          ]
+        },
+        {
+          "confidence": "certain",
+          "expression": "StateError(\"bad mode\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 32,
+            "end_line": 31,
+            "file_path": "taxonomy.dart",
+            "start_col": 4,
+            "start_line": 31
+          },
+          "protected_region": null,
+          "syntax": "throw_expression",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "StateError"
+            }
+          ]
+        }
+      ],
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "StateError"
+        }
+      ],
       "id": "taxonomy:branchy",
       "kind": "function",
       "location": {

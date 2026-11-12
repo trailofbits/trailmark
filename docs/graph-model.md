@@ -30,6 +30,7 @@ classDiagram
         parameters: tuple[Parameter]
         return_type: TypeRef
         exception_types: tuple[TypeRef]
+        exception_events: tuple[ExceptionEvent]
         type_parameters: tuple[TypeParameter]
         cyclomatic_complexity: int
         branches: tuple[BranchInfo]
@@ -65,6 +66,51 @@ classDiagram
 
 Nodes and edges also carry an `attributes` tuple of parser-specific key/value
 pairs, such as Solidity visibility or the raw text of an unresolved call.
+
+## Exception evidence
+
+`CodeUnit.exception_events` retains immutable source occurrences. Each event has
+a `kind`, `location`, grammar `syntax`, `confidence`, optional `expression`, syntactic `types`
+and optional `protected_region`. Kinds are `raise`, `rethrow`, `handler`,
+`cleanup`, `propagate`, `terminate` and `declares`. The latter three kinds allow
+frontends to distinguish error propagation and termination from throwing.
+An empty event list or empty type list does not mean a function cannot fail.
+
+`protected_region` associates a handler or finally clause with its lexical try
+body. Events do not establish runtime handler matching, exception propagation,
+cleanup guarantees, or implicit destructor/callback calls. Constructor names are
+syntax hints, not resolved runtime types; call syntax can also invoke a factory.
+Unknown operands remain visible in `expression` without becoming type names.
+Thrown variable names and handler binding annotations are not exception types.
+`functions_that_raise()` searches the legacy `exception_types` field, not
+transitive effects. Module-level raises remain module events and are not
+reported as raising functions. That field can also contain declaration
+metadata in schema frontends such as Thrift. Use event kinds to distinguish direct throws, handler
+types and declarations.
+`exception_events(name)` returns JSON-serializable evidence; missing names return
+`[]`. GraphStore and CodeGraph return immutable event objects for known IDs and
+an empty tuple for missing IDs. No new execution edges are inferred from events.
+
+Exception evidence is currently collected by the Python, JavaScript, TypeScript,
+C++, C#, Java, Objective-C, Kotlin, Swift, Dart and PHP frontends. Kotlin, Swift
+and Dart now retain throws whose grammar nodes also represent other control
+transfers. Bare returns and breaks do not become throw events. PHP preserves
+qualified exception constructor names. Evidence belongs to the smallest modeled
+owning callable, including same-line nested declarations. The audit documents
+unmodeled closures and other omitted forms. JSON exports include nonempty
+`exception_events`; structural diffs compare event content independently of line
+movement. Additional frontends retain failure, handler, cleanup, or declaration
+evidence as described in the [39-frontend exception audit](exceptions.md).
+Ordinary calls with failure-related names are `uncertain` candidates because
+names can be shadowed. Known local callable targets and callable parameters
+suppress those candidates. Syntax events alone do not prove builtin dispatch.
+
+`exception_support()` describes each inspected language using `partial`,
+`unsupported`, `not_applicable` or `unverified` status for event extraction, type
+hints, handlers, cleanup, throwing declarations, interprocedural propagation,
+implicit execution and binary exception flow. These are frontend capability
+profiles, not a completeness certificate for the input. Unknown imported languages
+stay unverified. JSON exports retain these profiles alongside nonempty events.
 
 ## Node kinds
 

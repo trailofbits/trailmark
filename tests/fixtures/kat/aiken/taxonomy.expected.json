@@ -73,6 +73,20 @@
       "target": "taxonomy:positive"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "not_applicable",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "not_applicable",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "aiken",
+      "notes": "fail/expect are failure syntax; validator outcomes and evaluation effects are not proved.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "aiken",
   "nodes": {
     "taxonomy": {
@@ -173,6 +187,23 @@
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "fail",
+          "kind": "terminate",
+          "location": {
+            "end_col": 16,
+            "end_line": 13,
+            "file_path": "taxonomy.ak",
+            "start_col": 12,
+            "start_line": 13
+          },
+          "protected_region": null,
+          "syntax": "error_term",
+          "types": []
+        }
+      ],
       "exception_types": [],
       "id": "taxonomy:payments.else",
       "kind": "method",

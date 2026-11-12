@@ -300,7 +300,13 @@ def _xml_reference(match: re.Match[str]) -> str | None:
         return match["cdata"]
     if match["name"] is not None:
         return _XML_PREDEFINED.get(match["name"])
-    code = int(match["hex"], 16) if match["hex"] is not None else int(match["dec"])
+    hexadecimal = match["hex"] is not None
+    digits = (match["hex"] if hexadecimal else match["dec"]).lstrip("0") or "0"
+    # XML permits arbitrarily many leading zeroes. Bound significant digits
+    # before converting so invalid input cannot hit Python's integer-string cap.
+    if len(digits) > (6 if hexadecimal else 7):
+        return None
+    code = int(digits, 16 if hexadecimal else 10)
     allowed = code in (0x9, 0xA, 0xD) or 0x20 <= code <= 0xD7FF
     allowed = allowed or 0xE000 <= code <= 0xFFFD or 0x10000 <= code <= 0x10FFFF
     return chr(code) if allowed else None

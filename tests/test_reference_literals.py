@@ -1,5 +1,6 @@
 """Generic string values from data files, decoded exactly and never executed."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -221,6 +222,43 @@ def test_xml_entities_are_never_expanded(tmp_path: Path) -> None:
 <r a="&lol2;">&xxe;<k>kept.value</k></r>
 """
     assert _values(tmp_path, "xxe.xml", text) == ["kept.value"]
+
+
+@pytest.mark.parametrize(
+    ("reference", "expected"),
+    [
+        ("&#" + "0" * 5000 + "65;", ["A"]),
+        ("&#x" + "0" * 5000 + "41;", ["A"]),
+        ("&#" + "9" * 5000 + ";", []),
+        ("&#x" + "F" * 5000 + ";", []),
+        ("&#9;", ["\t"]),
+        ("&#13;", ["\r"]),
+        ("&#1114111;", ["\U0010ffff"]),
+        ("&#x10FFFF;", ["\U0010ffff"]),
+        ("&#1114112;", []),
+        ("&#x110000;", []),
+        ("&#55296;", []),
+        ("&#0;", []),
+    ],
+)
+def test_xml_numeric_references_are_bounded_without_rejecting_leading_zeroes(
+    tmp_path: Path, reference: str, expected: list[str]
+) -> None:
+    assert _values(tmp_path, "reference.xml", f"<c>{reference}</c>") == expected
+
+
+def test_large_xml_reference_keeps_source_analysis_available(tmp_path: Path) -> None:
+    from trailmark.query.api import QueryEngine
+    from trailmark.source_policy import SourcePolicy, SourceRoot
+
+    (tmp_path / "app.py").write_text("def handler(): pass\n")
+    (tmp_path / "config.xml").write_text("<c>&#" + "9" * 5000 + ";</c>")
+    engine = QueryEngine.from_directory(
+        str(tmp_path),
+        "python",
+        source_policy=SourcePolicy((SourceRoot(str(tmp_path), "root"),)),
+    )
+    assert "app:handler" in json.loads(engine.to_json())["nodes"]
 
 
 @pytest.mark.parametrize(

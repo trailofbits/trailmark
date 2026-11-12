@@ -155,6 +155,20 @@
       "target": "Taxonomy:Taxonomy.Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "partial",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "java",
+      "notes": "Declared throws remain separate from direct throws; resource suppression and runtime matching are not analyzed.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "java",
   "nodes": {
     "Taxonomy": {
@@ -357,6 +371,29 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "new RuntimeException(\"too loud\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 55,
+            "end_line": 69,
+            "file_path": "Taxonomy.java",
+            "start_col": 16,
+            "start_line": 69
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "RuntimeException"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],
@@ -625,6 +662,56 @@
       ],
       "cyclomatic_complexity": 7,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "catch (NumberFormatException e)",
+          "kind": "handler",
+          "location": {
+            "end_col": 9,
+            "end_line": 42,
+            "file_path": "Taxonomy.java",
+            "start_col": 10,
+            "start_line": 40
+          },
+          "protected_region": {
+            "end_col": 9,
+            "end_line": 40,
+            "file_path": "Taxonomy.java",
+            "start_col": 12,
+            "start_line": 38
+          },
+          "syntax": "catch_clause",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "NumberFormatException"
+            }
+          ]
+        },
+        {
+          "confidence": "certain",
+          "expression": "new RuntimeException(\"bad mode\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 51,
+            "end_line": 41,
+            "file_path": "Taxonomy.java",
+            "start_col": 12,
+            "start_line": 41
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "RuntimeException"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],

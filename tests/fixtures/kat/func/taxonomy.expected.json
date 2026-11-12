@@ -31,6 +31,20 @@
       "target": "taxonomy:helper"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "func",
+      "notes": "Try/catch syntax and uncertain throw calls are retained; VM stack restoration and exit codes are not inferred.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "func",
   "nodes": {
     "taxonomy": {

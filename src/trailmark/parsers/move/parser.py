@@ -29,6 +29,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._walk import walk_owned
 from trailmark.tree_sitter_custom.move import language
 
@@ -72,6 +73,7 @@ class MoveParser:
             if declaration.type == "module_definition":
                 _module(declaration, module, file_path, graph)
         _link_calls(graph)
+        collect_exception_events(root, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

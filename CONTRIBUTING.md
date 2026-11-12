@@ -11,7 +11,7 @@ uv sync --locked --all-groups
 ```
 
 `npm ci` installs the pinned Tree-sitter CLI used to generate the bundled Circom,
-Move, and Verus grammars. Its install script must be enabled; if your npm
+Move, Rust, and Verus grammars. Its install script must be enabled; if your npm
 configuration disables scripts, run
 `npm rebuild tree-sitter-cli --ignore-scripts=false` before syncing.
 See [docs/installation.md](docs/installation.md#from-a-git-checkout) for how
@@ -108,6 +108,8 @@ enter the gate automatically when edited. The gate rejects unreviewed
 survivors, missing tests or results, errors, and timeouts. An exception
 requires a reason and a fingerprint of the function and mutation; changing
 that function requires reviewing its exceptions again.
+Source hashes and mutation fingerprints use a canonical AST representation so
+reviews remain valid across supported Python versions.
 
 **How the runner works.** The runner pins pytest-gremlins 1.11.4 and uses its
 pytest subprocesses and import handling, including fixtures, parametrized tests,
@@ -139,6 +141,16 @@ followed by the relevant test files.
 
 Snapshot updates (`TRAILMARK_UPDATE_SNAPSHOTS=1`) are disabled during CI and
 mutation runs; do not enable them there.
+
+## Audit artifacts
+
+Keep implementations, minimized behavioral regressions, and concise decisions in
+Git. Keep raw investigation reports, probe output, coverage inventories, mutation
+reports, and copied source snapshots outside the checkout (for example,
+`../trailmark-artifacts/`) or in the ignored `docs/audits/`, `pr-audits/`, and
+`coverage/gremlins/` directories. Do not stage those directories with `git add -f`.
+The [roadmap](docs/roadmap.md) summarizes the release-readiness audit; preserve
+full evidence separately and turn individual findings into focused fixes and tests.
 
 ## Architecture
 
@@ -198,6 +210,8 @@ lives in `docs/`:
 | `docs/call-resolution.md` | Resolution diagnostics and limits |
 | `docs/languages.md` | Per-language behavior |
 | `docs/parser-coverage.md` | Callable ownership, identity changes, grammar limits |
+| `docs/exceptions.md` | Exception evidence, frontend capability matrix, security audit limits |
+| `docs/roadmap.md` | Release-readiness priorities and archived audit provenance |
 | `docs/skills-compatibility.md` | Skills integration gates and release preflight |
 | `docs/installation.md` | Grammars, offline installs, Nix, checkouts |
 | `docs/entrypoint-patterns.md` | Patterns for writing new entrypoint detectors |

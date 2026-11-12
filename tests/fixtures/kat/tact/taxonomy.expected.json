@@ -102,6 +102,20 @@
       "target": "taxonomy:Ping"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "tact",
+      "notes": "Named throws are uncertain; VM exit codes, bounce handling and message-state effects are not resolved.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "tact",
   "nodes": {
     "proxy.unresolved:taxonomy:reply": {

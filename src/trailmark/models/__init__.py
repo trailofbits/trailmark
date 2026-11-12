@@ -21,6 +21,8 @@ from trailmark.models.binary import (
 )
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
+from trailmark.models.exception_support import ExceptionSupport, ExceptionSupportStatus
+from trailmark.models.exceptions import ExceptionEvent, ExceptionEventKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
     Attribute,
@@ -58,6 +60,10 @@ __all__ = [
     "EdgeKind",
     "EntrypointKind",
     "EntrypointTag",
+    "ExceptionEvent",
+    "ExceptionEventKind",
+    "ExceptionSupport",
+    "ExceptionSupportStatus",
     "NodeKind",
     "NodeOrigin",
     "Parameter",

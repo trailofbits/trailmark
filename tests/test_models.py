@@ -18,6 +18,8 @@ from trailmark.models import (
     EdgeKind,
     EntrypointKind,
     EntrypointTag,
+    ExceptionEvent,
+    ExceptionEventKind,
     NodeKind,
     NodeOrigin,
     Parameter,
@@ -401,3 +403,20 @@ def test_merged_source_policies_retain_each_selection_and_do_not_alias() -> None
     assert source_manifests(graph) == [{"roots": [{"name": "one"}]}, {"roots": [{"name": "two"}]}]
     other.source_policy.clear()
     assert len(source_manifests(graph)) == 2
+
+
+def test_exception_evidence_is_immutable_and_survives_graph_merge() -> None:
+    event = ExceptionEvent(
+        ExceptionEventKind.RAISE,
+        _make_location(),
+        "raise_statement",
+        expression="value",
+    )
+    with pytest.raises(AttributeError):
+        event.expression = "changed"  # ty: ignore[invalid-assignment]
+    unit = replace(_make_unit(), exception_events=(event,))
+    graph = CodeGraph()
+    graph.merge(CodeGraph(nodes={unit.id: unit}))
+    assert graph.exception_events(unit.id) == (event,)
+    assert graph.exception_events("missing") == ()
+    assert graph.exception_events(unit.id)[0].types == ()

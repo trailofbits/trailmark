@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from trailmark.models.exceptions import ExceptionEvent
 
 type AttributeValue = str | int | float | bool | None
 type Attribute = tuple[str, AttributeValue]
@@ -107,3 +111,4 @@ class CodeUnit:
     docstring: str | None = None
     origin: NodeOrigin = NodeOrigin.SOURCE
     attributes: tuple[Attribute, ...] = ()
+    exception_events: tuple[ExceptionEvent, ...] = ()

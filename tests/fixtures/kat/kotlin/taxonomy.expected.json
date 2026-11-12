@@ -120,6 +120,20 @@
       "target": "taxonomy:Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "unsupported",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "kotlin",
+      "notes": "Throw expressions are retained; @Throws, resource use and coroutine cancellation effects are not inferred.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "kotlin",
   "nodes": {
     "proxy.unresolved:RuntimeException": {
@@ -283,7 +297,36 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
-      "exception_types": [],
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "RuntimeException(\"too loud\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 46,
+            "end_line": 58,
+            "file_path": "taxonomy.kt",
+            "start_col": 12,
+            "start_line": 58
+          },
+          "protected_region": null,
+          "syntax": "jump_expression",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "RuntimeException"
+            }
+          ]
+        }
+      ],
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "RuntimeException"
+        }
+      ],
       "id": "taxonomy:Dog.bark",
       "kind": "method",
       "location": {
@@ -523,7 +566,63 @@
       ],
       "cyclomatic_complexity": 7,
       "docstring": null,
-      "exception_types": [],
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "catch (e: NumberFormatException) {",
+          "kind": "handler",
+          "location": {
+            "end_col": 5,
+            "end_line": 38,
+            "file_path": "taxonomy.kt",
+            "start_col": 6,
+            "start_line": 36
+          },
+          "protected_region": {
+            "end_col": 28,
+            "end_line": 35,
+            "file_path": "taxonomy.kt",
+            "start_col": 8,
+            "start_line": 35
+          },
+          "syntax": "catch_block",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "NumberFormatException"
+            }
+          ]
+        },
+        {
+          "confidence": "certain",
+          "expression": "RuntimeException(\"bad mode\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 42,
+            "end_line": 37,
+            "file_path": "taxonomy.kt",
+            "start_col": 8,
+            "start_line": 37
+          },
+          "protected_region": null,
+          "syntax": "jump_expression",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "RuntimeException"
+            }
+          ]
+        }
+      ],
+      "exception_types": [
+        {
+          "generic_args": [],
+          "module": null,
+          "name": "RuntimeException"
+        }
+      ],
       "id": "taxonomy:branchy",
       "kind": "function",
       "location": {

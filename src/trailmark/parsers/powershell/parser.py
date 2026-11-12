@@ -22,6 +22,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
+from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._simple import first_child_type
 from trailmark.parsers._walk import walk_owned
 
@@ -337,4 +338,5 @@ class PowerShellParser:
                     location=make_location(call, file_path),
                 )
             )
+        collect_exception_events(root, file_path, graph)
         return graph

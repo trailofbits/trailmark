@@ -55,6 +55,20 @@
       "target": "taxonomy:main"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "powershell",
+      "notes": "Explicit throw/catch/finally are retained; nonterminating errors and preference-dependent behavior are not inferred.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "powershell",
   "nodes": {
     "proxy.unresolved:taxonomy:Get-Value._dynamic_.Write-Output": {

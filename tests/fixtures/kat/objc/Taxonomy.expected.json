@@ -180,6 +180,20 @@
       "target": "Taxonomy:Dog"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "objc",
+      "notes": "@throw/@catch/@finally are retained; ARC cleanup and Objective-C++ exception interoperability are not inferred.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "objc",
   "nodes": {
     "Taxonomy": {

@@ -1,0 +1,5 @@
+CREATE FUNCTION f() RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'bad';
+END;
+$$;

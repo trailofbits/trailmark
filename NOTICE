@@ -11,10 +11,19 @@ This product bundles the following third-party components:
   Licensed under the MIT License
   https://github.com/nicedrop/tree-sitter-circom
 
+- tree-sitter-rust grammar (src/trailmark/tree_sitter_custom/rust/)
+  Copyright (c) 2017 Maxim Sokolov
+  Licensed under the MIT License
+  https://github.com/tree-sitter/tree-sitter-rust
+  Vendored commit: 77a3747266f4d621d0757825e6b11edcbf991ca5
+  Matches the Rust grammar pinned by tree-sitter-language-pack 1.22.1.
+  Trailmark preserves full Unicode code points when scanning block comments.
+
 - tree-sitter-verus grammar (src/trailmark/tree_sitter_custom/verus/)
   Copyright (c) 2017 Maxim Sokolov
   Licensed under the MIT License
   https://github.com/secure-foundations/tree-sitter-verus
+  Trailmark preserves full Unicode code points when scanning block comments.
 
 - tree-sitter-masm grammar (src/trailmark/tree_sitter_custom/masm/)
   Copyright (c) 2025 Miden

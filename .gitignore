@@ -15,6 +15,9 @@ src/trailmark/tree_sitter_custom/**/*.so
 src/trailmark/tree_sitter_custom/**/*.pyd
 .gremlins_cache/
 coverage/gremlins/
+# Keep raw audit reports, probes, and validation logs local.
+/docs/audits/
+/pr-audits/
 .coverage.*
 /node_modules/
 /src/trailmark/tree_sitter_custom/verus/src/parser.c
@@ -36,3 +39,9 @@ result
 /src/trailmark/tree_sitter_custom/move/src/node-types.json
 /src/trailmark/tree_sitter_custom/move/.generated.json
 /src/trailmark/tree_sitter_custom/.move-*/
+/src/trailmark/tree_sitter_custom/rust/src/parser.c
+/src/trailmark/tree_sitter_custom/rust/src/tree_sitter/
+/src/trailmark/tree_sitter_custom/rust/src/grammar.json
+/src/trailmark/tree_sitter_custom/rust/src/node-types.json
+/src/trailmark/tree_sitter_custom/rust/.generated.json
+/src/trailmark/tree_sitter_custom/.rust-*/

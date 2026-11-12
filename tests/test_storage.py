@@ -454,6 +454,27 @@ class TestGraphStoreAncestors:
 
 
 class TestGraphStoreSubgraphConnections:
+    def test_registration_validates_and_copies_membership(self) -> None:
+        graph, store = _build_graph()
+        members = {"a", "b"}
+        store.add_subgraph("group", members)
+        members.clear()
+        assert store.subgraph("group") == {"a", "b"}
+        with pytest.raises(ValueError, match="Unknown subgraph node IDs: missing"):
+            store.add_subgraph("group", {"a", "missing"})
+        assert graph.subgraphs["group"] == {"a", "b"}
+
+    def test_stale_members_cannot_invent_paths_or_induced_edges(self) -> None:
+        graph, store = _build_graph()
+        graph.subgraphs.update(left={"ghost"}, right={"ghost"})
+        assert store.connect_subgraphs("left", "right") == []
+        assert store.subgraph("left") == set()
+        assert store.all_subgraphs() == {"left": set(), "right": set()}
+        graph.subgraphs.update(left={"a", "ghost"}, right={"a", "b", "ghost"})
+        graph.edges.append(CodeEdge("ghost", "a", EdgeKind.CALLS))
+        assert store.connect_subgraphs("left", "right") == [["a"], ["a", "b"]]
+        assert store.subgraph_edges("right") == [graph.edges[0]]
+
     def test_read_membership_sets_are_copies(self) -> None:
         graph, store = _build_graph()
         graph.subgraphs["group"] = {"a", "b"}
@@ -946,3 +967,14 @@ class TestGraphStoreAnnotationMutation:
         anns = store.annotations_for("a")
         assert len(anns) == 1
         assert anns[0].kind == AnnotationKind.INVARIANT
+
+
+def test_exception_evidence_preserves_unknown_operands_and_missing_nodes() -> None:
+    from trailmark.models import ExceptionEvent, ExceptionEventKind
+
+    event = ExceptionEvent(ExceptionEventKind.RAISE, _LOC, "throw_statement", expression="value")
+    unit = replace(_make_node("mod:f", "f"), exception_events=(event,))
+    store = GraphStore(CodeGraph(nodes={unit.id: unit}))
+    assert store.exception_events(unit.id) == (event,)
+    assert store.exception_events("missing") == ()
+    assert store.callees_of(unit.id) == []

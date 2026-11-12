@@ -66,17 +66,16 @@ class TestControlFlow:
         assert graph.nodes["app:check"].cyclomatic_complexity is not None
         assert graph.nodes["app:check"].cyclomatic_complexity >= 3
 
-    def test_throws_clause_does_not_crash(self, tmp_path: Path) -> None:
-        """Swift throws are not captured yet; verify the parser is graceful.
-
-        Swift uses `control_transfer_statement` for `throw`, which collides
-        with `return`/`break`/`continue`. Capturing requires a Swift-specific
-        walk that filters by `throw_keyword` — deferred. This test locks in
-        that the parser at least doesn't crash on `throws` signatures.
-        """
+    def test_throws_clause_and_throw_are_captured(self, tmp_path: Path) -> None:
+        """Throwing signatures and operands remain distinct evidence."""
         code = "func auth() throws {\n    throw AuthError.invalid\n}\n"
         graph = _parse(tmp_path, code)
         assert "app:auth" in graph.nodes
+        assert [ref.name for ref in graph.nodes["app:auth"].exception_types] == ["AuthError"]
+        assert [event.kind.value for event in graph.nodes["app:auth"].exception_events] == [
+            "declares",
+            "raise",
+        ]
 
 
 class TestImports:

@@ -85,6 +85,20 @@
       "target": "taxonomy:<script>.<lambda>@137"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "r",
+      "notes": "Named calls are uncertain; restarts, lazy evaluation and handler dispatch are not modeled.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "r",
   "nodes": {
     "proxy.unresolved:taxonomy:_script_._dynamic_.lapply": {

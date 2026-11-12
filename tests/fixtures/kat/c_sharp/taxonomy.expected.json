@@ -121,6 +121,20 @@
       "target": "taxonomy:Taxonomy.Dog.Greet"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "partial",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "partial",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "c_sharp",
+      "notes": "Filters remain syntax; disposal, async effects and runtime filter order are not analyzed.",
+      "type_hints": "partial"
+    }
+  ],
   "language": "csharp",
   "nodes": {
     "proxy.unresolved:Task.Yield": {
@@ -307,6 +321,29 @@
       ],
       "cyclomatic_complexity": 2,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "new InvalidOperationException(\"too loud\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 64,
+            "end_line": 98,
+            "file_path": "taxonomy.cs",
+            "start_col": 16,
+            "start_line": 98
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "InvalidOperationException"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],
@@ -590,6 +627,56 @@
       ],
       "cyclomatic_complexity": 7,
       "docstring": null,
+      "exception_events": [
+        {
+          "confidence": "certain",
+          "expression": "catch (FormatException)",
+          "kind": "handler",
+          "location": {
+            "end_col": 13,
+            "end_line": 58,
+            "file_path": "taxonomy.cs",
+            "start_col": 12,
+            "start_line": 55
+          },
+          "protected_region": {
+            "end_col": 13,
+            "end_line": 54,
+            "file_path": "taxonomy.cs",
+            "start_col": 12,
+            "start_line": 52
+          },
+          "syntax": "catch_clause",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "FormatException"
+            }
+          ]
+        },
+        {
+          "confidence": "certain",
+          "expression": "new InvalidOperationException(\"bad mode\")",
+          "kind": "raise",
+          "location": {
+            "end_col": 64,
+            "end_line": 57,
+            "file_path": "taxonomy.cs",
+            "start_col": 16,
+            "start_line": 57
+          },
+          "protected_region": null,
+          "syntax": "throw_statement",
+          "types": [
+            {
+              "generic_args": [],
+              "module": null,
+              "name": "InvalidOperationException"
+            }
+          ]
+        }
+      ],
       "exception_types": [
         {
           "generic_args": [],

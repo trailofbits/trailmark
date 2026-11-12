@@ -58,6 +58,20 @@
       "target": "taxonomy:Main"
     }
   ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "not_applicable",
+      "declarations": "not_applicable",
+      "events": "partial",
+      "handlers": "not_applicable",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "circom",
+      "notes": "Assertion candidates are distinct from constraint enforcement; witness and proof outcomes are not established.",
+      "type_hints": "not_applicable"
+    }
+  ],
   "language": "circom",
   "nodes": {
     "taxonomy": {
