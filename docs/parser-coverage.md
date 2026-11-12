@@ -54,8 +54,14 @@ inside Go function literals stay with their enclosing named function.
 
 PHP namespace owners appear in declaration IDs, including semicolon namespaces;
 namespace separators become dots. Closures and arrows own their calls and body
-metadata. First-class `(...)` acquisition contributes no call; argument unpacking
-still does. Nullsafe and scoped calls retain sites. Local `self`, named-class and
+metadata. First-class `(...)` acquisition and PHP 8.6 partial application create
+callables without calling their targets; fixed argument expressions are evaluated
+eagerly and keep their own calls. Partial references use `form="partial_application"`.
+PHP 8.5 pipe stages and syntactically explicit inline invocations add located calls
+to first-class callables, partials and inline closures. Dynamic pipe targets retain
+uncertain, unresolved call sites; variable-held callable propagation is not modeled.
+Argument unpacking still calls its target. Nullsafe and scoped calls retain sites.
+Local `self`, named-class and
 unambiguous `parent` targets can resolve; late-static dispatch stays uncertain.
 Free functions link across files by namespace and name, including fully qualified
 references. Unqualified namespace calls retain PHP's global-function fallback.

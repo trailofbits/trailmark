@@ -31,6 +31,12 @@ from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._php_linking import link_php_functions
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.php._callables import (
+    acquisition_form,
+    inline_callable,
+    pipe_target,
+    unwrap_callable,
+)
 from trailmark.parsers.php._includes import INCLUDE_NODES, include_attributes
 from trailmark.parsers.php._syntax import parse_php
 
@@ -500,6 +506,10 @@ def _add_call_edges(
     """Add located PHP targets without mixing namespace and receiver policies."""
     for name, site in calls:
         target, confidence = _php_call_target(name, site, module_id, class_id, graph)
+        if site.type in {"anonymous_function", "arrow_function"}:
+            nested = f"{func_id}.{name}"
+            if nested in graph.nodes:
+                target = nested
         graph.edges.append(
             CodeEdge(
                 source_id=func_id,
@@ -515,6 +525,9 @@ def _add_call_edges(
 
 
 def _php_call_attributes(name: str, site: Node, module: str) -> tuple[tuple[str, str | bool], ...]:
+    piped = pipe_target(site)
+    if piped is not None:
+        return (("php_callable_expression", node_text(piped)), ("php_callable_invocation", "pipe"))
     if site.type != "function_call_expression" or name.startswith("$"):
         return ()
     return (
@@ -530,6 +543,10 @@ def _php_call_target(
     owner: str | None,
     graph: CodeGraph,
 ) -> tuple[str, EdgeConfidence]:
+    if pipe_target(site) is not None:
+        return f"{module}:{name}", EdgeConfidence.UNCERTAIN
+    if site.type in {"anonymous_function", "arrow_function"}:
+        return _php_reference_id(site, module, name), EdgeConfidence.CERTAIN
     if site.type in INCLUDE_NODES:
         return f"{module}:{name}", EdgeConfidence.UNCERTAIN
     if site.type == "function_call_expression" and not name.startswith("$"):
@@ -568,6 +585,8 @@ def _call_confidence(call_name: str) -> EdgeConfidence:
     """Determine confidence for a PHP call."""
     if "->" in call_name or "::" in call_name:
         return EdgeConfidence.INFERRED
+    if call_name.startswith("$"):
+        return EdgeConfidence.UNCERTAIN
     return EdgeConfidence.CERTAIN
 
 
@@ -610,14 +629,21 @@ def _visit_php_body_node(
     if node.type in _THROW_TYPES:
         _collect_throw_type(node, exception_types)
 
-    if node.type in _CALL_TYPES:
-        call_name = _extract_php_call_name(node)
-        arguments = node.child_by_field_name("arguments")
-        acquisition = arguments is not None and any(
-            child.type == "variadic_placeholder" for child in arguments.named_children
-        )
-        if call_name and not acquisition:
-            calls.append((call_name, node))
+    piped = pipe_target(node)
+    if piped is not None:
+        if inline_callable(piped):
+            calls.append((_callable_name(piped), piped))
+        else:
+            calls.append((f"$pipe@{node.start_point.row + 1}_{node.start_point.column}", node))
+    if node.type in _CALL_TYPES and acquisition_form(node) is None:
+        function = node.child_by_field_name("function")
+        operand = unwrap_callable(function) if function is not None else None
+        if operand is not None and inline_callable(operand):
+            calls.append((_callable_name(operand), operand))
+        else:
+            call_name = _extract_php_call_name(node)
+            if call_name:
+                calls.append((call_name, node))
 
     for child in node.children:
         _visit_php_body_node(
@@ -627,6 +653,12 @@ def _visit_php_body_node(
             exception_types,
             calls,
         )
+
+
+def _callable_name(node: Node) -> str:
+    if node.type in {"anonymous_function", "arrow_function"}:
+        return f"$lambda@{node.start_point.row + 1}_{node.start_point.column}"
+    return _extract_php_call_name(node)
 
 
 def _extract_condition_text(node: Node) -> str:

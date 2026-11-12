@@ -55,6 +55,8 @@ currently bounded to the forms described below.
   Their descriptions identify the convention without assigning a framework.
 - Python and PHP callable arguments and collection values retain references,
   including supported aliases, imports and statically qualified members.
+  PHP partial application records `partial_application` references separately
+  from the call edges made by explicit inline invocation or a pipe stage.
   Dynamic member dispatch stays unresolved. Other frontends keep their existing
   entrypoints and the common evidence API; automatic callable-value extraction
   is not yet implemented for them.

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.8.0 (2026-11-11)
+
+- Track PHP 8.5 pipe invocations through first-class callables, inline closures,
+  and PHP 8.6 partial applications. Partial creation retains reference evidence
+  without inventing execution, while fixed argument expressions keep their eager
+  calls. Dynamic pipe targets remain unresolved; graph schema stays at version 1.
 - Reject unknown subgraph members and ignore stale IDs during queries, JSON
   export and preanalysis. Keep distinct graph nodes separate in all six Mermaid
   diagram types.

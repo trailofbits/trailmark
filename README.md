@@ -229,7 +229,7 @@ for working with proxies.
 | R | `.r` | `r` | named/anonymous functions, closures, defaults, branches, calls, package/source dependencies |
 | JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | `javascript` | functions, classes, arrow functions |
 | TypeScript | `.ts`, `.tsx` | `typescript` | functions, classes, interfaces, enums |
-| PHP | `.php`, `.phtml` | `php` | functions, classes, interfaces, traits, executable script and template bodies |
+| PHP | `.php`, `.phtml` | `php` | functions, classes, interfaces, traits, script/template bodies, pipe calls and partial callable references |
 | Perl | `.pl`, `.pm` | `perl` | packages, subroutines, signatures/prototypes, anonymous subs, script calls, imports |
 | Ruby | `.rb` | `ruby` | methods, classes, modules |
 | Lua | `.lua` | `lua` | local/global functions, table methods, anonymous functions, chunks, imports, direct calls |
