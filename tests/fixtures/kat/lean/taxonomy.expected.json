@@ -1,0 +1,693 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "Std"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Example"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.Point"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example.Point",
+      "target": "taxonomy:Example.Point.x"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example.Point",
+      "target": "taxonomy:Example.Point.y"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.Sized"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example.Sized",
+      "target": "taxonomy:Example.Sized.size"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.Color"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example.Color",
+      "target": "taxonomy:Example.Color.red"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example.Color",
+      "target": "taxonomy:Example.Color.blue"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.inc"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.choose"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Example.choose",
+      "target": "taxonomy:Example.inc"
+    },
+    {
+      "attributes": {
+        "lean_reference_context": "body"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 47,
+        "end_line": 20,
+        "file_path": "taxonomy.lean",
+        "start_col": 44,
+        "start_line": 20
+      },
+      "source": "taxonomy:Example.choose",
+      "target": "taxonomy:Example.inc"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.apply"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "binding_reason": "lexical_callable",
+        "raw_target": "f"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Example.apply",
+      "target": "proxy.unresolved:f"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Example",
+      "target": "taxonomy:Example.reflexive"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:main"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "binding_reason": "lean_unresolved",
+        "raw_target": "IO.println"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "proxy.unresolved:IO.println"
+    },
+    {
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:main",
+      "target": "taxonomy:Example.choose"
+    },
+    {
+      "attributes": {
+        "lean_reference_context": "body"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 48,
+        "end_line": 28,
+        "file_path": "taxonomy.lean",
+        "start_col": 34,
+        "start_line": 28
+      },
+      "source": "taxonomy:main",
+      "target": "taxonomy:Example.choose"
+    }
+  ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "unsupported",
+      "events": "unsupported",
+      "handlers": "unsupported",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "lean",
+      "notes": "Lean elaboration, tactics, monadic errors and runtime panic or IO failure are not modeled; no exception events are emitted.",
+      "type_hints": "unsupported"
+    }
+  ],
+  "language": "lean",
+  "nodes": {
+    "proxy.unresolved:IO.println": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "IO.println"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:IO.println",
+      "kind": "proxy",
+      "location": {
+        "end_col": 51,
+        "end_line": 28,
+        "file_path": "taxonomy.lean",
+        "start_col": 22,
+        "start_line": 28
+      },
+      "name": "IO.println",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:f": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "f"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:f",
+      "kind": "proxy",
+      "location": {
+        "end_col": 58,
+        "end_line": 22,
+        "file_path": "taxonomy.lean",
+        "start_col": 55,
+        "start_line": 22
+      },
+      "name": "f",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 29,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Example": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example",
+      "kind": "namespace",
+      "location": {
+        "end_col": 17,
+        "end_line": 3,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "Example",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Example.Color": {
+      "attributes": {
+        "lean_declaration": "inductive",
+        "lean_private": false,
+        "lean_qualified_name": "Example.Color"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.Color",
+      "kind": "enum",
+      "location": {
+        "end_col": 8,
+        "end_line": 15,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 13
+      },
+      "name": "Color",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Example.Color.blue": {
+      "attributes": {
+        "lean_declaration": "ctor_alt",
+        "lean_private": false,
+        "lean_qualified_name": "Example.Color.blue"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.Color.blue",
+      "kind": "function",
+      "location": {
+        "end_col": 8,
+        "end_line": 15,
+        "file_path": "taxonomy.lean",
+        "start_col": 2,
+        "start_line": 15
+      },
+      "name": "blue",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Example.Color.red": {
+      "attributes": {
+        "lean_declaration": "ctor_alt",
+        "lean_private": false,
+        "lean_qualified_name": "Example.Color.red"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.Color.red",
+      "kind": "function",
+      "location": {
+        "end_col": 7,
+        "end_line": 14,
+        "file_path": "taxonomy.lean",
+        "start_col": 2,
+        "start_line": 14
+      },
+      "name": "red",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Example.Point": {
+      "attributes": {
+        "lean_declaration": "structure",
+        "lean_private": false,
+        "lean_qualified_name": "Example.Point"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": "A coordinate pair.",
+      "exception_types": [],
+      "id": "taxonomy:Example.Point",
+      "kind": "struct",
+      "location": {
+        "end_col": 0,
+        "end_line": 10,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 6
+      },
+      "name": "Point",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Example.Point.x": {
+      "attributes": {
+        "lean_declaration": "field",
+        "lean_private": false,
+        "lean_qualified_name": "Example.Point.x"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.Point.x",
+      "kind": "state_variable",
+      "location": {
+        "end_col": 9,
+        "end_line": 7,
+        "file_path": "taxonomy.lean",
+        "start_col": 2,
+        "start_line": 7
+      },
+      "name": "x",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Nat"
+      }
+    },
+    "taxonomy:Example.Point.y": {
+      "attributes": {
+        "lean_declaration": "field",
+        "lean_private": false,
+        "lean_qualified_name": "Example.Point.y"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.Point.y",
+      "kind": "state_variable",
+      "location": {
+        "end_col": 9,
+        "end_line": 8,
+        "file_path": "taxonomy.lean",
+        "start_col": 2,
+        "start_line": 8
+      },
+      "name": "y",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Nat"
+      }
+    },
+    "taxonomy:Example.Sized": {
+      "attributes": {
+        "lean_declaration": "structure",
+        "lean_private": false,
+        "lean_qualified_name": "Example.Sized"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.Sized",
+      "kind": "trait",
+      "location": {
+        "end_col": 0,
+        "end_line": 13,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 10
+      },
+      "name": "Sized",
+      "parameters": [
+        {
+          "default": null,
+          "name": "\u03b1",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Type"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Example.Sized.size": {
+      "attributes": {
+        "lean_declaration": "field",
+        "lean_private": false,
+        "lean_qualified_name": "Example.Sized.size"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.Sized.size",
+      "kind": "method",
+      "location": {
+        "end_col": 19,
+        "end_line": 11,
+        "file_path": "taxonomy.lean",
+        "start_col": 2,
+        "start_line": 11
+      },
+      "name": "size",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "\u03b1 \u2192 Nat"
+      }
+    },
+    "taxonomy:Example.apply": {
+      "attributes": {
+        "lean_declaration": "def",
+        "lean_private": false,
+        "lean_qualified_name": "Example.apply"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.apply",
+      "kind": "function",
+      "location": {
+        "end_col": 58,
+        "end_line": 22,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 22
+      },
+      "name": "apply",
+      "parameters": [
+        {
+          "default": null,
+          "name": "\u03b1",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Type"
+          }
+        },
+        {
+          "default": null,
+          "name": "f",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "\u03b1 \u2192 \u03b1"
+          }
+        },
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "\u03b1"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "\u03b1"
+      }
+    },
+    "taxonomy:Example.choose": {
+      "attributes": {
+        "lean_declaration": "def",
+        "lean_private": false,
+        "lean_qualified_name": "Example.choose"
+      },
+      "branches": [
+        {
+          "complexity_contribution": 1,
+          "condition": "n > 0",
+          "location": {
+            "end_col": 56,
+            "end_line": 20,
+            "file_path": "taxonomy.lean",
+            "start_col": 30,
+            "start_line": 20
+          }
+        }
+      ],
+      "cyclomatic_complexity": 2,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.choose",
+      "kind": "function",
+      "location": {
+        "end_col": 56,
+        "end_line": 20,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 20
+      },
+      "name": "choose",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Nat"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Nat"
+      }
+    },
+    "taxonomy:Example.inc": {
+      "attributes": {
+        "lean_declaration": "def",
+        "lean_private": false,
+        "lean_qualified_name": "Example.inc"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": "Increment a natural number.",
+      "exception_types": [],
+      "id": "taxonomy:Example.inc",
+      "kind": "function",
+      "location": {
+        "end_col": 32,
+        "end_line": 18,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 18
+      },
+      "name": "inc",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Nat"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "Nat"
+      }
+    },
+    "taxonomy:Example.reflexive": {
+      "attributes": {
+        "lean_declaration": "theorem",
+        "lean_private": false,
+        "lean_qualified_name": "Example.reflexive"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Example.reflexive",
+      "kind": "function",
+      "location": {
+        "end_col": 45,
+        "end_line": 24,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 24
+      },
+      "name": "reflexive",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "Nat"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "n = n"
+      }
+    },
+    "taxonomy:main": {
+      "attributes": {
+        "lean_declaration": "def",
+        "lean_private": false,
+        "lean_qualified_name": "main"
+      },
+      "branches": [],
+      "cyclomatic_complexity": 1,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:main",
+      "kind": "function",
+      "location": {
+        "end_col": 51,
+        "end_line": 28,
+        "file_path": "taxonomy.lean",
+        "start_col": 0,
+        "start_line": 28
+      },
+      "name": "main",
+      "parameters": [],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "IO Unit"
+      }
+    }
+  },
+  "root_path": "taxonomy.lean",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 4,
+    "classes": 0,
+    "dependencies": [
+      "Std"
+    ],
+    "entrypoints": 0,
+    "functions": 8,
+    "languages": [
+      "lean"
+    ],
+    "parse_diagnostics": [],
+    "proxies": 2,
+    "source_file_counts": {
+      "lean": 1
+    },
+    "source_files": 1,
+    "total_nodes": 17
+  },
+  "trailmark_version": "<trailmark-version>"
+}

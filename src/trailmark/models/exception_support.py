@@ -2,7 +2,7 @@
 
 Partial means that reviewed source cases are represented, not that all language
 forms or runtime effects are understood. Keep this catalog paired with the
-39-frontend regression corpus and the exception support guide.
+frontend regression corpus and the exception support guide.
 """
 
 from __future__ import annotations
@@ -149,6 +149,11 @@ _PROFILES = {
         "PNPPN",
         "Named applications are uncertain; laziness, saturation, masking and asynchronous "
         "exceptions are not resolved.",
+    ),
+    "lean": (
+        "UUUUU",
+        "Lean elaboration, tactics, monadic errors and runtime panic or IO failure are not "
+        "modeled; no exception events are emitted.",
     ),
     "julia": (
         "PNPPN",

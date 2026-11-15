@@ -97,7 +97,7 @@ def _materialize_unresolved_calls(graph: CodeGraph) -> None:
     staged = CodeGraph(nodes=graph.nodes.copy(), root_path=graph.root_path)
     new_edges: list[CodeEdge] = []
     for edge in graph.edges:
-        if edge.kind != EdgeKind.CALLS or edge.target_id in graph.nodes:
+        if edge.kind != EdgeKind.CALLS or _bound_call_target(graph, edge):
             new_edges.append(edge)
             continue
 
@@ -128,6 +128,16 @@ def _materialize_unresolved_calls(graph: CodeGraph) -> None:
     graph.edges[:] = new_edges
 
 
+def _bound_call_target(graph: CodeGraph, edge: CodeEdge) -> bool:
+    target = graph.nodes.get(edge.target_id)
+    if target is None:
+        return False
+    # A blocked lexical name can coincide with a module ID. Its spelling does
+    # not establish a call to that module. Other frontends may retain a blocked
+    # marker on calls whose local callable target has already been resolved.
+    return target.kind != NodeKind.MODULE or not dict(edge.attributes).get("binding_blocked")
+
+
 def materialize_type_use_edges(graph: CodeGraph) -> None:
     """Link type references before language-local candidate sets are merged.
 
@@ -142,6 +152,10 @@ def materialize_type_use_edges(graph: CodeGraph) -> None:
     type_index = _type_index(graph)
     new_edges: list[CodeEdge] = []
     for unit in graph.nodes.values():
+        # Lean resolves explicit types in its own namespace/import/order context.
+        # Retained raw TypeRefs must not be rebound after polyglot/root merging.
+        if "lean_declaration" in dict(unit.attributes):
+            continue
         for type_ref in unit_type_refs(unit):
             target_id = _resolve_type_ref(type_ref, type_index, unit.id)
             if target_id is None:

@@ -119,6 +119,7 @@ one wins.
 | Objective-C | `UIApplicationDelegate` lifecycle selectors such as `application:openURL:options:` |
 | Dart | `@pragma('vm:entry-point')` |
 | Haskell | top-level `main` |
+| Lean 4 | generic named `main` only; Lean and Lake are not executed |
 | Erlang | functions listed in `-export([...])` |
 | Solidity | `public` and `external` functions, `fallback`, and `receive` (see below) |
 | Aiken | validator `mint`, `spend`, `withdraw`, `publish`, `vote`, `propose`, and explicit `else` handlers |

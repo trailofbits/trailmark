@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Add Lean 4 parsing (`--language lean`, `.lean` autodetection), including
+  definitions, theorems, namespaces, structures, classes, inductive types,
+  lexical callable ownership, conservative calls through inspected imports,
+  and source-located references in signatures, bodies, typed projections, and
+  immutable record updates.
+  Document the limits of syntax-only proof, macro, and exception analysis.
+- Add opt-in `edge_kinds` filters to `reachable_from`, `ancestors_of`, and
+  `paths_between`, preserving call-only defaults. Export optional locations for
+  `references` edges within graph schema version 1.
+
 ## 0.8.0 (2026-11-11)
 
 - Track PHP 8.5 pipe invocations through first-class callables, inline closures,

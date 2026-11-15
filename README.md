@@ -247,6 +247,7 @@ for working with proxies.
 | Cairo | `.cairo` | `cairo` | functions, traits, structs, enums, impl blocks, StarkNet contracts |
 | Circom | `.circom` | `circom` | templates, functions, signals, components |
 | Haskell | `.hs` | `haskell` | functions, data types, type classes, instances |
+| Lean 4 | `.lean` | `lean` | definitions, theorems, namespaces, structures, classes, inductive types, imports, term applications, explicit symbol and typed field references |
 | Julia | `.jl` | `julia` | modules, types, long/short functions, closures, signatures, branches, imports, conservative local calls |
 | Erlang | `.erl` | `erlang` | functions, records, behaviours, modules |
 | Miden Assembly | `.masm` | `masm` | procedures, entrypoints, constants, invocations |

@@ -1,4 +1,4 @@
-"""Reviewed expectations for the bounded, 39-frontend exception audit corpus.
+"""Reviewed expectations for the bounded frontend exception audit corpus.
 
 These are syntax checks, not language conformance or runtime-safety claims.
 """
@@ -32,6 +32,7 @@ EXCEPTION_CASES: tuple[tuple[str, str, frozenset[str], bool], ...] = tuple(
         ("cairo", "cairo.cairo", "terminate", False),
         ("circom", "circom.circom", "terminate", False),
         ("haskell", "haskell.hs", "raise handler", False),
+        ("lean", "lean.lean", "", False),
         ("julia", "julia.jl", "raise rethrow handler cleanup", False),
         ("erlang", "erlang.erl", "raise handler cleanup", False),
         ("masm", "masm.masm", "terminate", False),

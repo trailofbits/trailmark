@@ -165,10 +165,18 @@ stay unverified. JSON exports retain these profiles alongside nonempty events.
 Reachability queries (`ancestors_of`, `reachable_from`, path queries) follow
 only `calls` edges unless a method takes an `edge_kinds` argument.
 
+Lean emits `references` for uniquely resolved explicit symbol uses in signatures
+and term bodies, including fields of explicitly typed receivers. These edges
+represent syntactic dependencies, without claiming runtime execution or complete
+proof dependencies. Each occurrence remains a separate edge. JSON exports include
+an optional `location` on `references`, using the same source-location object as
+`reads` and `writes`; edges without a location omit the key. This is an additive
+export change within schema version 1.
+
 ### Import edges
 
 These frontends emit `imports` edges: Aiken (`aiken`), Bash (`bash`), Func (`func`),
-Julia (`julia`), Lua (`lua`), Move (`move`), Perl (`perl`), PowerShell (`powershell`),
+Julia (`julia`), Lean (`lean`), Lua (`lua`), Move (`move`), Perl (`perl`), PowerShell (`powershell`),
 Protocol Buffers (`proto`), R (`r`), Rego (`rego`), Sway (`sway`), Tact (`tact`),
 Thrift (`thrift`), VB.NET (`vb`), and Zig (`zig`).
 
@@ -191,14 +199,19 @@ found. In the README's Python example, the unresolved receiver call
 Sway, and Tact are `uncertain`. To find unresolved calls, look for edges to
 `proxy.unresolved:` nodes or use
 [`unresolved_calls()`](call-resolution.md) rather than filtering on
-`uncertain`. `type_uses` edges are `certain` even though they come from name
-matching.
+`uncertain`. Generic `type_uses` edges are `certain` even though they come from name
+matching. Lean resolves explicit types with its own namespace, import, visibility,
+and declaration-order rules and marks those `type_uses` edges `inferred`.
 
 Call edge attributes can preserve binding provenance. `import_binding` marks a
 JavaScript/TypeScript literal `require` named-export binding and prevents unrelated
 free-function fallback. `indirect_call` records pointer, field-call or returned-call syntax; it
 remains present if callback-table inference later gives the edge an inferred target.
 The confidence describes target resolution, while this attribute describes syntax.
+Lean uses `binding_blocked` on unresolved calls to prevent generic fallback;
+`binding_reason` distinguishes `lexical_callable` from `lean_unresolved`. A raw
+name that matches a module ID still becomes a proxy when its binding is blocked.
+Lean does not export temporary lookup candidates or the `import_binding` flag.
 `include_unverified=True` marks a C/C++ header-static link for which the resolver
 could not verify an include path in either direction. It does not establish that
 the caller lacks an include: compiler search paths and translation-unit context
@@ -306,7 +319,8 @@ After each file is parsed, Trailmark links the graph by name:
   `inferred`.
 - `type_uses` edges link type names to type declarations. They are linked
   within each language first; in a polyglot parse, a reference still unmatched
-  after that can link to a same-named type in another language.
+  after that can link to a same-named type in another language. Lean owns its
+  type-use resolution and does not take this cross-language fallback.
 - Calls that need overload resolution stay unresolved and `uncertain`.
   Trailmark does not choose an overload by argument types.
 

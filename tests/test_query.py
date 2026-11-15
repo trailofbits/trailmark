@@ -135,6 +135,63 @@ class TestQueryEngineCallees:
 
 
 class TestQueryEnginePaths:
+    def test_selected_edge_kinds_include_reference_paths(self) -> None:
+        graph = CodeGraph(
+            nodes={f"mod:{n}": _make_node(f"mod:{n}", n) for n in ("entry", "helper", "field")},
+            edges=[
+                CodeEdge("mod:entry", "mod:helper", EdgeKind.CALLS),
+                CodeEdge("mod:helper", "mod:field", EdgeKind.REFERENCES),
+                CodeEdge("mod:helper", "mod:field", EdgeKind.REFERENCES),
+            ],
+        )
+        engine = QueryEngine.from_graph(graph)
+        assert [n["id"] for n in engine.reachable_from("entry")] == ["mod:helper"]
+        assert engine.ancestors_of("field") == []
+        assert engine.paths_between("entry", "field") == []
+        assert [n["id"] for n in engine.reachable_from("helper", edge_kinds=("references",))] == [
+            "mod:field"
+        ]
+        assert [
+            n["id"] for n in engine.ancestors_of("field", edge_kinds=(EdgeKind.REFERENCES,))
+        ] == ["mod:helper"]
+        mixed = ("calls", EdgeKind.REFERENCES)
+        assert [n["id"] for n in engine.reachable_from("entry", edge_kinds=mixed)] == [
+            "mod:field",
+            "mod:helper",
+        ]
+        assert [n["id"] for n in engine.ancestors_of("field", edge_kinds=mixed)] == [
+            "mod:entry",
+            "mod:helper",
+        ]
+        assert engine.paths_between("entry", "field", max_depth=1, edge_kinds=mixed) == []
+        assert engine.paths_between("entry", "field", max_depth=2, edge_kinds=mixed) == [
+            ["mod:entry", "mod:helper", "mod:field"]
+        ]
+        assert engine.paths_between("helper", "field", edge_kinds=("references",)) == [
+            ["mod:helper", "mod:field"]
+        ]
+        for kinds in ((), ("references",)):
+            assert engine.reachable_from("missing", edge_kinds=kinds) == []
+            assert engine.ancestors_of("missing", edge_kinds=kinds) == []
+            assert engine.paths_between("missing", "field", edge_kinds=kinds) == []
+            assert engine.paths_between("entry", "missing", edge_kinds=kinds) == []
+        assert engine.reachable_from("entry", edge_kinds=()) == []
+        assert engine.ancestors_of("helper", edge_kinds=()) == []
+        assert engine.paths_between("entry", "helper", edge_kinds=()) == []
+        assert engine.paths_between("helper", "helper", edge_kinds=mixed) == []
+
+    @pytest.mark.parametrize("name", ["entry", "missing"])
+    def test_selected_edge_kinds_validate_before_name_lookup(self, name: str) -> None:
+        engine = _build_engine()
+        with pytest.raises(ValueError, match="not-a-kind"):
+            engine.reachable_from(name, edge_kinds=("not-a-kind",))
+        with pytest.raises(ValueError, match="not-a-kind"):
+            engine.ancestors_of(name, edge_kinds=("not-a-kind",))
+        with pytest.raises(ValueError, match="not-a-kind"):
+            engine.paths_between(name, name, edge_kinds=("not-a-kind",))
+        with pytest.raises(ValueError, match="max_depth.*at least 1"):
+            engine.paths_between(name, name, max_depth=0, edge_kinds=("references",))
+
     def test_depth_in_edges_is_exposed_and_keeps_self_paths_empty(self) -> None:
         engine = _build_engine()
         assert engine.paths_between("entry", "db_query", max_depth=1) == []
@@ -684,6 +741,18 @@ class TestUnitToDict:
 
 
 class TestEdgeToDict:
+    @pytest.mark.parametrize("kind", [EdgeKind.READS, EdgeKind.WRITES, EdgeKind.REFERENCES])
+    def test_optional_occurrence_location(self, kind: EdgeKind) -> None:
+        edge = CodeEdge("a", "b", kind, location=_LOC)
+        assert _edge_to_dict(edge)["location"] == {
+            "file_path": "test.py",
+            "start_line": 1,
+            "end_line": 10,
+            "start_col": None,
+            "end_col": None,
+        }
+        assert "location" not in _edge_to_dict(CodeEdge("a", "b", kind))
+
     def test_edge_to_dict_calls(self) -> None:
         edge = CodeEdge(
             source_id="a",

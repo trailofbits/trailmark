@@ -145,17 +145,18 @@ class QueryEngine:
             return []
         return [_unit_to_dict(u) for u in self._store.writers_of(node_id)]
 
-    def ancestors_of(self, name: str) -> list[dict[str, Any]]:
-        """Find every function/method that can transitively reach ``name``.
+    def ancestors_of(
+        self, name: str, *, edge_kinds: tuple[str | EdgeKind, ...] = ("calls",)
+    ) -> list[dict[str, Any]]:
+        """Find nodes that transitively reach ``name`` through the selected edges.
 
-        The dual of ``callees_of`` extended transitively: given a sensitive
-        sink, this surfaces every function that could eventually call it,
-        directly or indirectly. Useful for upward slicing during audits.
+        By default this follows calls, providing an upward slice for a sink.
         """
+        kinds = _coerce_edge_kinds(edge_kinds)
         node_id = self._store.find_node_id(name)
         if node_id is None:
             return []
-        ancestor_ids = self._store.ancestors_of(node_id)
+        ancestor_ids = self._store.ancestors_of(node_id, edge_kinds=kinds)
         result: list[dict[str, Any]] = []
         for aid in sorted(ancestor_ids):
             unit = self._store._graph.nodes.get(aid)  # noqa: SLF001
@@ -163,15 +164,18 @@ class QueryEngine:
                 result.append(_unit_to_dict(unit))
         return result
 
-    def reachable_from(self, name: str) -> list[dict[str, Any]]:
-        """Find every function/method transitively reachable from ``name``.
+    def reachable_from(
+        self, name: str, *, edge_kinds: tuple[str | EdgeKind, ...] = ("calls",)
+    ) -> list[dict[str, Any]]:
+        """Find nodes transitively reachable through the selected edge kinds.
 
-        The transitive closure of ``callees_of``.
+        Defaults to the transitive closure of ``callees_of``.
         """
+        kinds = _coerce_edge_kinds(edge_kinds)
         node_id = self._store.find_node_id(name)
         if node_id is None:
             return []
-        reachable_ids = self._store.reachable_from(node_id)
+        reachable_ids = self._store.reachable_from(node_id, edge_kinds=kinds)
         result: list[dict[str, Any]] = []
         for rid in sorted(reachable_ids):
             unit = self._store._graph.nodes.get(rid)  # noqa: SLF001
@@ -185,14 +189,20 @@ class QueryEngine:
         dst: str,
         *,
         max_depth: int = 20,
+        edge_kinds: tuple[str | EdgeKind, ...] = ("calls",),
     ) -> list[list[str]]:
-        """Find nontrivial call paths of at most ``max_depth`` edges (positive)."""
+        """Find nontrivial paths of at most ``max_depth`` edges (positive).
+
+        Traverses calls by default; ``edge_kinds`` selects other relationships.
+        """
+        kinds = _coerce_edge_kinds(edge_kinds)
         src_id = self._store.find_node_id(src)
         dst_id = self._store.find_node_id(dst)
         return self._store.paths_between(
             src_id if src_id is not None else src,
             dst_id if dst_id is not None else dst,
             max_depth=max_depth,
+            edge_kinds=kinds,
         )
 
     def connect_subgraphs(
@@ -708,7 +718,10 @@ def _edge_to_dict(edge: CodeEdge) -> dict[str, Any]:
     }
     if edge.attributes:
         result["attributes"] = _attributes_to_dict(edge.attributes)
-    if edge.kind in {EdgeKind.READS, EdgeKind.WRITES} and edge.location is not None:
+    if (
+        edge.kind in {EdgeKind.READS, EdgeKind.WRITES, EdgeKind.REFERENCES}
+        and edge.location is not None
+    ):
         result["location"] = asdict(edge.location)
     return result
 
