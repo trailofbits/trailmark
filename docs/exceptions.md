@@ -98,6 +98,7 @@ exception dispatch or cleanup ordering.
 | cairo | partial | not_applicable | not_applicable | unsupported | not_applicable | Named panic candidates are uncertain; result effects and transaction rollback are not inferred. |
 | circom | partial | not_applicable | not_applicable | not_applicable | not_applicable | Assertion candidates are distinct from constraint enforcement; witness and proof outcomes are not established. |
 | haskell | partial | not_applicable | partial | partial | not_applicable | Named applications are uncertain; laziness, saturation, masking and asynchronous exceptions are not resolved. |
+| lean | unsupported | unsupported | unsupported | unsupported | unsupported | Lean elaboration, tactics, monadic errors and runtime panic or IO failure are not modeled; no exception events are emitted. |
 | julia | partial | not_applicable | partial | partial | not_applicable | Named throw/rethrow/error calls are uncertain; task failures and finalizers are not inferred. |
 | erlang | partial | partial | partial | partial | not_applicable | Exception classes and after syntax are retained; process exit signals and catch dispatch are not resolved. |
 | masm | partial | not_applicable | not_applicable | not_applicable | not_applicable | Assertion instructions may fail; VM failure and proof validity are not modeled as typed exceptions. |

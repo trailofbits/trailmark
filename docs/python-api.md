@@ -138,13 +138,18 @@ them does not change the graph.
 | --- | --- |
 | `callers_of(name)` | Nodes with a direct call edge to `name` |
 | `callees_of(name)` | Nodes `name` calls directly |
-| `ancestors_of(name)` | Every node that can transitively call `name` (upward slice) |
-| `reachable_from(name)` | Every node `name` can transitively call |
-| `paths_between(src, dst, *, max_depth=20)` | Call paths from `src` to `dst`, as lists of node IDs |
+| `ancestors_of(name, *, edge_kinds=("calls",))` | Nodes that transitively reach `name` through selected edges (upward slice) |
+| `reachable_from(name, *, edge_kinds=("calls",))` | Nodes transitively reachable from `name` through selected edges |
+| `paths_between(src, dst, *, max_depth=20, edge_kinds=("calls",))` | Paths from `src` to `dst`, as lists of node IDs |
 | `entrypoint_paths_to(name, max_depth=20)` | Call paths from any detected entrypoint to `name` |
 
-Transitive queries follow `calls` edges only. Imports, containment, state
-access, and links declared with a kind other than `calls` do not extend a slice.
+Transitive queries follow `calls` edges by default. The `edge_kinds` tuple on
+`reachable_from`, `ancestors_of`, and `paths_between` accepts strings or `EdgeKind`
+members. For example, `engine.reachable_from("claim", edge_kinds=("references",))`
+follows symbol references, while `edge_kinds=("calls", "references")` combines
+both relationships. An empty tuple traverses no edges; invalid kinds raise
+`ValueError`, including for missing names. Valid queries for missing names return
+`[]`. Callers, callees, entrypoint paths, and preanalysis remain calls only.
 
 Path queries return distinct node-ID sequences. `max_depth` is the maximum edge
 count (default 20) and must be positive; zero or a negative value raises

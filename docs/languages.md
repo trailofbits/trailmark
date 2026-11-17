@@ -5,6 +5,7 @@ extracts. This page covers the languages whose behavior needs more
 explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
+- [Lean 4](#lean-4)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -19,6 +20,85 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [PowerShell](#powershell)
 - [C, C++, and Objective-C headers](#c-c-and-objective-c-headers)
 - [VB.NET](#vbnet)
+
+## Lean 4
+
+The `.lean` frontend uses the Lean grammar from `tree-sitter-language-pack`.
+Select it with `--language lean`, or use extension detection with
+`--language auto`. Parsing does not run Lean or Lake and does not validate proofs.
+
+Definitions (`def`, `abbrev`, `opaque`), theorems and lemmas, axioms, constants,
+instances, and examples become function nodes. Structures become `struct` nodes,
+classes become `trait` nodes, and inductive types become `enum` nodes. Explicit
+constructors, structure fields, and class method signatures retain their owners.
+Declared binder names, dependent type text, defaults, return types, doc comments,
+imports, and term-level `if`/`match` branches are retained. Implicit binders remain
+parameters; unnamed instance binders use `$instN`. Section variables are used to
+block false name resolution and retain explicit receiver types, but elaborated
+implicit parameters are not inferred.
+
+Namespace IDs include their qualified path, for example `file:Outer.Inner` and
+`file:Outer.Inner.helper`. Sections do not add a namespace. Reopened namespaces
+share an owner. Anonymous instances, examples, lambdas, and local `let` functions
+use source offsets in their IDs, so moving them can change identity. Lambda,
+local function, and `where` helper bodies own their calls and branches; uncertain
+`deferred` edges connect them to their containing function.
+
+Call edges describe syntactic term applications, not confirmed runtime execution
+or full application. Curried applications retain one call site per application
+chain. Unique named targets resolve with `inferred` confidence through namespace
+lookup, simple `open` commands (including `open … in`), and
+inspected transitive imports. Private declarations stay within their source file.
+Same-file lookups respect declaration order, including forward references within
+an explicit `mutual` block. Closer namespace matches prevent fallback to outer
+symbols, including when the closer symbol is a field or type. Unqualified root
+names compete with opened namespaces; protected names require qualification.
+Ambiguous or unavailable targets and calls through parameters or local values
+remain uncertain proxies. Temporary candidate lists are removed before export.
+Import lookup
+uses source paths relative to the parsed directory; Lake package search paths and
+external library sources are not discovered automatically.
+
+Explicit declaration types, binder types, and term bodies emit `references` edges
+to uniquely resolved symbols. Signature references do not create calls. Lexical
+bindings shadow globals in signatures, quantified propositions, and nested term
+scopes. Direct field projections such as `d.width` and `(d).width` resolve only
+through an explicit, uniquely resolved receiver type: a named structure/class or
+a simple type application such as `Box Nat`. Field names in `{ d with width := n }`
+also produce references through that receiver type. Record updates construct
+immutable values; they do not emit `reads` or `writes` edges.
+Structure field defaults emit references only. Lean `type_uses` edges use the same
+scoped resolver and `inferred` confidence; raw retained type text does not create
+additional links across namespaces, imports, languages, or source roots.
+
+Each resolved reference occurrence retains its location, `inferred` confidence,
+and a `lean_reference_context` attribute: `signature`, `body`, `projection`, or
+`record_update`. Unavailable and ambiguous references are omitted without creating
+proxies. Use `edge_kinds=("references",)` in `reachable_from`, `ancestors_of`, or
+`paths_between` to follow them; the default remains calls only. Missing reference
+edges indicate incomplete knowledge, not proof of independence or correctness.
+`signature` covers top-level declaration and field headers. Type ascriptions and
+local binding annotations inside term bodies keep the `body` context without
+creating calls from their type expressions.
+
+Term traversal is iterative. Simple `for x in xs do` loops bind `x` within the
+loop body. Loop shapes that the grammar does not preserve emit
+`unsupported_syntax` diagnostics and omit their term edges.
+
+Tactic blocks and syntax quotations do not emit calls or references. Macro
+expansion, antiquotation evaluation, elaborated proof dependencies, custom
+notation, generated declarations, type-class synthesis, overload resolution,
+restricted `open` commands, and scoped notation are not modeled. Restricted opens,
+including `hiding` and `renaming`, are skipped rather than treated as plain opens.
+Projection lookup
+does not expand type aliases, infer receiver types, follow inherited fields or
+coercions, or resolve generalized field notation. Declarations wrapped in
+`set_option … in` and `variable … in` are retained
+without evaluating compiler options. The grammar is approximate; syntax errors
+remain visible in `parse_diagnostics()`
+and are rejected by `--strict`. Lean exception events are unsupported, including
+monadic errors, IO failures, and panic behavior. A function named `main` follows
+the generic CLI entrypoint rule.
 
 ## Bash
 
