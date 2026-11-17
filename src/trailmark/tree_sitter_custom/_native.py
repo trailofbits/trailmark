@@ -26,12 +26,15 @@ class NativeGrammar:
 
     directory: Path
     sources: tuple[str, ...]
+    symbol: str | None = None
 
     def compiler_flags(self) -> list[str]:
         flags = ["cc", "-shared", "-fPIC", "-O2", "-std=c11"]
         if sys.platform == "darwin":
             flags.extend(["-undefined", "dynamic_lookup"])
         flags.extend([f"-I{sysconfig.get_path('include')}", f"-I{self.directory / 'src'}"])
+        if self.symbol is not None:
+            flags.append(f"-DTRAILMARK_LANGUAGE={self.symbol}")
         return flags
 
     def binding_path(self) -> Path:
@@ -87,3 +90,32 @@ class NativeGrammar:
                 f"Grammar binding has no callable language entrypoint: {binding_path}"
             )
         return entrypoint()
+
+
+def bundled_language(name: str) -> object:
+    """Load a generated grammar through one binding and its complete input set."""
+    if not name.isidentifier():
+        raise ValueError(f"Invalid bundled grammar name: {name}")
+    directory = Path(__file__).parent / name
+    sources = tuple(
+        path.relative_to(directory).as_posix()
+        for path in sorted((directory / "src").rglob("*"))
+        if path.suffix in {".c", ".h"}
+    )
+    if "src/parser.c" not in sources:
+        raise ImportError(f"Bundled grammar {name} is not generated; run npm ci and uv sync")
+    return NativeGrammar(
+        directory, ("../binding.c", "../nested_comment.h", *sources), f"tree_sitter_{name}"
+    ).language()
+
+
+def precompile_all() -> None:
+    """Populate the same caches used at runtime before installation becomes read-only."""
+    for directory in sorted(Path(__file__).parent.iterdir()):
+        if not (directory / "src/parser.c").is_file():
+            continue
+        if (directory / "__init__.py").is_file():
+            module = importlib.import_module(f"trailmark.tree_sitter_custom.{directory.name}")
+            module.language()
+        else:
+            bundled_language(directory.name)

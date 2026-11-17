@@ -32,8 +32,9 @@ install share one read-only cache.
 **`tree-sitter-sql`** provides the SQL grammar. It ships as a wheel dependency
 and does not use the language-pack cache.
 
-**Bundled grammars** for Circom, Miden Assembly, Move, Rust, and Verus ship as C sources
-inside Trailmark. See [below](#bundled-grammars).
+**Bundled grammars** ship as C sources inside Trailmark. See
+[below](#bundled-grammars) for build requirements. Grammar licenses, revisions
+and local changes are recorded in `NOTICE` and the grammar directories.
 
 ### Offline and TLS-inspected networks
 
@@ -50,9 +51,8 @@ location on the target machine.
 
 ## Bundled grammars
 
-The bundled Circom, Miden Assembly, Move, Rust, and Verus grammars are compiled the first
-time a file needs them. This requires a C compiler (`cc`), Python development
-headers, and write access to the installed grammar directories. Ordinary Rust
+Bundled grammars are compiled the first time a file needs them. This requires a
+C compiler (`cc`), Python development headers, and write access to the installed grammar directories. Ordinary Rust
 uses the bundled Rust grammar; `verus!` blocks additionally load the Verus grammar.
 Both scanners preserve Unicode code points in block comments. The Rust grammar
 matches the revision pinned by language-pack 1.22.1; its provenance and the local
@@ -85,9 +85,9 @@ the read-only Nix store, and uses a root-owned language-pack grammar cache.
 
 ## From a git checkout
 
-A checkout keeps the Circom, Move, Rust, and Verus grammar definitions and generates
-their C parsers during the build with Tree-sitter CLI 0.27.1, which needs Node.js.
-Circom, Move, and Rust use ABI 14; Verus uses ABI 15:
+A checkout keeps bundled grammar definitions and generates their C parsers
+during the build with Tree-sitter CLI 0.27.1, which needs Node.js.
+The build hook pins each generated grammar's ABI in `hatch_build.py`:
 
 ```bash
 npm ci                     # installs the pinned Tree-sitter CLI

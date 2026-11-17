@@ -93,6 +93,7 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (
         "docs/binaries.md",
@@ -179,7 +180,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/parser-coverage.md", "`parse_incomplete` and `syntax_recovered` attributes"),
     ("docs/parser-coverage.md", "`macro_wrapper`, `source_alias`, and `expansion_alias`"),
     ("docs/parser-coverage.md", "file-local `static const` objects"),
-    ("docs/installation.md", "Move, Rust, and Verus ship as C sources"),
+    ("docs/installation.md", "Bundled grammars** ship as C sources"),
     ("docs/installation.md", "Both scanners preserve Unicode code points in block comments"),
     (
         "docs/entrypoints.md",
@@ -190,6 +191,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/python-api.md", "ignore stale members left in the mutable `CodeGraph`"),
     ("docs/cli.md", "Distinct graph nodes receive distinct Mermaid identifiers"),
     ("docs/roadmap.md", "These corrections do not close the wider language audit backlog"),
+    ("docs/graph-model.md", "Specification references do not become calls"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
     ("README.md", "bounded C declaration wrappers can be expanded"),
@@ -215,7 +217,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/installation.md", "Tree-sitter CLI 0.27.1"),
     ("docs/installation.md", "run `npm ci` with npm install scripts enabled"),
     ("docs/installation.md", "generated parser and headers are gitignored"),
-    ("docs/installation.md", "Circom, Move, and Rust use ABI 14; Verus uses ABI 15"),
+    ("docs/installation.md", "The build hook pins each generated grammar's ABI"),
     ("docs/installation.md", "installing published packages needs neither"),
     # Mutation testing
     ("CONTRIBUTING.md", "tests.benchmark_analysis /path/to/corpus --language python --repeat 7"),

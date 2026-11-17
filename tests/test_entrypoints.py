@@ -9,12 +9,14 @@ file) have the intended precedence.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from trailmark.analysis.entrypoints import detect_entrypoints
 from trailmark.models.annotations import AssetValue, EntrypointKind, TrustLevel
+from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -1204,3 +1206,17 @@ def _isolate_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     ensures a deterministic cwd.
     """
     monkeypatch.chdir(tmp_path)
+
+
+@pytest.mark.parametrize("executable", [None, True, False])
+def test_main_heuristic_respects_explicit_non_executable_declarations(
+    tmp_path: Path, executable: bool | None
+) -> None:
+    path = tmp_path / "sample.py"
+    path.write_text("def main(): pass\n")
+    graph = parse_file(str(path))
+    unit = graph.nodes["sample:main"]
+    attributes = () if executable is None else (("executable", executable),)
+    graph.nodes[unit.id] = replace(unit, attributes=attributes)
+    tags = detect_entrypoints(graph, str(tmp_path))
+    assert (unit.id in tags) is (executable is not False)

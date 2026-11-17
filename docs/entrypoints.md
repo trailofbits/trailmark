@@ -91,7 +91,8 @@ before converting oversized significant digits to integers.
 Detection runs four layers. When two layers tag the same function, the later
 one wins.
 
-1. **Any function or method named `main`**, in any language. Tagged
+1. **Any function or method named `main`**, in any language, except declarations
+   explicitly marked non-executable. Tagged
    `user_input`, `trusted_internal`, `low`.
 2. **Framework-aware patterns**: decorators, attributes, visibility, and
    parser metadata (see the table below).
