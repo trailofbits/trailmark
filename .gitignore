@@ -27,3 +27,5 @@ result
 /src/trailmark/tree_sitter_custom/*/src/node-types.json
 /src/trailmark/tree_sitter_custom/*/.generated.json
 /src/trailmark/tree_sitter_custom/.*-*/
+# Miden Assembly ships checked-in parser sources.
+!/src/trailmark/tree_sitter_custom/masm/src/**
