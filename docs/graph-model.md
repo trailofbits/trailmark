@@ -334,3 +334,20 @@ visible in reachability queries without asserting immediate invocation. Confiden
 records target binding; a parse error elsewhere in a C function does not by itself
 lower confidence. Broken call contexts carry `syntax_error_context`; recovered C
 bodies retain their documented uncertain calls.
+
+## Declaration and specification evidence
+
+Declarative frontends can retain `declaration_role`, `qualified_name`, `signature`,
+`assumed`, and `executable` attributes. These describe explicit source syntax,
+not verifier acceptance or runtime behavior. `references` edges retain their
+`reference_context` and source spelling. Specification references do not become
+calls: a computational application requires evidence for both declarations and
+the application context. Ambiguous or unavailable targets remain unlinked.
+Signature and implementation evidence can remain separate source nodes joined
+by `corresponds_to`; neither location is overwritten. Imported modules are
+resolved only within inspected sources, and explicit external imports remain
+module proxies. Language adapters establish binder scopes and declaration order.
+
+Applications inside arguments remain references when argument erasure or relevance
+is unknown. This intentionally omits some runtime calls while retaining source
+dependencies; contracts and proof regions keep their own reference context.

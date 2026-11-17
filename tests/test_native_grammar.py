@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from dataclasses import FrozenInstanceError
@@ -262,3 +263,82 @@ def test_language_capsule_parses_verus_syntax() -> None:
     assert tree.root_node.named_children[0].type == "verus_block"
     assert tree.root_node.text is not None
     assert b"verified" in tree.root_node.text
+
+
+@pytest.mark.parametrize(
+    ("name", "source", "declaration"),
+    [
+        ("circom", b"template Circuit() { signal input value; }", "template_definition"),
+        ("verus", b"verus! { proof fn verified() {} }", "verus_block"),
+    ],
+)
+def test_shared_binding_loads_the_requested_grammar(
+    name: str, source: bytes, declaration: str
+) -> None:
+    tree = Parser(Language(_native.bundled_language(name))).parse(source)
+    assert not tree.root_node.has_error
+    assert tree.root_node.named_children[0].type == declaration
+    assert tree.root_node.text == source
+
+
+@pytest.mark.parametrize("name", ["", "../circom", "circom/../verus", "with-dash"])
+def test_shared_binding_rejects_invalid_grammar_names(name: str) -> None:
+    with pytest.raises(ValueError, match="Invalid bundled grammar name"):
+        _native.bundled_language(name)
+
+
+def test_shared_binding_reports_missing_generated_sources(tmp_path: Path) -> None:
+    with (
+        patch.object(_native, "__file__", str(tmp_path / "_native.py")),
+        pytest.raises(ImportError, match="unbuilt is not generated; run npm ci and uv sync"),
+    ):
+        _native.bundled_language("unbuilt")
+
+
+@pytest.mark.parametrize("slash_comments", [False, True])
+def test_shared_scanner_nests_comments_and_has_no_serialized_state(
+    tmp_path: Path, slash_comments: bool
+) -> None:
+    grammar_root = Path(_native.__file__).parent
+    fixture = Path(__file__).parent / "fixtures/nested_comment_scanner.c"
+    executable = tmp_path / "scanner"
+    flags = (
+        ["-DTRAILMARK_SLASH_TEST", "-DTRAILMARK_COMMENT_OPEN='/'", "-DTRAILMARK_COMMENT_CLOSE='/'"]
+        if slash_comments
+        else ["-DTRAILMARK_COMMENT_OPERATOR"]
+    )
+    compiler = shutil.which("cc")
+    assert compiler is not None
+    subprocess.run(  # noqa: S603
+        [
+            compiler,
+            "-std=c11",
+            f"-I{grammar_root}",
+            f"-I{grammar_root / 'verus/src'}",
+            *flags,
+            str(fixture),
+            "-o",
+            str(executable),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run([str(executable)], check=True, capture_output=True)  # noqa: S603
+
+
+def test_precompilation_discovers_grammars_and_uses_their_runtime_loader(tmp_path: Path) -> None:
+    for name in ("legacy", "shared"):
+        directory = tmp_path / name / "src"
+        directory.mkdir(parents=True)
+        (directory / "parser.c").write_text("generated")
+    (tmp_path / "legacy/__init__.py").write_text("")
+    (tmp_path / "unbuilt").mkdir()
+    with (
+        patch.object(_native, "__file__", str(tmp_path / "_native.py")),
+        patch.object(_native.importlib, "import_module") as imported,
+        patch.object(_native, "bundled_language") as shared,
+    ):
+        _native.precompile_all()
+    imported.assert_called_once_with("trailmark.tree_sitter_custom.legacy")
+    imported.return_value.language.assert_called_once_with()
+    shared.assert_called_once_with("shared")

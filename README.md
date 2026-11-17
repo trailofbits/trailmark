@@ -78,9 +78,8 @@ This README and the guides track the `main` branch. The
 lists what each published release includes, and the CLI and Python API guides
 note the version that added each newer feature.
 
-Most grammars are downloaded and cached on first use. The bundled Circom, Miden
-Assembly, Move, Rust, and Verus grammars are compiled on first use, which needs a C
-compiler. See [Installation](https://github.com/trailofbits/trailmark/blob/main/docs/installation.md)
+Most grammars are downloaded and cached on first use. Bundled grammars are
+compiled on first use, which needs a C compiler. See [Installation](https://github.com/trailofbits/trailmark/blob/main/docs/installation.md)
 for offline machines, TLS-inspecting proxies, and building from a checkout.
 
 Skills integrators: see [v0.7 compatibility](https://github.com/trailofbits/trailmark/blob/main/docs/skills-compatibility.md)

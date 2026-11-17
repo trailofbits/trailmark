@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from importlib.metadata import files, metadata
 from pathlib import Path
@@ -76,18 +77,20 @@ def _check_distribution_metadata() -> None:
     requirements = metadata("trailmark").get_all("Requires-Dist") or []
     if not any(value.startswith("lief") and "binary" in value for value in requirements):
         raise RuntimeError("distribution is missing the optional binary dependency")
-    if not any(str(path).endswith("tree_sitter_custom/verus/LICENSE") for path in trailmark_files):
-        msg = "trailmark distribution does not include the vendored Verus grammar license"
-        raise RuntimeError(msg)
-    if not any(str(path).endswith("tree_sitter_custom/rust/LICENSE") for path in trailmark_files):
-        raise RuntimeError(
-            "trailmark distribution does not include the bundled Rust grammar license"
-        )
-    if not any(str(path).endswith("tree_sitter_custom/move/LICENSE") for path in trailmark_files):
-        raise RuntimeError(
-            "trailmark distribution does not include the bundled Move grammar license"
-        )
-    if not any(str(path).endswith("tree_sitter_custom/move/NOTICE") for path in trailmark_files):
+    notices = [p for p in trailmark_files if p.name == "NOTICE" and "licenses" in p.parts]
+    if len(notices) != 1:
+        raise RuntimeError("distribution is missing its third-party notices")
+    grammars = set(
+        re.findall(r"tree_sitter_custom/([a-z_]+)/", Path(notices[0].locate()).read_text())
+    )
+    if not grammars:
+        raise RuntimeError("distribution notices contain no bundled grammar inventory")
+    for grammar in grammars:
+        if not any(
+            str(p).endswith(f"tree_sitter_custom/{grammar}/LICENSE") for p in trailmark_files
+        ):
+            raise RuntimeError(f"distribution is missing the {grammar} grammar license")
+    if not any(str(p).endswith("tree_sitter_custom/move/NOTICE") for p in trailmark_files):
         raise RuntimeError("trailmark distribution does not include the bundled Move notices")
     binaries = [str(p) for p in trailmark_files if str(p).endswith((".so", ".pyd", ".dylib"))]
     if binaries:
