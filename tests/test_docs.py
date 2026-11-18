@@ -192,6 +192,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/cli.md", "Distinct graph nodes receive distinct Mermaid identifiers"),
     ("docs/roadmap.md", "These corrections do not close the wider language audit backlog"),
     ("docs/graph-model.md", "Specification references do not become calls"),
+    (
+        "docs/graph-model.md",
+        "explicitly computational declaration with non-ghost argument positions",
+    ),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
     ("README.md", "bounded C declaration wrappers can be expanded"),
