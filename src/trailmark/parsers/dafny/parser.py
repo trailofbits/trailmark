@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from pathlib import Path
 
 from tree_sitter import Language, Node
 
@@ -62,7 +61,8 @@ def _imports(nodes: list[Node], env: Namespace) -> Namespace:
         if node.type == "include_directive":
             text = next((n for n in node.named_children if n.type == "string_literal"), None)
             if text is not None:
-                env.source.import_(node, Path(node_text(text).strip('"')).stem)
+                path = node_text(text).strip('"')
+                env.source.import_(node, path, relative_path=path)
         if node.type != "module_import":
             continue
         target = next((n for n in node.named_children if n.type == "qualified_name"), None)

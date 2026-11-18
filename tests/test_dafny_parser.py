@@ -237,3 +237,21 @@ def test_ghost_constructor_arguments_remain_erased(tmp_path: Path) -> None:
     ]
     assert len(calls) == 1
     assert calls[0].location and calls[0].location.start_col == 32
+
+
+@pytest.mark.parametrize("included", ["left/Base.dfy", "missing/Base.dfy"])
+def test_include_paths_do_not_select_an_unrelated_same_named_file(
+    tmp_path: Path, included: str
+) -> None:
+    for directory in ("left", "right"):
+        (tmp_path / directory).mkdir()
+        (tmp_path / directory / "Base.dfy").write_text("const c:int := 1\npredicate P(){true}\n")
+    (tmp_path / "Use.dfy").write_text(f'include "{included}"\npredicate Run(){{P() && c == c}}\n')
+    graph = parse_directory(str(tmp_path), "dafny", strict=True)
+    refs = [
+        graph.nodes[e.target_id]
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "Run"
+    ]
+    assert {n.name for n in refs} == ({"P", "c"} if included.startswith("left") else set())
+    assert all(Path(n.location.file_path).parent.name == "left" for n in refs)
