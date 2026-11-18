@@ -157,3 +157,37 @@ def test_documented_grammar_boundaries_diagnose(tmp_path: Path, text: str) -> No
     assert parse_file(str(path)).parse_diagnostics
     with pytest.raises(ValueError, match="diagnostic"):
         parse_file(str(path), strict=True)
+
+
+@pytest.mark.parametrize("mode,expected", [("export", {"c", "p"}), ("import", set())])
+def test_use_export_retains_constants_and_predicates(
+    tmp_path: Path, mode: str, expected: set[str]
+) -> None:
+    (tmp_path / "base.mlw").write_text(
+        "module Base\nconstant c:int\npredicate p (x:int) = x=c\nend\n"
+    )
+    (tmp_path / "second.mlw").write_text("module Second\nconstant extra:int\nend\n")
+    (tmp_path / "middle.mlw").write_text(
+        f"module Middle\nuse {mode} base.Base\nuse {mode} second.Second\nend\n"
+    )
+    (tmp_path / "use.mlw").write_text("module Use\nuse middle.Middle\ngoal G: p c\nend\n")
+    graph = parse_directory(str(tmp_path), "whyml", strict=True)
+    assert {
+        graph.nodes[e.target_id].name
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "G"
+    } == expected
+
+
+@pytest.mark.parametrize("mode,expected", [("import", {"c"}), ("", set())])
+def test_use_import_with_an_alias_still_opens_bare_names(
+    tmp_path: Path, mode: str, expected: set[str]
+) -> None:
+    (tmp_path / "base.mlw").write_text("module Base\nconstant c:int\nend\n")
+    (tmp_path / "use.mlw").write_text(f"module Use\nuse {mode} base.Base as B\ngoal G: c=c\nend\n")
+    graph = parse_directory(str(tmp_path), "whyml", strict=True)
+    assert {
+        graph.nodes[e.target_id].name
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "G"
+    } == expected

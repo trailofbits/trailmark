@@ -428,7 +428,8 @@ retains modules, scopes, abstract or algebraic types, record fields, logical fun
 predicates, propositions, let/val declarations and contracts. Program applications are
 distinguished from ghost and contract references; nested calls require computational
 enclosing callees and non-ghost argument positions. Parameters retain source order
-and types. Scope imports, nested comments and local binders are handled structurally. Clone expansion
+and types. Scope imports, nested comments and local binders are handled structurally.
+Use export propagates inspected members; use import opens them only locally. Clone expansion
 is diagnosed, and unsupported syntax produces parse diagnostics. Mutual `let rec ... with`
 groups and array indexing (`a[i]`) are outside this grammar subset and produce diagnostics.
 Exceptions, module

@@ -93,6 +93,7 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/languages.md", "Use export propagates inspected members"),
     ("docs/languages.md", "Mutual `let rec ... with`"),
     (
         "docs/languages.md",

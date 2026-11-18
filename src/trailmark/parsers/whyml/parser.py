@@ -74,12 +74,15 @@ class WhyMLParser(FormalParser):
             return env
         alias = node.child_by_field_name("alias")
         canonical = imported_name.rsplit(".", 1)[-1]
+        if any(c.type == "export" for c in node.children):
+            env.source.reexports(env.name, (canonical,))
         aliases = {
             **env.aliases,
             imported_name: canonical,
             node_text(alias) if alias else canonical: canonical,
         }
-        return replace(env, aliases=aliases, opens=env.opens if alias else (*env.opens, canonical))
+        opened = alias is None or any(c.type in {"import", "export"} for c in node.children)
+        return replace(env, aliases=aliases, opens=(*env.opens, canonical) if opened else env.opens)
 
     def _declaration(self, node: Node, env: Namespace) -> None:
         source, namespace, parent = env.source, env.name, env.parent
