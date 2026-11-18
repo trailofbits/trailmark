@@ -140,3 +140,19 @@ def test_pluscal_and_nested_proofs_report_one_boundary(tmp_path: Path) -> None:
     )
     graph = parse_file(str(path))
     assert len([d for d in graph.parse_diagnostics if "proof steps" in d.message]) == 1
+
+
+def test_reusable_local_operators_and_bare_constants_keep_dependencies(tmp_path: Path) -> None:
+    (tmp_path / "Base.tla").write_text("---- MODULE Base ----\nCONSTANT c\nP(x) == x=c\n====\n")
+    (tmp_path / "Middle.tla").write_text("---- MODULE Middle ----\nEXTENDS Base\n====\n")
+    (tmp_path / "Use.tla").write_text(
+        "---- MODULE Use ----\nEXTENDS Middle\nOp == LET Wrap(x) == P(x) IN Wrap(c)\n====\n"
+    )
+    graph = parse_directory(str(tmp_path), "tlaplus", strict=True)
+    refs = {
+        graph.nodes[e.target_id].name
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "Op"
+    }
+    assert refs == {"P", "c"}
+    assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
