@@ -1,0 +1,6 @@
+theory Taxonomy begin
+functions: h/1
+rule Hash:
+ [ In(x) ] --[ Sent(h(x)) ]-> [ Out(h(x)) ]
+lemma sent_known: "All x #i. Sent(x) @ i ==> Ex #j. K(x) @ j"
+end

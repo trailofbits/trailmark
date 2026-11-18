@@ -40,3 +40,8 @@ This product bundles the following third-party components:
   Full MIT notices: src/trailmark/tree_sitter_custom/move/NOTICE
   Trailmark adds inline/package modifiers, Aptos-style function-type returns,
   acquires clauses, for ranges, and compound assignment operators.
+
+- tree-sitter-tamarin grammar (src/trailmark/tree_sitter_custom/tamarin/)
+  Licensed under MIT; upstream notices and local changes are retained alongside the grammar.
+  https://github.com/aeyno/tree-sitter-tamarin
+  Vendored commit: 07e2f32c1e9f68e8b813b8eca924a61f2c4b94d8

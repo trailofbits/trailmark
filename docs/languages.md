@@ -6,6 +6,7 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
+- [Tamarin](#tamarin)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -419,3 +420,17 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## Tamarin
+
+Tamarin graphs describe rule and formula references to symbols. Functions, rules,
+restrictions and lemmas retain their source roles; fact symbols are identified by name
+and syntactic argument count at their first occurrence and marked implicit. Functions,
+rules, lemmas and facts use separate namespaces. Activated builtin signatures and
+explicit builtin applications retain symbolic dependencies, following the
+[message theory definitions](https://tamarin-prover.com/manual/master/book/004_cryptographic-messages.html).
+Rule variables are not global
+references. Proof skeletons, variants, tactics and embedded text are diagnosed as
+unsupported, as are preprocessing, predicates, macros and SAPIC processes. Facts do
+not imply rule-to-rule execution edges, traces, attacker
+deductions or successful proofs.

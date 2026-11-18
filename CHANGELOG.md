@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add Tamarin symbolic graphs with distinct declaration namespaces, syntactic fact
+  arity, builtin signatures and diagnosed preprocessing/proof boundaries.
+
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as
   references. Index lexical scope intervals and retain explicit re-export and

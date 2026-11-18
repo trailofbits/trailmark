@@ -1,0 +1,7 @@
+Vendored from https://github.com/aeyno/tree-sitter-tamarin
+Revision: 07e2f32c1e9f68e8b813b8eca924a61f2c4b94d8
+Local changes: minimal generator configuration.
+The included upstream LICENSE grants MIT terms; package metadata inconsistently says ISC.
+Local scanner uses Trailmark shared stateless nested-comment handling.
+Local grammar accepts nullary applications and the f{message}key shorthand.
+Local grammar accepts F/T fact names, exposes builtin operators and diagnoses unsupported directive boundaries.
