@@ -124,13 +124,16 @@ class Source:
             unit, attributes=(*unit.attributes, ("ordered_declarations", True))
         )
 
-    def reexports(self, namespace: str, imports: tuple[str, ...]) -> None:
-        """Record namespaces whose members are explicitly re-exported."""
+    def reexports(
+        self, namespace: str, imports: tuple[str, ...], *, qualified: bool = True
+    ) -> None:
+        """Accumulate explicit exports; unqualified exports propagate opens only."""
         unit = self.graph.nodes[self.module]
         attrs = dict(unit.attributes)
-        exports = json.loads(str(attrs.get("formal_exports", "{}")))
-        exports[namespace] = list(imports)
-        attrs["formal_exports"] = json.dumps(exports, sort_keys=True)
+        key = "formal_exports" if qualified else "formal_open_exports"
+        exports = json.loads(str(attrs.get(key, "{}")))
+        exports[namespace] = sorted(set(exports.get(namespace, ())).union(imports))
+        attrs[key] = json.dumps(exports, sort_keys=True)
         self.graph.nodes[self.module] = replace(unit, attributes=tuple(attrs.items()))
 
     def declare(
@@ -160,7 +163,7 @@ class Source:
         self.graph.edges.append(CodeEdge(parent or self.module, ident, EdgeKind.CONTAINS))
         return ident
 
-    def import_(self, node: Node, name: str) -> None:
+    def import_(self, node: Node, name: str, *, relative_path: str | None = None) -> None:
         target = f"@import:{self.language}:{name}"
         self.graph.nodes.setdefault(
             target,
@@ -178,7 +181,11 @@ class Source:
                 target,
                 EdgeKind.IMPORTS,
                 location=make_location(node, self.path),
-                attributes=(("import_name", name),),
+                attributes=(
+                    (("import_name", name),)
+                    if relative_path is None
+                    else (("import_name", name), ("import_path", relative_path))
+                ),
             )
         )
 
