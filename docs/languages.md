@@ -6,6 +6,7 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
+- [WhyML](#whyml)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -419,3 +420,18 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## WhyML
+
+WhyML uses an independently authored syntax subset with explicit coverage limits. It
+retains modules, scopes, abstract or algebraic types, record fields, logical functions,
+predicates, propositions, let/val declarations and contracts. Program applications are
+distinguished from ghost and contract references; nested calls require computational
+enclosing callees and non-ghost argument positions. Parameters retain source order
+and types. Scope imports, nested comments and local binders are handled structurally. Clone expansion
+is diagnosed, and unsupported syntax produces parse diagnostics. Mutual `let rec ... with`
+groups and array indexing (`a[i]`) are outside this grammar subset and produce diagnostics.
+Exceptions, module
+interfaces, metas, user operators, collection syntax, advanced patterns and Why3
+transformations are not fully modeled; a clean syntax parse does not establish type
+correctness or verification.

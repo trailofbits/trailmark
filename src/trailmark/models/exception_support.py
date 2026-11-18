@@ -234,6 +234,11 @@ _PROFILES = {
         "PL/pgSQL RAISE bodies produce syntax diagnostics; dialect-specific handlers and "
         "transactional effects remain unsupported.",
     ),
+    "whyml": (
+        "UUUUU",
+        "WhyML raises clauses and verification conditions are not modeled "
+        "as runtime exception events; no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add WhyML source graphs with program/specification contexts, scope imports,
+  ordered typed parameters and diagnosed grammar boundaries.
+
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as
   references. Index lexical scope intervals and retain explicit re-export and

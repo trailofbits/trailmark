@@ -93,6 +93,11 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/languages.md", "Mutual `let rec ... with`"),
+    (
+        "docs/languages.md",
+        "WhyML uses an independently authored syntax subset with explicit coverage limits",
+    ),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (
