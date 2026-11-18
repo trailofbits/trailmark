@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from heapq import heappop, heappush
 from pathlib import Path
 
 from tree_sitter import Language, Node, Parser
@@ -46,9 +47,31 @@ class Scope:
     end: int
     opens: tuple[str, ...] = ()
     context: str | None = None
+    callee: int | None = None
 
     def blocks(self, name: str, position: int) -> bool:
         return self.start <= position < self.end and name.split(".")[0] in self.names
+
+
+class _ScopeIndex:
+    """Sweep source-ordered references without revisiting unrelated scopes."""
+
+    def __init__(self, scopes: tuple[Scope, ...]) -> None:
+        self.pending = sorted(enumerate(scopes), key=lambda item: item[1].start)
+        self.offset = 0
+        self.active: dict[int, Scope] = {}
+        self.ends: list[tuple[int, int]] = []
+
+    def at(self, position: int) -> tuple[Scope, ...]:
+        while self.offset < len(self.pending) and self.pending[self.offset][1].start <= position:
+            index, scope = self.pending[self.offset]
+            self.offset += 1
+            self.active[index] = scope
+            heappush(self.ends, (scope.end, index))
+        while self.ends and self.ends[0][0] <= position:
+            _, index = heappop(self.ends)
+            del self.active[index]
+        return tuple(self.active[index] for index in sorted(self.active))
 
 
 def lookup_tiers(
@@ -75,6 +98,7 @@ class Source:
         add_module_node(root, path, self.module, self.graph)
         self.modules = {Path(path).stem}
         self.module_name(Path(path).stem)
+        self.module_name(self.module)
 
     def module_name(self, name: str) -> None:
         self.modules.add(name)
@@ -89,6 +113,15 @@ class Source:
         self.graph.nodes[self.module] = replace(
             unit, attributes=(*unit.attributes, ("ordered_declarations", True))
         )
+
+    def reexports(self, namespace: str, imports: tuple[str, ...]) -> None:
+        """Record namespaces whose members are explicitly re-exported."""
+        unit = self.graph.nodes[self.module]
+        attrs = dict(unit.attributes)
+        exports = json.loads(str(attrs.get("formal_exports", "{}")))
+        exports[namespace] = list(imports)
+        attrs["formal_exports"] = json.dumps(exports, sort_keys=True)
+        self.graph.nodes[self.module] = replace(unit, attributes=tuple(attrs.items()))
 
     def declare(
         self,
@@ -166,6 +199,7 @@ class Source:
         spelling: Callable[[Node], str | None] | None = None,
     ) -> None:
         pending = [root]
+        index = _ScopeIndex(scopes)
         while pending:
             node = pending.pop()
             if node.type in skip or node.is_error or node.is_missing:
@@ -178,20 +212,12 @@ class Source:
             if name is None:
                 pending.extend(reversed(node.named_children))
                 continue
-            if name == "_" or any(scope.blocks(name, node.start_byte) for scope in scopes):
+            active = index.at(node.start_byte)
+            if name == "_" or any(scope.blocks(name, node.start_byte) for scope in active):
                 continue
-            local_opens = tuple(
-                prefix
-                for scope in scopes
-                if scope.start <= node.start_byte < scope.end
-                for prefix in scope.opens
-            )
+            local_opens = tuple(prefix for scope in active for prefix in scope.opens)
             tiers = lookup_tiers(name, namespace, (*opens, *local_opens), aliases or {})
-            contexts = [
-                scope.context
-                for scope in scopes
-                if scope.context is not None and scope.start <= node.start_byte < scope.end
-            ]
+            contexts = [scope.context for scope in active if scope.context is not None]
             reference_context = next((c for c in reversed(contexts) if c != "argument"), context)
             if reference_context == "body" and "argument" in contexts:
                 reference_context = "argument"
@@ -206,9 +232,31 @@ class Source:
                         ("spelling", name),
                         ("_formal_candidates", json.dumps(tiers)),
                         ("_formal_application", node.start_byte in application_heads),
+                        ("_formal_position", node.start_byte),
+                        (
+                            "_formal_enclosing",
+                            json.dumps(
+                                [scope.callee for scope in active if scope.context == "argument"]
+                            ),
+                        ),
                     ),
                 )
             )
+
+
+@dataclass(frozen=True)
+class Namespace:
+    """A frontend's declaration environment, separate from lexical binders."""
+
+    source: Source
+    name: str = ""
+    parent: str | None = None
+    opens: tuple[str, ...] = ()
+    aliases: dict[str, str] = field(default_factory=dict)
+
+    def child(self, name: str, parent: str) -> Namespace:
+        qualified = f"{self.name}.{name}" if self.name else name
+        return replace(self, name=qualified, parent=parent, aliases=self.aliases.copy())
 
 
 class FormalParser:

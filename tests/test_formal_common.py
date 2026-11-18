@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
 from tree_sitter import Node
 from tree_sitter_language_pack import get_parser
 
@@ -214,3 +215,94 @@ def test_argument_relevance_does_not_override_contract_or_proof_context() -> Non
     assert lookup_tiers("file.Base.f", "Use", (), {"file": "Other", "file.Base": "Base"}) == [
         ["Base.f"]
     ]
+
+
+@pytest.mark.parametrize("executable", [True, False, None])
+def test_nested_calls_require_computational_enclosing_callees(executable: bool | None) -> None:
+    src, root = source("outer(inner(leaf()))\n")
+    owner = src.declare(root, "caller", "function", attributes=(("executable", True),))
+    src.declare(root, "outer", "function", attributes=(("executable", executable),))
+    for name in ("inner", "leaf"):
+        src.declare(root, name, "function", attributes=(("executable", True),))
+    scopes = []
+    heads = set()
+    for node in walk(root):
+        if node.type != "call":
+            continue
+        head, args = node.child_by_field_name("function"), node.child_by_field_name("arguments")
+        assert head is not None and args is not None
+        heads.add(head.start_byte)
+        scopes.extend(
+            Scope(
+                frozenset(),
+                arg.start_byte,
+                arg.end_byte,
+                context="argument",
+                callee=head.start_byte,
+            )
+            for arg in args.named_children
+        )
+    src.references(
+        owner,
+        root,
+        frozenset({"identifier"}),
+        scopes=tuple(scopes),
+        application_heads=frozenset(heads),
+    )
+    link_symbols(src.graph)
+    calls = {src.graph.nodes[e.target_id].name for e in src.graph.edges if e.kind == EdgeKind.CALLS}
+    assert calls == ({"outer", "inner", "leaf"} if executable else set())
+    assert len([e for e in src.graph.edges if e.kind == EdgeKind.REFERENCES]) == 3
+    assert all(
+        not key.startswith("_formal_") for edge in src.graph.edges for key, _ in edge.attributes
+    )
+    before = src.graph.edges.copy()
+    link_symbols(src.graph)
+    assert src.graph.edges == before
+
+
+def test_unknown_enclosing_callee_keeps_nested_application_as_reference() -> None:
+    src, root = source("unknown(leaf())\n")
+    owner = src.declare(root, "caller", "function", attributes=(("executable", True),))
+    leaf = src.declare(root, "leaf", "function", attributes=(("executable", True),))
+    scope = Scope(frozenset(), 8, root.end_byte, context="argument", callee=0)
+    src.references(
+        owner, root, frozenset({"identifier"}), scopes=(scope,), application_heads=frozenset({0, 8})
+    )
+    link_symbols(src.graph)
+    assert [
+        (edge.kind, edge.target_id) for edge in src.graph.edges if edge.kind == EdgeKind.REFERENCES
+    ] == [(EdgeKind.REFERENCES, leaf)]
+    assert not any(edge.kind == EdgeKind.CALLS for edge in src.graph.edges)
+
+
+def test_explicit_reexports_resolve_transitively_and_terminate_cycles() -> None:
+    caller, root = source("f\n", "caller")
+    owner = caller.declare(root, "caller", "function")
+    caller.import_(root, "B")
+    caller.references(owner, root, frozenset({"identifier"}), opens=("B",))
+    middle, middle_root = source("pass\n", "middle")
+    middle.module_name("B")
+    middle.import_(middle_root, "C")
+    middle.reexports("B", ("C",))
+    base, base_root = source("pass\n", "base")
+    base.module_name("C")
+    base.import_(base_root, "B")
+    base.reexports("C", ("B",))
+    target = base.declare(base_root, "f", "function", namespace="C")
+    caller.graph.merge(middle.graph)
+    caller.graph.merge(base.graph)
+    link_symbols(caller.graph)
+    assert [e.target_id for e in caller.graph.edges if e.kind == EdgeKind.REFERENCES] == [target]
+
+
+def test_declaration_aliases_retain_one_identity() -> None:
+    src, root = source("C\nType.C\n")
+    owner = src.declare(root, "caller", "function")
+    target = src.declare(
+        root, "C", "constructor", namespace="Type", attributes=(("qualified_aliases", '["C"]'),)
+    )
+    src.references(owner, root, frozenset({"identifier", "attribute"}))
+    link_symbols(src.graph)
+    refs = [e.target_id for e in src.graph.edges if e.kind == EdgeKind.REFERENCES]
+    assert refs == [target, target]

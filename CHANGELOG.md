@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve nested computational calls when all enclosing argument callees are
+  resolved and executable, while retaining proof and unknown argument uses as
+  references. Index lexical scope intervals and retain explicit re-export and
+  declaration aliases for verification-language adapters.
 - Add Lean 4 parsing (`--language lean`, `.lean` autodetection), including
   definitions, theorems, namespaces, structures, classes, inductive types,
   lexical callable ownership, conservative calls through inspected imports,

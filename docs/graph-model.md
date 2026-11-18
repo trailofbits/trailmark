@@ -348,6 +348,7 @@ by `corresponds_to`; neither location is overwritten. Imported modules are
 resolved only within inspected sources, and explicit external imports remain
 module proxies. Language adapters establish binder scopes and declaration order.
 
-Applications inside arguments remain references when argument erasure or relevance
-is unknown. This intentionally omits some runtime calls while retaining source
-dependencies; contracts and proof regions keep their own reference context.
+Nested applications gain calls only when every enclosing callee resolves to an
+explicitly computational declaration. Unknown or proof-only enclosing callees keep
+argument applications as references; contracts and proof regions keep their own
+reference context. Passing a function value does not create an application.
