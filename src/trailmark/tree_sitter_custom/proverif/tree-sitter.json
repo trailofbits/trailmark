@@ -1,0 +1,19 @@
+{
+  "grammars": [
+    {
+      "name": "proverif",
+      "camelcase": "Proverif",
+      "scope": "source.proverif",
+      "path": ".",
+      "file-types": [
+        "pv",
+        "pvl"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "0.0.0",
+    "license": "0BSD",
+    "description": "Bundled source grammar"
+  }
+}

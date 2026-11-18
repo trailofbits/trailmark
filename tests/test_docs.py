@@ -93,6 +93,11 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    (
+        "docs/languages.md",
+        "ProVerif retains symbolic specification references without inventing runtime calls",
+    ),
+    ("docs/languages.md", "diagnosed once per opaque boundary"),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (

@@ -23,6 +23,7 @@ from tests.kat_runner import assert_snapshot_matches, fixture_pair
 # tests/fixtures/kat/<language>/<basename>.<ext> and a sibling
 # <basename>.expected.json snapshot.
 PARSER_FIXTURES: list[tuple[str, str]] = [
+    ("proverif", "taxonomy"),
     ("aiken", "taxonomy"),
     ("bash", "taxonomy"),
     ("c", "taxonomy"),

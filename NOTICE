@@ -40,3 +40,8 @@ This product bundles the following third-party components:
   Full MIT notices: src/trailmark/tree_sitter_custom/move/NOTICE
   Trailmark adds inline/package modifiers, Aptos-style function-type returns,
   acquires clauses, for ranges, and compound assignment operators.
+
+- tree-sitter-proverif grammar (src/trailmark/tree_sitter_custom/proverif/)
+  Licensed under 0BSD; upstream notices and local changes are retained alongside the grammar.
+  https://github.com/maribu/tree-sitter-proverif
+  Vendored commit: 7741807092c4009c1fe4c3648da60ca72b1b80f1

@@ -234,6 +234,11 @@ _PROFILES = {
         "PL/pgSQL RAISE bodies produce syntax diagnostics; dialect-specific handlers and "
         "transactional effects remain unsupported.",
     ),
+    "proverif": (
+        "UUUUU",
+        "ProVerif process blocking and verification results do not "
+        "establish runtime exceptions; no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,

@@ -1,0 +1,2 @@
+free c:channel.
+process in(c,x:bitstring); if x=x then 0

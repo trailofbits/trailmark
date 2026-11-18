@@ -6,6 +6,7 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
+- [ProVerif](#proverif)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -419,3 +420,16 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## ProVerif
+
+ProVerif retains symbolic specification references without inventing runtime calls.
+Types, functions, process macros, events, predicates, free names and queries have
+separate declaration roles. Input, new, let, assignment, replication and query binders
+shadow globals only in their branches and continuations. Settings (`set`, `param`) are
+accepted without evaluation; weaksecret, noninterf and nounif retain distinct roles
+and references without claiming equivalent verification semantics. Table
+binding (including term-level get), Horn clauses and CryptoVerif-only expansion are
+diagnosed once per opaque boundary as unsupported.
+Library command-line configuration, process reduction, attacker knowledge and
+verification outcomes are not inferred.

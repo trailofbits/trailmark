@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add ProVerif symbolic graphs with branch-specific binders, security directive
+  references and diagnosed opaque table, clause and CryptoVerif syntax.
+
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as
   references. Index lexical scope intervals and retain explicit re-export and

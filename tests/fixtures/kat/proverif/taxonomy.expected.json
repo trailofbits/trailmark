@@ -1,0 +1,352 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:c"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:h"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:sent"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:sender"
+    },
+    {
+      "attributes": {
+        "reference_context": "specification",
+        "spelling": "sent"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 36,
+        "end_line": 4,
+        "file_path": "taxonomy.pv",
+        "start_col": 32,
+        "start_line": 4
+      },
+      "source": "taxonomy:sender",
+      "target": "taxonomy:sent"
+    },
+    {
+      "attributes": {
+        "reference_context": "specification",
+        "spelling": "h"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 38,
+        "end_line": 4,
+        "file_path": "taxonomy.pv",
+        "start_col": 37,
+        "start_line": 4
+      },
+      "source": "taxonomy:sender",
+      "target": "taxonomy:h"
+    },
+    {
+      "attributes": {
+        "reference_context": "specification",
+        "spelling": "c"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 49,
+        "end_line": 4,
+        "file_path": "taxonomy.pv",
+        "start_col": 48,
+        "start_line": 4
+      },
+      "source": "taxonomy:sender",
+      "target": "taxonomy:c"
+    },
+    {
+      "attributes": {
+        "reference_context": "specification",
+        "spelling": "h"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 51,
+        "end_line": 4,
+        "file_path": "taxonomy.pv",
+        "start_col": 50,
+        "start_line": 4
+      },
+      "source": "taxonomy:sender",
+      "target": "taxonomy:h"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:query@5"
+    },
+    {
+      "attributes": {
+        "reference_context": "specification",
+        "spelling": "sent"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 29,
+        "end_line": 5,
+        "file_path": "taxonomy.pv",
+        "start_col": 25,
+        "start_line": 5
+      },
+      "source": "taxonomy:query@5",
+      "target": "taxonomy:sent"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:process@6"
+    },
+    {
+      "attributes": {
+        "reference_context": "specification",
+        "spelling": "sender"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 31,
+        "end_line": 6,
+        "file_path": "taxonomy.pv",
+        "start_col": 25,
+        "start_line": 6
+      },
+      "source": "taxonomy:process@6",
+      "target": "taxonomy:sender"
+    }
+  ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "unsupported",
+      "events": "unsupported",
+      "handlers": "unsupported",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "proverif",
+      "notes": "ProVerif process blocking and verification results do not establish runtime exceptions; no exception events are emitted.",
+      "type_hints": "unsupported"
+    }
+  ],
+  "language": "proverif",
+  "nodes": {
+    "taxonomy": {
+      "attributes": {
+        "formal_modules": "[\"taxonomy\"]",
+        "ordered_declarations": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 7,
+        "file_path": "taxonomy.pv",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:c": {
+      "attributes": {
+        "declaration_role": "free",
+        "executable": false,
+        "qualified_name": "c"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:c",
+      "kind": "function",
+      "location": {
+        "end_col": 16,
+        "end_line": 1,
+        "file_path": "taxonomy.pv",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "c",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:h": {
+      "attributes": {
+        "declaration_role": "function",
+        "executable": false,
+        "qualified_name": "h"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:h",
+      "kind": "function",
+      "location": {
+        "end_col": 28,
+        "end_line": 2,
+        "file_path": "taxonomy.pv",
+        "start_col": 0,
+        "start_line": 2
+      },
+      "name": "h",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:process@6": {
+      "attributes": {
+        "declaration_role": "process",
+        "executable": false,
+        "qualified_name": "process@6"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:process@6",
+      "kind": "function",
+      "location": {
+        "end_col": 34,
+        "end_line": 6,
+        "file_path": "taxonomy.pv",
+        "start_col": 8,
+        "start_line": 6
+      },
+      "name": "process@6",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:query@5": {
+      "attributes": {
+        "declaration_role": "query",
+        "executable": false,
+        "qualified_name": "query@5"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:query@5",
+      "kind": "function",
+      "location": {
+        "end_col": 34,
+        "end_line": 5,
+        "file_path": "taxonomy.pv",
+        "start_col": 0,
+        "start_line": 5
+      },
+      "name": "query@5",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:sender": {
+      "attributes": {
+        "declaration_role": "process_macro",
+        "executable": false,
+        "qualified_name": "sender"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:sender",
+      "kind": "function",
+      "location": {
+        "end_col": 59,
+        "end_line": 4,
+        "file_path": "taxonomy.pv",
+        "start_col": 0,
+        "start_line": 4
+      },
+      "name": "sender",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": null
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:sent": {
+      "attributes": {
+        "declaration_role": "event",
+        "executable": false,
+        "qualified_name": "sent"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:sent",
+      "kind": "function",
+      "location": {
+        "end_col": 22,
+        "end_line": 3,
+        "file_path": "taxonomy.pv",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "sent",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.pv",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 0,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 6,
+    "languages": [
+      "proverif"
+    ],
+    "parse_diagnostics": [],
+    "proxies": 0,
+    "source_file_counts": {
+      "proverif": 1
+    },
+    "source_files": 1,
+    "total_nodes": 7
+  },
+  "trailmark_version": "<trailmark-version>"
+}
