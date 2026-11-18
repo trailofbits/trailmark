@@ -10,7 +10,7 @@ from tree_sitter import Node
 from tree_sitter_language_pack import get_parser
 
 from trailmark.models.edges import EdgeKind
-from trailmark.models.nodes import NodeKind
+from trailmark.models.nodes import NodeKind, Parameter
 from trailmark.parsers._formal import Scope, Source, lookup_tiers, walk
 from trailmark.parsers._formal_linking import link_symbols
 from trailmark.query.api import QueryEngine
@@ -306,3 +306,30 @@ def test_declaration_aliases_retain_one_identity() -> None:
     link_symbols(src.graph)
     refs = [e.target_id for e in src.graph.edges if e.kind == EdgeKind.REFERENCES]
     assert refs == [target, target]
+
+
+def test_ghost_arguments_do_not_erase_computational_sibling_arguments() -> None:
+    src, root = source("outer(first(), second())\n")
+    owner = src.declare(root, "caller", "function", attributes=(("executable", True),))
+    src.declare(
+        root,
+        "outer",
+        "function",
+        parameters=(Parameter("x"), Parameter("y")),
+        attributes=(("executable", True), ("ghost_parameters", '["x"]')),
+    )
+    for name in ("first", "second"):
+        src.declare(root, name, "function", attributes=(("executable", True),))
+    call = next(n for n in walk(root) if n.type == "call")
+    args = call.child_by_field_name("arguments")
+    assert args is not None
+    scopes = tuple(
+        Scope(frozenset(), arg.start_byte, arg.end_byte, context="argument", callee=0, argument=i)
+        for i, arg in enumerate(args.named_children)
+    )
+    heads = frozenset(n.start_byte for n in walk(root) if n.type == "identifier")
+    src.references(owner, root, frozenset({"identifier"}), scopes=scopes, application_heads=heads)
+    link_symbols(src.graph)
+    assert {
+        src.graph.nodes[e.target_id].name for e in src.graph.edges if e.kind == EdgeKind.CALLS
+    } == {"outer", "second"}

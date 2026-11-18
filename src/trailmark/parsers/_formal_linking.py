@@ -137,7 +137,7 @@ class _Linked:
     edge: CodeEdge
     application: bool = False
     position: int | None = None
-    enclosing: tuple[int | None, ...] = ()
+    enclosing: tuple[tuple[int | None, int | str | None], ...] = ()
 
 
 def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
@@ -161,7 +161,7 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
         linked,
         application is True,
         position if isinstance(position, int) else None,
-        tuple(enclosing),
+        tuple((position, argument) for position, argument in enclosing),
     )
 
 
@@ -169,7 +169,21 @@ def _computational(graph: CodeGraph, ident: str) -> bool:
     return dict(graph.nodes[ident].attributes).get("executable") is True
 
 
-def _runtime(reference: _Linked, callees: dict[tuple[str, int | None], bool]) -> bool:
+def _argument_evaluated(unit: CodeUnit | None, argument: int | str | None) -> bool:
+    if unit is None:
+        return False
+    attrs = dict(unit.attributes)
+    if attrs.get("executable") is not True:
+        return False
+    ghost = json.loads(str(attrs.get("ghost_parameters", "[]")))
+    if not ghost:
+        return True
+    if isinstance(argument, int) and 0 <= argument < len(unit.parameters):
+        argument = unit.parameters[argument].name
+    return isinstance(argument, str) and argument not in ghost
+
+
+def _runtime(reference: _Linked, callees: dict[tuple[str, int | None], CodeUnit]) -> bool:
     context = dict(reference.edge.attributes).get("reference_context")
     if context == "body":
         return True
@@ -177,8 +191,8 @@ def _runtime(reference: _Linked, callees: dict[tuple[str, int | None], bool]) ->
         context == "argument"
         and bool(reference.enclosing)
         and all(
-            callees.get((reference.edge.source_id, position), False)
-            for position in reference.enclosing
+            _argument_evaluated(callees.get((reference.edge.source_id, position)), argument)
+            for position, argument in reference.enclosing
         )
     )
 
@@ -187,9 +201,7 @@ def link_symbols(graph: CodeGraph) -> None:
     symbols = _Symbols(graph)
     references = [linked for edge in graph.edges if (linked := _link(edge, symbols)) is not None]
     callees = {
-        (reference.edge.source_id, reference.position): _computational(
-            graph, reference.edge.target_id
-        )
+        (reference.edge.source_id, reference.position): graph.nodes[reference.edge.target_id]
         for reference in references
         if reference.application
     }

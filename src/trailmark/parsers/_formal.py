@@ -48,6 +48,7 @@ class Scope:
     opens: tuple[str, ...] = ()
     context: str | None = None
     callee: int | None = None
+    argument: int | str | None = None
 
     def blocks(self, name: str, position: int) -> bool:
         return self.start <= position < self.end and name.split(".")[0] in self.names
@@ -236,7 +237,11 @@ class Source:
                         (
                             "_formal_enclosing",
                             json.dumps(
-                                [scope.callee for scope in active if scope.context == "argument"]
+                                [
+                                    [scope.callee, scope.argument]
+                                    for scope in active
+                                    if scope.context == "argument"
+                                ]
                             ),
                         ),
                     ),
