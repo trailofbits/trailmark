@@ -107,6 +107,11 @@ class FStarParser(FormalParser):
             env.source.import_(node, node_text(value))
             return replace(env, aliases={**env.aliases, node_text(name): node_text(value)})
         env.source.import_(node, node_text(name))
+        if any(c.type == "import_restriction" for c in node.named_children):
+            env.source.unsupported(node, "F* restricted imports and renamings are not modeled")
+            return env
+        if node.type == "include_declaration":
+            env.source.reexports(env.name, (node_text(name),))
         return (
             env
             if node.type == "friend_declaration"

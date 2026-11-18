@@ -429,6 +429,8 @@ implementations. Only explicit computational applications with `Tot` evidence pr
 calls; proof and type uses remain references. Lexical binders, including local patterns
 and dependent arrows, block unrelated global targets. Private declarations stay local;
 parameter types and refinements retain dependencies. Ordinary option directives are
-accepted without evaluating their settings. Pulse bodies, quotations and
+accepted without evaluating their settings. Includes re-export inspected module members;
+plain opens do not. Restricted imports and renamings produce diagnostics and are not
+treated as unrestricted opens. Pulse bodies, quotations and
 splices produce unsupported-syntax diagnostics. Elaboration, tactics, effect aliases and
 extraction are not evaluated.

@@ -179,3 +179,38 @@ def test_mutual_binding_parameters_do_not_leak(tmp_path: Path) -> None:
         if e.kind == EdgeKind.REFERENCES
     ]
     assert refs == [("g", "x")]
+
+
+@pytest.mark.parametrize("directive,expected", [("include", {"c", "p"}), ("open", set())])
+def test_reexports_retain_constants_and_reusable_predicates(
+    tmp_path: Path, directive: str, expected: set[str]
+) -> None:
+    (tmp_path / "Base.fst").write_text("module Base\nlet c = 1\nlet p (x:int) = x = c\n")
+    (tmp_path / "Second.fst").write_text("module Second\nlet extra = 2\n")
+    (tmp_path / "Middle.fst").write_text(f"module Middle\n{directive} Base\n{directive} Second\n")
+    (tmp_path / "Use.fst").write_text("module Use\nopen Middle\nlet run = p c\n")
+    graph = parse_directory(str(tmp_path), "fstar", strict=True)
+    assert {
+        graph.nodes[e.target_id].name
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "run"
+    } == expected
+
+
+@pytest.mark.parametrize("directive", ["#pop-options", "#show-options", "#restart-solver"])
+def test_empty_directives_preserve_the_following_declaration(
+    tmp_path: Path, directive: str
+) -> None:
+    path = tmp_path / "Directives.fst"
+    path.write_text(f"module Directives\n#push-options\n{directive}\nlet retained = 1\n")
+    assert any(n.name == "retained" for n in parse_file(str(path), strict=True).nodes.values())
+
+
+@pytest.mark.parametrize("directive", ["include Base {c}", "open Base {c as renamed}"])
+def test_restricted_imports_are_not_treated_as_unrestricted(tmp_path: Path, directive: str) -> None:
+    (tmp_path / "Base.fst").write_text("module Base\nlet c = 1\nlet hidden = 2\n")
+    (tmp_path / "Use.fst").write_text(f"module Use\n{directive}\nlet retained = hidden\n")
+    graph = parse_directory(str(tmp_path), "fstar")
+    assert any("restricted imports" in d.message for d in graph.parse_diagnostics)
+    assert any(n.name == "retained" for n in graph.nodes.values())
+    assert not any(e.kind == EdgeKind.REFERENCES for e in graph.edges)
