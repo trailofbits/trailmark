@@ -7,6 +7,7 @@ classification. This module never interprets proof names or runs a verifier.
 from __future__ import annotations
 
 import json
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from heapq import heappop, heappush
@@ -61,6 +62,8 @@ class _ScopeIndex:
     """Sweep source-ordered references without revisiting unrelated scopes."""
 
     def __init__(self, scopes: tuple[Scope, ...]) -> None:
+        self.scopes = scopes
+        self.bound: Counter[str] = Counter()
         self.pending = sorted(enumerate(scopes), key=lambda item: item[1].start)
         self.offset = 0
         self.active: dict[int, Scope] = {}
@@ -70,11 +73,14 @@ class _ScopeIndex:
         while self.offset < len(self.pending) and self.pending[self.offset][1].start <= position:
             index, scope = self.pending[self.offset]
             self.offset += 1
-            self.active[index] = scope
+            self.bound.update(scope.names)
+            if scope.opens or scope.context or scope.callee is not None:
+                self.active[index] = scope
             heappush(self.ends, (scope.end, index))
         while self.ends and self.ends[0][0] <= position:
             _, index = heappop(self.ends)
-            del self.active[index]
+            self.bound.subtract(self.scopes[index].names)
+            self.active.pop(index, None)
         return tuple(self.active[index] for index in sorted(self.active))
 
 
@@ -217,7 +223,7 @@ class Source:
                 pending.extend(reversed(node.named_children))
                 continue
             active = index.at(node.start_byte)
-            if name == "_" or any(scope.blocks(name, node.start_byte) for scope in active):
+            if name == "_" or index.bound[name.split(".")[0]] > 0:
                 continue
             local_opens = tuple(prefix for scope in active for prefix in scope.opens)
             tiers = lookup_tiers(name, namespace, (*opens, *local_opens), aliases or {})

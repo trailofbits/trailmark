@@ -341,3 +341,19 @@ def test_opaque_walk_reports_outer_boundaries_without_descending() -> None:
     assert [node.type for node in visited] == ["module", "function_definition"]
     assert visited[-1].start_point.row == 0
     assert walk(root, frozenset({"function_definition"})) == [root]
+
+
+def test_overlapping_names_stay_bound_until_the_last_scope_ends() -> None:
+    src, root = source("x()\nx()\nx()\nx()\n")
+    src.declare(root, "x", "function")
+    owner = src.declare(root, "owner", "function")
+    first, second, third, last = root.named_children
+    scopes = (
+        Scope(frozenset({"x"}), first.start_byte, third.end_byte),
+        Scope(frozenset({"x"}), second.start_byte, second.end_byte),
+    )
+    src.references(owner, root, frozenset({"identifier"}), scopes=scopes)
+    link_symbols(src.graph)
+    refs = [e for e in src.graph.edges if e.kind == EdgeKind.REFERENCES]
+    assert len(refs) == 1
+    assert refs[0].location and refs[0].location.start_line == last.start_point.row + 1
