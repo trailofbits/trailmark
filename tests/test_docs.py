@@ -93,6 +93,7 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/languages.md", "Export propagates short-name openings"),
     (
         "docs/languages.md",
         "Rocq/Coq retains Gallina source references without claiming kernel proof dependencies",

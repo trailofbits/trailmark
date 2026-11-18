@@ -426,7 +426,9 @@ ownership, conservative binding, schema identity changes and pinned grammar limi
 Rocq/Coq retains Gallina source references without claiming kernel proof dependencies.
 Definitions, fixpoints, inductives, constructors, assumptions and theorem statements
 keep their declaration roles. Explicit Require and Import statements bound cross-file
-visibility. Tactics, notation expansion and unsupported match binders produce
+visibility. Export propagates short-name openings without inventing qualified module
+members. Selective imports and source Load commands are diagnosed as unsupported.
+Tactics, notation expansion and unsupported match binders produce
 diagnostics; no proof success, axiom closure, extraction behavior or runtime calls are
 inferred. Implicit and inductive binders, mutual fixpoint bodies and section imports
 retain their lexical boundaries. From/Require imports use directory identities or

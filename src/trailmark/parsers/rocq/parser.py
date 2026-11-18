@@ -165,6 +165,8 @@ class RocqParser(FormalParser):
             local = f"{env.name}.{target}"
             qualified = local if local in env.source.modules else env.aliases.get(target, target)
             env.source.import_(node, node_text(value))
+            if any(c.type == "Export" for c in node.children):
+                env.source.reexports(env.name, (qualified,), qualified=False)
             aliases = {**env.aliases, node_text(name): qualified}
             opens = (
                 (*env.opens, qualified)
@@ -186,6 +188,8 @@ class RocqParser(FormalParser):
         child = env.child(node_text(name), owner)
         if any(c.type in {"Import", "Export"} for c in node.children):
             stack[-1] = replace(context, env=replace(env, opens=(*env.opens, child.name)))
+        if any(c.type == "Export" for c in node.children):
+            env.source.reexports(env.name, (child.name,), qualified=False)
         env.source.module_name(child.name)
         return replace(context, env=child, section=False)
 
@@ -198,11 +202,22 @@ class RocqParser(FormalParser):
                 continue
             name = node_text(imported.named_children[0])
             qualified = f"{node_text(prefix)}.{name}" if prefix else name
-            env.source.import_(imported, qualified)
+            local = f"{env.name}.{qualified}"
+            canonical = (
+                local if local in env.source.modules else env.aliases.get(qualified, qualified)
+            )
+            env.source.import_(imported, canonical)
+            if any(c.type == "import_categories" for c in node.named_children) or any(
+                c.type == "filtered_import_item" for c in imported.named_children
+            ):
+                env.source.unsupported(imported, "Rocq selective imports are not modeled")
+                continue
+            if any(c.type == "Export" for c in node.children):
+                env.source.reexports(env.name, (canonical,), qualified=False)
             if node.type != "require_command" or any(
                 c.type in {"Import", "Export"} for c in node.children
             ):
-                opens.extend((qualified, f"{env.name}.{qualified}"))
+                opens.extend((canonical, local))
         return replace(env, opens=tuple(opens))
 
     def _assumptions(self, node: Node, context: _Context) -> _Context:

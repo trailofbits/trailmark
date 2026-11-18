@@ -166,3 +166,74 @@ def test_from_import_honors_explicit_project_load_paths(tmp_path: Path, flag: st
     assert any(
         e.kind == EdgeKind.REFERENCES and graph.nodes[e.target_id].name == "x" for e in graph.edges
     )
+
+
+@pytest.mark.parametrize("mode,expected", [("Export", {"c", "p"}), ("Import", set())])
+def test_reexported_constants_and_predicates(tmp_path: Path, mode: str, expected: set[str]) -> None:
+    (tmp_path / "Base.v").write_text("Definition c := 1. Definition p (x:nat) := x = c.\n")
+    (tmp_path / "Second.v").write_text("Definition extra := 2.\n")
+    (tmp_path / "Middle.v").write_text(f"Require {mode} Base. Require {mode} Second.\n")
+    (tmp_path / "Use.v").write_text("Require Import Middle. Definition use := p c.\n")
+    graph = parse_directory(str(tmp_path), "rocq", strict=True)
+    assert {
+        graph.nodes[e.target_id].name
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "use"
+    } == expected
+
+
+def test_exported_nested_modules_keep_their_definitions(tmp_path: Path) -> None:
+    path = tmp_path / "Nested.v"
+    path.write_text("Module Export Inner. Definition c := 1. End Inner. Definition use := c.\n")
+    graph = parse_file(str(path), language="rocq", strict=True)
+    assert any(
+        graph.nodes[e.source_id].name == "use" and graph.nodes[e.target_id].name == "c"
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    )
+
+
+def test_export_does_not_invent_qualified_members(tmp_path: Path) -> None:
+    (tmp_path / "Base.v").write_text("Definition c := 1.\n")
+    (tmp_path / "Middle.v").write_text("Require Export Base.\n")
+    (tmp_path / "Use.v").write_text("Require Import Middle. Definition use := Middle.c.\n")
+    graph = parse_directory(str(tmp_path), "rocq", strict=True)
+    assert not any(e.kind == EdgeKind.REFERENCES for e in graph.edges)
+
+
+@pytest.mark.parametrize("command", ["Require Import Base (c)", "Require Export Base (c)"])
+def test_selective_imports_do_not_open_every_name(tmp_path: Path, command: str) -> None:
+    (tmp_path / "Base.v").write_text("Definition c := 1. Definition hidden := 2.\n")
+    (tmp_path / "Use.v").write_text(f"{command}. Definition use := hidden.\n")
+    graph = parse_directory(str(tmp_path), "rocq")
+    assert any("selective imports" in d.message for d in graph.parse_diagnostics)
+    assert any(n.name == "use" for n in graph.nodes.values())
+    assert not any(e.kind == EdgeKind.REFERENCES for e in graph.edges)
+
+
+def test_load_boundary_preserves_the_next_sentence(tmp_path: Path) -> None:
+    path = tmp_path / "Load.v"
+    path.write_text('Load "external.v".\nDefinition retained := 1.\n')
+    graph = parse_file(str(path), language="rocq")
+    assert graph.parse_diagnostics
+    assert any(n.name == "retained" for n in graph.nodes.values())
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Module Inner. Definition c := 1. End Inner. Export Inner.",
+        "Require Base. Module Alias := Base. Export Alias.",
+    ],
+)
+def test_exports_follow_local_modules_and_module_aliases(tmp_path: Path, body: str) -> None:
+    (tmp_path / "Base.v").write_text("Definition c := 1.\n")
+    (tmp_path / "Middle.v").write_text(body + "\n")
+    (tmp_path / "Use.v").write_text("Require Import Middle. Definition use := c.\n")
+    graph = parse_directory(str(tmp_path), "rocq", strict=True)
+    refs = [
+        graph.nodes[e.target_id]
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "use"
+    ]
+    assert len(refs) == 1 and refs[0].name == "c"
