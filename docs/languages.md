@@ -6,6 +6,7 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
+- [TLA+](#tla)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -419,3 +420,13 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## TLA+
+
+TLA+ edges describe specification dependencies. Operators, functions, constants,
+variables, assumptions and theorem statements are retained. EXTENDS controls cross-file
+visibility transitively, including enclosing modules. Separators and RECURSIVE forward
+declarations are accepted; parameters, LAMBDA, quantifier and LET binders shadow globals. Proof steps,
+prefixed subexpressions, INSTANCE expansion and PlusCal translation are diagnosed as
+unsupported. No transition system, proof outcome or model-checking result is inferred;
+specification references never become calls.

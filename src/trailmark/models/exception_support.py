@@ -234,6 +234,11 @@ _PROFILES = {
         "PL/pgSQL RAISE bodies produce syntax diagnostics; dialect-specific handlers and "
         "transactional effects remain unsupported.",
     ),
+    "tlaplus": (
+        "UUUUU",
+        "TLA+ specifications do not establish runtime exception behavior; "
+        "no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,

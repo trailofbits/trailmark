@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add TLA+ specification graphs with transitive EXTENDS, recursive forward
+  declarations, lexical binders and explicit proof/PlusCal coverage diagnostics.
+
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as
   references. Index lexical scope intervals and retain explicit re-export and
