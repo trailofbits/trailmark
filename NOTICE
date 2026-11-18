@@ -40,3 +40,10 @@ This product bundles the following third-party components:
   Full MIT notices: src/trailmark/tree_sitter_custom/move/NOTICE
   Trailmark adds inline/package modifiers, Aptos-style function-type returns,
   acquires clauses, for ranges, and compound assignment operators.
+
+- tree-sitter-dafny grammar (src/trailmark/tree_sitter_custom/dafny/)
+  Copyright (c) 2026 tree-sitter-dafny contributors
+  Licensed under the MIT License
+  https://github.com/hath995/tree-sitter-dafny
+  Vendored commit: 8085572ab23ba703a1f5c1cf753136a3508c68a6
+  Trailmark accepts named ghost fields and named allocation arguments and adds AST fields.

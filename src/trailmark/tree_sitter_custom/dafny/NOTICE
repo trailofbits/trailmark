@@ -1,0 +1,5 @@
+Dafny grammar: https://github.com/hath995/tree-sitter-dafny
+Vendored commit: 8085572ab23ba703a1f5c1cf753136a3508c68a6
+License: MIT; see LICENSE.
+Local changes: named ghost fields, named allocation arguments, member/callee AST fields.
+Local scanner bounds speculative generic-type lookahead depth.

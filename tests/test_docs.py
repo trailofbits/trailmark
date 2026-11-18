@@ -93,6 +93,8 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/languages.md", "Dafny uses Dafny 4 function syntax"),
+    ("docs/languages.md", "Input parameters retain source order and types"),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (
