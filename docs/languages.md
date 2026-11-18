@@ -6,6 +6,7 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
+- [Rocq/Coq](#rocqcoq)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -419,3 +420,16 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## Rocq/Coq
+
+Rocq/Coq retains Gallina source references without claiming kernel proof dependencies.
+Definitions, fixpoints, inductives, constructors, assumptions and theorem statements
+keep their declaration roles. Explicit Require and Import statements bound cross-file
+visibility. Tactics, notation expansion and unsupported match binders produce
+diagnostics; no proof success, axiom closure, extraction behavior or runtime calls are
+inferred. Implicit and inductive binders, mutual fixpoint bodies and section imports
+retain their lexical boundaries. From/Require imports use directory identities or
+explicit -Q/-R mappings in the nearest _CoqProject file; other load-path configuration
+is not evaluated. Select `--language rocq` explicitly for `.v` files because the
+extension also denotes Verilog; automatic detection excludes `.v`.

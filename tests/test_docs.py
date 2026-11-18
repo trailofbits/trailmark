@@ -93,6 +93,11 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    (
+        "docs/languages.md",
+        "Rocq/Coq retains Gallina source references without claiming kernel proof dependencies",
+    ),
+    ("docs/languages.md", "automatic detection excludes `.v`"),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (

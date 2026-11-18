@@ -1,0 +1,6 @@
+Vendored from https://github.com/aruzdh/tree-sitter-rocq
+Revision: cd77242808b07ca09eb035573a4670e832cf1b97
+Local changes: CommonJS export for isolated grammar generation; minimal generator configuration.
+MIT license is declared in the upstream grammar header and package.json (preserved as package.json.upstream); the upstream checkout contains no standalone license text.
+Local scanner uses Trailmark shared stateless nested-comment handling.
+Local grammar names module aliases and named-argument labels; accepts Module Import/Export.

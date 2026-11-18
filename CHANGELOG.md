@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add Rocq/Coq Gallina graphs with lexical modules and sections, explicit imports,
+  project load paths and binder scopes. Require explicit `rocq` selection for `.v`.
+
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as
   references. Index lexical scope intervals and retain explicit re-export and

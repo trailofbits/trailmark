@@ -234,6 +234,11 @@ _PROFILES = {
         "PL/pgSQL RAISE bodies produce syntax diagnostics; dialect-specific handlers and "
         "transactional effects remain unsupported.",
     ),
+    "rocq": (
+        "UUUUU",
+        "Rocq proof checking and extracted-program failures are not "
+        "modeled; no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,
