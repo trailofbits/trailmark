@@ -62,6 +62,7 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "thrift": ("trailmark.parsers.thrift", "ThriftParser"),
     "graphql": ("trailmark.parsers.graphql", "GraphQLParser"),
     "sql": ("trailmark.parsers.sql", "SQLParser"),
+    "fstar": ("trailmark.parsers.fstar", "FStarParser"),
 }
 
 # Auto-detection uses unambiguous extensions. Explicit C/Objective-C parsers
@@ -109,6 +110,7 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "thrift": (".thrift",),
     "graphql": (".graphql", ".gql", ".graphqls"),
     "sql": (".sql",),
+    "fstar": (".fst", ".fsti"),
 }
 
 _SUPPORTED_LANGUAGES = tuple(_PARSER_MAP.keys())

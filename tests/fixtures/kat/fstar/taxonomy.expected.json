@@ -1,0 +1,392 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.positive"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.identity"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.proof"
+    },
+    {
+      "attributes": {
+        "reference_context": "type",
+        "spelling": "positive"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 35,
+        "end_line": 5,
+        "file_path": "taxonomy.fst",
+        "start_col": 27,
+        "start_line": 5
+      },
+      "source": "taxonomy:Taxonomy.proof",
+      "target": "taxonomy:Taxonomy.positive"
+    },
+    {
+      "attributes": {
+        "reference_context": "type",
+        "spelling": "identity"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 45,
+        "end_line": 5,
+        "file_path": "taxonomy.fst",
+        "start_col": 37,
+        "start_line": 5
+      },
+      "source": "taxonomy:Taxonomy.proof",
+      "target": "taxonomy:Taxonomy.identity"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.run"
+    },
+    {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "identity"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 36,
+        "end_line": 6,
+        "file_path": "taxonomy.fst",
+        "start_col": 28,
+        "start_line": 6
+      },
+      "source": "taxonomy:Taxonomy.run",
+      "target": "taxonomy:Taxonomy.identity"
+    },
+    {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "identity"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.run",
+      "target": "taxonomy:Taxonomy.identity"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.apply"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.trusted"
+    },
+    {
+      "attributes": {
+        "reference_context": "type",
+        "spelling": "positive"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 45,
+        "end_line": 8,
+        "file_path": "taxonomy.fst",
+        "start_col": 37,
+        "start_line": 8
+      },
+      "source": "taxonomy:Taxonomy.trusted",
+      "target": "taxonomy:Taxonomy.positive"
+    }
+  ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "unsupported",
+      "events": "unsupported",
+      "handlers": "unsupported",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "fstar",
+      "notes": "F* effects, exceptions and extracted-code failure behavior are not modeled; no exception events are emitted.",
+      "type_hints": "unsupported"
+    }
+  ],
+  "language": "fstar",
+  "nodes": {
+    "taxonomy": {
+      "attributes": {
+        "formal_modules": "[\"Taxonomy\", \"taxonomy\"]",
+        "ordered_declarations": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 9,
+        "file_path": "taxonomy.fst",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.apply": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "function",
+        "executable": true,
+        "private": false,
+        "qualified_name": "Taxonomy.apply",
+        "signature": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.apply",
+      "kind": "function",
+      "location": {
+        "end_col": 67,
+        "end_line": 7,
+        "file_path": "taxonomy.fst",
+        "start_col": 0,
+        "start_line": 7
+      },
+      "name": "apply",
+      "parameters": [
+        {
+          "default": null,
+          "name": "identity",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int -> Tot int"
+          }
+        },
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.identity": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "function",
+        "executable": true,
+        "private": false,
+        "qualified_name": "Taxonomy.identity",
+        "signature": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.identity",
+      "kind": "function",
+      "location": {
+        "end_col": 34,
+        "end_line": 4,
+        "file_path": "taxonomy.fst",
+        "start_col": 0,
+        "start_line": 4
+      },
+      "name": "identity",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.positive": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "function",
+        "private": false,
+        "qualified_name": "Taxonomy.positive",
+        "signature": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.positive",
+      "kind": "function",
+      "location": {
+        "end_col": 36,
+        "end_line": 3,
+        "file_path": "taxonomy.fst",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "positive",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.proof": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "lemma",
+        "executable": false,
+        "private": false,
+        "qualified_name": "Taxonomy.proof",
+        "signature": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.proof",
+      "kind": "function",
+      "location": {
+        "end_col": 54,
+        "end_line": 5,
+        "file_path": "taxonomy.fst",
+        "start_col": 0,
+        "start_line": 5
+      },
+      "name": "proof",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "nat"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.run": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "function",
+        "executable": true,
+        "private": false,
+        "qualified_name": "Taxonomy.run",
+        "signature": false
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.run",
+      "kind": "function",
+      "location": {
+        "end_col": 38,
+        "end_line": 6,
+        "file_path": "taxonomy.fst",
+        "start_col": 0,
+        "start_line": 6
+      },
+      "name": "run",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.trusted": {
+      "attributes": {
+        "assumed": true,
+        "declaration_role": "lemma",
+        "executable": false,
+        "private": false,
+        "qualified_name": "Taxonomy.trusted",
+        "signature": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.trusted",
+      "kind": "function",
+      "location": {
+        "end_col": 48,
+        "end_line": 8,
+        "file_path": "taxonomy.fst",
+        "start_col": 0,
+        "start_line": 8
+      },
+      "name": "trusted",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.fst",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 1,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 6,
+    "languages": [
+      "fstar"
+    ],
+    "parse_diagnostics": [],
+    "proxies": 0,
+    "source_file_counts": {
+      "fstar": 1
+    },
+    "source_files": 1,
+    "total_nodes": 7
+  },
+  "trailmark_version": "<trailmark-version>"
+}

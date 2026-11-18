@@ -6,6 +6,7 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
+- [F*](#f)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -419,3 +420,15 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## F*
+
+F* parses `.fst` and `.fsti` declarations, module aliases/imports, refinements and
+explicit references. Interfaces retain their source locations and correspond to unique
+implementations. Only explicit computational applications with `Tot` evidence produce
+calls; proof and type uses remain references. Lexical binders, including local patterns
+and dependent arrows, block unrelated global targets. Private declarations stay local;
+parameter types and refinements retain dependencies. Ordinary option directives are
+accepted without evaluating their settings. Pulse bodies, quotations and
+splices produce unsupported-syntax diagnostics. Elaboration, tactics, effect aliases and
+extraction are not evaluated.

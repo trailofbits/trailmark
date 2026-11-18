@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add F* source graphs with interface correspondence, private visibility, iterative
+  pattern binding, refinement dependencies and conservative computational calls.
+
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as
   references. Index lexical scope intervals and retain explicit re-export and

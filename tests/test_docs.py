@@ -93,6 +93,11 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/languages.md", "Private declarations stay local"),
+    (
+        "docs/languages.md",
+        "Pulse bodies, quotations and splices produce unsupported-syntax diagnostics",
+    ),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (

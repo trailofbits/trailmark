@@ -1,0 +1,234 @@
+"""F* declarations and source references, without elaboration or extraction."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+
+from tree_sitter import Language, Node
+
+from trailmark.models.nodes import Attribute, NodeKind, Parameter, TypeRef
+from trailmark.parsers._common import node_text
+from trailmark.parsers._formal import FormalParser, Namespace, Scope, Source, walk
+from trailmark.parsers.fstar._bindings import OPAQUE, SKIP, Binding, bindings, groups, scopes
+from trailmark.tree_sitter_custom._native import bundled_language
+
+_NAMES = frozenset({"identifier", "qualified_identifier", "constructor_identifier"})
+
+
+def _spelling(node: Node) -> str | None:
+    parent = node.parent
+    if parent is not None and parent.type in {
+        "record_field",
+        "record_field_declaration",
+        "constructor_declaration",
+        "record_pattern_field",
+    }:
+        label = parent.child_by_field_name("field") or parent.child_by_field_name("name")
+        if node == label and (
+            parent.type != "record_field" or parent.child_by_field_name("value") is not None
+        ):
+            return None
+    return node_text(node)
+
+
+def _effect(node: Node) -> str:
+    while node.type == "arrow_type":
+        right = node.child_by_field_name("right")
+        if right is None:
+            return ""
+        node = right
+    head = node.child_by_field_name("function")
+    return node_text(head) if node.type == "application_expression" and head is not None else ""
+
+
+def _parameters(slot: Binding) -> tuple[Parameter, ...]:
+    result = []
+    for parameter in slot.parameters:
+        typed = parameter.child_by_field_name("type")
+        result.extend(
+            Parameter(name, TypeRef(node_text(typed)) if typed else None)
+            for name in bindings(parameter)
+        )
+    return tuple(result)
+
+
+class FStarParser(FormalParser):
+    """Retain F* source dependencies and explicit computation/ghost evidence."""
+
+    language = "fstar"
+    extensions = (".fst", ".fsti")
+
+    def load_language(self) -> Language:
+        return Language(bundled_language("fstar"))
+
+    def extract(self, root: Node, source: Source) -> None:
+        source.ordered_declarations()
+        env = Namespace(source)
+        for node in root.named_children:
+            env = self._declaration(node, env)
+        for node in walk(root, OPAQUE, include_skipped=True):
+            if node.type in OPAQUE:
+                source.unsupported(node, "F* embedded or generated proof syntax is not expanded")
+
+    def _declaration(self, node: Node, env: Namespace) -> Namespace:
+        name = node.child_by_field_name("name")
+        if node.type == "module_declaration" and name is not None:
+            env.source.module_name(node_text(name))
+            return replace(env, name=node_text(name))
+        if node.type in {
+            "module_alias",
+            "open_declaration",
+            "include_declaration",
+            "friend_declaration",
+        }:
+            return self._import(node, env)
+        if node.type in {"let_declaration", "val_declaration"}:
+            self._binding(node, env)
+        elif node.type == "type_declaration":
+            self._types(node, env)
+        elif node.type == "directive":
+            if any(c.type in {"#check", "#eval"} for c in node.children):
+                env.source.unsupported(
+                    node, "F* interactive evaluation directives are not executed"
+                )
+        elif node.type not in SKIP and node.type not in OPAQUE:
+            env.source.unsupported(node, f"F* {node.type} is not modeled")
+        return env
+
+    @staticmethod
+    def _import(node: Node, env: Namespace) -> Namespace:
+        name = node.child_by_field_name("name")
+        if name is None:
+            return env
+        if node.type == "module_alias":
+            value = node.child_by_field_name("value")
+            if value is None:
+                return env
+            env.source.import_(node, node_text(value))
+            return replace(env, aliases={**env.aliases, node_text(name): node_text(value)})
+        env.source.import_(node, node_text(name))
+        return (
+            env
+            if node.type == "friend_declaration"
+            else replace(env, opens=(*env.opens, node_text(name)))
+        )
+
+    def _binding(self, node: Node, env: Namespace) -> None:
+        slots = groups(node)
+        if not slots:
+            self._pattern_binding(node, env)
+            return
+        flags = {node_text(p) for p in node.named_children if p.type == "qualifier"}
+        bindings_ = scopes(node)
+        for slot in slots:
+            effects = {_effect(p) for p in slot.types}
+            proof = "Lemma" in effects
+            attrs: tuple[Attribute, ...] = (
+                ("signature", node.type == "val_declaration"),
+                ("assumed", "assume" in flags),
+                ("private", "private" in flags),
+            )
+            if proof or effects & {"Ghost", "GTot"} or "noextract" in flags:
+                attrs += (("executable", False),)
+            elif "Tot" in effects:
+                attrs += (("executable", True),)
+            owner = env.source.declare(
+                node,
+                node_text(slot.name),
+                "lemma" if proof else "value" if node.type == "val_declaration" else "function",
+                namespace=env.name,
+                parameters=_parameters(slot),
+                attributes=attrs,
+            )
+            local = bindings_
+            if not any(child.type == "rec" for child in node.children):
+                local += tuple(
+                    Scope(frozenset({node_text(slot.name)}), p.start_byte, p.end_byte)
+                    for p in slot.values
+                )
+            for region in (*slot.parameters, *slot.types, *slot.values):
+                context = "type" if region not in slot.values else "proof" if proof else "body"
+                self._references(region, owner, env, bindings_=local, context=context)
+
+    def _pattern_binding(self, node: Node, env: Namespace) -> None:
+        names = tuple(
+            name for pattern in node.children_by_field_name("pattern") for name in bindings(pattern)
+        )
+        if not names:
+            env.source.unsupported(node, "F* binding pattern is not modeled")
+            return
+        for name in names:
+            owner = env.source.declare(node, name, "value", namespace=env.name)
+            for value in node.children_by_field_name("value"):
+                self._references(value, owner, env, bindings_=scopes(node), context="definition")
+
+    def _types(self, node: Node, env: Namespace) -> None:
+        private = any(
+            p.type == "qualifier" and node_text(p) == "private" for p in node.named_children
+        )
+        for definition in (p for p in node.named_children if p.type == "type_definition"):
+            name = definition.child_by_field_name("name")
+            if name is None:
+                continue
+            owner = env.source.declare(
+                definition,
+                node_text(name),
+                "type",
+                namespace=env.name,
+                kind=NodeKind.STRUCT,
+                attributes=(("executable", False), ("private", private)),
+            )
+            local = scopes(definition)
+            for region in definition.children_by_field_name(
+                "type"
+            ) + definition.children_by_field_name("value"):
+                self._references(region, owner, env, bindings_=local, context="type")
+            self._type_members(definition, owner, env, private=private)
+
+    @staticmethod
+    def _type_members(definition: Node, owner: str, env: Namespace, *, private: bool) -> None:
+        type_name = definition.child_by_field_name("name")
+        if type_name is None:
+            return
+        for child in walk(definition, OPAQUE):
+            if child.type not in {"constructor_declaration", "record_field_declaration"}:
+                continue
+            name = child.child_by_field_name("name")
+            if name is None:
+                continue
+            role = "constructor" if child.type == "constructor_declaration" else "field"
+            env.source.declare(
+                child,
+                node_text(name),
+                role,
+                namespace=env.name
+                if role == "constructor"
+                else f"{env.name}.{node_text(type_name)}",
+                parent=owner,
+                kind=NodeKind.FUNCTION if role == "constructor" else NodeKind.STATE_VARIABLE,
+                attributes=(("private", private),),
+            )
+
+    @staticmethod
+    def _references(
+        node: Node, owner: str, env: Namespace, *, bindings_: tuple[Scope, ...], context: str
+    ) -> None:
+        heads = frozenset(
+            head.start_byte
+            for part in walk(node, SKIP)
+            if part.type == "application_expression"
+            and (head := part.child_by_field_name("function")) is not None
+        )
+        env.source.references(
+            owner,
+            node,
+            _NAMES,
+            namespace=env.name,
+            opens=env.opens,
+            aliases=env.aliases,
+            scopes=bindings_,
+            skip=SKIP,
+            application_heads=heads,
+            context=context,
+            spelling=_spelling,
+        )

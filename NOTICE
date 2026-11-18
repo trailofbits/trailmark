@@ -40,3 +40,8 @@ This product bundles the following third-party components:
   Full MIT notices: src/trailmark/tree_sitter_custom/move/NOTICE
   Trailmark adds inline/package modifiers, Aptos-style function-type returns,
   acquires clauses, for ranges, and compound assignment operators.
+
+- tree-sitter-fstar grammar (src/trailmark/tree_sitter_custom/fstar/)
+  Licensed under the MIT License; upstream notices are retained in LICENSE.
+  https://github.com/FStarLang/tree-sitter-fstar
+  Vendored commit: f5aca8ce0122f0ac10eaeb6f3081382d59d294f2
