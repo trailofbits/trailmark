@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, replace
+from pathlib import Path
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -18,9 +20,11 @@ class _Symbols:
             for n in graph.nodes.values()
             if n.kind == NodeKind.MODULE and n.origin == NodeOrigin.SOURCE
         }
+        self.paths = {os.path.abspath(path): module for path, module in self.files.items()}
         self.modules: dict[str, set[str]] = {}
         self.names: dict[str, list[CodeUnit]] = {}
         self.exports: dict[str, set[str]] = {}
+        self.open_exports: dict[str, set[str]] = {}
         self.ordered = {
             unit.location.file_path
             for unit in graph.nodes.values()
@@ -32,6 +36,8 @@ class _Symbols:
                 self.modules.setdefault(name, set()).add(unit.id)
             for name, imports in json.loads(str(attrs.get("formal_exports", "{}"))).items():
                 self.exports.setdefault(name, set()).update(imports)
+            for name, imports in json.loads(str(attrs.get("formal_open_exports", "{}"))).items():
+                self.open_exports.setdefault(name, set()).update(imports)
             qualified = attrs.get("qualified_name")
             if isinstance(qualified, str):
                 self.names.setdefault(qualified, []).append(unit)
@@ -44,8 +50,7 @@ class _Symbols:
         imports: dict[str, set[str]] = {module: set() for module in self.files.values()}
         edges = []
         for edge in self.graph.edges:
-            name = dict(edge.attributes).get("import_name")
-            targets = self.modules.get(str(name), set()) if edge.kind == EdgeKind.IMPORTS else set()
+            targets = self.import_targets(edge)
             if targets:
                 edges.extend(replace(edge, target_id=target) for target in sorted(targets))
                 imports[edge.source_id].update(targets)
@@ -53,6 +58,17 @@ class _Symbols:
                 edges.append(edge)
         self.graph.edges = edges
         return imports
+
+    def import_targets(self, edge: CodeEdge) -> set[str]:
+        if edge.kind != EdgeKind.IMPORTS:
+            return set()
+        attrs = dict(edge.attributes)
+        path = attrs.get("import_path")
+        if isinstance(path, str):
+            source = self.graph.nodes[edge.source_id].location.file_path
+            target = self.paths.get(os.path.abspath(Path(source).parent / path))
+            return {target} if target is not None else set()
+        return self.modules.get(str(attrs.get("import_name")), set())
 
     def reachable(self, module: str) -> set[str]:
         reached, pending = {module}, [module]
@@ -66,10 +82,11 @@ class _Symbols:
         source = self.graph.nodes[edge.source_id]
         source_file = source.location.file_path
         visible = self.visible[self.files[source_file]]
+        spelling = str(dict(edge.attributes).get("spelling", ""))
         for tier in tiers:
             found = [
                 unit
-                for name in self.expanded(tier)
+                for name in self.expanded(tier, spelling)
                 for unit in self.names.get(name, [])
                 if self.files[unit.location.file_path] in visible
                 and self.available(unit, edge, source_file)
@@ -91,7 +108,7 @@ class _Symbols:
                 return next(iter(targets)) if len(targets) == 1 else None
         return None
 
-    def expanded(self, names: list[str]) -> set[str]:
+    def expanded(self, names: list[str], spelling: str = "") -> set[str]:
         result: set[str] = set()
         pending = list(names)
         while pending:
@@ -99,6 +116,11 @@ class _Symbols:
             if name in result:
                 continue
             result.add(name)
+            if spelling and name.endswith("." + spelling):
+                prefix = name[: -len(spelling) - 1]
+                pending.extend(
+                    f"{parent}.{spelling}" for parent in self.open_exports.get(prefix, ())
+                )
             namespace, _, member = name.rpartition(".")
             pending.extend(f"{parent}.{member}" for parent in self.exports.get(namespace, ()))
         return result

@@ -11,6 +11,7 @@ from tree_sitter_language_pack import get_parser
 
 from trailmark.models.edges import EdgeKind
 from trailmark.models.nodes import NodeKind, Parameter
+from trailmark.parsers._common import directory_sources
 from trailmark.parsers._formal import Scope, Source, lookup_tiers, walk
 from trailmark.parsers._formal_linking import link_symbols
 from trailmark.query.api import QueryEngine
@@ -285,6 +286,8 @@ def test_explicit_reexports_resolve_transitively_and_terminate_cycles() -> None:
     middle.module_name("B")
     middle.import_(middle_root, "C")
     middle.reexports("B", ("C",))
+    middle.reexports("B", ("B",))
+    middle.reexports("B", ())
     base, base_root = source("pass\n", "base")
     base.module_name("C")
     base.import_(base_root, "B")
@@ -357,3 +360,61 @@ def test_overlapping_names_stay_bound_until_the_last_scope_ends() -> None:
     refs = [e for e in src.graph.edges if e.kind == EdgeKind.REFERENCES]
     assert len(refs) == 1
     assert refs[0].location and refs[0].location.start_line == last.start_point.row + 1
+
+
+@pytest.mark.parametrize("relative", ["../left/shared.py", "../left/./shared.py"])
+def test_file_imports_select_the_exact_inspected_path(tmp_path: Path, relative: str) -> None:
+    _, root = source("target\n")
+    paths = [tmp_path / part / "shared.py" for part in ("left", "right")]
+    caller_path = tmp_path / "app" / "caller.py"
+    with directory_sources(
+        str(tmp_path), dict.fromkeys(map(str, [caller_path, *paths]), "fixture")
+    ):
+        caller = Source(root, str(caller_path), "fixture")
+        owner = caller.declare(root, "caller", "function")
+        caller.import_(root, relative, relative_path=relative)
+        caller.references(owner, root, frozenset({"identifier"}))
+        dependencies = [Source(root, str(path), "fixture") for path in paths]
+        targets = [dependency.declare(root, "target", "function") for dependency in dependencies]
+        for dependency in dependencies:
+            caller.graph.merge(dependency.graph)
+    link_symbols(caller.graph)
+    assert [e.target_id for e in caller.graph.edges if e.kind == EdgeKind.IMPORTS] == [
+        dependencies[0].module
+    ]
+    assert [e.target_id for e in caller.graph.edges if e.kind == EdgeKind.REFERENCES] == [
+        targets[0]
+    ]
+
+
+def test_missing_file_import_does_not_fall_back_to_a_module_name(tmp_path: Path) -> None:
+    src, root = source("target\n")
+    src = Source(root, str(tmp_path / "caller.py"), "fixture")
+    owner = src.declare(root, "caller", "function")
+    src.import_(root, "Base", relative_path="missing/Base.py")
+    src.references(owner, root, frozenset({"identifier"}))
+    other = Source(root, str(tmp_path / "Base.py"), "fixture")
+    other.declare(root, "target", "function")
+    src.graph.merge(other.graph)
+    link_symbols(src.graph)
+    assert not any(e.kind == EdgeKind.REFERENCES for e in src.graph.edges)
+    edge = next(e for e in src.graph.edges if e.kind == EdgeKind.IMPORTS)
+    assert src.graph.nodes[edge.target_id].name == "Base"
+
+
+def test_exporting_an_open_does_not_create_qualified_members() -> None:
+    caller, root = source("f\nB.f\n", "caller")
+    owner = caller.declare(root, "caller", "function")
+    caller.import_(root, "B")
+    caller.references(owner, root, frozenset({"identifier", "attribute"}), opens=("B",))
+    middle, middle_root = source("pass\n", "middle")
+    middle.module_name("B")
+    middle.import_(middle_root, "C")
+    middle.reexports("B", ("C",), qualified=False)
+    base, base_root = source("pass\n", "base")
+    base.module_name("C")
+    target = base.declare(base_root, "f", "function", namespace="C")
+    caller.graph.merge(middle.graph)
+    caller.graph.merge(base.graph)
+    link_symbols(caller.graph)
+    assert [e.target_id for e in caller.graph.edges if e.kind == EdgeKind.REFERENCES] == [target]
