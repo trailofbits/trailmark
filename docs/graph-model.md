@@ -349,6 +349,6 @@ resolved only within inspected sources, and explicit external imports remain
 module proxies. Language adapters establish binder scopes and declaration order.
 
 Nested applications gain calls only when every enclosing callee resolves to an
-explicitly computational declaration. Unknown or proof-only enclosing callees keep
-argument applications as references; contracts and proof regions keep their own
+explicitly computational declaration with non-ghost argument positions. Unknown,
+proof-only or erased arguments keep applications as references; contracts and proof regions keep their own
 reference context. Passing a function value does not create an application.
