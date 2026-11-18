@@ -159,3 +159,30 @@ def test_opaque_boundaries_have_one_diagnostic(tmp_path: Path, text: str) -> Non
     assert len([d for d in graph.parse_diagnostics if d.kind == "unsupported"]) == 1
     with pytest.raises(ValueError, match="diagnostic"):
         parse_file(str(path), strict=True)
+
+
+def test_macros_predicates_and_bare_constants_keep_dependencies(tmp_path: Path) -> None:
+    path = tmp_path / "reusable.pv"
+    path.write_text(
+        "const unit:bitstring.\nfun h(bitstring):bitstring.\n"
+        "pred valid(bitstring).\nfree c:channel.\n"
+        "letfun inner(x:bitstring) = h(x).\nletfun outer = inner(unit).\n"
+        "let send = if valid(unit) then out(c,outer).\n"
+        "process send\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    refs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    }
+    assert {
+        ("inner", "h"),
+        ("outer", "inner"),
+        ("outer", "unit"),
+        ("send", "valid"),
+        ("send", "unit"),
+        ("send", "outer"),
+        ("process@8", "send"),
+    } <= refs
+    assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
