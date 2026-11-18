@@ -198,6 +198,7 @@
   "nodes": {
     "taxonomy": {
       "attributes": {
+        "formal_exports": "{\"Taxonomy.function\": [\"function\"], \"Taxonomy.predicate\": [\"predicate\"]}",
         "formal_modules": "[\"Taxonomy\", \"taxonomy\"]"
       },
       "branches": [],
@@ -316,11 +317,12 @@
     "taxonomy:Taxonomy.function.fst": {
       "attributes": {
         "arity": 1,
+        "attacker_private": false,
         "builtin": true,
         "declaration_role": "function",
         "executable": false,
         "implicit": true,
-        "private": false,
+        "qualified_aliases": "[\"function.fst\"]",
         "qualified_name": "Taxonomy.function.fst"
       },
       "branches": [],
@@ -343,11 +345,12 @@
     "taxonomy:Taxonomy.function.h": {
       "attributes": {
         "arity": 1,
+        "attacker_private": false,
         "builtin": false,
         "declaration_role": "function",
         "executable": false,
         "implicit": false,
-        "private": false,
+        "qualified_aliases": "[\"function.h\"]",
         "qualified_name": "Taxonomy.function.h"
       },
       "branches": [],
@@ -370,11 +373,12 @@
     "taxonomy:Taxonomy.function.pair": {
       "attributes": {
         "arity": 2,
+        "attacker_private": false,
         "builtin": true,
         "declaration_role": "function",
         "executable": false,
         "implicit": true,
-        "private": false,
+        "qualified_aliases": "[\"function.pair\"]",
         "qualified_name": "Taxonomy.function.pair"
       },
       "branches": [],
@@ -397,11 +401,12 @@
     "taxonomy:Taxonomy.function.snd": {
       "attributes": {
         "arity": 1,
+        "attacker_private": false,
         "builtin": true,
         "declaration_role": "function",
         "executable": false,
         "implicit": true,
-        "private": false,
+        "qualified_aliases": "[\"function.snd\"]",
         "qualified_name": "Taxonomy.function.snd"
       },
       "branches": [],

@@ -424,13 +424,25 @@ ownership, conservative binding, schema identity changes and pinned grammar limi
 ## Tamarin
 
 Tamarin graphs describe rule and formula references to symbols. Functions, rules,
-restrictions and lemmas retain their source roles; fact symbols are identified by name
-and syntactic argument count at their first occurrence and marked implicit. Functions,
-rules, lemmas and facts use separate namespaces. Activated builtin signatures and
-explicit builtin applications retain symbolic dependencies, following the
+restrictions, lemmas, macros and predicates retain their source roles; fact symbols
+are identified by name and syntactic argument count at their first occurrence and
+marked implicit. Declaration kinds use separate namespaces. Macro applications link
+to macro definitions, and predicate applications link to predicate definitions,
+including within embedded restrictions. Bodies retain their own dependencies;
+substitution is not performed. Bare nullary functions retain references, while
+quoted names, sorted variables, parameters and local binders do not become constant
+references. Activated builtin signatures and explicit builtin applications retain
+symbolic dependencies, following the
 [message theory definitions](https://tamarin-prover.com/manual/master/book/004_cryptographic-messages.html).
-Rule variables are not global
-references. Proof skeletons, variants, tactics and embedded text are diagnosed as
-unsupported, as are preprocessing, predicates, macros and SAPIC processes. Facts do
-not imply rule-to-rule execution edges, traces, attacker
-deductions or successful proofs.
+
+Include directives retain file dependencies. Directory analysis links inspected
+`.spthy` fragments by exact paths relative to the including file, transitively;
+single-file analysis does not load included files. Private function symbols remain
+visible across includes: `attacker_private` describes attacker access, not source
+module visibility. Conditional blocks retain both branches and mark their declarations
+`conditional`; flags and boolean conditions are not evaluated, and ambiguous alternative
+definitions are not guessed. Directives do not consume the following source line.
+
+Proof skeletons, variants, tactics, embedded text and SAPIC processes produce
+unsupported-syntax diagnostics. Facts do not imply rule-to-rule execution edges,
+traces, attacker deductions or successful proofs.

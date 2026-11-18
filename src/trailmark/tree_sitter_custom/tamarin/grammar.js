@@ -20,7 +20,7 @@ module.exports = grammar({
   ],
 
   rules: {
-    source_file: $ => $.security_protocol_theory,
+    source_file: $ => choice($.security_protocol_theory, optional($.body)),
 
     security_protocol_theory: $ => seq(
       'theory',
@@ -30,10 +30,23 @@ module.exports = grammar({
       'end'
     ),
 
-    unsupported_directive: $ => seq(
-      choice('#ifdef', '#ifndef', '#else', '#endif', '#define', 'predicates:', 'macros:', 'process:'),
-      optional(token(/[^\r\n]+/))
+    // Fragments may be included into a theory. Retain both conditional branches.
+    include_directive: $ => seq('#include', field('path', $.include_path)),
+    include_path: $ => /"[^"\r\n]+"/,
+    define_directive: $ => seq('#define', $.ident),
+    conditional: $ => seq(
+      '#ifdef', field('condition', $._condition),
+      optional($.body), optional(seq('#else', optional($.body))), '#endif'
     ),
+    _condition: $ => choice(
+      $.ident,
+      seq('(', $._condition, ')'),
+      prec(3, seq('not', $._condition)),
+      prec.left(2, seq($._condition, '&', $._condition)),
+      prec.left(1, seq($._condition, '|', $._condition))
+    ),
+    // Keep the entire fallback in one token so extras cannot skip its newline.
+    unsupported_directive: $ => token(seq('process:', /[^\r\n]*/)),
 
     ident: $ => /[a-zA-Z0-9]\w*?/,
 
@@ -46,7 +59,10 @@ module.exports = grammar({
         $.lemma,
         $.formal_comment,
         $.tactic,
-        $.unsupported_directive
+        $.unsupported_directive,
+        $.include_directive,
+        $.define_directive,
+        $.conditional
       )
     ),
 
@@ -54,8 +70,24 @@ module.exports = grammar({
     _signature_spec: $ => choice(
       $.functions,
       $.equations,
-      $.built_ins
+      $.built_ins,
+      $.macros,
+      $.predicates
     ),
+
+    macros: $ => prec.right(seq('macros', ':', $.macro, repeat(seq(',', $.macro)), optional(','))),
+    macro: $ => seq(
+      field('name', $.ident), '(', optional($._parameters), ')',
+      '=', field('body', $._msetterm)
+    ),
+    predicates: $ => seq(choice('predicate', 'predicates'), ':', $.predicate,
+      repeat(seq(',', $.predicate))),
+    predicate: $ => seq(
+      field('name', $.ident), '(', optional($._parameters), ')',
+      '<=>', field('body', $.formula)
+    ),
+    _parameters: $ => seq(field('parameter', $.nonnode_var),
+      repeat(seq(',', field('parameter', $.nonnode_var)))),
 
     functions: $ => seq(
       'functions',
@@ -345,9 +377,9 @@ module.exports = grammar({
       'let',
       repeat1(
         seq(
-          $.msg_var,
+          field('name', $.msg_var),
           '=',
-          $._msetterm
+          field('value', $._msetterm)
         )
       ),
       'in'
@@ -710,12 +742,14 @@ module.exports = grammar({
       $.msg_var
     )),
 
+    embedded_restriction: $ => seq('_restrict', '(', $.formula, ')'),
+
     facts: $ => seq(
-      $.fact,
+      choice($.fact, $.embedded_restriction),
       repeat(
         seq(
           ',',
-          $.fact
+          choice($.fact, $.embedded_restriction)
         )
       )
     ),
@@ -769,7 +803,7 @@ module.exports = grammar({
       'no_precomp'
     ),
 
-    formula: $ => prec.left(2, seq(
+    formula: $ => prec.right(2, seq(
       $.imp,
       optional(
         seq(
@@ -782,7 +816,7 @@ module.exports = grammar({
       )
     )),
 
-    imp: $ => prec.left(2, seq(
+    imp: $ => prec.right(2, seq(
       $.disjunction,
       optional(
         seq(
@@ -848,6 +882,7 @@ module.exports = grammar({
         $.node_var,
         ')'
       ),
+      alias($.fact, $.predicate_reference),
       seq(
         $.fact,
         '@',

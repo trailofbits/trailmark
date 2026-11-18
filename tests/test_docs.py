@@ -93,6 +93,9 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/languages.md", "Conditional blocks retain both branches"),
+    ("docs/languages.md", "Bare nullary functions retain references"),
+    ("docs/languages.md", "Include directives retain file dependencies"),
     ("docs/languages.md", "Activated builtin signatures"),
     ("docs/languages.md", "Tamarin graphs describe rule and formula references to symbols"),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),

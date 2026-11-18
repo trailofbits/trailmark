@@ -1,9 +1,15 @@
 """Tamarin rule, fact-symbol and formula references; no trace inference."""
 
+import json
+from pathlib import Path
+
 from tree_sitter import Language, Node
 
+from trailmark.models.nodes import Attribute, Parameter
 from trailmark.parsers._common import node_text
 from trailmark.parsers._formal import FormalParser, Namespace, Source, walk
+from trailmark.parsers.tamarin._symbols import conditional, fact_name, reference, scopes
+from trailmark.parsers.tamarin._symbols import symbol as _symbol
 from trailmark.tree_sitter_custom._native import bundled_language
 
 _OPAQUE = frozenset(
@@ -15,6 +21,8 @@ _ROLES = {
     "lemma": "lemma",
     "restriction": "restriction",
     "equation": "equation",
+    "macro": "macro",
+    "predicate": "predicate",
 }
 # https://tamarin-prover.com/manual/master/book/004_cryptographic-messages.html
 _DH = {"inv": 1, "1": 0, "DH_neutral": 0, "^": 2, "*": 2}
@@ -31,31 +39,6 @@ _BUILTINS = {
 }
 
 
-def _symbol(node: Node) -> Node | None:
-    return next((c for c in node.named_children if c.type in {"ident", "builtin_facts"}), None)
-
-
-def _fact_name(node: Node) -> str:
-    symbol = _symbol(node)
-    arity = sum(c.type == "," for c in node.children) + int(
-        any(c.type == "term" for c in node.named_children)
-    )
-    return f"{node_text(symbol) if symbol else '?'}/{arity}"
-
-
-def _reference(node: Node, namespace: str) -> str | None:
-    if node.type == "builtin_operator":
-        return f"{namespace}.function.{node_text(node)}"
-    parent = node.parent
-    if parent is None or node != _symbol(parent):
-        return None
-    if parent.type == "fact":
-        return f"{namespace}.fact.{_fact_name(parent)}"
-    if parent.type == "app":
-        return f"{namespace}.function.{node_text(node)}"
-    return None
-
-
 class TamarinParser(FormalParser):
     """Retain symbolic dependencies with distinct fact and declaration namespaces."""
 
@@ -69,10 +52,11 @@ class TamarinParser(FormalParser):
         theory = next(
             (c for c in root.named_children if c.type == "security_protocol_theory"), None
         )
-        if theory is None:
-            return
-        name = _symbol(theory)
-        env = Namespace(source, node_text(name) if name else "")
+        theory = theory or root
+        name = _symbol(theory) if theory != root else None
+        env = Namespace(source, node_text(name) if name else Path(source.path).stem)
+        for role in ("function", "predicate"):
+            source.reexports(f"{env.name}.{role}", (role,))
         source.module_name(env.name)
         facts: set[str] = set()
         owners: list[tuple[Node, str]] = []
@@ -90,19 +74,25 @@ class TamarinParser(FormalParser):
         for node, owner in owners:
             source.references(
                 owner,
-                node,
+                node.child_by_field_name("body") or node,
                 frozenset({"ident", "builtin_facts", "builtin_operator"}),
                 namespace=env.name,
                 skip=_SKIP,
+                scopes=scopes(node, _SKIP),
                 context="specification",
-                spelling=lambda n: _reference(n, env.name),
+                spelling=lambda n: reference(n, env.name),
             )
 
     def _collect(
         self, node: Node, env: Namespace, *, facts: set[str], owners: list[tuple[Node, str]]
     ) -> None:
-        if node.type == "fact":
-            name = _fact_name(node)
+        if node.type == "include_directive":
+            path = node.child_by_field_name("path")
+            if path is not None:
+                imported = node_text(path)[1:-1]
+                env.source.import_(node, imported, relative_path=imported)
+        elif node.type == "fact":
+            name = fact_name(node)
             if name not in facts:
                 facts.add(name)
                 env.source.declare(
@@ -119,18 +109,30 @@ class TamarinParser(FormalParser):
                 self._function(node, env, name=node_text(name), arity=int(node_text(arity)))
         elif node.type in _ROLES:
             role, name = _ROLES[node.type], _symbol(node)
+            attrs: tuple[Attribute, ...] = (
+                ("executable", False),
+                ("assumed", role == "restriction"),
+            )
+            if name and role in {"macro", "predicate"}:
+                space = "function" if role == "macro" else role
+                attrs += (("qualified_aliases", json.dumps([f"{space}.{node_text(name)}"])),)
+            if conditional(node):
+                attrs += (("conditional", True),)
             owner = env.source.declare(
                 node,
                 node_text(name) if name else f"{role}@{node.start_point.row + 1}",
                 role,
                 namespace=f"{env.name}.{role}",
-                attributes=(("executable", False), ("assumed", role == "restriction")),
+                parameters=tuple(
+                    Parameter(node_text(n)) for n in node.children_by_field_name("parameter")
+                ),
+                attributes=attrs,
             )
             owners.append((node, owner))
         elif node.type in _OPAQUE:
             env.source.unsupported(
                 node,
-                "Tamarin preprocessing, predicates, macros, SAPIC processes, proof search, "
+                "Tamarin SAPIC processes, proof search, "
                 "variants and embedded text are not expanded",
             )
 
@@ -148,6 +150,11 @@ class TamarinParser(FormalParser):
                 ("arity", arity),
                 ("builtin", builtin),
                 ("implicit", builtin),
-                ("private", any(c.type == "[private]" for c in node.children)),
+                ("attacker_private", any(c.type == "[private]" for c in node.children)),
+                (
+                    "qualified_aliases",
+                    json.dumps([f"function.{name}", *([name] if arity == 0 else [])]),
+                ),
+                *((("conditional", True),) if conditional(node) else ()),
             ),
         )
