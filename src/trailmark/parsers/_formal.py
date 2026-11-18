@@ -28,12 +28,15 @@ from trailmark.parsers._common import (
 from trailmark.parsers._formal_linking import link_symbols
 
 
-def walk(node: Node, skip: frozenset[str] = frozenset()) -> list[Node]:
+def walk(
+    node: Node, skip: frozenset[str] = frozenset(), *, include_skipped: bool = False
+) -> list[Node]:
     result, pending = [], [node]
     while pending:
         child = pending.pop()
-        if child.type not in skip:
+        if include_skipped or child.type not in skip:
             result.append(child)
+        if child.type not in skip:
             pending.extend(reversed(child.named_children))
     return result
 

@@ -333,3 +333,11 @@ def test_ghost_arguments_do_not_erase_computational_sibling_arguments() -> None:
     assert {
         src.graph.nodes[e.target_id].name for e in src.graph.edges if e.kind == EdgeKind.CALLS
     } == {"outer", "second"}
+
+
+def test_opaque_walk_reports_outer_boundaries_without_descending() -> None:
+    _, root = source("def outer():\n def inner():\n  pass\n")
+    visited = walk(root, frozenset({"function_definition"}), include_skipped=True)
+    assert [node.type for node in visited] == ["module", "function_definition"]
+    assert visited[-1].start_point.row == 0
+    assert walk(root, frozenset({"function_definition"})) == [root]
