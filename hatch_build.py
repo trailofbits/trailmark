@@ -18,6 +18,7 @@ GRAMMARS = {
     "move": "14",
     "rust": "14",
     "verus": "15",
+    "dafny": "14",
     "fstar": "15",
 }
 GENERATED_FILES = {

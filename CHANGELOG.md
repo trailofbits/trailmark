@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+- Repair Dafny postfix/additive precedence, pattern and type-parameter scopes,
+  specification contexts, ghost assignments and by-method bodies.
+
 - Recognize implicit F* Tot and inherit val computation/privacy metadata.
   Resolve operators and qualified names; preserve dependent and monadic binders
   and separate proof/type contexts from executable applications.
 
 - Correct shared formal type references, import visibility and argument scopes.
   Bound syntax diagnostics and declaration nesting.
+
+- Add Dafny source graphs with typed input parameters, declaration roles, lexical
+  and ghost scopes, explicit computational calls and bounded native scanning.
 
 - Add F* source graphs with interface correspondence, private visibility, iterative
   pattern binding, refinement dependencies and conservative computational calls.

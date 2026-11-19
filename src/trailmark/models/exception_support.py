@@ -234,6 +234,11 @@ _PROFILES = {
         "PL/pgSQL RAISE bodies produce syntax diagnostics; dialect-specific handlers and "
         "transactional effects remain unsupported.",
     ),
+    "dafny": (
+        "UUUUU",
+        "Dafny verification failures, halt and compiled-language exceptions "
+        "are not modeled; no exception events are emitted.",
+    ),
     "fstar": (
         "UUUUU",
         "F* effects, exceptions and extracted-code failure behavior are not "
