@@ -239,6 +239,11 @@ _PROFILES = {
         "Dafny verification failures, halt and compiled-language exceptions "
         "are not modeled; no exception events are emitted.",
     ),
+    "fstar": (
+        "UUUUU",
+        "F* effects, exceptions and extracted-code failure behavior are not "
+        "modeled; no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,

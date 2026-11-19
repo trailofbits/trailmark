@@ -7,6 +7,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
 - [Dafny](#dafny)
+- [F*](#f)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -435,3 +436,20 @@ the including file, within the inspected sources; missing files remain dependenc
 verification and compilation are not performed. Older function-syntax modes and
 compiler-specific options are not interpreted. Refinement/inheritance edges, constructor
 calls from `new`, receiver-dependent discriminators and export-set lookup remain incomplete.
+
+## F*
+
+F* parses `.fst` and `.fsti` declarations, module aliases/imports, refinements and
+explicit references. Interfaces retain their source locations and correspond to unique
+implementations. Computational applications, including implicit `Tot`, produce calls;
+implementations inherit effect, lemma and visibility metadata from matching `val` declarations.
+Proof and type uses remain references. Ghost effect abbreviations and erased results do not
+produce calls. Inspected interfaces bound exports, and later opens take precedence. Lexical binders, including local patterns
+and dependent arrows, block unrelated global targets. Private declarations stay local;
+parameter types and refinements retain dependencies. Ordinary option directives are
+accepted without evaluating their settings. Includes re-export inspected module members;
+plain opens do not. Restricted imports and renamings produce diagnostics and are not
+treated as unrestricted opens. Pulse bodies, quotations and
+splices produce unsupported-syntax diagnostics. Elaboration, tactics, effect aliases and
+extraction are not evaluated. Record projections do not fall back to unrelated global
+functions; receiver-dependent field resolution remains incomplete.

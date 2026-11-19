@@ -96,6 +96,12 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "File includes resolve by their exact path"),
     ("docs/languages.md", "Dafny uses Dafny 4 function syntax"),
     ("docs/languages.md", "Input parameters retain source order and types"),
+    ("docs/languages.md", "Includes re-export inspected module members"),
+    ("docs/languages.md", "Private declarations stay local"),
+    (
+        "docs/languages.md",
+        "Pulse bodies, quotations and splices produce unsupported-syntax diagnostics",
+    ),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (
@@ -199,6 +205,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "docs/graph-model.md",
         "explicitly computational declaration with non-ghost argument positions",
     ),
+    ("docs/languages.md", "including implicit `Tot`"),
     ("docs/graph-model.md", "unresolved reference spellings are omitted"),
     ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars

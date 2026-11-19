@@ -47,3 +47,8 @@ This product bundles the following third-party components:
   https://github.com/hath995/tree-sitter-dafny
   Vendored commit: 8085572ab23ba703a1f5c1cf753136a3508c68a6
   Trailmark accepts named ghost fields and named allocation arguments and adds AST fields.
+
+- tree-sitter-fstar grammar (src/trailmark/tree_sitter_custom/fstar/)
+  Licensed under the MIT License; upstream notices are retained in LICENSE.
+  https://github.com/FStarLang/tree-sitter-fstar
+  Vendored commit: f5aca8ce0122f0ac10eaeb6f3081382d59d294f2
