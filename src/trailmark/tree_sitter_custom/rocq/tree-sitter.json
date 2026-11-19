@@ -1,0 +1,18 @@
+{
+  "grammars": [
+    {
+      "name": "rocq",
+      "camelcase": "Rocq",
+      "scope": "source.rocq",
+      "path": ".",
+      "file-types": [
+        "v"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "0.0.0",
+    "license": "MIT",
+    "description": "Bundled source grammar"
+  }
+}

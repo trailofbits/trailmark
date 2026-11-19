@@ -1,0 +1,4 @@
+module Errors
+exception Failure
+let fail () : unit = raise Failure
+end

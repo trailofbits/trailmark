@@ -1,0 +1,470 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Bounds"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Bounds",
+      "target": "taxonomy:Bounds.Within"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Bounds",
+      "target": "taxonomy:Bounds.Clamp"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Bounds",
+      "target": "taxonomy:Bounds.ClampWithin"
+    },
+    {
+      "attributes": {
+        "reference_context": "contract",
+        "spelling": "Within"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 42,
+        "end_line": 4,
+        "file_path": "taxonomy.dfy",
+        "start_col": 36,
+        "start_line": 4
+      },
+      "source": "taxonomy:Bounds.ClampWithin",
+      "target": "taxonomy:Bounds.Within"
+    },
+    {
+      "attributes": {
+        "reference_context": "contract",
+        "spelling": "Clamp"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 48,
+        "end_line": 4,
+        "file_path": "taxonomy.dfy",
+        "start_col": 43,
+        "start_line": 4
+      },
+      "source": "taxonomy:Bounds.ClampWithin",
+      "target": "taxonomy:Bounds.Clamp"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Bounds",
+      "target": "taxonomy:Bounds.Trusted"
+    },
+    {
+      "attributes": {
+        "reference_context": "contract",
+        "spelling": "Within"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 47,
+        "end_line": 5,
+        "file_path": "taxonomy.dfy",
+        "start_col": 41,
+        "start_line": 5
+      },
+      "source": "taxonomy:Bounds.Trusted",
+      "target": "taxonomy:Bounds.Within"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Bounds",
+      "target": "taxonomy:Bounds.Normalize"
+    },
+    {
+      "attributes": {
+        "reference_context": "contract",
+        "spelling": "Within"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 58,
+        "end_line": 6,
+        "file_path": "taxonomy.dfy",
+        "start_col": 52,
+        "start_line": 6
+      },
+      "source": "taxonomy:Bounds.Normalize",
+      "target": "taxonomy:Bounds.Within"
+    },
+    {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "ClampWithin"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 15,
+        "end_line": 7,
+        "file_path": "taxonomy.dfy",
+        "start_col": 4,
+        "start_line": 7
+      },
+      "source": "taxonomy:Bounds.Normalize",
+      "target": "taxonomy:Bounds.ClampWithin"
+    },
+    {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "Clamp"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 14,
+        "end_line": 8,
+        "file_path": "taxonomy.dfy",
+        "start_col": 9,
+        "start_line": 8
+      },
+      "source": "taxonomy:Bounds.Normalize",
+      "target": "taxonomy:Bounds.Clamp"
+    },
+    {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "Clamp"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Bounds.Normalize",
+      "target": "taxonomy:Bounds.Clamp"
+    },
+    {
+      "attributes": {
+        "reference_context": "proof",
+        "spelling": "Within"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 17,
+        "end_line": 9,
+        "file_path": "taxonomy.dfy",
+        "start_col": 11,
+        "start_line": 9
+      },
+      "source": "taxonomy:Bounds.Normalize",
+      "target": "taxonomy:Bounds.Within"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Bounds",
+      "target": "taxonomy:Bounds.Apply"
+    }
+  ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "unsupported",
+      "events": "unsupported",
+      "handlers": "unsupported",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "dafny",
+      "notes": "Dafny verification failures, halt and compiled-language exceptions are not modeled; no exception events are emitted.",
+      "type_hints": "unsupported"
+    }
+  ],
+  "language": "dafny",
+  "nodes": {
+    "taxonomy": {
+      "attributes": {
+        "formal_modules": "[\"Bounds\", \"taxonomy\"]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 13,
+        "file_path": "taxonomy.dfy",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Bounds": {
+      "attributes": {
+        "declaration_role": "module_definition",
+        "ghost": false,
+        "qualified_name": "Bounds"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Bounds",
+      "kind": "namespace",
+      "location": {
+        "end_col": 1,
+        "end_line": 12,
+        "file_path": "taxonomy.dfy",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "Bounds",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Bounds.Apply": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "method",
+        "executable": true,
+        "qualified_name": "Bounds.Apply"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Bounds.Apply",
+      "kind": "function",
+      "location": {
+        "end_col": 77,
+        "end_line": 11,
+        "file_path": "taxonomy.dfy",
+        "start_col": 2,
+        "start_line": 11
+      },
+      "name": "Apply",
+      "parameters": [
+        {
+          "default": null,
+          "name": "Clamp",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int -> int"
+          }
+        },
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Bounds.Clamp": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "function",
+        "executable": true,
+        "qualified_name": "Bounds.Clamp"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Bounds.Clamp",
+      "kind": "function",
+      "location": {
+        "end_col": 81,
+        "end_line": 3,
+        "file_path": "taxonomy.dfy",
+        "start_col": 2,
+        "start_line": 3
+      },
+      "name": "Clamp",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Bounds.ClampWithin": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "lemma",
+        "executable": false,
+        "qualified_name": "Bounds.ClampWithin"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Bounds.ClampWithin",
+      "kind": "function",
+      "location": {
+        "end_col": 55,
+        "end_line": 4,
+        "file_path": "taxonomy.dfy",
+        "start_col": 2,
+        "start_line": 4
+      },
+      "name": "ClampWithin",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Bounds.Normalize": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "method",
+        "executable": true,
+        "qualified_name": "Bounds.Normalize"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Bounds.Normalize",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 10,
+        "file_path": "taxonomy.dfy",
+        "start_col": 2,
+        "start_line": 6
+      },
+      "name": "Normalize",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Bounds.Trusted": {
+      "attributes": {
+        "assumed": true,
+        "declaration_role": "lemma",
+        "executable": false,
+        "qualified_name": "Bounds.Trusted"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Bounds.Trusted",
+      "kind": "function",
+      "location": {
+        "end_col": 50,
+        "end_line": 5,
+        "file_path": "taxonomy.dfy",
+        "start_col": 2,
+        "start_line": 5
+      },
+      "name": "Trusted",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Bounds.Within": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "predicate",
+        "executable": true,
+        "qualified_name": "Bounds.Within"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Bounds.Within",
+      "kind": "function",
+      "location": {
+        "end_col": 44,
+        "end_line": 2,
+        "file_path": "taxonomy.dfy",
+        "start_col": 2,
+        "start_line": 2
+      },
+      "name": "Within",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.dfy",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 1,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 6,
+    "languages": [
+      "dafny"
+    ],
+    "parse_diagnostics": [],
+    "proxies": 0,
+    "source_file_counts": {
+      "dafny": 1
+    },
+    "source_files": 1,
+    "total_nodes": 8
+  },
+  "trailmark_version": "<trailmark-version>"
+}

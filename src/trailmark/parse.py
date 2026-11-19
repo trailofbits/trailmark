@@ -62,6 +62,10 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "thrift": ("trailmark.parsers.thrift", "ThriftParser"),
     "graphql": ("trailmark.parsers.graphql", "GraphQLParser"),
     "sql": ("trailmark.parsers.sql", "SQLParser"),
+    "dafny": ("trailmark.parsers.dafny", "DafnyParser"),
+    "fstar": ("trailmark.parsers.fstar", "FStarParser"),
+    "rocq": ("trailmark.parsers.rocq", "RocqParser"),
+    "whyml": ("trailmark.parsers.whyml", "WhyMLParser"),
     "tlaplus": ("trailmark.parsers.tlaplus", "TLAPlusParser"),
 }
 
@@ -110,6 +114,10 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "thrift": (".thrift",),
     "graphql": (".graphql", ".gql", ".graphqls"),
     "sql": (".sql",),
+    "dafny": (".dfy",),
+    "fstar": (".fst", ".fsti"),
+    "rocq": (".v",),
+    "whyml": (".mlw", ".why"),
     "tlaplus": (".tla",),
 }
 
@@ -223,9 +231,9 @@ def _languages_for_paths(paths: list[str]) -> list[str]:
     ext_to_language: dict[str, str] = {}
     for lang, exts in _LANGUAGE_EXTENSIONS.items():
         for ext in exts:
-            # When languages share an extension (none currently do, but
-            # guard against it), the FIRST registration wins.
-            ext_to_language.setdefault(ext, lang)
+            # .v also denotes Verilog; select Rocq explicitly.
+            if ext != ".v":
+                ext_to_language.setdefault(ext, lang)
 
     found: set[str] = set()
     for path in paths:
@@ -433,6 +441,8 @@ def _merge_language_graphs(path: str, languages: list[str]) -> CodeGraph:
 def _detect_file_language(path: Path) -> str | None:
     """Infer one supported language from a file extension."""
     ext = _file_extension(path.name)
+    if ext == ".v":
+        return None
     for language, exts in _LANGUAGE_EXTENSIONS.items():
         if ext in exts:
             return language

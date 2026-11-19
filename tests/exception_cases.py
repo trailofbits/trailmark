@@ -9,6 +9,10 @@ from __future__ import annotations
 EXCEPTION_CASES: tuple[tuple[str, str, frozenset[str], bool], ...] = tuple(
     (language, filename, frozenset(kinds.split()), diagnostic)
     for language, filename, kinds, diagnostic in [
+        ("dafny", "dafny.dfy", "", False),
+        ("fstar", "fstar.fst", "", True),
+        ("rocq", "rocq.v", "", False),
+        ("whyml", "whyml.mlw", "", False),
         ("tlaplus", "tlaplus.tla", "", False),
         ("python", "python.py", "raise rethrow handler cleanup", False),
         ("r", "r.r", "raise handler cleanup", False),
