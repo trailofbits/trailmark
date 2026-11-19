@@ -1,0 +1,3 @@
+---- MODULE Errors ----
+Bad == FALSE
+====

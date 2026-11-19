@@ -114,6 +114,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "docs/languages.md",
         "WhyML uses an independently authored syntax subset with explicit coverage limits",
     ),
+    ("docs/languages.md", "TLA+ edges describe specification dependencies"),
+    ("docs/languages.md", "visibility transitively, including enclosing modules"),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (

@@ -10,6 +10,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [F*](#f)
 - [Rocq/Coq](#rocqcoq)
 - [WhyML](#whyml)
+- [TLA+](#tla)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -495,3 +496,15 @@ On the pinned Why3 example tree (`AdaCore/why3@02050ad`, 481 `.mlw`/`.why` files
 mean per-file syntax-error line coverage fell from 44% to 15%; 43 files still had errors
 covering more than half their lines. Both runs completed without crashes. These figures
 measure syntax recovery, not declaration or dependency accuracy.
+
+## TLA+
+
+TLA+ edges describe specification dependencies. Operators, functions, constants,
+variables, assumptions and theorem statements are retained. EXTENDS controls cross-file
+visibility transitively, including enclosing modules. Separators and RECURSIVE forward
+declarations are accepted; parameters, LAMBDA, quantifier and LET binders shadow globals. LOCAL definitions retain private visibility. Named INSTANCE nodes retain substitution
+references, and single-component `I!Op` uses can reference inspected template members.
+WITH substitutions are diagnosed because the template is not instantiated. Proof steps,
+complex prefixed subexpressions and PlusCal translation remain unsupported. User-defined
+symbolic operator dependencies and inherited instance aliases remain incomplete. No transition system, proof outcome or model-checking result is inferred;
+specification references never become calls.

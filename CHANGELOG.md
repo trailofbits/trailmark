@@ -17,6 +17,10 @@
   raises and mutual recursion. Recover later modules and preserve constructor
   argument evaluation, unit parameters, ghost fields and return types.
 
+- Retain TLA+ LOCAL definitions and named INSTANCE references. Keep record
+  labels and projection/update fields out of state-variable lookup, and omit
+  punctuation from parameter lists.
+
 - Correct shared formal type references, import visibility and argument scopes.
   Bound syntax diagnostics and declaration nesting.
 
@@ -31,6 +35,9 @@
 
 - Add WhyML source graphs with program/specification contexts, scope imports,
   ordered typed parameters and diagnosed grammar boundaries.
+
+- Add TLA+ specification graphs with transitive EXTENDS, recursive forward
+  declarations, lexical binders and explicit proof/PlusCal coverage diagnostics.
 
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as

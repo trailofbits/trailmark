@@ -13,6 +13,7 @@ EXCEPTION_CASES: tuple[tuple[str, str, frozenset[str], bool], ...] = tuple(
         ("fstar", "fstar.fst", "", True),
         ("rocq", "rocq.v", "", False),
         ("whyml", "whyml.mlw", "", False),
+        ("tlaplus", "tlaplus.tla", "", False),
         ("python", "python.py", "raise rethrow handler cleanup", False),
         ("r", "r.r", "raise handler cleanup", False),
         ("javascript", "javascript.js", "raise handler cleanup", False),

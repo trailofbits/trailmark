@@ -254,6 +254,11 @@ _PROFILES = {
         "WhyML raises clauses and verification conditions are not modeled "
         "as runtime exception events; no exception events are emitted.",
     ),
+    "tlaplus": (
+        "UUUUU",
+        "TLA+ specifications do not establish runtime exception behavior; "
+        "no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,
