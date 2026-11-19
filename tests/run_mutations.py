@@ -31,7 +31,7 @@ if __package__ in {None, ""}:
 
 from tests.mutation_order import prioritize_tests, relative_node_ids
 
-VERSION = "1.11.4"
+VERSION = "1.14.3"
 RUNNER = "trailmark-full-pytest-v4"
 
 
@@ -127,15 +127,20 @@ def _check_instrumented_orders(
 
 def _instrumented_writer(
     test_order: str,
-) -> Callable[[dict[str, ast.Module], Path, dict[str, list[str]] | None], Path]:
+) -> Callable[
+    [dict[str, ast.Module], Path, dict[str, list[str]] | None, dict[str, str] | None], Path
+]:
     write_sources = plugin._write_instrumented_sources
 
     def write_and_check(
         instrumented_asts: dict[str, ast.Module],
         rootdir: Path,
         duplicates: dict[str, list[str]] | None = None,
+        unwritable: dict[str, str] | None = None,
     ) -> Path:
-        directory = write_sources(instrumented_asts, rootdir, duplicates)
+        directory = write_sources(instrumented_asts, rootdir, duplicates, unwritable)
+        if unwritable:
+            raise pytest.UsageError(f"Mutation instrumentation skipped files: {unwritable}")
         _check_instrumented_orders(directory, instrumented_asts, test_order)
         return directory
 
@@ -156,9 +161,6 @@ class _RequireCompleteInstrumentation:
                 f"Mutation instrumentation skipped files: {session.skipped_files}"
             )
         if session is not None:
-            # Every mutant retains all tests, so private coverage is unused.
-            # Disable tracing as well as the pre-scan to keep baselines representative.
-            session.private_coverage = None
             selected = select_shard(session.gremlins, self.shard)
             self.empty_shard = bool(session.gremlins) and not selected
             session.gremlins = selected

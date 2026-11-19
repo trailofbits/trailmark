@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.hooks.custom]
@@ -45,10 +45,10 @@ authors = [
     { name = "Trail of Bits, Inc.", email = "opensource@trailofbits.com" },
 ]
 dependencies = [
-    # 0.26.0 corrupts Point references during traversal (py-tree-sitter#472).
-    "tree-sitter>=0.25.2,<0.26",
-    "tree-sitter-language-pack>=1.22.1,<2.0",
-    "tree-sitter-sql>=0.3.11,<0.4",
+    # 0.26.1 fixes the Point lifetime regression in 0.26.0 (py-tree-sitter#472).
+    "tree-sitter>=0.25.2,!=0.26.0,<0.27",
+    "tree-sitter-language-pack>=1.25.2,<2.0",
+    "tree-sitter-sql>=0.3.13,<0.4",
     "rustworkx>=0.18.1,<1.0",
 ]
 
@@ -67,14 +67,14 @@ trailmark = "trailmark.cli:main"
 
 [dependency-groups]
 dev = [
-    "hypothesis>=6.170.0",
+    "hypothesis>=6.170.16",
     # tests.run_mutations adapts private APIs from this exact version.
-    "pytest-gremlins==1.11.4",
-    "pytest>=9.1.1",
+    "pytest-gremlins==1.14.3",
+    "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
-    "ruff>=0.17.1,<1.0",
+    "ruff>=0.17.6,<1.0",
     "pytest-timeout>=2.4,<3",
-    "ty>=0.0.89,<0.1",
+    "ty>=0.0.107,<0.1",
 ]
 
 [tool.ruff]

@@ -256,5 +256,5 @@ With the binary extra and LLVM tools installed, run
 for the host compiled fixture. Missing optional tools produce a skip, not a
 verified runtime or binary result.
 
-Audit environment: tree-sitter 0.25.2, tree-sitter-language-pack 1.22.1, tree-sitter-sql 0.3.11. Bundled grammar sources are versioned with
+Audit environment: tree-sitter 0.26.1, tree-sitter-language-pack 1.25.2, tree-sitter-sql 0.3.13. Bundled grammar sources are versioned with
 this checkout. Runtime/ABI versions remain unverified unless separately recorded.

@@ -248,7 +248,14 @@ def test_checked_only_in_child(tmp_path):
 
 
 @pytest.mark.parametrize("shard", ["1/1", "99/99"])
-def test_runner_rejects_skipped_instrumentation(tmp_path: Path, shard: str) -> None:
+@pytest.mark.parametrize(
+    ("instrumentation_step", "error_type"),
+    [("transform_source", "ValueError"), ("_instrumented_source_entry", "RecursionError")],
+    ids=["transform", "write"],
+)
+def test_runner_rejects_skipped_instrumentation(
+    tmp_path: Path, shard: str, instrumentation_step: str, error_type: str
+) -> None:
     (tmp_path / "target.py").write_text("def checked(value):\n    return value > 0\n")
     (tmp_path / "test_target.py").write_text(
         "from target import checked\ndef test_checked():\n    assert checked(1)\n"
@@ -257,8 +264,8 @@ def test_runner_rejects_skipped_instrumentation(tmp_path: Path, shard: str) -> N
     launcher = tmp_path / "launch.py"
     launcher.write_text(
         "import runpy\nfrom unittest.mock import patch\n"
-        "with patch('pytest_gremlins.plugin.transform_source', "
-        "side_effect=ValueError('controlled instrumentation failure')):\n"
+        f"with patch('pytest_gremlins.plugin.{instrumentation_step}', "
+        f"side_effect={error_type}('controlled instrumentation failure')):\n"
         f"    runpy.run_path({str(runner)!r}, run_name='__main__')\n"
     )
     result = subprocess.run(  # noqa: S603

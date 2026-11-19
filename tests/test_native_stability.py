@@ -53,3 +53,25 @@ def test_large_file_parses_in_subprocess(
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_point_coordinates_survive_repeated_reads_in_subprocess() -> None:
+    # Coordinates above 256 exercise the non-immortal integers mishandled by 0.26.0.
+    script = """
+from tree_sitter import Point
+
+for index in range(2000):
+    expected = (index + 300, index + 600)
+    point = Point(*expected)
+    for _ in range(5):
+        assert (point.row, point.column) == expected
+    assert tuple(point) == expected
+"""
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-X", "faulthandler", "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr

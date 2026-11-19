@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Refresh Python, npm, Nix and CI tool dependencies. Enable tree-sitter 0.26.1
+  while excluding 0.26.0's Point lifetime regression, and update the validated
+  mutation runner to pytest-gremlins 1.14.3. Adapt Zig extraction to the updated
+  grammar and preserve SQL procedure replacements during fallback recovery.
+
 - Repair Dafny postfix/additive precedence, pattern and type-parameter scopes,
   specification contexts, ghost assignments and by-method bodies.
 

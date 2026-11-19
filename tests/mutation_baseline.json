@@ -1,5 +1,5 @@
 {
-  "pytest_gremlins": "1.11.4",
+  "pytest_gremlins": "1.14.3",
   "scope": {
     "src/trailmark/parsers/rust/parser.py": "*",
     "src/trailmark/tree_sitter_custom/verus/__init__.py": "*",

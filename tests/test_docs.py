@@ -243,7 +243,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "tests/release_preflight.py --tag vX.Y.Z --dist dist/release"),
     ("CONTRIBUTING.md", "CI tests Python 3.12 through 3.15."),
     ("docs/installation.md", "CI tests Python 3.12 through 3.15."),
-    ("docs/installation.md", "`tree-sitter-language-pack` 1.22.1 or newer"),
+    ("docs/installation.md", "`tree-sitter-language-pack` 1.25.2 or newer"),
+    ("docs/installation.md", "native Point lifetime regression"),
     ("docs/installation.md", "Root-owned grammar caches are supported"),
     ("docs/installation.md", "not group- or other-writable"),
     ("docs/installation.md", "C compiler (`cc`)"),
@@ -259,7 +260,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/exceptions.md", "has no error type"),
     ("docs/graph-model.md", "Module-level raises remain module events"),
     ("docs/installation.md", "compiled source contents, Python ABI"),
-    ("docs/installation.md", "Tree-sitter CLI 0.27.1"),
+    ("docs/installation.md", "Tree-sitter CLI 0.27.2"),
     ("docs/installation.md", "run `npm ci` with npm install scripts enabled"),
     ("docs/installation.md", "generated parser and headers are gitignored"),
     ("docs/installation.md", "The build hook pins each generated grammar's ABI"),
@@ -282,7 +283,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "tests.mutation_gate --shard=1/8"),
     ("CONTRIBUTING.md", "requires all eight shards to pass"),
     ("CONTRIBUTING.md", "inconclusive outcomes still fail the gate"),
-    ("CONTRIBUTING.md", "disables unused private coverage tracing"),
+    ("CONTRIBUTING.md", "pins pytest-gremlins 1.14.3"),
     ("CONTRIBUTING.md", "deterministic work bounds rather than wall-clock thresholds"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
@@ -386,6 +387,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/augmenting.md", "preserves the graph's previous state"),
     ("docs/augmenting.md", "not data flow"),
     ("docs/languages.md", "Prototypes are retained as `perl_prototype` metadata"),
+    ("docs/languages.md", "Regex escapes and character classes are supported"),
     # Call resolution
     ("docs/call-resolution.md", "--resolution"),
     ("docs/call-resolution.md", "receiver types"),
@@ -434,7 +436,7 @@ def test_links_toml_uses_per_endpoint_external_flags() -> None:
 def test_language_pack_floor_matches_pyproject(pyproject_data: dict[str, object]) -> None:
     project = cast("dict[str, object]", pyproject_data["project"])
     dependencies = cast("list[str]", project["dependencies"])
-    assert "tree-sitter-language-pack>=1.22.1,<2.0" in dependencies
+    assert "tree-sitter-language-pack>=1.25.2,<2.0" in dependencies
 
 
 def test_binary_extra_and_limits_match_public_contract(pyproject_data: dict[str, object]) -> None:

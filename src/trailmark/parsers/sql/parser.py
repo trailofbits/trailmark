@@ -70,7 +70,15 @@ class SQLParser:
                 kind = _DECLARATIONS.get(node.type)
                 if kind is not None:
                     _extract_declaration(node, kind, file_path, module_id, graph)
-            _extract_procedures(source, file_path, module_id, graph)
+            _extract_procedures(
+                source,
+                file_path,
+                module_id,
+                graph,
+                native_starts={
+                    n.start_byte for n in _walk(tree.root_node) if n.type == "create_procedure"
+                },
+            )
         _link_cross_file_sql_dependencies(graph)
         if materialize_dependencies:
             _materialize_sql_dependency_targets(graph, file_path)
@@ -253,12 +261,11 @@ def _sql_reference_id(graph: CodeGraph, module_id: str, schema: str | None, name
 _Token = tuple[str, int, int]
 
 
-def _extract_procedures(source: bytes, file_path: str, module_id: str, graph: CodeGraph) -> None:
+def _extract_procedures(
+    source: bytes, file_path: str, module_id: str, graph: CodeGraph, *, native_starts: set[int]
+) -> None:
     """Recover procedures from actual top-level statements, never quoted text."""
     text = source.decode("utf-8", errors="replace")
-    native_lines = {
-        u.location.start_line for u in graph.nodes.values() if u.kind == NodeKind.PROCEDURE
-    }
     for tokens in _statements(text):
         header = _procedure_header(tokens)
         if header is None:
@@ -273,7 +280,9 @@ def _extract_procedures(source: bytes, file_path: str, module_id: str, graph: Co
             start - text.rfind("\n", 0, start) - 1,
             end - text.rfind("\n", 0, end) - 1,
         )
-        if location.start_line in native_lines:
+        # A native CREATE OR REPLACE can replace an earlier node. Keep all
+        # native statement offsets so fallback cannot restore that earlier body.
+        if len(text[:start].encode("utf-8")) in native_starts:
             continue
         unit_id = _add_routine(
             graph,

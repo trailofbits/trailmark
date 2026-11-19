@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "0.27.1"
+GENERATOR_VERSION = "0.27.2"
 GRAMMAR_ROOT = Path("src/trailmark/tree_sitter_custom")
 GRAMMARS = {
     "circom": "14",
@@ -104,7 +104,7 @@ def generate_grammar(root: Path, name: str) -> None:
 
 def get_build_hook() -> type:
     # Hatchling is provided by the isolated PEP 517 build environment.
-    from hatchling.builders.hooks.plugin.interface import (  # ty: ignore[unresolved-import]
+    from hatchling.builders.hooks.plugin.interface import (  # ty: ignore[import-not-found]
         BuildHookInterface,
     )
 

@@ -289,8 +289,8 @@ subroutine undefinition and `eval` disable local inference throughout the file.
 No Perl or generated assembly is executed or analyzed as generated output;
 heredoc contents are data. Script execution needs an entrypoint override;
 `main` uses the generic rule. Syntax errors warn that the graph may be incomplete.
-Some valid Perl regex syntax exceeds the packaged grammar, including a pattern
-in OpenSSL's `arm-xlate.pl`; those warnings indicate a source coverage gap.
+Regex escapes and character classes are supported, including the pattern from
+OpenSSL's `arm-xlate.pl` that older grammar releases rejected.
 
 ## Lua
 
