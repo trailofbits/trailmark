@@ -49,13 +49,16 @@ def test_nested_comments_do_not_add_protocol_actions(tmp_path: Path) -> None:
         parse_file(str(path), strict=True)
 
 
-def test_unsupported_table_binders_are_diagnosed(tmp_path: Path) -> None:
+def test_table_get_binders_and_continuations(tmp_path: Path) -> None:
     path = tmp_path / "tables.pv"
-    path.write_text("table data(bitstring).\nprocess get data(x:bitstring) in 0\n")
-    graph = parse_file(str(path))
-    assert any(d.kind == "unsupported" for d in graph.parse_diagnostics)
-    with pytest.raises(ValueError, match="diagnostic"):
-        parse_file(str(path), strict=True)
+    path.write_text(
+        "table data(bitstring).\nfree c:channel.\nfree x:bitstring.\n"
+        "process get data(x:bitstring) in out(c,x) | out(c,x) else out(c,x)\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    refs = [graph.nodes[e.target_id].name for e in graph.edges if e.kind == EdgeKind.REFERENCES]
+    assert refs.count("x") == 1
+    assert "data" in refs and refs.count("c") == 3
 
 
 @pytest.mark.parametrize(
@@ -69,7 +72,7 @@ def test_unsupported_table_binders_are_diagnosed(tmp_path: Path) -> None:
         ("in(c,=x); out(c,x)", 2),
         ("x <-R bitstring; out(c,x)", 0),
         ("x:bitstring <- x; out(c,x)", 1),
-        ("!x <= x; out(c,x)", 1),
+        ("!i <= x out(c,i) | out(c,x)", 2),
         ("(in(c,x:bitstring); out(c,x)) | out(c,x)", 1),
     ],
 )
@@ -147,7 +150,6 @@ def test_deep_patterns_do_not_recurse_in_python(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "text",
     [
-        "letfun f = get data(x:bitstring) in x else x.\nprocess 0",
         "proba p.\nprocess 0",
         "clauses p(x).\nprocess 0",
     ],
@@ -186,3 +188,41 @@ def test_macros_predicates_and_bare_constants_keep_dependencies(tmp_path: Path) 
         ("process@8", "send"),
     } <= refs
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
+
+
+def test_destructors_and_declaration_macros(tmp_path: Path) -> None:
+    path = tmp_path / "library.pv"
+    path.write_text(
+        "fun enc(bitstring,bitstring):bitstring.\n"
+        "reduc forall x:bitstring,k:bitstring; dec(enc(x,k),k) = x.\n"
+        "def Helpers(T) { fun wrap(T):T. }\nexpand Helpers(bitstring).\n"
+        "free c:channel.\nfree k:bitstring.\nprocess out(c,dec(enc(k,k),k))\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    units = {n.name: n for n in graph.nodes.values()}
+    assert dict(units["dec"].attributes)["declaration_role"] == "destructor"
+    assert dict(units["wrap"].attributes)["qualified_name"] == "Helpers.wrap"
+    refs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    }
+    assert ("dec", "enc") in refs
+    assert any(target == "dec" and source.startswith("process@") for source, target in refs)
+    assert not any(source == target == "dec" for source, target in refs)
+
+
+def test_library_fallback_is_local_and_ambiguity_is_reported(tmp_path: Path) -> None:
+    from trailmark.parse import parse_directory
+
+    (tmp_path / "library.pvl").write_text("free key:bitstring.\n")
+    (tmp_path / "model.pv").write_text("query attacker(key).\nprocess 0\n")
+    graph = parse_directory(str(tmp_path), "proverif", strict=True)
+    refs = [e for e in graph.edges if e.kind == EdgeKind.REFERENCES]
+    assert len(refs) == 1 and dict(refs[0].attributes)["library_resolution"] == "directory"
+    (tmp_path / "alternative.pvl").write_text("free key:bitstring.\n")
+    graph = parse_directory(str(tmp_path), "proverif")
+    assert not any(e.kind == EdgeKind.REFERENCES for e in graph.edges)
+    assert any(
+        "Ambiguous ProVerif directory libraries" in d.message for d in graph.parse_diagnostics
+    )

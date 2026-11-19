@@ -5,7 +5,7 @@ from tree_sitter import Node
 from trailmark.parsers._common import node_text
 from trailmark.parsers._formal import Scope, walk
 
-OPAQUE = frozenset({"decl_cryptoverif", "process_get", "term_get", "process_foreach", "clauses"})
+OPAQUE = frozenset({"decl_cryptoverif", "process_foreach", "clauses"})
 SKIP = OPAQUE | frozenset({"comment", "line_comment", "options"})
 
 
@@ -115,7 +115,42 @@ def _typed(node: Node) -> list[Scope]:
         )
     ):
         return []
+    if parent.type in {"eqlist", "mayfailreduc"}:
+        equation = next(
+            (
+                n
+                for n in parent.named_children
+                if n.start_byte > node.end_byte and n.type in {"equality", "mayfailequality"}
+            ),
+            None,
+        )
+        if equation is not None:
+            return [Scope(typed_names(node), node.start_byte, equation.end_byte)]
     return [Scope(typed_names(node), parent.start_byte, parent.end_byte)]
+
+
+def _get(node: Node) -> list[Scope]:
+    result = []
+    for pattern in (n for n in node.named_children if n.type == "pattern"):
+        names = pattern_names(pattern)
+        result.extend(_declarations(pattern, names))
+        for token in ("in", "suchthat"):
+            body = _following(node, token)
+            if body is not None:
+                result.append(Scope(names, body.start_byte, body.end_byte))
+    return result
+
+
+def _replication(node: Node) -> list[Scope]:
+    name = next((n for n in node.named_children if n.type == "ident"), None)
+    body = next((n for n in node.named_children if n.type == "process"), None)
+    if name is None or body is None:
+        return []
+    names = frozenset({node_text(name)})
+    return [
+        Scope(names, name.start_byte, name.end_byte),
+        Scope(names, body.start_byte, body.end_byte),
+    ]
 
 
 def scopes(root: Node) -> tuple[Scope, ...]:
@@ -126,6 +161,9 @@ def scopes(root: Node) -> tuple[Scope, ...]:
         "process_let": _let,
         "typedecl": _typed,
         "failtypedecl": _typed,
+        "process_get": _get,
+        "term_get": _get,
+        "process_replication": _replication,
     }
     for node in walk(root, SKIP):
         handler = handlers.get(node.type)

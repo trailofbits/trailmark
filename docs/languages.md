@@ -428,8 +428,12 @@ Types, functions, process macros, events, predicates, free names and queries hav
 separate declaration roles. Input, new, let, assignment, replication and query binders
 shadow globals only in their branches and continuations. Settings (`set`, `param`) are
 accepted without evaluation; weaksecret, noninterf and nounif retain distinct roles
-and references without claiming equivalent verification semantics. Table
-binding (including term-level get), Horn clauses and CryptoVerif-only expansion are
-diagnosed once per opaque boundary as unsupported.
-Library command-line configuration, process reduction, attacker knowledge and
-verification outcomes are not inferred.
+and references without claiming equivalent verification semantics. Destructors declared by
+`reduc` retain their own nodes. Table `get` patterns bind only their success branch;
+process continuations extend across unparenthesized parallel composition. Declaration
+macros retain namespaced members and expansion references without instantiating them.
+Horn clauses and ignored CryptoVerif declarations are diagnosed once per opaque boundary.
+Directory analysis can infer references to a unique same-directory `.pvl` declaration,
+marked `library_resolution=directory`; competing libraries produce diagnostics.
+Explicit `-lib` ordering, process reduction, attacker knowledge and verification outcomes
+are not inferred.

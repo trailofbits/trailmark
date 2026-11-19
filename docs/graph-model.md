@@ -352,3 +352,10 @@ Nested applications gain calls only when every enclosing callee resolves to an
 explicitly computational declaration with non-ghost argument positions. Unknown,
 proof-only or erased arguments keep applications as references; contracts and proof regions keep their own
 reference context. Passing a function value does not create an application.
+
+For adapters built on the shared formal parser, unresolved reference spellings are omitted;
+external explicit imports remain proxies. A missing edge therefore does not establish
+that a dependency is absent. Type-use edges reuse scope-checked type references rather
+than rebinding raw type names globally. Syntax diagnostics coalesce nested error ranges
+and report at most 256 individual errors per file plus a summary. Declaration nesting
+beyond 128 levels produces a coverage diagnostic.

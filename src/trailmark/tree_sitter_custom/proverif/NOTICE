@@ -3,3 +3,5 @@ Revision: 7741807092c4009c1fe4c3648da60ca72b1b80f1
 Local changes: CommonJS export for isolated grammar generation; minimal generator configuration.
 Local scanner uses Trailmark shared stateless nested-comment handling.
 Local grammar marks term-level table access as an opaque term_get region.
+
+Local review fixes: Declaration macros, table/natural terms, open options, process continuation precedence and bounded replication.

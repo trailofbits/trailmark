@@ -17,7 +17,6 @@ module.exports = grammar({
   extras: $ => [
     /\s|\\\r?\n/,
     $.comment,
-    $.line_comment,
   ],
 
   conflicts: $ => [
@@ -55,6 +54,7 @@ module.exports = grammar({
       'clauses',
       'const',
       'def',
+      'diff',
       'elimtrue',
       'else',
       'equation',
@@ -132,6 +132,7 @@ module.exports = grammar({
       'channel',
     ),
     option: $ => choice(
+      $.ident,
       'data',
       'private',
       'typeConverter',
@@ -188,9 +189,10 @@ module.exports = grammar({
     ),
     pterm: $ => choice(
       $.ident,
+      $.nat,
       seq('(', _seq(',', $.pterm), ')'),
       $.pterm_function_call,
-      seq('choice', '[', $.pterm, ',', $.pterm, ']'),
+      seq(choice('choice', 'diff'), '[', $.pterm, ',', $.pterm, ']'),
       seq($.pterm, choice('+', '-'), $.nat),
       seq($.nat, '+', $.pterm),
       seq($.pterm, $.infix, $.pterm),
@@ -238,7 +240,7 @@ module.exports = grammar({
         $.pterm,
         optional(seq('else', $.pterm)),
       ),
-      seq('insert', $.ident, '(', _seq(',', $.pterm), ')'),
+      prec.right(seq('insert', $.ident, '(', _seq(',', $.pterm), ')', optional(seq(';', $.pterm)))),
       $.term_get,
       seq(
         'event',
@@ -288,7 +290,7 @@ module.exports = grammar({
       field('name', $.ident),
       optional(seq(
         '(',
-        $.typedecl,
+        optional($.typedecl),
         ')',
       )),
       '=',
@@ -322,19 +324,18 @@ module.exports = grammar({
       seq(
         'letproba',
         $.ident,
-        optional(seq('(', $.typedecl, ')')),
+        optional(seq('(', optional($.typedecl), ')')),
         '=',
         /* CryptoVerif-only syntax is ignored in ProVerif */
         /[^\.]*/,
         '.',
       ),
       seq('proof', '{', $.proof, '}'),
-      seq(
-        'def', $.ident, '(', _seq(',', $.typeid),')',
-        '{', $.def, '}',
-      ),
-      seq('expand', $.ident, '(', _seq(',', $.typeid), ')', '.'),
     ),
+    decl_define: $ => seq('def', field('name', $.ident),
+      '(', _seq(',', field('parameter', $.typeid)), ')', '{', repeat($.decl), '}'),
+    decl_expand: $ => seq('expand', field('name', $.ident),
+      '(', _seq(',', $.typeid), ')', '.'),
     decl_pred: $ => seq(
       'pred',
       field('name', $.ident),
@@ -356,7 +357,7 @@ module.exports = grammar({
     ),
     decl_process_macro: $ => seq(
       'let', field('name', $.ident),
-      optional(seq('(', $.typedecl, ')')),
+      optional(seq('(', optional($.typedecl), ')')),
       '=',
       $.process,
       '.',
@@ -458,6 +459,8 @@ module.exports = grammar({
       seq('clauses', $.clauses, '.'),
       seq('param', _seq1(',', $.ident), optional($.options), '.',),
       $.decl_cryptoverif,
+      $.decl_define,
+      $.decl_expand,
     ),
     nidecl: $ => seq(
       $.ident,
@@ -564,6 +567,8 @@ module.exports = grammar({
     ),
     gterm: $ => choice(
       $.ident,
+      $.nat,
+      seq('table', '(', $.gterm_function_call, ')'),
       seq('(', $.gterm, ')'),
       $.gterm_function_call,
       seq(
@@ -617,7 +622,7 @@ module.exports = grammar({
       $.ident,
       seq('*', $.ident),
       $.gformat_function_call,
-      seq('choice', '[', $.gformat, ',', $.gformat, ']'),
+      seq(choice('choice', 'diff'), '[', $.gformat, ',', $.gformat, ']'),
       seq('not', '(', _seq(',', $.gformat), ')'),
       seq('(', _seq(',', $.gformat), ')'),
       seq(
@@ -668,7 +673,6 @@ module.exports = grammar({
       $.typeid,
     )),
     process_item: $ => choice(
-      seq('!', $.ident, '<=', $.ident),
       seq($.ident, '<-R', $.typeid, optional(seq(';', $.process))),
       seq('if', $.pterm, 'then', $.process, optional(seq('else', $.process))),
       $.process_input,
@@ -698,10 +702,10 @@ module.exports = grammar({
       $.ident,
     ),
     process_replication: $ => choice(
-      seq($.process, '|', $.process),
-      seq('!', $.process),
+      prec.left(0, seq($.process, '|', $.process)),
+      prec.right(1, seq('!', optional(seq($.ident, '<=', $.ident)), $.process)),
     ),
-    process_let: $ => choice(
+    process_let: $ => prec.right(-1, choice(
       seq(
         'let', $.pattern, '=', $.pterm,
         optional(seq(
@@ -718,11 +722,11 @@ module.exports = grammar({
           optional(seq('else', $.process)),
         )),
       ),
-    ),
+    )),
     process_foreach: $ => seq(
       'foreach', $.ident, '<=', $.ident, $.process
     ),
-    process_get: $ => seq(
+    process_get: $ => prec.right(-1, seq(
       'get',
       $.ident,
       '(',
@@ -735,12 +739,12 @@ module.exports = grammar({
         $.process,
         optional(seq('else', $.process)),
       )),
-    ),
+    )),
     process: $ => choice(
-      seq(
+      prec.right(-1, seq(
         $.process_item,
         optional(seq(';', $.process))
-      ),
+      )),
       $.process_final_item,
       $.process_let,
       $.process_foreach,

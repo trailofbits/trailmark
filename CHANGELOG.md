@@ -2,8 +2,16 @@
 
 ## Unreleased
 
+- Retain ProVerif destructor equations, declaration macros, table binders and
+  parallel continuations. Infer unique same-directory libraries and diagnose
+  ambiguous library matches.
+
+- Correct shared formal type references, import visibility and argument scopes.
+  Bound syntax diagnostics and declaration nesting.
+
 - Add ProVerif symbolic graphs with branch-specific binders, security directive
-  references and diagnosed opaque table, clause and CryptoVerif syntax.
+  references, destructor equations, table binders, declaration macros and inferred
+  same-directory library dependencies; diagnose opaque clauses and CryptoVerif syntax.
 
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as
