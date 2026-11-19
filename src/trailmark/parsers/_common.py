@@ -440,13 +440,7 @@ def _syntax_diagnostics(
         node = pending.pop()
         if node.type != "ERROR" and not node.is_missing:
             pending.extend(
-                reversed(
-                    [
-                        child
-                        for child in node.children
-                        if child.has_error or child.is_missing or child.type == "ERROR"
-                    ]
-                )
+                reversed([child for child in node.children if child.has_error or child.is_missing])
             )
             continue
         if emitted == 256:
