@@ -108,6 +108,12 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "Rocq/Coq retains Gallina source references without claiming kernel proof dependencies",
     ),
     ("docs/languages.md", "automatic detection excludes `.v`"),
+    ("docs/languages.md", "Use export propagates inspected members"),
+    ("docs/languages.md", "mutual `let rec ... with` groups"),
+    (
+        "docs/languages.md",
+        "WhyML uses an independently authored syntax subset with explicit coverage limits",
+    ),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (
@@ -214,6 +220,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "including implicit `Tot`"),
     ("docs/languages.md", "lemma dependencies occurring only in proofs are absent"),
     ("docs/languages.md", "Module signature clauses retain references in the module namespace"),
+    ("docs/languages.md", "mean per-file syntax-error line coverage fell from 44% to 15%"),
     ("docs/graph-model.md", "unresolved reference spellings are omitted"),
     ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars

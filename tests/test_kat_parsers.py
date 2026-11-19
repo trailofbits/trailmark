@@ -26,6 +26,7 @@ PARSER_FIXTURES: list[tuple[str, str]] = [
     ("dafny", "taxonomy"),
     ("fstar", "taxonomy"),
     ("rocq", "taxonomy"),
+    ("whyml", "taxonomy"),
     ("aiken", "taxonomy"),
     ("bash", "taxonomy"),
     ("c", "taxonomy"),

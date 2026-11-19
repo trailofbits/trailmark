@@ -13,6 +13,10 @@
   section assumptions and module signature references. Separate term/module
   namespaces and resolve partial logical module paths.
 
+- Expand WhyML syntax coverage for implicit modules, arrays, records, labels,
+  raises and mutual recursion. Recover later modules and preserve constructor
+  argument evaluation, unit parameters, ghost fields and return types.
+
 - Correct shared formal type references, import visibility and argument scopes.
   Bound syntax diagnostics and declaration nesting.
 
@@ -24,6 +28,9 @@
 
 - Add Rocq/Coq Gallina graphs with lexical modules and sections, explicit imports,
   project load paths and binder scopes. Require explicit `rocq` selection for `.v`.
+
+- Add WhyML source graphs with program/specification contexts, scope imports,
+  ordered typed parameters and diagnosed grammar boundaries.
 
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as

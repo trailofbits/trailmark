@@ -249,6 +249,11 @@ _PROFILES = {
         "Rocq proof checking and extracted-program failures are not "
         "modeled; no exception events are emitted.",
     ),
+    "whyml": (
+        "UUUUU",
+        "WhyML raises clauses and verification conditions are not modeled "
+        "as runtime exception events; no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,

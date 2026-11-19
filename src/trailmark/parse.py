@@ -65,6 +65,7 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "dafny": ("trailmark.parsers.dafny", "DafnyParser"),
     "fstar": ("trailmark.parsers.fstar", "FStarParser"),
     "rocq": ("trailmark.parsers.rocq", "RocqParser"),
+    "whyml": ("trailmark.parsers.whyml", "WhyMLParser"),
 }
 
 # Auto-detection uses unambiguous extensions. Explicit C/Objective-C parsers
@@ -115,6 +116,7 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "dafny": (".dfy",),
     "fstar": (".fst", ".fsti"),
     "rocq": (".v",),
+    "whyml": (".mlw", ".why"),
 }
 
 _SUPPORTED_LANGUAGES = tuple(_PARSER_MAP.keys())

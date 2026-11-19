@@ -9,6 +9,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Dafny](#dafny)
 - [F*](#f)
 - [Rocq/Coq](#rocqcoq)
+- [WhyML](#whyml)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -473,3 +474,24 @@ is not evaluated. Sentence recovery preserves later declarations after malformed
 Advanced functors, generated declarations, Include expansion and notation declarations
 remain incomplete. Select `--language rocq` explicitly for `.v` files because the
 extension also denotes Verilog; automatic detection excludes `.v`.
+
+## WhyML
+
+WhyML uses an independently authored syntax subset with explicit coverage limits. It
+retains modules, scopes, abstract or algebraic types, record fields, logical functions,
+predicates, propositions, let/val declarations and contracts. Program applications are
+distinguished from ghost and contract references; nested calls require computational
+enclosing callees and non-ghost argument positions. Parameters retain source order
+and types. Scope imports, nested comments and local binders are handled structurally.
+Use export propagates inspected members; use import opens them only locally. The grammar
+accepts implicit file modules, array indexing and updates, labels, `raise`, `by`/`so`,
+metas, record literals, mutual `let rec ... with` groups and trailing semicolons.
+Complete later modules can be recovered after an unsupported body without promoting
+its local lets to declarations. Clone expansion is diagnosed. Inductive declarations,
+advanced patterns, operator sections, module interfaces and Why3 transformations remain
+incomplete; a clean syntax parse does not establish type correctness or verification.
+
+On the pinned Why3 example tree (`AdaCore/why3@02050ad`, 481 `.mlw`/`.why` files),
+mean per-file syntax-error line coverage fell from 44% to 15%; 43 files still had errors
+covering more than half their lines. Both runs completed without crashes. These figures
+measure syntax recovery, not declaration or dependency accuracy.
