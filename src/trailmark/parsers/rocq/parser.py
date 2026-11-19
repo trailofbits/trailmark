@@ -8,13 +8,21 @@ from trailmark.models.nodes import NodeKind, Parameter, TypeRef
 from trailmark.parsers._common import node_text
 from trailmark.parsers._formal import FormalParser, Namespace, Scope, Source, walk
 from trailmark.parsers.rocq._loadpath import logical_module
+from trailmark.parsers.rocq._recovery import sentences
 from trailmark.tree_sitter_custom._native import bundled_language
 
 _NAMES = frozenset({"ident", "dotted_qualid"})
-_OPAQUE = frozenset({"match_expression", "notation_declaration", "ltac_definition"})
+_OPAQUE = frozenset({"notation_declaration", "ltac_definition"})
 _SKIP = _OPAQUE | frozenset({"comment", "string", "string_literal", "ident_decl", "attributes"})
 _PROOF = frozenset(
-    {"proof_command", "tactic_invocation", "tactic_sequence", "proof_block", "bullet"}
+    {
+        "proof_command",
+        "tactic_invocation",
+        "tactic_sequence",
+        "tactic_branch",
+        "proof_block",
+        "bullet",
+    }
 )
 _END_PROOF = frozenset({"qed_command", "defined_command", "admitted_command", "abort_command"})
 _ROLES = {
@@ -23,7 +31,14 @@ _ROLES = {
     "fixpoint_command": "fixpoint",
 }
 _IGNORED = frozenset(
-    {"comment", "open_scope_command", "close_scope_command", "arguments_command", "setting_command"}
+    {
+        "comment",
+        "open_scope_command",
+        "close_scope_command",
+        "arguments_command",
+        "set_command",
+        "unset_command",
+    }
 )
 
 
@@ -53,7 +68,9 @@ def _parameters(regions: tuple[Node, ...]) -> tuple[Parameter, ...]:
     return tuple(result)
 
 
-def _scopes(regions: tuple[Node, ...]) -> tuple[Scope, ...]:
+def _scopes(
+    regions: tuple[Node, ...], constructors: frozenset[str] = frozenset()
+) -> tuple[Scope, ...]:
     result = []
     end = max((n.end_byte for n in regions), default=0)
     for region in regions:
@@ -70,7 +87,31 @@ def _scopes(regions: tuple[Node, ...]) -> tuple[Scope, ...]:
                 )
             elif node.type == "let_expression":
                 result.extend(_let_scopes(node))
+            elif node.type in {"match_case", "brace_term", "fix_expression"}:
+                result.extend(_nested_scopes(node, constructors))
     return tuple(result)
+
+
+def _nested_scopes(node: Node, constructors: frozenset[str]) -> list[Scope]:
+    if node.type == "match_case":
+        patterns = [n for n in walk(node) if n.type == "pattern_option"]
+        names = {
+            node_text(n)
+            for pattern in patterns
+            for n in walk(pattern)
+            if n.type in _NAMES
+            and node_text(n) not in constructors
+            and not (
+                n.parent
+                and n.parent.type == "pattern_application"
+                and n == n.parent.named_children[0]
+            )
+        }
+        return [Scope(frozenset(names), node.start_byte, node.end_byte)]
+    names = frozenset(
+        node_text(n) for part in walk(node) for n in part.children_by_field_name("name")
+    )
+    return [Scope(names, node.start_byte, node.end_byte)]
 
 
 def _let_scopes(node: Node) -> list[Scope]:
@@ -114,8 +155,8 @@ class RocqParser(FormalParser):
         source.module_name(namespace)
         context = _Context(Namespace(source, namespace))
         stack: list[_Context] = []
-        proof = False
-        for sentence in root.named_children:
+        warned = False
+        for sentence in sentences(root, self._parser):
             commands = [
                 c for c in sentence.named_children if c.type not in {"attributes", "comment"}
             ]
@@ -124,13 +165,13 @@ class RocqParser(FormalParser):
                 continue
             for node in commands:
                 if node.type in _PROOF:
-                    if not proof:
+                    if not warned:
                         source.unsupported(
                             node, "Rocq tactics are not elaborated into proof dependencies"
                         )
-                    proof = True
+                    warned = True
                 elif node.type in _END_PROOF:
-                    proof = False
+                    continue
                 else:
                     context = self._command(node, context, stack)
 
@@ -143,13 +184,43 @@ class RocqParser(FormalParser):
             return replace(context, env=self._imports(node, context.env))
         if node.type == "assumption_command":
             return self._assumptions(node, context)
-        if node.type in _ROLES:
-            self._definitions(node, context)
-        elif node.type == "inductive_command":
-            self._inductives(node, context)
+        if node.type in _ROLES or node.type in {
+            "record_command",
+            "context_command",
+            "hint_command",
+            "inductive_command",
+        }:
+            self._evidence(node, context)
         elif node.type not in _IGNORED:
             context.env.source.unsupported(node, f"Rocq {node.type} is not modeled")
         return context
+
+    def _evidence(self, node: Node, context: _Context) -> None:
+        if node.type in _ROLES:
+            self._definitions(node, context)
+        elif node.type == "record_command":
+            self._record(node, context)
+        elif node.type == "context_command":
+            for binder in node.named_children:
+                for name in _binder_names(binder):
+                    self._declaration(
+                        binder,
+                        name,
+                        context,
+                        role="assumption",
+                        regions=tuple(binder.named_children),
+                    )
+        elif node.type == "hint_command":
+            context.env.source.references(
+                context.env.parent or context.env.source.module,
+                node,
+                _NAMES,
+                namespace=context.env.name,
+                opens=context.env.opens,
+                context="proof",
+            )
+        elif node.type == "inductive_command":
+            self._inductives(node, context)
 
     @staticmethod
     def _enter(node: Node, context: _Context, stack: list[_Context]) -> _Context:
@@ -164,7 +235,7 @@ class RocqParser(FormalParser):
             target = node_text(value)
             local = f"{env.name}.{target}"
             qualified = local if local in env.source.modules else env.aliases.get(target, target)
-            env.source.import_(node, node_text(value))
+            env.source.import_(node, node_text(value), parent=env.parent)
             if any(c.type == "Export" for c in node.children):
                 env.source.reexports(env.name, (qualified,), qualified=False)
             aliases = {**env.aliases, node_text(name): qualified}
@@ -186,6 +257,16 @@ class RocqParser(FormalParser):
             kind=NodeKind.NAMESPACE,
         )
         child = env.child(node_text(name), owner)
+        for signature in node.children_by_field_name("signature"):
+            env.source.references(
+                owner,
+                signature,
+                _NAMES,
+                namespace=env.name,
+                opens=env.opens,
+                aliases=env.aliases,
+                context="module",
+            )
         if any(c.type in {"Import", "Export"} for c in node.children):
             stack[-1] = replace(context, env=replace(env, opens=(*env.opens, child.name)))
         if any(c.type == "Export" for c in node.children):
@@ -202,11 +283,15 @@ class RocqParser(FormalParser):
                 continue
             name = node_text(imported.named_children[0])
             qualified = f"{node_text(prefix)}.{name}" if prefix else name
-            local = f"{env.name}.{qualified}"
+            enclosing = env.name
+            local = f"{enclosing}.{qualified}"
+            while enclosing and local not in env.source.modules:
+                enclosing = enclosing.rpartition(".")[0]
+                local = f"{enclosing}.{qualified}" if enclosing else qualified
             canonical = (
                 local if local in env.source.modules else env.aliases.get(qualified, qualified)
             )
-            env.source.import_(imported, canonical)
+            env.source.import_(imported, canonical, parent=env.parent)
             if any(c.type == "import_categories" for c in node.named_children) or any(
                 c.type == "filtered_import_item" for c in imported.named_children
             ):
@@ -222,14 +307,6 @@ class RocqParser(FormalParser):
 
     def _assumptions(self, node: Node, context: _Context) -> _Context:
         names = [n for n in walk(node) if n.type == "ident_decl"]
-        local = context.section and node.children[0].type in {
-            "Variable",
-            "Variables",
-            "Hypothesis",
-            "Hypotheses",
-        }
-        if local:
-            return replace(context, bound=context.bound | frozenset(node_text(n) for n in names))
         for name in names:
             self._declaration(
                 node, name, context, role="assumption", regions=tuple(node.named_children)
@@ -242,6 +319,24 @@ class RocqParser(FormalParser):
             end = names[index + 1].start_byte if index + 1 < len(names) else node.end_byte
             regions = tuple(n for n in node.named_children if name.end_byte <= n.start_byte < end)
             self._declaration(node, name, context, role=_ROLES[node.type], regions=regions)
+
+    def _record(self, node: Node, context: _Context) -> None:
+        name = node.child_by_field_name("name")
+        if name is None:
+            return
+        regions = tuple(n for n in node.named_children if n != name and n.type != "record_field")
+        owner = self._declaration(node, name, context, role="record", regions=regions)
+        nested = replace(context, env=replace(context.env, parent=owner))
+        for field in node.named_children:
+            declared = field.child_by_field_name("name")
+            if field.type == "record_field" and declared is not None:
+                self._declaration(
+                    field,
+                    declared,
+                    nested,
+                    role="field",
+                    regions=tuple(n for n in field.named_children if n != declared),
+                )
 
     def _inductives(self, node: Node, context: _Context) -> None:
         for decl in node.named_children:
@@ -276,11 +371,23 @@ class RocqParser(FormalParser):
             role,
             namespace=env.name,
             parent=env.parent,
-            kind=NodeKind.ENUM if role == "inductive" else NodeKind.FUNCTION,
+            kind=NodeKind.ENUM
+            if role == "inductive"
+            else NodeKind.STRUCT
+            if role == "record"
+            else NodeKind.FUNCTION,
             parameters=_parameters(regions),
             attributes=(("executable", False), ("assumed", role == "assumption")),
         )
-        scopes = (*_scopes(regions), Scope(context.bound, node.start_byte, node.end_byte))
+        constructors = frozenset(
+            n.name
+            for n in env.source.graph.nodes.values()
+            if dict(n.attributes).get("declaration_role") == "constructor"
+        )
+        scopes = (
+            *_scopes(regions, constructors),
+            Scope(context.bound, node.start_byte, node.end_byte),
+        )
         for region in regions:
             for child in walk(region, _OPAQUE, include_skipped=True):
                 if child.type in _OPAQUE:

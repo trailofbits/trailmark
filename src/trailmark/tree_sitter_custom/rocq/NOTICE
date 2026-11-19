@@ -4,3 +4,5 @@ Local changes: CommonJS export for isolated grammar generation; minimal generato
 MIT license is declared in the upstream grammar header and package.json (preserved as package.json.upstream); the upstream checkout contains no standalone license text.
 Local scanner uses Trailmark shared stateless nested-comment handling.
 Local grammar names module aliases and named-argument labels; accepts Module Import/Export.
+
+Local review fixes: Record/class declarations, module type/signature headers, brace terms, context/load/include commands.

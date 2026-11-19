@@ -237,3 +237,91 @@ def test_exports_follow_local_modules_and_module_aliases(tmp_path: Path, body: s
         if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "use"
     ]
     assert len(refs) == 1 and refs[0].name == "c"
+
+
+def test_records_sum_types_matches_and_sections(tmp_path: Path) -> None:
+    path = tmp_path / "Records.v"
+    path.write_text(
+        "Set Implicit Arguments. Unset Strict Implicit.\n"
+        "Record point := { px : nat }.\nDefinition after := 0.\n"
+        "Lemma a (d : forall x y : nat, {x = y}+{x <> y}) : True.\n"
+        "Proof. intros; [ exact I | idtac ]. Qed.\n"
+        "Lemma b : True. Proof. exact I. Qed.\nDefinition c := 0.\n"
+        "Definition use := match 0 with 0 => after | _ => 1 end.\n"
+        "Section S. Variable A : Type. Hypothesis H : A = A.\n"
+        "Definition uses_h : A := H. End S.\n"
+    )
+    graph = parse_file(str(path), "rocq")
+    assert not any(d.kind == "syntax_error" for d in graph.parse_diagnostics)
+    assert {"point", "px", "after", "a", "b", "c", "A", "H"} <= {
+        n.name for n in graph.nodes.values()
+    }
+    refs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    }
+    assert {("use", "after"), ("uses_h", "A"), ("uses_h", "H")} <= refs
+
+
+def test_module_types_and_term_namespaces(tmp_path: Path) -> None:
+    (tmp_path / "Base.v").write_text("Inductive Z := Z0.\n")
+    (tmp_path / "Use.v").write_text(
+        "Require Import Base. Module Type SIG. Parameter t : Type. End SIG.\n"
+        "Module Type OTHER. End OTHER.\n"
+        "Module Nat <: SIG <: OTHER. Definition x := 0. End Nat.\nDefinition y := Nat.x.\n"
+        "Module Typed : SIG. End Typed. Definition term := SIG.\n"
+        "Module Z. Definition f (x : Z) : Z := x. End Z.\n"
+    )
+    graph = parse_directory(str(tmp_path), "rocq", strict=True)
+    assert {"Use.SIG", "Use.SIG.t", "Use.Nat", "Use.Nat.x"} <= {
+        dict(n.attributes).get("qualified_name") for n in graph.nodes.values()
+    }
+    assert any(
+        graph.nodes[e.source_id].name == "f"
+        and dict(graph.nodes[e.target_id].attributes).get("qualified_name") == "Base.Z"
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    )
+    signatures = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and dict(e.attributes).get("reference_context") == "module"
+    }
+    assert signatures == {("Nat", "SIG"), ("Nat", "OTHER"), ("Typed", "SIG")}
+    assert not any(
+        graph.nodes[e.source_id].name == "term" and e.kind == EdgeKind.REFERENCES
+        for e in graph.edges
+    )
+
+
+def test_sentence_recovery_does_not_steal_later_declarations(tmp_path: Path) -> None:
+    path = tmp_path / "Recover.v"
+    path.write_text(
+        "Definition x := 0.\nDefinition broken := { unsupported ??? }.\n"
+        "Definition after := x.\nDefinition later := after.\n"
+    )
+    graph = parse_file(str(path), "rocq")
+    assert graph.parse_diagnostics
+    refs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    }
+    assert {("after", "x"), ("later", "after")} <= refs
+    assert ("broken", "after") not in refs
+
+
+@pytest.mark.parametrize(
+    ("language", "suffix", "declarations"),
+    [("rocq", ".v", "Inductive T := MkT.\nDefinition id {T:Type} (x:T) : T := x.\n")],
+)
+def test_formal_type_uses_respect_lexical_binders(
+    tmp_path: Path, language: str, suffix: str, declarations: str
+) -> None:
+    from trailmark.parse import parse_file
+
+    path = tmp_path / ("Types" + suffix)
+    path.write_text(declarations)
+    graph = parse_file(str(path), language=language, strict=True)
+    assert not any(e.kind == EdgeKind.TYPE_USES for e in graph.edges)

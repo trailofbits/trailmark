@@ -424,14 +424,18 @@ ownership, conservative binding, schema identity changes and pinned grammar limi
 ## Rocq/Coq
 
 Rocq/Coq retains Gallina source references without claiming kernel proof dependencies.
-Definitions, fixpoints, inductives, constructors, assumptions and theorem statements
+Definitions, fixpoints, inductives, records, fields, section assumptions and theorem statements
 keep their declaration roles. Explicit Require and Import statements bound cross-file
 visibility. Export propagates short-name openings without inventing qualified module
 members. Selective imports and source Load commands are diagnosed as unsupported.
-Tactics, notation expansion and unsupported match binders produce
-diagnostics; no proof success, axiom closure, extraction behavior or runtime calls are
+Match scrutinees and branch bodies retain references with branch-local pattern binders.
+Module signature clauses retain references in the module namespace, separate from terms.
+Tactics and notation expansion produce diagnostics; lemma dependencies occurring only
+in proofs are absent. Each file receives at most one tactic-coverage diagnostic; no proof success, axiom closure, extraction behavior or runtime calls are
 inferred. Implicit and inductive binders, mutual fixpoint bodies and section imports
 retain their lexical boundaries. From/Require imports use directory identities or
 explicit -Q/-R mappings in the nearest _CoqProject file; other load-path configuration
-is not evaluated. Select `--language rocq` explicitly for `.v` files because the
+is not evaluated. Sentence recovery preserves later declarations after malformed commands.
+Advanced functors, generated declarations, Include expansion and notation declarations
+remain incomplete. Select `--language rocq` explicitly for `.v` files because the
 extension also denotes Verilog; automatic detection excludes `.v`.

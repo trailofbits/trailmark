@@ -22,6 +22,7 @@ module.exports = grammar({
     [$.generic_tactic_body],
     [$.match_pattern, $.list_literal],
     [$.binder],
+    [$.brace_term, $._qualid],
 
     [$.fixannot, $._qualid],
     [$.assert_tactic, $._qualid],
@@ -163,6 +164,10 @@ module.exports = grammar({
         $.fixpoint_command,
         $.inductive_command,
         $.assumption_command,
+        $.record_command,
+        $.context_command,
+        $.load_command,
+        $.include_command,
         $.arguments_command,
         $.section_command,
         $.module_command,
@@ -375,7 +380,7 @@ module.exports = grammar({
     ),
 
     definition_command: $ => seq(
-      choice("Definition", "Example"),
+      choice("Definition", "Example", "Let", "Abbreviation", "Instance"),
       $.ident_decl,
       $._def_body
     ),
@@ -395,7 +400,7 @@ module.exports = grammar({
     ),
 
     fixpoint_command: $ => seq(
-      "Fixpoint",
+      choice("Fixpoint", "CoFixpoint"),
       $._fix_definition,
       repeat(seq("with", $._fix_definition)),
     ),
@@ -421,7 +426,7 @@ module.exports = grammar({
     ),
 
     inductive_command: $ => seq(
-      "Inductive",
+      choice("Inductive", "CoInductive", "Variant"),
       $.inductive_definition,
       repeat(seq("with", $.inductive_definition)),
     ),
@@ -519,7 +524,13 @@ module.exports = grammar({
 
     section_command: $ => seq("Section", $.ident),
 
-    module_command: $ => seq("Module", optional(choice("Import", "Export")), field("name", $.ident), optional(seq(":=", field("value", $._qualid)))),
+    module_command: $ => seq("Module", optional("Type"), optional(choice("Import", "Export")), field("name", $.ident), repeat(seq("(", repeat1($.ident), ":", $._qualid, ")")), repeat(seq(choice(":", "<:"), field("signature", $._qualid))), optional(seq(":=", field("value", $._qualid)))),
+
+    record_command: $ => seq(choice("Record", "Structure", "Class"), field("name", $.ident_decl), repeat($.binder), optional(seq(":", $.type)), ":=", optional(field("constructor", $.ident)), "{", optional(seq($.record_field, repeat(seq(";", $.record_field)), optional(";"))), "}"),
+    record_field: $ => seq(field("name", $.ident_decl), repeat($.binder), choice(":", ":>"), $.type, optional(seq(":=", $._term))),
+    context_command: $ => seq("Context", repeat1($.binder)),
+    load_command: $ => seq("Load", choice($.string, $._qualid)),
+    include_command: $ => seq("Include", $._qualid),
 
     end_command: $ => seq("End", $.ident),
 
@@ -755,6 +766,7 @@ module.exports = grammar({
         $.string,
         $.match_expression,
         $.parenthesized_term,
+        $.brace_term,
         $.metavariable,
 
         // Custom
@@ -764,6 +776,8 @@ module.exports = grammar({
       ),
     ),
 
+
+    brace_term: $ => choice(seq("{", $._term, "}"), seq("{", field("name", $.ident), optional(seq(":", $.type)), "|", field("body", $._term), "}")),
 
     double_dot: $ => "..",
 
@@ -920,7 +934,7 @@ module.exports = grammar({
     )),
 
     fix_expression: $ => prec.right(seq(
-      "fix",
+      choice("fix", "cofix"),
       $.fix_decl,
       optional(seq(
         repeat1(seq("with", $.fix_decl)),

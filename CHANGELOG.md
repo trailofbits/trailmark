@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Recover Rocq sentences after syntax errors; retain records, match bodies,
+  section assumptions and module signature references. Separate term/module
+  namespaces and resolve partial logical module paths.
+
+- Correct shared formal type references, import visibility and argument scopes.
+  Bound syntax diagnostics and declaration nesting.
+
 - Add Rocq/Coq Gallina graphs with lexical modules and sections, explicit imports,
   project load paths and binder scopes. Require explicit `rocq` selection for `.v`.
 
