@@ -35,7 +35,7 @@ PUBLIC_GUIDES = {
 
 def _archive_files(root: Path, config: dict[str, Any], output: Path) -> set[str]:
     # Hatchling is supplied by the isolated build environment, as in hatch_build.py.
-    from hatchling.builders.sdist import SdistBuilder  # ty: ignore[unresolved-import]
+    from hatchling.builders.sdist import SdistBuilder  # ty: ignore[import-not-found]
 
     (archive,) = SdistBuilder(str(root), config=config).build(directory=str(output))
     with tarfile.open(archive) as source:

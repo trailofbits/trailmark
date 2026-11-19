@@ -113,6 +113,31 @@ def test_parse_errors_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> 
     assert "Zig syntax errors" in caplog.text
 
 
+def test_calls_in_recovered_body_do_not_bind_to_namesakes(tmp_path: Path) -> None:
+    path = tmp_path / "broken.zig"
+    path.write_text("fn helper() void {} fn broken() void { const helper = ; helper(); }")
+    graph = parse_file(str(path))
+    assert graph.parse_diagnostics
+    calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert graph.nodes[calls[0].target_id].kind == NodeKind.PROXY
+    assert dict(calls[0].attributes)["syntax_recovery"] is True
+
+
+def test_each_destructured_binding_shadows_free_functions(tmp_path: Path) -> None:
+    path = _source(
+        tmp_path,
+        "fn helper() void {} "
+        "fn f(pair: anytype) void { const first, var helper = pair; helper(); }",
+    )
+    graph = parse_file(str(path))
+    assert not graph.parse_diagnostics
+    calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert graph.nodes[calls[0].target_id].kind == NodeKind.PROXY
+    assert dict(calls[0].attributes)["binding_blocked"] is True
+
+
 def test_loop_capture_does_not_bind_to_free_function(tmp_path: Path) -> None:
     path = _source(
         tmp_path, "fn helper() void {} fn f(xs: []u8) void { for (xs) |helper| { helper(); } }"

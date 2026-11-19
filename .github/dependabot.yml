@@ -9,7 +9,7 @@ updates:
     ignore:
       # Mutation runner adapts private APIs; upgrades need manual revalidation.
       - dependency-name: pytest-gremlins
-      # Native Point lifetime regression; upgrading segfaults parser tests.
+      # 0.26.0 has a native Point lifetime regression, fixed in 0.26.1.
       # https://github.com/tree-sitter/py-tree-sitter/issues/472
       - dependency-name: tree-sitter
         versions: ["0.26.0"]

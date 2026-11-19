@@ -47,9 +47,10 @@ _KINDS = {
     "go": {"defer_statement": ExceptionEventKind.CLEANUP},
     "rust": {"try_expression": ExceptionEventKind.PROPAGATE},
     "zig": {
-        "Statement": ExceptionEventKind.CLEANUP,
-        "UnaryExpr": ExceptionEventKind.PROPAGATE,
-        "BinaryExpr": ExceptionEventKind.HANDLER,
+        "defer_statement": ExceptionEventKind.CLEANUP,
+        "errdefer_statement": ExceptionEventKind.CLEANUP,
+        "try_expression": ExceptionEventKind.PROPAGATE,
+        "catch_expression": ExceptionEventKind.HANDLER,
     },
     "solidity": {
         "revert_statement": ExceptionEventKind.RAISE,
@@ -595,10 +596,6 @@ def _throw_only(node: Node, base: _Classification | None) -> _Classification | N
     return base if any(node_text(child).lower() == "throw" for child in node.children[:1]) else None
 
 
-def _zig_refine(node: Node, base: _Classification | None) -> _Classification | None:
-    return base if base is not None and _zig_event(node) else None
-
-
 def _csharp_refine(node: Node, base: _Classification | None) -> _Classification | None:
     if node.type != "local_declaration_statement":
         return base
@@ -609,21 +606,6 @@ def _dart_refine(node: Node, base: _Classification | None) -> _Classification | 
     if node.type != "type_identifier":
         return base
     return base if _dart_on_only(node) else None
-
-
-def _zig_event(node: Node) -> bool:
-    if node.type == "Statement":
-        return bool(node.children) and node_text(node.children[0]) in {"defer", "errdefer"}
-    if node.type == "UnaryExpr":
-        return any(
-            child.type == "PrefixOp" and node_text(child) == "try" for child in node.named_children
-        )
-    if node.type == "BinaryExpr":
-        operator = node.child_by_field_name("operator")
-        return operator is not None and any(
-            node_text(child) == "catch" for child in operator.children
-        )
-    return False
 
 
 def _declared_types(node: Node, language: str) -> tuple[TypeRef, ...]:
@@ -935,7 +917,6 @@ _REFINERS: dict[str, _Refiner] = {
     "swift": _swift_refine,
     "kotlin": _throw_only,
     "powershell": _throw_only,
-    "zig": _zig_refine,
     "csharp": _csharp_refine,
     "dart": _dart_refine,
 }

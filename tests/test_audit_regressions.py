@@ -427,7 +427,7 @@ def test_miden_invocation_kinds_qualified_names_and_entrypoints() -> None:
     assert {row["node_id"] for row in engine.attack_surface()} == {"library:api", "program:begin"}
 
 
-def test_zig_identifiers_signatures_and_recovery_guard() -> None:
+def test_zig_identifiers_signatures_and_destructured_binding_guard() -> None:
     graph = parse_file(str(FIXTURES / "zig/quoted.zig"), "zig")
     assert _calls(graph, "quoted:main") == [
         "quoted:helper",
@@ -440,11 +440,10 @@ def test_zig_identifiers_signatures_and_recovery_guard() -> None:
     assert [p.name for p in graph.nodes["ordinary:variadic"].parameters][-1] == "..."
     assert dict(graph.nodes["ordinary:variadic"].attributes)["variadic"] is True
     graph = parse_directory(str(FIXTURES / "zig/recovery"), "zig")
-    assert graph.parse_diagnostics
-    assert all(
-        graph.nodes[target].kind == NodeKind.PROXY
-        for target in _calls(graph, "destructure:destructure")
-    )
+    assert not graph.parse_diagnostics
+    calls = _calls(graph, "destructure:destructure")
+    assert len(calls) == 1
+    assert graph.nodes[calls[0]].kind == NodeKind.PROXY
 
 
 def test_aiken_labels_and_deferred_captures() -> None:

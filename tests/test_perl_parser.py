@@ -117,10 +117,17 @@ def test_parse_errors_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> 
     assert "Perl syntax errors" in caplog.text
 
 
-def test_unsupported_regex_syntax_warns_instead_of_claiming_clean_coverage(
+def test_regex_escapes_and_character_classes_preserve_surrounding_control_flow(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     path = tmp_path / "regex.pl"
     path.write_text(r"while ($line =~ m/\G[^@\/\{\"]*/g) { print $line; }")
-    parse_file(str(path))
-    assert "Perl syntax errors" in caplog.text
+    graph = parse_file(str(path))
+    assert not graph.parse_diagnostics
+    assert not caplog.text
+    script = graph.nodes["regex:<script>"]
+    assert script.cyclomatic_complexity == 2
+    assert len(script.branches) == 1
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 1 and calls[0].source_id == script.id
+    assert "print" in calls[0].target_id

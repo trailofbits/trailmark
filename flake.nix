@@ -55,11 +55,11 @@
           assets = {
             x86_64-linux = {
               platform = "linux-x64";
-              sha256 = "d01042f94ba3d6827ddc9788e235f75d8366431be42bdf90ade534d960c98b7d";
+              sha256 = "7ed56d152c52437397b9fcaa43cf341f49933cecc1ca291843f0d347c6e2cb3a";
             };
             aarch64-darwin = {
               platform = "macos-arm64";
-              sha256 = "46cb97d9a2c52c94e22d9a76c2f1116156b8b61f98360e2a9cce05fcb197cd4d";
+              sha256 = "5a08b66e5713b0c69691611250b2191d07139647a3c6e39ba85954284b634d2d";
             };
           };
           asset = assets.${pkgs.stdenv.hostPlatform.system};
@@ -184,11 +184,11 @@
           parserBundles = {
             x86_64-linux = {
               platform = "linux-x86_64";
-              sha256 = "4ad211e4a265be2106909ef9db4ccdc706e557436a446fbc10afbf23d668a2a5";
+              sha256 = "edcf1bc5546f263fadfd59e648ecb06023875eee164262bb41a805e0267a0b10";
             };
             aarch64-darwin = {
               platform = "macos-arm64";
-              sha256 = "9931ad24c0714c6ebe73554f8ad981928902d3d4ea0b2bcd6365078591f47705";
+              sha256 = "034fc9ea0dcd2d27d9371ea19e7d4349e064df2c9bf2b8f35ae0e6f6382e5e64";
             };
           };
           bundle = parserBundles.${system};

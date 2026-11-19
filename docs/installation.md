@@ -23,8 +23,11 @@ See [compiled binary evidence](binaries.md) for the target matrix and limits.
 
 Trailmark uses three sources of tree-sitter grammars.
 
+The Python bindings support tree-sitter 0.25.2 and 0.26.1. Version 0.26.0 has a
+native Point lifetime regression and is excluded from the dependency range.
+
 **`tree-sitter-language-pack`** provides most languages. Trailmark requires
-`tree-sitter-language-pack` 1.22.1 or newer. The package downloads each grammar
+`tree-sitter-language-pack` 1.25.2 or newer. The package downloads each grammar
 the first time it is used and caches it. Root-owned grammar caches are
 supported when they are not group- or other-writable, which lets a system-wide
 install share one read-only cache.
@@ -86,7 +89,7 @@ the read-only Nix store, and uses a root-owned language-pack grammar cache.
 ## From a git checkout
 
 A checkout keeps bundled grammar definitions and generates their C parsers
-during the build with Tree-sitter CLI 0.27.1, which needs Node.js.
+during the build with Tree-sitter CLI 0.27.2, which needs Node.js.
 The build hook pins each generated grammar's ABI in `hatch_build.py`:
 
 ```bash
