@@ -2,12 +2,25 @@
 
 ## Unreleased
 
+- Repair Dafny postfix/additive precedence, pattern and type-parameter scopes,
+  specification contexts, ghost assignments and by-method bodies.
+
+- Recognize implicit F* Tot and inherit val computation/privacy metadata.
+  Resolve operators and qualified names; preserve dependent and monadic binders
+  and separate proof/type contexts from executable applications.
+
 - Recover Rocq sentences after syntax errors; retain records, match bodies,
   section assumptions and module signature references. Separate term/module
   namespaces and resolve partial logical module paths.
 
 - Correct shared formal type references, import visibility and argument scopes.
   Bound syntax diagnostics and declaration nesting.
+
+- Add Dafny source graphs with typed input parameters, declaration roles, lexical
+  and ghost scopes, explicit computational calls and bounded native scanning.
+
+- Add F* source graphs with interface correspondence, private visibility, iterative
+  pattern binding, refinement dependencies and conservative computational calls.
 
 - Add Rocq/Coq Gallina graphs with lexical modules and sections, explicit imports,
   project load paths and binder scopes. Require explicit `rocq` selection for `.v`.

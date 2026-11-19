@@ -1,0 +1,22 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "fstar", "camelcase": "FStar", "scope": "source.fstar", "path": ".",
+      "file-types": ["fst", "fsti"], "injection-regex": "^(fstar|f\\*)$",
+      "highlights": "queries/highlights.scm", "injections": "queries/injections.scm",
+      "external-files": ["src/unicode.h"]
+    },
+    {
+      "name": "pulse", "camelcase": "Pulse", "scope": "source.pulse", "path": "pulse",
+      "injection-regex": "^pulse$",
+      "highlights": ["queries/highlights.scm", "pulse/queries/highlights.scm"],
+      "injections": "queries/injections.scm", "external-files": ["src/scanner.c", "src/unicode.h", "grammar.js"]
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0", "license": "MIT", "description": "F* and Pulse grammars for Tree-sitter",
+    "links": { "repository": "file:///home/eioannidis/git/tree-sitter-fstar" }
+  },
+  "bindings": { "c": false, "go": false, "java": false, "kotlin": false, "node": true, "python": false, "rust": true, "swift": false, "zig": false }
+}

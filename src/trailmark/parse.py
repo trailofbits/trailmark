@@ -62,6 +62,8 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "thrift": ("trailmark.parsers.thrift", "ThriftParser"),
     "graphql": ("trailmark.parsers.graphql", "GraphQLParser"),
     "sql": ("trailmark.parsers.sql", "SQLParser"),
+    "dafny": ("trailmark.parsers.dafny", "DafnyParser"),
+    "fstar": ("trailmark.parsers.fstar", "FStarParser"),
     "rocq": ("trailmark.parsers.rocq", "RocqParser"),
 }
 
@@ -110,6 +112,8 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "thrift": (".thrift",),
     "graphql": (".graphql", ".gql", ".graphqls"),
     "sql": (".sql",),
+    "dafny": (".dfy",),
+    "fstar": (".fst", ".fsti"),
     "rocq": (".v",),
 }
 
