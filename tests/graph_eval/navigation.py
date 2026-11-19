@@ -44,6 +44,12 @@ def plan_queries(
             record.update(
                 status="not_evaluated", reason="Expected path exceeds evaluator's 20-edge bound"
             )
+        elif operation == "path" and not question["expected"] and len(record["domain"]) > 21:
+            record.update(
+                status="not_evaluated",
+                reason="Mapped source domain permits simple paths "
+                "beyond the evaluator's 20-edge bound",
+            )
         else:
             subject = mapping[question["subject"]]
             if operation in {"callees", "callers"}:

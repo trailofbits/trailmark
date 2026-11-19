@@ -320,7 +320,7 @@ def _questions(
         subject = mapping[question["subject"]]
         expected = [mapping[key] for key in question["expected"]]
         kinds = {"calls"}
-        if profile != "runtime":
+        if profile != "runtime" and operation in {"path", "dependencies"}:
             kinds |= {"references", "type_uses", "corresponds_to"}
         if operation == "dependencies":
             kinds |= {"imports", "inherits", "implements", "references", "type_uses"}

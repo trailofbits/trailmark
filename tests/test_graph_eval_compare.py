@@ -351,6 +351,39 @@ def test_partial_navigation_scores_positive_subsets_without_claiming_negative_co
     assert _compare(measurement, reference)["questions"][0]["status"] == "unknown"
 
 
+@pytest.mark.parametrize("profile", ["runtime", "formal", "schema", "sql"])
+def test_callee_and_caller_questions_ignore_noncall_relations_in_every_profile(
+    profile: str,
+) -> None:
+    measurement, case = _measurement(), _case()
+    case["profile"] = profile
+    measurement["graph"]["edges"].extend(
+        [
+            _edge("main:run", "main:run", 5, "references"),
+            _edge("lib:helper", "lib:helper", 6, "type_uses"),
+        ]
+    )
+    questions = _compare(measurement, case=case)["questions"]
+    assert [row["status"] for row in questions] == ["agree", "agree", "agree"]
+
+
+@pytest.mark.parametrize("profile", ["formal", "schema", "sql"])
+@pytest.mark.parametrize("relation", ["references", "type_uses", "corresponds_to"])
+def test_structural_relations_remain_paths_and_dependencies_without_becoming_calls(
+    profile: str, relation: str
+) -> None:
+    measurement, reference, case = _measurement(), _reference(), _case()
+    case["profile"] = profile
+    measurement["graph"]["edges"][-1]["kind"] = relation
+    reference["assertions"][0]["kind"] = relation
+    reference["questions"][0]["expected"] = []
+    reference["questions"][1]["expected"] = []
+    questions = _compare(measurement, reference, case)["questions"]
+    assert [row["status"] for row in questions] == ["agree", "agree", "agree"]
+    reference["questions"][0].update(operation="dependencies", expected=["h"])
+    assert _compare(measurement, reference, case)["questions"][0]["status"] == "agree"
+
+
 def test_graph_order_and_irrelevant_namesake_addition_do_not_change_results() -> None:
     measurement = _measurement()
     baseline = _compare(measurement)

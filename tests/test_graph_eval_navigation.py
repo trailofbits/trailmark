@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from tests.graph_eval.navigation import plan_queries, score_answers
 
 
@@ -107,3 +109,31 @@ def test_unmatched_declaration_prevents_a_false_negative_answer() -> None:
         reference, {"mapping": {"f": "m:f", "g": "m:g"}}, prefix="A:", profile="runtime"
     )
     assert plan["records"][2]["status"] == "blocked"
+
+
+@pytest.mark.parametrize(("node_count", "status"), [(21, "pending"), (22, "not_evaluated")])
+def test_negative_paths_require_a_domain_covered_by_the_search_bound(
+    node_count: int, status: str
+) -> None:
+    reference = _reference()
+    reference["questions"][2]["expected"] = []
+    mapping = {f"node{index}": f"m:f{index}" for index in range(node_count)}
+    mapping.update(f="m:f0", g=f"m:f{node_count - 1}")
+    plan = plan_queries(reference, {"mapping": mapping}, prefix="A:", profile="runtime")
+    record = plan["records"][2]
+    assert record["status"] == status
+    path_requests = [
+        request for request in plan["requests"] if request["operation"] == "paths_between"
+    ]
+    if status == "not_evaluated":
+        assert path_requests == []
+        # An empty answer from a 20-edge search cannot establish that the
+        # mapped domain lacks a 21-edge path. It must never turn into agreement.
+        scored = score_answers(plan, [{"id": "A:q3", "status": "ok", "answer": []}])
+        assert scored[2]["status"] == "not_evaluated"
+        assert "20-edge bound" in record["reason"]
+    else:
+        assert len(path_requests) == 1
+        path = [f"m:f{index}" for index in range(node_count)]
+        scored = score_answers(plan, [{"id": "A:q3", "status": "ok", "answer": [path]}])
+        assert scored[2]["status"] == "discrepancy"
