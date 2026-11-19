@@ -34,15 +34,15 @@
       "reason": "Equivalent in the parser workflow: this helper only recurses into itself or supplies _extract_import. A no-match result is propagated unchanged through recursion and tested for truthiness before appending a dependency. Both an empty string and None suppress that append. Nonempty identifier returns and import deduplication have behavioral regressions and are not exempted."
     },
     {
-      "fingerprint": "fe517316f84e93b2ea960e2d7a2597b7d90b4b3233c715c86ae1c6d053fb0272",
+      "fingerprint": "8179cc6b5c18ee6a9089317e59223b57f9039f1fb00b5e0781d066b934a66877",
       "function": "<module>",
       "line": 59,
       "mutated": "False",
       "operator": "boolean",
       "original": "True",
       "path": "src/trailmark/parsers/_common.py",
-      "source_hash": "1c4af37aceb25d4eba4e7205c189f11334aaf7e605da8fbf618fa4d55f8bc85e",
-      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, stored in a private ContextVar, read by directory parsing and module ID planning, and reset in finally. directory_sources yields None rather than exposing the record. No consumer rebinds its fields or hashes, serializes, or compares the record. Mutable nested maps remain equally mutable under either decorator. Re-reviewed against the current source and graph callers during exception-evidence review preparation; public NativeGrammar immutability remains separately tested and is not exempted."
+      "source_hash": "b69d4d186b65fb6590b1f7fe30a1ba27c1c3edbc0afd69da2d9f42c780d88e9d",
+      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, stored in a private ContextVar, read by directory parsing and module ID planning, and reset in finally. directory_sources yields None rather than exposing the record. No consumer rebinds its fields or hashes, serializes, or compares the record. Mutable nested maps remain equally mutable under either decorator. Re-reviewed against the current source and graph callers during exception-evidence review preparation; public NativeGrammar immutability remains separately tested and is not exempted. Re-reviewed after syntax-diagnostic coalescing and capping: those changes do not alter this private record or its readers; the module-level fingerprint changed because it includes the whole source file."
     },
     {
       "fingerprint": "a3bc69c24fa1886b860b1e301bb55e7fff557c7ca04c20bbef7d0546506a894a",
