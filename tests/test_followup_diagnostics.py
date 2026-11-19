@@ -117,14 +117,24 @@ def test_nested_c_macro_errors_are_reported_at_the_outer_boundary(tmp_path: Path
     ]
 
 
-def test_independent_syntax_diagnostics_are_capped(tmp_path: Path) -> None:
-    path = tmp_path / "many.py"
-    path.write_text("x = ?; y = 1\n" * 1000)
-    diagnostics = parse_file(str(path)).parse_diagnostics
+@pytest.mark.parametrize(
+    ("suffix", "language", "grammar", "line"),
+    [
+        ("py", "python", "python", "x = ?; y = 1\n"),
+        ("tsx", "typescript", "tsx", "const x = ?; const y = 1;\n"),
+    ],
+)
+def test_independent_syntax_diagnostics_are_capped(
+    tmp_path: Path, suffix: str, language: str, grammar: str, line: str
+) -> None:
+    path = tmp_path / f"many.{suffix}"
+    path.write_text(line * 1000)
+    diagnostics = parse_file(str(path), language).parse_diagnostics
     assert len(diagnostics) == 257
+    assert all(d.language == language and d.grammar == grammar for d in diagnostics)
     assert diagnostics[-1].message == "Additional syntax diagnostics omitted after 256 reports"
     with pytest.raises(ValueError, match="diagnostic"):
-        parse_file(str(path), strict=True)
+        parse_file(str(path), language, strict=True)
 
 
 def test_bom_comment_prefix_does_not_hide_trailing_syntax_error(tmp_path: Path) -> None:
