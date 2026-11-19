@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Retain TLA+ LOCAL definitions and named INSTANCE references. Keep record
+  labels and projection/update fields out of state-variable lookup, and omit
+  punctuation from parameter lists.
+
+- Correct shared formal type references, import visibility and argument scopes.
+  Bound syntax diagnostics and declaration nesting.
+
 - Add TLA+ specification graphs with transitive EXTENDS, recursive forward
   declarations, lexical binders and explicit proof/PlusCal coverage diagnostics.
 

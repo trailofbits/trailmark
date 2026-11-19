@@ -9,7 +9,7 @@ from trailmark.models.nodes import NodeKind, Parameter
 from trailmark.parsers._common import node_text
 from trailmark.parsers._formal import FormalParser, Namespace, Scope, Source, walk
 
-_OPAQUE = frozenset({"prefixed_op", "terminal_proof", "non_terminal_proof"})
+_OPAQUE = frozenset({"terminal_proof", "non_terminal_proof"})
 _SKIP = _OPAQUE | frozenset({"comment", "block_comment", "string"})
 _DECLARATIONS = {
     "operator_definition": "operator",
@@ -28,6 +28,19 @@ _IGNORED = frozenset(
         "extends",
     }
 )
+
+
+def _spelling(node: Node) -> str | None:
+    parent = node.parent
+    if parent is not None and (
+        parent.type == "except_update_record_field"
+        or (parent.type == "record_value" and node == parent.named_children[-1])
+        or (
+            parent.type in {"record_field", "record_set_field"} and node == parent.named_children[0]
+        )
+    ):
+        return None
+    return node_text(node)
 
 
 def _names(node: Node) -> frozenset[str]:
@@ -72,6 +85,39 @@ def _scopes(root: Node) -> tuple[Scope, ...]:
     return tuple(result)
 
 
+def _parameters(node: Node) -> tuple[Parameter, ...]:
+    parameters = tuple(
+        Parameter(node_text(p.child_by_field_name("name") or p))
+        for p in node.children_by_field_name("parameter")
+        if p.is_named
+    )
+    if node.type == "function_definition":
+        parameters = tuple(
+            Parameter(node_text(name))
+            for bound in node.named_children
+            if bound.type == "quantifier_bound"
+            for intro in bound.children_by_field_name("intro")
+            for name in walk(intro)
+            if name.type == "identifier"
+        )
+    return parameters
+
+
+def _prefixed(node: Node, env: Namespace) -> dict[int, str]:
+    prefixed = {}
+    for part in walk(node, _SKIP):
+        if part.type != "prefixed_op":
+            continue
+        prefix, op = part.child_by_field_name("prefix"), part.child_by_field_name("op")
+        if prefix is None or op is None:
+            continue
+        head = op.child_by_field_name("name") or op
+        instance = node_text(prefix).rstrip("!")
+        if instance in env.aliases:
+            prefixed[head.start_byte] = f"{env.aliases[instance]}.{node_text(head)}"
+    return prefixed
+
+
 class TLAPlusParser(FormalParser):
     """Retain specification dependencies with lexical and EXTENDS visibility."""
 
@@ -112,8 +158,26 @@ class TLAPlusParser(FormalParser):
         env = replace(env, name=namespace, opens=(*env.opens, *own_opens))
         env.source.module_name(namespace)
         env.source.reexports(namespace, own_opens)
+        instances = {}
+        for child in module.named_children:
+            if child.type == "module_definition":
+                instance = child.child_by_field_name("definition")
+                name = child.child_by_field_name("name")
+                if instance and name and instance.named_children:
+                    instances[node_text(name)] = node_text(instance.named_children[0])
+        env = replace(env, aliases={**env.aliases, **instances})
         for node in module.named_children:
             self._member(node, env)
+            inner = (
+                node.named_children[0]
+                if node.type == "local_definition" and node.named_children
+                else node
+            )
+            if inner.type == "instance" and inner.named_children:
+                target = node_text(inner.named_children[0])
+                env = replace(env, opens=(*env.opens, target))
+                if node.type != "local_definition":
+                    env.source.reexports(env.name, (target,))
 
     def _member(self, node: Node, env: Namespace) -> None:
         handlers = {
@@ -130,6 +194,12 @@ class TLAPlusParser(FormalParser):
             handlers[node.type](node, env)
         elif node.type in _DECLARATIONS:
             self._declaration(node, env)
+        elif node.type == "local_definition" and node.named_children:
+            inner = node.named_children[0]
+            if inner.type in _DECLARATIONS:
+                self._declaration(inner, env, private=True)
+            else:
+                self._member(inner, env)
         elif node.type not in _IGNORED:
             env.source.unsupported(node, f"TLA+ {node.type} is not modeled")
 
@@ -154,10 +224,38 @@ class TLAPlusParser(FormalParser):
 
     @staticmethod
     def _instance(node: Node, env: Namespace) -> None:
-        for instance in walk(node):
-            if instance.type == "instance" and instance.named_children:
-                env.source.import_(instance, node_text(instance.named_children[0]))
-        env.source.unsupported(node, "TLA+ INSTANCE members and substitutions are not expanded")
+        instance = (
+            node.child_by_field_name("definition") if node.type == "module_definition" else node
+        )
+        if instance is None or not instance.named_children:
+            return
+        target = node_text(instance.named_children[0])
+        env.source.import_(instance, target)
+        name = node.child_by_field_name("name")
+        owner = env.parent or env.source.module
+        if name is not None:
+            owner = env.source.declare(
+                node,
+                node_text(name),
+                "instance",
+                namespace=env.name,
+                parent=env.parent,
+                kind=NodeKind.NAMESPACE,
+                attributes=(("instance_of", target), ("executable", False)),
+            )
+        for substitution in instance.named_children:
+            if substitution.type == "substitution" and substitution.named_children:
+                env.source.references(
+                    owner,
+                    substitution.named_children[-1],
+                    frozenset({"identifier_ref"}),
+                    namespace=env.name,
+                    opens=env.opens,
+                    context="specification",
+                )
+                env.source.unsupported(
+                    substitution, "TLA+ WITH members reference the uninstantiated template"
+                )
 
     @staticmethod
     def _symbols(node: Node, env: Namespace) -> None:
@@ -183,14 +281,11 @@ class TLAPlusParser(FormalParser):
                 )
 
     @staticmethod
-    def _declaration(node: Node, env: Namespace) -> None:
+    def _declaration(node: Node, env: Namespace, *, private: bool = False) -> None:
         name = node.child_by_field_name("name")
         role = _DECLARATIONS[node.type]
         ident = node_text(name) if name else f"{role}@{node.start_point.row + 1}"
-        parameters = tuple(
-            Parameter(node_text(p.child_by_field_name("name") or p))
-            for p in node.children_by_field_name("parameter")
-        )
+        parameters = _parameters(node)
         owner = env.source.declare(
             node,
             ident,
@@ -198,13 +293,14 @@ class TLAPlusParser(FormalParser):
             namespace=env.name,
             parent=env.parent,
             parameters=parameters,
-            attributes=(("executable", False),),
+            attributes=(("executable", False), *((("private", True),) if private else ())),
         )
         for child in walk(node, _OPAQUE, include_skipped=True):
             if child.type in _OPAQUE:
                 env.source.unsupported(
                     child, "TLA+ proof steps and prefixed subexpressions are omitted"
                 )
+        prefixed = _prefixed(node, env)
         scopes = _scopes(node)
         for body in node.named_children:
             if body != name and body not in node.children_by_field_name("parameter"):
@@ -217,4 +313,5 @@ class TLAPlusParser(FormalParser):
                     scopes=scopes,
                     skip=_SKIP,
                     context="specification",
+                    spelling=lambda n: prefixed.get(n.start_byte, _spelling(n)),
                 )

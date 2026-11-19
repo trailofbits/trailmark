@@ -426,7 +426,9 @@ ownership, conservative binding, schema identity changes and pinned grammar limi
 TLA+ edges describe specification dependencies. Operators, functions, constants,
 variables, assumptions and theorem statements are retained. EXTENDS controls cross-file
 visibility transitively, including enclosing modules. Separators and RECURSIVE forward
-declarations are accepted; parameters, LAMBDA, quantifier and LET binders shadow globals. Proof steps,
-prefixed subexpressions, INSTANCE expansion and PlusCal translation are diagnosed as
-unsupported. No transition system, proof outcome or model-checking result is inferred;
+declarations are accepted; parameters, LAMBDA, quantifier and LET binders shadow globals. LOCAL definitions retain private visibility. Named INSTANCE nodes retain substitution
+references, and single-component `I!Op` uses can reference inspected template members.
+WITH substitutions are diagnosed because the template is not instantiated. Proof steps,
+complex prefixed subexpressions and PlusCal translation remain unsupported. User-defined
+symbolic operator dependencies and inherited instance aliases remain incomplete. No transition system, proof outcome or model-checking result is inferred;
 specification references never become calls.

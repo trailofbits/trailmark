@@ -6,6 +6,33 @@ from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory, parse_file
 
 
+def test_records_parameters_and_private_local_operators(tmp_path: Path) -> None:
+    (tmp_path / "Base.tla").write_text(
+        "---- MODULE Base ----\nVARIABLES field, records\n"
+        "LOCAL Helper(x, y) == x = y\n"
+        "Use == Helper(records, records)\n"
+        "Read == \\E r \\in records: r.field = 0\n"
+        "Write == [records EXCEPT !.field = 1]\n"
+        "F[n \\in records] == n\n====\n"
+    )
+    (tmp_path / "Use.tla").write_text(
+        "---- MODULE Use ----\nEXTENDS Base\nHidden == Helper(1, 1)\n====\n"
+    )
+    graph = parse_directory(str(tmp_path), language="tlaplus", strict=True)
+    helper = next(n for n in graph.nodes.values() if n.name == "Helper")
+    assert [p.name for p in helper.parameters] == ["x", "y"]
+    assert dict(helper.attributes)["private"] is True
+    function = next(n for n in graph.nodes.values() if n.name == "F")
+    assert [p.name for p in function.parameters] == ["n"]
+    pairs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    }
+    assert {("Use", "Helper"), ("Read", "records"), ("Write", "records")} <= pairs
+    assert not any(target == "field" or source == "Hidden" for source, target in pairs)
+
+
 def test_specification_dependencies_are_not_calls() -> None:
     path = Path(__file__).parent / "fixtures/kat/tlaplus/Counter.tla"
     graph = parse_file(str(path), strict=True)
@@ -156,3 +183,36 @@ def test_reusable_local_operators_and_bare_constants_keep_dependencies(tmp_path:
     }
     assert refs == {"P", "c"}
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
+
+
+def test_named_instance_retains_template_and_argument_references(tmp_path: Path) -> None:
+    (tmp_path / "Base.tla").write_text(
+        "---- MODULE Base ----\nVARIABLE x\nSpec == x=x\nOp(n) == n\n====\n"
+    )
+    path = tmp_path / "MC.tla"
+    path.write_text(
+        "---- MODULE MC ----\nVARIABLE y\nI == INSTANCE Base WITH x <- y\n"
+        "S == I!Spec\nU == I!Op(y)\n====\n"
+    )
+    graph = parse_directory(str(tmp_path), "tlaplus")
+    refs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    }
+    assert {("I", "y"), ("S", "I"), ("S", "Spec"), ("U", "I"), ("U", "Op"), ("U", "y")} <= refs
+    assert any("uninstantiated template" in d.message for d in graph.parse_diagnostics)
+
+
+@pytest.mark.parametrize(
+    "language,extension,code", [("tlaplus", "tla", "---- MODULE M ----\n" * 140 + "====\n" * 140)]
+)
+def test_deep_declarations_have_a_bounded_diagnostic(
+    tmp_path: Path, language: str, extension: str, code: str
+) -> None:
+    from trailmark.parse import parse_file
+
+    path = tmp_path / f"deep.{extension}"
+    path.write_text(code)
+    graph = parse_file(str(path), language)
+    assert any("depth of 128" in d.message for d in graph.parse_diagnostics)
