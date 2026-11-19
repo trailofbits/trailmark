@@ -587,7 +587,7 @@ def test_report_separates_adjudicated_and_provisional_and_keeps_all_coverage_sta
             }
         ],
     )
-    assert "## Adjudicated findings" in report
+    assert "## Unverified model adjudicator classifications" in report
     assert "## Provisional and unresolved discrepancies" in report
     assert "confirmed_defect" in report
     assert "question:path" in report

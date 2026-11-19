@@ -8,17 +8,36 @@ from typing import Any
 
 from tests.graph_eval.compare import compare_reference
 from tests.graph_eval.measure import digest as graph_digest
-from tests.graph_eval.measure import query_project
+from tests.graph_eval.measure import query_baseline, query_project
 from tests.graph_eval.navigation import plan_queries, score_answers
 from tests.graph_eval.util import digest, file_digest, read_json, source_inventory, write_json
 
 
-def _verify_batch(destination: Path) -> dict[str, Any]:
+def _verify_batch(destination: Path, original: dict[str, Any]) -> dict[str, Any]:
     seal = read_json(destination / "seal.json")
     for name, expected in seal["files"].items():
         if file_digest(destination / name) != expected:
             raise ValueError(f"Frozen public query evidence changed: {destination / name}")
-    return read_json(destination / "observation.json")
+    observation = read_json(destination / "observation.json")
+    if observation["status"] == "ok":
+        worker = read_json(destination / "worker" / "measurement.json")
+        if not original.get("runtime"):
+            raise ValueError("Frozen measurement lacks its original runtime fingerprint")
+        baseline = query_baseline(
+            worker,
+            expected_graph_hash=graph_digest(original["graph"]),
+            expected_runtime_hash=graph_digest(original["runtime"]),
+        )
+        if (
+            worker["status"] != "ok"
+            or not baseline["graph_identical"]
+            or not baseline["runtime_identical"]
+            or worker.get("query_baseline") != baseline
+            or observation.get("query_baseline") != baseline
+            or observation["query_answers"] != worker.get("query_answers")
+        ):
+            raise ValueError("Frozen public query graph or runtime identity differs from baseline")
+    return observation
 
 
 def verify_public_navigation(campaign: Path, case: dict[str, Any]) -> dict[str, Any]:
@@ -26,7 +45,7 @@ def verify_public_navigation(campaign: Path, case: dict[str, Any]) -> dict[str, 
     from tests.graph_eval.campaign import verify_measurement, verify_reference_states
 
     verify_reference_states(campaign, case)
-    verify_measurement(campaign, case["project"])
+    original = verify_measurement(campaign, case["project"])
     directory = campaign / "cases" / case["id"]
     seal = read_json(directory / "public-navigation-seal.json")
     expected = {
@@ -40,7 +59,7 @@ def verify_public_navigation(campaign: Path, case: dict[str, Any]) -> dict[str, 
     }
     if seal != expected:
         raise ValueError(f"Frozen public navigation changed: {case['id']}")
-    _verify_batch(Path(seal["batch_directory"]))
+    _verify_batch(Path(seal["batch_directory"]), original)
     return read_json(directory / "public-navigation.json")
 
 
@@ -112,6 +131,9 @@ def run_navigation(
                 "plans": plans,
                 "requests": requests,
                 "tool_python": manifest["tool_python"],
+                "expected_runtime_sha256": graph_digest(original["runtime"])
+                if original.get("runtime")
+                else None,
                 "implementation": {
                     name: file_digest(Path(__file__).with_name(name))
                     for name in ("public_queries.py", "navigation.py", "measure.py", "compare.py")
@@ -121,18 +143,21 @@ def run_navigation(
             batch = destination / identity
             batch.mkdir(parents=True, exist_ok=True)
             observation: dict[str, Any]
-            if (batch / "seal.json").exists():
-                observation = _verify_batch(batch)
-            else:
+            if not (batch / "seal.json").exists():
                 write_json(batch / "inputs.json", inputs)
                 write_json(batch / "requests.json", requests)
                 if original["status"] == "ok" and requests:
+                    if not original.get("runtime"):
+                        raise ValueError(
+                            "Frozen measurement lacks its original runtime fingerprint"
+                        )
                     result = query_project(
                         root,
                         project["language"],
                         batch / "worker",
                         requests,
                         expected_graph_hash=graph_digest(original["graph"]),
+                        expected_runtime_hash=graph_digest(original["runtime"]),
                         python=Path(manifest["tool_python"]),
                         timeout=manifest["limits"]["measurement_timeout"],
                     )
@@ -161,6 +186,7 @@ def run_navigation(
                         "files": {name: file_digest(batch / name) for name in files},
                     },
                 )
+            observation = _verify_batch(batch, original)
             for case in cases:
                 case_id = case["id"]
                 directory = campaign / "cases" / case_id

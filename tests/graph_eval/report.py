@@ -100,8 +100,61 @@ def _resources(case_results: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _validation_lines(case_results: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        "",
+        "## Independent validation evidence",
+        "",
+        "These checks cover each validator's stated syntax or schema scope. Acceptance does "
+        "not establish graph correctness. Unavailable and unconfigured checks remain untested.",
+        "",
+        "| Case | Source | Validator | Version | Status | Scope | Diagnostics / reason |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for result in case_results:
+        validation = result.get("validation")
+        files = (validation or {}).get("files", [])
+        if not files:
+            files = [
+                {
+                    "path": "(no file results)",
+                    "status": (validation or {}).get("status", "not_recorded"),
+                    "diagnostics": (validation or {}).get("diagnostics", []),
+                    "reason": f"Recorded counts: {validation.get('counts', {})}"
+                    if validation
+                    else "Independent validation evidence was not recorded",
+                }
+            ]
+        for source in files:
+            diagnostics = [
+                json.dumps(item, sort_keys=True, ensure_ascii=False)
+                if isinstance(item, dict)
+                else str(item)
+                for item in source.get("diagnostics", [])
+            ]
+            if source.get("reason"):
+                diagnostics.append(source["reason"])
+            lines.append(
+                "| "
+                + " | ".join(
+                    _cell(value)
+                    for value in (
+                        result["case_id"],
+                        source.get("path", "unrecorded"),
+                        source.get("validator") or "unrecorded",
+                        source.get("version", "unrecorded"),
+                        source.get("status", "unknown"),
+                        source.get("scope", "unrecorded"),
+                        "; ".join(diagnostics) or "none recorded",
+                    )
+                )
+                + " |"
+            )
+    return lines
+
+
 def generate_report(campaign_manifest: dict[str, Any], case_results: list[dict[str, Any]]) -> str:
-    """Render all cases, with adjudicated findings separate from nominations."""
+    """Render comparisons and model classifications without establishing findings."""
     by_id = {item["case_id"]: item for item in case_results}
     cases = campaign_manifest.get("cases", [])
     rows = []
@@ -180,7 +233,11 @@ def generate_report(campaign_manifest: dict[str, Any], case_results: list[dict[s
         "# Trailmark graph evaluation",
         "",
         "Source readers produced independent hypotheses. Deterministic comparisons nominate "
-        "discrepancies; adjudication records source-backed decisions without changing references.",
+        "discrepancies; adjudication records model judgments without changing references.",
+        "",
+        "**All model adjudicator classifications are unverified**, including `confirmed_defect`. "
+        "They remain pending independent source review and executed-reproduction review. "
+        "Model categories alone do not establish defects or correctness.",
         "",
         "Precision and recall are not reported: complete, independently adjudicated inventories "
         "and unambiguous matches have not been established.",
@@ -191,7 +248,7 @@ def generate_report(campaign_manifest: dict[str, Any], case_results: list[dict[s
         "## Coverage",
         "",
         "`pilot` means selected for evaluation; case outcomes show which work completed. "
-        "Decision counts are claims, not deduplicated defect counts.",
+        "Decision counts describe unverified model claims; multiple claims can concern one issue.",
         "",
         "| Language | Status |",
         "| --- | --- |",
@@ -223,6 +280,7 @@ def generate_report(campaign_manifest: dict[str, Any], case_results: list[dict[s
         ]
     )
     lines.extend("| " + " | ".join(_cell(value) for value in row) + " |" for row in rows)
+    lines.extend(_validation_lines(case_results))
     lines.extend(
         [
             "",
@@ -303,33 +361,43 @@ def generate_report(campaign_manifest: dict[str, Any], case_results: list[dict[s
     lines.extend(
         [
             "",
-            "## Adjudicated findings",
+            "## Unverified model adjudicator classifications",
             "",
-            "These are adjudicator classifications. A confirmed-defect label requires a "
-            "concrete reproduction; execution evidence is reported separately.",
+            "Every classification below is pending independent source review and "
+            "executed-reproduction review. An observation replay records repeatability; "
+            "it does not validate the model's diagnosis or proposed reproduction.",
             "",
         ]
     )
     if not findings:
-        lines.append("No adjudicated findings are available.")
+        lines.append("No model defect, limitation, or capability classifications are available.")
     for case_id, claim_id, category, decision, replay in findings:
         lines.extend(
             [
                 f"### {_cell(case_id)} / {_cell(claim_id)}",
                 "",
-                f"Category: **{category}**. Replay evidence: `{_cell(replay or 'not recorded')}`.",
+                f"Model category (unverified): **{category}**. "
+                f"Observation replay: `{_cell(replay or 'not recorded')}`.",
                 "",
                 f"Expected: {decision['expected']}",
                 "",
                 f"Observed: {decision['observed']}",
                 "",
-                f"Evidence: {decision['evidence']}",
+                f"Model evidence (unverified): {decision['evidence']}",
                 "",
-                f"Reproduction: {decision['reproduction']}",
+                f"Proposed reproduction (unverified): {decision['reproduction']}",
                 "",
             ]
         )
-    lines.extend(["", "## Provisional and unresolved discrepancies", ""])
+    lines.extend(
+        [
+            "",
+            "## Provisional and unresolved discrepancies",
+            "",
+            "Model classifications in this section are also unverified.",
+            "",
+        ]
+    )
     if not provisional:
         lines.append(
             "No pending discrepancy claims were recorded. "
@@ -341,10 +409,11 @@ def generate_report(campaign_manifest: dict[str, Any], case_results: list[dict[s
     lines.extend(
         [
             "",
-            "## Decision categories",
+            "## Unverified model decision categories",
             "",
-            "All classifications, including corrected expectations and comparison errors, "
-            "remain in the append-only adjudication artifacts.",
+            "All categories, including corrected expectations and comparison errors, remain "
+            "unverified pending independent source and executed-reproduction review. "
+            "Their history remains in the append-only adjudication artifacts.",
             "",
         ]
     )

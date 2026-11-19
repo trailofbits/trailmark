@@ -11,6 +11,7 @@ import pytest
 
 from tests.graph_eval import campaign, public_queries
 from tests.graph_eval.measure import digest as graph_digest
+from tests.graph_eval.measure import query_baseline
 from tests.graph_eval.util import digest, read_json, write_json
 
 
@@ -34,7 +35,15 @@ def _prepared_batch(
         "tool_python": sys.executable,
         "limits": {"measurement_timeout": 20},
     }
-    original = {"status": "ok", "graph": {"nodes": {}, "edges": []}}
+    original = {
+        "status": "ok",
+        "graph": {"nodes": {}, "edges": []},
+        "runtime": {
+            "python": "3.15.2",
+            "packages": {"trailmark": "0.1"},
+            "grammar_files": {"parser.so": "original"},
+        },
+    }
     write_json(root / "measurements/demo/seal.json", {"sha256": "original"})
     questions = [
         {
@@ -84,10 +93,12 @@ def _prepared_batch(
         _source: Path, _language: str, output: Path, requests: list[dict[str, Any]], **kwargs: Any
     ) -> dict[str, Any]:
         assert kwargs["expected_graph_hash"] == graph_digest(original["graph"])
+        assert kwargs["expected_runtime_hash"] == graph_digest(original["runtime"])
         batches.append(requests)
         result = {
             "status": query_status,
-            "query_baseline": {"graph_identical": query_status == "ok"},
+            "graph": original["graph"],
+            "runtime": original["runtime"],
             "query_answers": [
                 {
                     "id": request["id"],
@@ -99,6 +110,11 @@ def _prepared_batch(
                 for request in requests
             ],
         }
+        result["query_baseline"] = query_baseline(
+            result,
+            expected_graph_hash=kwargs["expected_graph_hash"],
+            expected_runtime_hash=kwargs["expected_runtime_hash"],
+        )
         write_json(output / "measurement.json", result)
         return result
 
@@ -140,6 +156,26 @@ def test_invalid_query_graph_preserves_answers_without_scoring_agreement(
         "error": 4,
         "unsupported": 2,
     }
+
+
+def test_query_runtime_identity_is_verified_before_scoring(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, cases, _ = _prepared_batch(tmp_path, monkeypatch)
+    observe = public_queries.query_project
+
+    def mismatched(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        result = observe(*args, **kwargs)
+        result["runtime"] = {"python": "different", "packages": {"trailmark": "changed"}}
+        # Simulate inconsistent successful worker metadata: unchanged topology
+        # and the stale success flags must not make these answers scoreable.
+        write_json(args[2] / "measurement.json", result)
+        return result
+
+    monkeypatch.setattr(public_queries, "query_project", mismatched)
+    with pytest.raises(ValueError, match="runtime identity differs"):
+        public_queries.run_navigation(tmp_path, manifest, cases, 1)
+    assert not (tmp_path / "cases" / cases[0]["id"] / "public-navigation.json").exists()
 
 
 @pytest.mark.parametrize("tamper", ["case", "batch"])

@@ -405,6 +405,24 @@ def measure_project(
     return measurement
 
 
+def query_baseline(
+    measurement: dict[str, Any], *, expected_graph_hash: str, expected_runtime_hash: str
+) -> dict[str, Any]:
+    """Bind navigation evidence to the complete original graph and runtime fingerprint."""
+    graph_hash = digest(measurement["graph"]) if "graph" in measurement else None
+    runtime = measurement.get("runtime")
+    runtime_hash = digest(runtime) if isinstance(runtime, dict) and runtime else None
+    return {
+        "expected_graph_sha256": expected_graph_hash,
+        "observed_graph_sha256": graph_hash,
+        "graph_identical": graph_hash == expected_graph_hash,
+        "expected_runtime_sha256": expected_runtime_hash,
+        "observed_runtime_sha256": runtime_hash,
+        "runtime_identical": runtime_hash == expected_runtime_hash,
+        "scope": "Public API queries from a repeated parse of the frozen source and runtime",
+    }
+
+
 def query_project(
     project_root: Path,
     language: str,
@@ -412,6 +430,7 @@ def query_project(
     queries: list[dict[str, Any]],
     *,
     expected_graph_hash: str,
+    expected_runtime_hash: str,
     python: Path | None = None,
     timeout: int = 1200,
 ) -> dict[str, Any]:
@@ -420,21 +439,22 @@ def query_project(
     Trailmark has no lossless public graph loader. Repeating analysis preserves
     the real public API behavior; the full normalized graph must match the
     original observation before these answers can count as navigation evidence.
+    Runtime equality covers every recorded interpreter, package, source, and
+    grammar fingerprint field; an identical graph alone is insufficient.
     """
     result = measure_project(
         project_root, language, destination, python=python, timeout=timeout, queries=queries
     )
-    actual_hash = digest(result["graph"]) if "graph" in result else None
-    identical = actual_hash == expected_graph_hash
-    result["query_baseline"] = {
-        "expected_graph_sha256": expected_graph_hash,
-        "observed_graph_sha256": actual_hash,
-        "graph_identical": identical,
-        "scope": "Public API queries from a repeated parse of the frozen unchanged source",
-    }
-    if result["status"] == "ok" and not identical:
+    baseline = query_baseline(
+        result, expected_graph_hash=expected_graph_hash, expected_runtime_hash=expected_runtime_hash
+    )
+    result["query_baseline"] = baseline
+    mismatches = [label for label in ("graph", "runtime") if not baseline[f"{label}_identical"]]
+    if result["status"] == "ok" and mismatches:
         result["status"] = "invalid"
-        result["error"] = "Query graph differs from the original frozen measurement"
+        result["error"] = (
+            f"Query {' and '.join(mismatches)} differs from the original frozen measurement"
+        )
     _write_json(destination / "measurement.json", result)
     return result
 

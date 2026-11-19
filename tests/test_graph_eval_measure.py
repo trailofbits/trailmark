@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import subprocess
 import sys
@@ -173,7 +174,9 @@ def test_public_navigation_reparse_requires_the_original_graph(tmp_path: Path) -
     (source / "sample.py").write_text(
         "def leaf(): pass\ndef middle(): leaf()\ndef main(): middle()\n"
     )
-    expected_hash = digest(collect_measurement(source, "python")["graph"])
+    original = collect_measurement(source, "python")
+    expected_hash = digest(original["graph"])
+    runtime_hash = digest(original["runtime"])
     questions = [
         {"id": "callees", "operation": "callees_of", "arguments": {"name": "sample:main"}},
         {"id": "callers", "operation": "callers_of", "arguments": {"name": "sample:leaf"}},
@@ -184,21 +187,72 @@ def test_public_navigation_reparse_requires_the_original_graph(tmp_path: Path) -
         },
     ]
     result = query_project(
-        source, "python", tmp_path / "queries", questions, expected_graph_hash=expected_hash
+        source,
+        "python",
+        tmp_path / "queries",
+        questions,
+        expected_graph_hash=expected_hash,
+        expected_runtime_hash=runtime_hash,
     )
     assert result["status"] == "ok"
     assert result["query_baseline"]["graph_identical"] is True
+    assert result["query_baseline"]["runtime_identical"] is True
+    assert result["query_baseline"]["observed_runtime_sha256"] == runtime_hash
     answers = {row["id"]: row for row in result["query_answers"]}
     assert {row["id"] for row in answers["callees"]["answer"]} == {"sample:middle"}
     assert {row["id"] for row in answers["callers"]["answer"]} == {"sample:middle"}
     assert answers["path"]["answer"] == [["sample:main", "sample:middle", "sample:leaf"]]
     (source / "sample.py").write_text("def different(): pass\n")
     changed = query_project(
-        source, "python", tmp_path / "changed", questions, expected_graph_hash=expected_hash
+        source,
+        "python",
+        tmp_path / "changed",
+        questions,
+        expected_graph_hash=expected_hash,
+        expected_runtime_hash=runtime_hash,
     )
     assert changed["status"] == "invalid"
     assert changed["query_baseline"]["graph_identical"] is False
     assert "differs" in changed["error"]
+
+
+@pytest.mark.parametrize(
+    "changed_field",
+    ["python", "executable", "packages", "trailmark_source_sha256", "grammar_files", "missing"],
+)
+def test_public_queries_reject_runtime_changes_even_when_graph_is_identical(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, changed_field: str
+) -> None:
+    runtime = {
+        "python": "3.15.2",
+        "executable": "/frozen/bin/python",
+        "packages": {"trailmark": "0.0.1", "tree-sitter": "0.25.2"},
+        "trailmark_source_sha256": "original-source",
+        "grammar_files": {"parser.so": "original"},
+    }
+    observed = copy.deepcopy(runtime)
+    if changed_field == "missing":
+        observed = {}
+    elif changed_field in {"packages", "grammar_files"}:
+        observed[changed_field] = {"changed": "content"}
+    else:
+        observed[changed_field] = "changed"
+    graph = {"nodes": {}, "edges": []}
+    raw = {"status": "ok", "graph": graph, "runtime": observed, "query_answers": []}
+    monkeypatch.setattr("tests.graph_eval.measure.measure_project", lambda *args, **kwargs: raw)
+    result = query_project(
+        tmp_path / "source",
+        "python",
+        tmp_path / "queries",
+        [],
+        expected_graph_hash=digest(graph),
+        expected_runtime_hash=digest(runtime),
+    )
+    assert result["status"] == "invalid"
+    assert result["query_baseline"]["graph_identical"] is True
+    assert result["query_baseline"]["runtime_identical"] is False
+    assert "runtime differs" in result["error"]
+    assert json.loads((tmp_path / "queries/measurement.json").read_text()) == result
 
 
 def test_python_validator_ignores_quoted_code_and_preserves_nested_ownership(
