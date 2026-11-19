@@ -259,6 +259,11 @@ _PROFILES = {
         "TLA+ specifications do not establish runtime exception behavior; "
         "no exception events are emitted.",
     ),
+    "tamarin": (
+        "UUUUU",
+        "Tamarin trace semantics and proof search do not establish runtime "
+        "exceptions; no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,

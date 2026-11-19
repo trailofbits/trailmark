@@ -1,0 +1,509 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.function.h"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.rule.Hash"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.fact.In/1"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.fact.Sent/1"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.fact.Out/1"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.lemma.sent_known"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.fact.K/1"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.function.pair"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.function.fst"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy.function.snd"
+    },
+    {
+      "attributes": {
+        "reference_context": "premise",
+        "spelling": "Taxonomy.fact.In/1"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 5,
+        "end_line": 4,
+        "file_path": "taxonomy.spthy",
+        "start_col": 3,
+        "start_line": 4
+      },
+      "source": "taxonomy:Taxonomy.rule.Hash",
+      "target": "taxonomy:Taxonomy.fact.In/1"
+    },
+    {
+      "attributes": {
+        "reference_context": "action",
+        "spelling": "Taxonomy.fact.Sent/1"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 19,
+        "end_line": 4,
+        "file_path": "taxonomy.spthy",
+        "start_col": 15,
+        "start_line": 4
+      },
+      "source": "taxonomy:Taxonomy.rule.Hash",
+      "target": "taxonomy:Taxonomy.fact.Sent/1"
+    },
+    {
+      "attributes": {
+        "reference_context": "action",
+        "spelling": "Taxonomy.function.h"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 21,
+        "end_line": 4,
+        "file_path": "taxonomy.spthy",
+        "start_col": 20,
+        "start_line": 4
+      },
+      "source": "taxonomy:Taxonomy.rule.Hash",
+      "target": "taxonomy:Taxonomy.function.h"
+    },
+    {
+      "attributes": {
+        "reference_context": "conclusion",
+        "spelling": "Taxonomy.fact.Out/1"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 35,
+        "end_line": 4,
+        "file_path": "taxonomy.spthy",
+        "start_col": 32,
+        "start_line": 4
+      },
+      "source": "taxonomy:Taxonomy.rule.Hash",
+      "target": "taxonomy:Taxonomy.fact.Out/1"
+    },
+    {
+      "attributes": {
+        "reference_context": "conclusion",
+        "spelling": "Taxonomy.function.h"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 37,
+        "end_line": 4,
+        "file_path": "taxonomy.spthy",
+        "start_col": 36,
+        "start_line": 4
+      },
+      "source": "taxonomy:Taxonomy.rule.Hash",
+      "target": "taxonomy:Taxonomy.function.h"
+    },
+    {
+      "attributes": {
+        "reference_context": "specification",
+        "spelling": "Taxonomy.fact.Sent/1"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 33,
+        "end_line": 5,
+        "file_path": "taxonomy.spthy",
+        "start_col": 29,
+        "start_line": 5
+      },
+      "source": "taxonomy:Taxonomy.lemma.sent_known",
+      "target": "taxonomy:Taxonomy.fact.Sent/1"
+    },
+    {
+      "attributes": {
+        "reference_context": "specification",
+        "spelling": "Taxonomy.fact.K/1"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 53,
+        "end_line": 5,
+        "file_path": "taxonomy.spthy",
+        "start_col": 52,
+        "start_line": 5
+      },
+      "source": "taxonomy:Taxonomy.lemma.sent_known",
+      "target": "taxonomy:Taxonomy.fact.K/1"
+    }
+  ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "unsupported",
+      "events": "unsupported",
+      "handlers": "unsupported",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "tamarin",
+      "notes": "Tamarin trace semantics and proof search do not establish runtime exceptions; no exception events are emitted.",
+      "type_hints": "unsupported"
+    }
+  ],
+  "language": "tamarin",
+  "nodes": {
+    "taxonomy": {
+      "attributes": {
+        "formal_exports": "{\"Taxonomy.function\": [\"function\"], \"Taxonomy.predicate\": [\"predicate\"]}",
+        "formal_modules": "[\"Taxonomy\", \"taxonomy\"]"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 7,
+        "file_path": "taxonomy.spthy",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.fact.In/1": {
+      "attributes": {
+        "conditional": false,
+        "declaration_role": "fact_symbol",
+        "executable": false,
+        "implicit": true,
+        "persistent": false,
+        "qualified_name": "Taxonomy.fact.In/1"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.fact.In/1",
+      "kind": "function",
+      "location": {
+        "end_col": 8,
+        "end_line": 4,
+        "file_path": "taxonomy.spthy",
+        "start_col": 3,
+        "start_line": 4
+      },
+      "name": "In/1",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.fact.K/1": {
+      "attributes": {
+        "conditional": false,
+        "declaration_role": "fact_symbol",
+        "executable": false,
+        "implicit": true,
+        "persistent": false,
+        "qualified_name": "Taxonomy.fact.K/1"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.fact.K/1",
+      "kind": "function",
+      "location": {
+        "end_col": 56,
+        "end_line": 5,
+        "file_path": "taxonomy.spthy",
+        "start_col": 52,
+        "start_line": 5
+      },
+      "name": "K/1",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.fact.Out/1": {
+      "attributes": {
+        "conditional": false,
+        "declaration_role": "fact_symbol",
+        "executable": false,
+        "implicit": true,
+        "persistent": false,
+        "qualified_name": "Taxonomy.fact.Out/1"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.fact.Out/1",
+      "kind": "function",
+      "location": {
+        "end_col": 41,
+        "end_line": 4,
+        "file_path": "taxonomy.spthy",
+        "start_col": 32,
+        "start_line": 4
+      },
+      "name": "Out/1",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.fact.Sent/1": {
+      "attributes": {
+        "conditional": false,
+        "declaration_role": "fact_symbol",
+        "executable": false,
+        "implicit": true,
+        "persistent": false,
+        "qualified_name": "Taxonomy.fact.Sent/1"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.fact.Sent/1",
+      "kind": "function",
+      "location": {
+        "end_col": 25,
+        "end_line": 4,
+        "file_path": "taxonomy.spthy",
+        "start_col": 15,
+        "start_line": 4
+      },
+      "name": "Sent/1",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.function.fst": {
+      "attributes": {
+        "arity": 1,
+        "attacker_private": false,
+        "builtin": true,
+        "declaration_role": "function",
+        "executable": false,
+        "implicit": true,
+        "qualified_aliases": "[\"function.fst\"]",
+        "qualified_name": "Taxonomy.function.fst"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.function.fst",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 6,
+        "file_path": "taxonomy.spthy",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "fst",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.function.h": {
+      "attributes": {
+        "arity": 1,
+        "attacker_private": false,
+        "builtin": false,
+        "declaration_role": "function",
+        "executable": false,
+        "implicit": false,
+        "qualified_aliases": "[\"function.h\"]",
+        "qualified_name": "Taxonomy.function.h"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.function.h",
+      "kind": "function",
+      "location": {
+        "end_col": 14,
+        "end_line": 2,
+        "file_path": "taxonomy.spthy",
+        "start_col": 11,
+        "start_line": 2
+      },
+      "name": "h",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.function.pair": {
+      "attributes": {
+        "arity": 2,
+        "attacker_private": false,
+        "builtin": true,
+        "declaration_role": "function",
+        "executable": false,
+        "implicit": true,
+        "qualified_aliases": "[\"function.pair\"]",
+        "qualified_name": "Taxonomy.function.pair"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.function.pair",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 6,
+        "file_path": "taxonomy.spthy",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "pair",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.function.snd": {
+      "attributes": {
+        "arity": 1,
+        "attacker_private": false,
+        "builtin": true,
+        "declaration_role": "function",
+        "executable": false,
+        "implicit": true,
+        "qualified_aliases": "[\"function.snd\"]",
+        "qualified_name": "Taxonomy.function.snd"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.function.snd",
+      "kind": "function",
+      "location": {
+        "end_col": 3,
+        "end_line": 6,
+        "file_path": "taxonomy.spthy",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "snd",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.lemma.sent_known": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "lemma",
+        "diff": false,
+        "executable": false,
+        "qualified_name": "Taxonomy.lemma.sent_known"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.lemma.sent_known",
+      "kind": "function",
+      "location": {
+        "end_col": 61,
+        "end_line": 5,
+        "file_path": "taxonomy.spthy",
+        "start_col": 0,
+        "start_line": 5
+      },
+      "name": "sent_known",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.rule.Hash": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "rule",
+        "diff": false,
+        "executable": false,
+        "qualified_name": "Taxonomy.rule.Hash"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.rule.Hash",
+      "kind": "function",
+      "location": {
+        "end_col": 43,
+        "end_line": 4,
+        "file_path": "taxonomy.spthy",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "Hash",
+      "parameters": [],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.spthy",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 0,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 10,
+    "languages": [
+      "tamarin"
+    ],
+    "parse_diagnostics": [],
+    "proxies": 0,
+    "source_file_counts": {
+      "tamarin": 1
+    },
+    "source_files": 1,
+    "total_nodes": 11
+  },
+  "trailmark_version": "<trailmark-version>"
+}

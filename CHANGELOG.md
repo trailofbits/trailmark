@@ -21,6 +21,10 @@
   labels and projection/update fields out of state-variable lookup, and omit
   punctuation from parameter lists.
 
+- Retain Tamarin let/macro operator terms and fact roles/persistence. Accept
+  all-traces and common attributes; share symbol and fact identity across
+  unambiguous include trees.
+
 - Correct shared formal type references, import visibility and argument scopes.
   Bound syntax diagnostics and declaration nesting.
 
@@ -38,6 +42,10 @@
 
 - Add TLA+ specification graphs with transitive EXTENDS, recursive forward
   declarations, lexical binders and explicit proof/PlusCal coverage diagnostics.
+
+- Add Tamarin symbolic graphs with distinct declaration namespaces, syntactic fact
+  arity, builtin signatures, bare constants, macros, predicates, file includes,
+  structural conditionals and diagnosed proof boundaries.
 
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as

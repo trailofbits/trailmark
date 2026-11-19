@@ -57,3 +57,8 @@ This product bundles the following third-party components:
   Licensed under MIT; upstream notices and local changes are retained alongside the grammar.
   https://github.com/aruzdh/tree-sitter-rocq
   Vendored commit: cd77242808b07ca09eb035573a4670e832cf1b97
+
+- tree-sitter-tamarin grammar (src/trailmark/tree_sitter_custom/tamarin/)
+  Licensed under MIT; upstream notices and local changes are retained alongside the grammar.
+  https://github.com/aeyno/tree-sitter-tamarin
+  Vendored commit: 07e2f32c1e9f68e8b813b8eca924a61f2c4b94d8

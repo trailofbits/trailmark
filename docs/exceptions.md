@@ -104,6 +104,7 @@ exception dispatch or cleanup ordering.
 | rocq | unsupported | unsupported | unsupported | unsupported | unsupported | Rocq proof checking and extracted-program failures are not modeled; no exception events are emitted. |
 | whyml | unsupported | unsupported | unsupported | unsupported | unsupported | WhyML raises clauses and verification conditions are not modeled as runtime exception events; no exception events are emitted. |
 | tlaplus | unsupported | unsupported | unsupported | unsupported | unsupported | TLA+ specifications do not establish runtime exception behavior; no exception events are emitted. |
+| tamarin | unsupported | unsupported | unsupported | unsupported | unsupported | Tamarin trace semantics and proof search do not establish runtime exceptions; no exception events are emitted. |
 | julia | partial | not_applicable | partial | partial | not_applicable | Named throw/rethrow/error calls are uncertain; task failures and finalizers are not inferred. |
 | erlang | partial | partial | partial | partial | not_applicable | Exception classes and after syntax are retained; process exit signals and catch dispatch are not resolved. |
 | masm | partial | not_applicable | not_applicable | not_applicable | not_applicable | Assertion instructions may fail; VM failure and proof validity are not modeled as typed exceptions. |

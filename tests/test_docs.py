@@ -116,6 +116,11 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ),
     ("docs/languages.md", "TLA+ edges describe specification dependencies"),
     ("docs/languages.md", "visibility transitively, including enclosing modules"),
+    ("docs/languages.md", "Conditional blocks retain both branches"),
+    ("docs/languages.md", "Bare nullary functions retain references"),
+    ("docs/languages.md", "Include directives retain file dependencies"),
+    ("docs/languages.md", "Activated builtin signatures"),
+    ("docs/languages.md", "Tamarin graphs describe rule and formula references to symbols"),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (
@@ -223,6 +228,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "lemma dependencies occurring only in proofs are absent"),
     ("docs/languages.md", "Module signature clauses retain references in the module namespace"),
     ("docs/languages.md", "mean per-file syntax-error line coverage fell from 44% to 15%"),
+    ("docs/languages.md", "premise, action and conclusion"),
     ("docs/graph-model.md", "unresolved reference spellings are omitted"),
     ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars

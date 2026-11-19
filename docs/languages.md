@@ -11,6 +11,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Rocq/Coq](#rocqcoq)
 - [WhyML](#whyml)
 - [TLA+](#tla)
+- [Tamarin](#tamarin)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -508,3 +509,33 @@ WITH substitutions are diagnosed because the template is not instantiated. Proof
 complex prefixed subexpressions and PlusCal translation remain unsupported. User-defined
 symbolic operator dependencies and inherited instance aliases remain incomplete. No transition system, proof outcome or model-checking result is inferred;
 specification references never become calls.
+
+## Tamarin
+
+Tamarin graphs describe rule and formula references to symbols. Functions, rules,
+restrictions, lemmas, macros and predicates retain their source roles; fact symbols
+are identified by name and syntactic argument count at their first occurrence and
+marked implicit. Rule fact references distinguish premise, action and conclusion; fact
+nodes retain persistence. Declaration kinds use separate namespaces. Macro applications link
+to macro definitions, and predicate applications link to predicate definitions,
+including within embedded restrictions. Bodies retain their own dependencies;
+substitution is not performed. Bare nullary functions retain references, while
+quoted names, sorted variables, parameters and local binders do not become constant
+references. Activated builtin signatures and explicit builtin applications retain
+symbolic dependencies, following the
+[message theory definitions](https://tamarin-prover.com/manual/master/book/004_cryptographic-messages.html).
+
+Include directives retain file dependencies. Directory analysis links inspected
+`.spthy` fragments by exact paths relative to the including file, transitively;
+unambiguous include trees share fact identities and symbol scope. Single-file analysis
+does not load included files. Shared fragments included by several independent theories
+are not instantiated separately. Private function symbols remain
+visible across includes: `attacker_private` describes attacker access, not source
+module visibility. Conditional blocks retain both branches and mark their declarations
+`conditional`; flags and boolean conditions are not evaluated, and ambiguous alternative
+definitions are not guessed. Directives do not consume the following source line.
+
+Common rule/function attributes, `all-traces`, destructor builtin variants and deprecated
+`axiom` declarations are accepted. Proof skeletons, variants, tactics, embedded text and SAPIC processes produce
+unsupported-syntax diagnostics. Facts do not imply rule-to-rule execution edges,
+traces, attacker deductions or successful proofs.
