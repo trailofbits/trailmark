@@ -131,6 +131,10 @@ python -m tests.graph_eval report ~/tmp-worktrees/trailmark-eval/pilot-20261119
 python -m tests.graph_eval replay ~/tmp-worktrees/trailmark-eval/pilot-20261119 --case CASE_ID
 ```
 
+`prepare` requires either `--image` or `--build-image`. The latter builds the
+current worker and records its immutable image ID and retention tag. Builds use
+unique tags; later builds preserve images retained by earlier campaigns.
+
 `prepare` pins source worktrees and preregisters cases. `run` performs the frozen
 reader/measurement/comparison/adjudication protocol. `report` regenerates results
 from artifacts. `replay` reproduces a selected case using recorded inputs. Use

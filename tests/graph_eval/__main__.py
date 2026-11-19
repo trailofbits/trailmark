@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from tests.graph_eval import campaign
-from tests.graph_eval.worker import DEFAULT_CONTEXT, DEFAULT_IMAGE, build_image, preflight
+from tests.graph_eval.worker import DEFAULT_CONTEXT, build_image, preflight
 
 
 def _shard(value: str) -> tuple[int, int]:
@@ -27,10 +27,11 @@ def main() -> None:
     prepare.add_argument("campaign", type=Path)
     prepare.add_argument("--tool-python", required=True, type=Path)
     prepare.add_argument("--validator-python", type=Path)
-    prepare.add_argument("--image", default=DEFAULT_IMAGE)
+    image_choice = prepare.add_mutually_exclusive_group(required=True)
+    image_choice.add_argument("--image", help="Previously built worker image ID or reference")
+    image_choice.add_argument("--build-image", action="store_true")
     prepare.add_argument("--context", default=DEFAULT_CONTEXT)
     prepare.add_argument("--workers", type=int, default=4)
-    prepare.add_argument("--build-image", action="store_true")
     prepare.add_argument("--live-preflight", action="store_true")
     run = commands.add_parser("run", help="Run or resume unchanged frozen jobs")
     run.add_argument("campaign", type=Path)

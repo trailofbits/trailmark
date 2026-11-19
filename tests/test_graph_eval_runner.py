@@ -13,6 +13,24 @@ from tests.graph_eval.schema import REFERENCE_SCHEMA
 from tests.graph_eval.util import digest, file_digest, read_json, write_json
 
 
+def test_prepare_requires_an_explicit_image_choice_before_any_work(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    from tests.graph_eval.__main__ import main
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["graph-eval", "prepare", str(tmp_path), "--tool-python", "/unused/frozen/python"],
+    )
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "--image" in capsys.readouterr().err
+    assert not list(tmp_path.iterdir())
+
+
 def _case(ident: str = "case") -> dict[str, Any]:
     return {
         "id": ident,
