@@ -92,6 +92,12 @@ locations. It retains raw IDs, relative paths, origins, annotations, entrypoints
 and edge attributes. Public query answers are separate. No display-name or
 basename collapse is allowed.
 
+Public-query evidence must match both the original graph and its runtime
+fingerprint, including package, grammar, and source hashes. Callee and caller
+questions use calls only, even for formal and schema profiles. Structural paths
+may use the profile's other relations. A negative path question is not evaluated
+when the mapped domain can contain a simple path beyond the 20-edge search bound.
+
 Independent validators supply bounded evidence:
 
 | Language | Validator and limit |
@@ -165,6 +171,12 @@ Report correctness against the documented contract separately from usefulness
 for source-backed navigation. Adjudication categories are `confirmed_defect`,
 `documented_limitation`, `capability_need`, `expectation_error`, `comparison_error`,
 `intentional_approximation`, `unresolved`, and `agree`.
+
+These are model adjudicator classifications pending independent review. Even
+`confirmed_defect` is an unverified nomination until a reviewer checks the source,
+contract, and an executed reproduction. Nonempty evidence fields do not prove
+that those checks occurred. Preserve review decisions and reproduction receipts
+alongside the frozen evidence, and identify reviewed findings separately.
 
 Show per-language and per-stratum counts, reader disagreements, unresolved
 claims, unavailable validators, diagnostics, crashes, timeouts, and navigation

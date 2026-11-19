@@ -290,6 +290,9 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "review the 32-case pilot before expanding the corpus"),
     ("tests/graph_eval/README.md", "two independent source-only readers"),
     ("tests/graph_eval/README.md", "before exposing measurements"),
+    ("tests/graph_eval/README.md", "match both the original graph and its runtime"),
+    ("tests/graph_eval/README.md", "negative path question is not evaluated"),
+    ("tests/graph_eval/README.md", "model adjudicator classifications pending independent review"),
     ("tests/graph_eval/README.md", "precision or recall without a complete adjudicated inventory"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
