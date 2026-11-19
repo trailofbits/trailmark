@@ -29,6 +29,7 @@ PARSER_FIXTURES: list[tuple[str, str]] = [
     ("whyml", "taxonomy"),
     ("tlaplus", "Counter"),
     ("tamarin", "taxonomy"),
+    ("proverif", "taxonomy"),
     ("aiken", "taxonomy"),
     ("bash", "taxonomy"),
     ("c", "taxonomy"),

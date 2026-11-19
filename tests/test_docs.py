@@ -121,6 +121,11 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "Include directives retain file dependencies"),
     ("docs/languages.md", "Activated builtin signatures"),
     ("docs/languages.md", "Tamarin graphs describe rule and formula references to symbols"),
+    (
+        "docs/languages.md",
+        "ProVerif retains symbolic specification references without inventing runtime calls",
+    ),
+    ("docs/languages.md", "diagnosed once per opaque boundary"),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (
@@ -229,6 +234,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "Module signature clauses retain references in the module namespace"),
     ("docs/languages.md", "mean per-file syntax-error line coverage fell from 44% to 15%"),
     ("docs/languages.md", "premise, action and conclusion"),
+    ("docs/languages.md", "library_resolution=directory"),
     ("docs/graph-model.md", "unresolved reference spellings are omitted"),
     ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars

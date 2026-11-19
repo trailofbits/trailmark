@@ -264,6 +264,11 @@ _PROFILES = {
         "Tamarin trace semantics and proof search do not establish runtime "
         "exceptions; no exception events are emitted.",
     ),
+    "proverif": (
+        "UUUUU",
+        "ProVerif process blocking and verification results do not "
+        "establish runtime exceptions; no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,

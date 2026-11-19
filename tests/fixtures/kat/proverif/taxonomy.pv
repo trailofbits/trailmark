@@ -1,0 +1,6 @@
+free c: channel.
+fun h(bitstring): bitstring.
+event sent(bitstring).
+let sender(x:bitstring) = event sent(h(x)); out(c,h(x)); 0.
+query x:bitstring; event(sent(x)).
+process new s:bitstring; sender(s)

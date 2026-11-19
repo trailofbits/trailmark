@@ -15,6 +15,7 @@ EXCEPTION_CASES: tuple[tuple[str, str, frozenset[str], bool], ...] = tuple(
         ("whyml", "whyml.mlw", "", False),
         ("tlaplus", "tlaplus.tla", "", False),
         ("tamarin", "tamarin.spthy", "", False),
+        ("proverif", "proverif.pv", "", False),
         ("python", "python.py", "raise rethrow handler cleanup", False),
         ("r", "r.r", "raise handler cleanup", False),
         ("javascript", "javascript.js", "raise handler cleanup", False),

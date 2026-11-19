@@ -68,6 +68,7 @@ _PARSER_MAP: dict[str, tuple[str, str]] = {
     "whyml": ("trailmark.parsers.whyml", "WhyMLParser"),
     "tlaplus": ("trailmark.parsers.tlaplus", "TLAPlusParser"),
     "tamarin": ("trailmark.parsers.tamarin", "TamarinParser"),
+    "proverif": ("trailmark.parsers.proverif", "ProVerifParser"),
 }
 
 # Auto-detection uses unambiguous extensions. Explicit C/Objective-C parsers
@@ -121,6 +122,7 @@ _LANGUAGE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "whyml": (".mlw", ".why"),
     "tlaplus": (".tla",),
     "tamarin": (".spthy",),
+    "proverif": (".pv", ".pvl"),
 }
 
 _SUPPORTED_LANGUAGES = tuple(_PARSER_MAP.keys())

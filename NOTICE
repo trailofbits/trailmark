@@ -62,3 +62,8 @@ This product bundles the following third-party components:
   Licensed under MIT; upstream notices and local changes are retained alongside the grammar.
   https://github.com/aeyno/tree-sitter-tamarin
   Vendored commit: 07e2f32c1e9f68e8b813b8eca924a61f2c4b94d8
+
+- tree-sitter-proverif grammar (src/trailmark/tree_sitter_custom/proverif/)
+  Licensed under 0BSD; upstream notices and local changes are retained alongside the grammar.
+  https://github.com/maribu/tree-sitter-proverif
+  Vendored commit: 7741807092c4009c1fe4c3648da60ca72b1b80f1

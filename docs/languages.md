@@ -12,6 +12,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [WhyML](#whyml)
 - [TLA+](#tla)
 - [Tamarin](#tamarin)
+- [ProVerif](#proverif)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -539,3 +540,20 @@ Common rule/function attributes, `all-traces`, destructor builtin variants and d
 `axiom` declarations are accepted. Proof skeletons, variants, tactics, embedded text and SAPIC processes produce
 unsupported-syntax diagnostics. Facts do not imply rule-to-rule execution edges,
 traces, attacker deductions or successful proofs.
+
+## ProVerif
+
+ProVerif retains symbolic specification references without inventing runtime calls.
+Types, functions, process macros, events, predicates, free names and queries have
+separate declaration roles. Input, new, let, assignment, replication and query binders
+shadow globals only in their branches and continuations. Settings (`set`, `param`) are
+accepted without evaluation; weaksecret, noninterf and nounif retain distinct roles
+and references without claiming equivalent verification semantics. Destructors declared by
+`reduc` retain their own nodes. Table `get` patterns bind only their success branch;
+process continuations extend across unparenthesized parallel composition. Declaration
+macros retain namespaced members and expansion references without instantiating them.
+Horn clauses and ignored CryptoVerif declarations are diagnosed once per opaque boundary.
+Directory analysis can infer references to a unique same-directory `.pvl` declaration,
+marked `library_resolution=directory`; competing libraries produce diagnostics.
+Explicit `-lib` ordering, process reduction, attacker knowledge and verification outcomes
+are not inferred.
