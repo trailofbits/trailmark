@@ -292,7 +292,7 @@ def _assertion(
 
 
 def _questions(
-    reference: dict[str, Any], graph: dict[str, Any], mapping: dict[str, str], profile: str
+    reference: dict[str, Any], graph: dict[str, Any], mapping: dict[str, str]
 ) -> list[dict[str, Any]]:
     """Evaluate bounded navigation in the enriched graph, not the public API."""
     domain = set(mapping.values())
@@ -304,6 +304,7 @@ def _questions(
             "claim_id": "question:" + question["id"],
             "basis": "enriched_graph",
             "operation": operation,
+            "edge_kinds": question["edge_kinds"],
             "expected": question["expected"],
             "observed": [],
             "issues": [],
@@ -326,13 +327,7 @@ def _questions(
             continue
         subject = mapping[question["subject"]]
         expected = [mapping[key] for key in question["expected"]]
-        kinds = {"calls"}
-        if profile != "runtime" and operation in {"path", "dependencies"}:
-            kinds |= {"references", "type_uses", "corresponds_to"}
-        if operation == "dependencies":
-            kinds |= {"imports", "inherits", "implements", "references", "type_uses"}
-        elif operation == "ownership":
-            kinds = {"contains"}
+        kinds = set(question["edge_kinds"])
         adjacency: dict[str, set[str]] = defaultdict(set)
         for edge in graph.get("edges", []):
             source, target = _source(edge), _target(edge)
@@ -519,7 +514,7 @@ def compare_reference(
         for item in reference["assertions"]
     ]
     _prevent_site_reuse(reference, assertions)
-    questions = _questions(reference, graph, mapping, case.get("profile", "runtime"))
+    questions = _questions(reference, graph, mapping)
     extras = _extras(reference, graph, mapping, declarations, assertions, case)
     discrepancies = [
         item

@@ -8,6 +8,7 @@ from typing import Any
 
 from tests.graph_eval.compare import compare_reference
 from tests.graph_eval.measure import measure_project
+from tests.graph_eval.schema import REFERENCE_SCHEMA_VERSION
 from tests.graph_eval.util import write_json
 
 
@@ -55,7 +56,7 @@ def _reference(
             }
         )
     return {
-        "schema_version": 1,
+        "schema_version": REFERENCE_SCHEMA_VERSION,
         "case_id": case_id,
         "status": "complete",
         "inventory_complete": True,
@@ -79,6 +80,7 @@ def _reference(
             {
                 "id": "callees",
                 "operation": "callees",
+                "edge_kinds": ["calls"],
                 "subject": "entry",
                 "target": None,
                 "expected": ["leaf"],
@@ -88,6 +90,7 @@ def _reference(
             {
                 "id": "callers",
                 "operation": "callers",
+                "edge_kinds": ["calls"],
                 "subject": "leaf",
                 "target": None,
                 "expected": ["entry"],
@@ -97,6 +100,7 @@ def _reference(
             {
                 "id": "path",
                 "operation": "path",
+                "edge_kinds": ["calls"],
                 "subject": "entry",
                 "target": "leaf",
                 "expected": ["entry", "leaf"],

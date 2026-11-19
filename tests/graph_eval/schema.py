@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 from typing import Any
 
-SCHEMA_VERSION = 1
+REFERENCE_SCHEMA_VERSION = 2
+ADJUDICATION_SCHEMA_VERSION = 1
 CONFIDENCE = ["certain", "inferred", "uncertain"]
 RELATIONS = [
     "calls",
@@ -22,6 +23,7 @@ RELATIONS = [
     "corresponds_to",
     "diagnostic",
 ]
+QUESTION_RELATIONS = [kind for kind in RELATIONS if kind != "diagnostic"]
 CATEGORIES = [
     "confirmed_defect",
     "documented_limitation",
@@ -60,7 +62,7 @@ LOCATION_SCHEMA = _object(
 )
 REFERENCE_SCHEMA = _object(
     {
-        "schema_version": {"type": "integer", "enum": [SCHEMA_VERSION]},
+        "schema_version": {"type": "integer", "enum": [REFERENCE_SCHEMA_VERSION]},
         "case_id": _STRING,
         "status": {"type": "string", "enum": ["complete", "partial", "needs_context"]},
         "inventory_complete": {"type": "boolean"},
@@ -109,6 +111,10 @@ REFERENCE_SCHEMA = _object(
                                 "ownership",
                             ],
                         },
+                        "edge_kinds": {
+                            **_array({"type": "string", "enum": QUESTION_RELATIONS}),
+                            "minItems": 1,
+                        },
                         "subject": _STRING,
                         "target": _NULLABLE,
                         "expected": _array(_STRING),
@@ -125,7 +131,7 @@ REFERENCE_SCHEMA = _object(
 )
 ADJUDICATION_SCHEMA = _object(
     {
-        "schema_version": {"type": "integer", "enum": [SCHEMA_VERSION]},
+        "schema_version": {"type": "integer", "enum": [ADJUDICATION_SCHEMA_VERSION]},
         "case_id": _STRING,
         "decisions": _array(
             _object(
@@ -226,10 +232,28 @@ def validate_reference(value: Any, case_id: str | None = None) -> None:
         if not known(item["subject"]) or not known(item["target_key"]):
             raise ValueError("Assertion refers to an unknown declaration")
     for item in value["questions"]:
+        validate_question_relations(item)
         if not all(known(key) for key in [item["subject"], item["target"], *item["expected"]]):
             raise ValueError("Question refers to an unknown declaration")
     if value["inventory_complete"] and value["status"] != "complete":
         raise ValueError("A partial reference cannot claim a complete inventory")
+
+
+def validate_question_relations(question: dict[str, Any]) -> None:
+    """Enforce explicit relation semantics, including constraints beyond JSON shape."""
+    kinds = question.get("edge_kinds")
+    if (
+        not isinstance(kinds, list)
+        or not kinds
+        or any(kind not in QUESTION_RELATIONS for kind in kinds)
+    ):
+        raise ValueError("Questions require nonempty explicit edge_kinds without diagnostic")
+    if len(kinds) != len(set(kinds)):
+        raise ValueError("Question edge_kinds must be unique")
+    operation = question["operation"]
+    required = {"callees": ["calls"], "callers": ["calls"], "ownership": ["contains"]}
+    if operation in required and kinds != required[operation]:
+        raise ValueError(f"{operation} questions require edge_kinds={required[operation]}")
 
 
 def validate_adjudication(value: Any, case_id: str | None = None) -> None:

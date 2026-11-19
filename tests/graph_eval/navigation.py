@@ -4,13 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from tests.graph_eval.schema import validate_question_relations
+
 
 def plan_queries(
     reference: dict[str, Any], comparison: dict[str, Any], *, prefix: str, profile: str
 ) -> dict[str, Any]:
+    """Plan explicit relations; ``profile`` remains accepted as caller metadata."""
     mapping = comparison["mapping"]
     requests, records = [], []
     for question in reference["questions"]:
+        validate_question_relations(question)
         ident = prefix + question["id"]
         operation = question["operation"]
         record: dict[str, Any] = {
@@ -18,6 +22,7 @@ def plan_queries(
             "claim_id": prefix + "public-question:" + question["id"],
             "question": question["question"],
             "operation": operation,
+            "edge_kinds": question["edge_kinds"],
             "expected": [mapping.get(key) for key in question["expected"]],
             "domain": sorted(set(mapping.values())),
             "status": "pending",
@@ -62,11 +67,6 @@ def plan_queries(
                     "Direct calls only; specification/type dependencies are separate"
                 )
             elif operation == "path" and question["target"] is not None:
-                kinds = (
-                    ["calls"]
-                    if profile == "runtime"
-                    else ["calls", "references", "type_uses", "corresponds_to"]
-                )
                 request = {
                     "id": ident,
                     "operation": "paths_between",
@@ -76,7 +76,7 @@ def plan_queries(
                         "max_depth": max(1, len(question["expected"]) - 1)
                         if question["expected"]
                         else 20,
-                        "edge_kinds": kinds,
+                        "edge_kinds": question["edge_kinds"],
                     },
                 }
                 record["semantics"] = (

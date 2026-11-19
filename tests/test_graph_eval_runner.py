@@ -45,7 +45,7 @@ def _case(ident: str = "case") -> dict[str, Any]:
 
 def _reference(ident: str) -> dict[str, Any]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "case_id": ident,
         "status": "partial",
         "inventory_complete": False,
@@ -55,6 +55,7 @@ def _reference(ident: str) -> dict[str, Any]:
             {
                 "id": f"q{i}",
                 "operation": "ownership",
+                "edge_kinds": ["contains"],
                 "subject": "file:module.py",
                 "target": None,
                 "expected": [],

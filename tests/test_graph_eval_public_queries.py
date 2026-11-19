@@ -49,6 +49,7 @@ def _prepared_batch(
         {
             "id": "calls",
             "operation": "callees",
+            "edge_kinds": ["calls"],
             "subject": "f",
             "target": None,
             "expected": ["h"],
@@ -57,6 +58,7 @@ def _prepared_batch(
         {
             "id": "path",
             "operation": "path",
+            "edge_kinds": ["calls"],
             "subject": "f",
             "target": "h",
             "expected": ["f", "h"],
@@ -65,6 +67,7 @@ def _prepared_batch(
         {
             "id": "owns",
             "operation": "ownership",
+            "edge_kinds": ["contains"],
             "subject": "f",
             "target": None,
             "expected": [],

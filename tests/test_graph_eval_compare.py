@@ -50,7 +50,7 @@ def _edge(source: str, target: str, line: int | None, kind: str = "calls") -> di
 
 def _reference() -> dict[str, Any]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "case_id": "python-control",
         "status": "complete",
         "inventory_complete": True,
@@ -93,6 +93,7 @@ def _reference() -> dict[str, Any]:
             {
                 "id": "callees",
                 "operation": "callees",
+                "edge_kinds": ["calls"],
                 "subject": "f",
                 "target": None,
                 "expected": ["h"],
@@ -102,6 +103,7 @@ def _reference() -> dict[str, Any]:
             {
                 "id": "callers",
                 "operation": "callers",
+                "edge_kinds": ["calls"],
                 "subject": "h",
                 "target": None,
                 "expected": ["f"],
@@ -111,6 +113,7 @@ def _reference() -> dict[str, Any]:
             {
                 "id": "path",
                 "operation": "path",
+                "edge_kinds": ["calls"],
                 "subject": "f",
                 "target": "h",
                 "expected": ["f", "h"],
@@ -435,7 +438,7 @@ def test_callee_and_caller_questions_ignore_noncall_relations_in_every_profile(
     assert [row["status"] for row in questions] == ["agree", "agree", "agree"]
 
 
-@pytest.mark.parametrize("profile", ["formal", "schema", "sql"])
+@pytest.mark.parametrize("profile", ["runtime", "formal", "schema", "sql"])
 @pytest.mark.parametrize("relation", ["references", "type_uses", "corresponds_to"])
 def test_structural_relations_remain_paths_and_dependencies_without_becoming_calls(
     profile: str, relation: str
@@ -446,10 +449,41 @@ def test_structural_relations_remain_paths_and_dependencies_without_becoming_cal
     reference["assertions"][0]["kind"] = relation
     reference["questions"][0]["expected"] = []
     reference["questions"][1]["expected"] = []
+    reference["questions"][2]["edge_kinds"] = [relation]
     questions = _compare(measurement, reference, case)["questions"]
     assert [row["status"] for row in questions] == ["agree", "agree", "agree"]
-    reference["questions"][0].update(operation="dependencies", expected=["h"])
+    reference["questions"][0].update(
+        operation="dependencies", edge_kinds=[relation], expected=["h"]
+    )
     assert _compare(measurement, reference, case)["questions"][0]["status"] == "agree"
+
+
+def test_declared_path_and_dependency_relations_do_not_expand_with_the_profile() -> None:
+    measurement, reference, case = _measurement(), _reference(), _case()
+    case["profile"] = "formal"
+    measurement["graph"]["edges"][-1]["kind"] = "references"
+    reference["assertions"][0]["kind"] = "references"
+    assert _compare(measurement, reference, case)["questions"][2]["status"] == "discrepancy"
+    reference["questions"][2]["edge_kinds"] = ["references"]
+    assert _compare(measurement, reference, case)["questions"][2]["status"] == "agree"
+    reference["questions"][0].update(operation="dependencies", edge_kinds=["type_uses"])
+    assert _compare(measurement, reference, case)["questions"][0]["status"] == "discrepancy"
+    measurement["graph"]["edges"].append(_edge("main:run", "lib:helper", 6, "type_uses"))
+    assert _compare(measurement, reference, case)["questions"][0]["status"] == "agree"
+
+
+def test_declared_mixed_path_can_follow_containment_then_a_call() -> None:
+    reference = _reference()
+    reference["questions"][2].update(
+        subject="file:main.py",
+        expected=["file:main.py", "f", "h"],
+        edge_kinds=["contains", "calls"],
+    )
+    question = _compare(_measurement(), reference)["questions"][2]
+    assert question["status"] == "agree"
+    assert question["observed"] == ["main", "main:run", "lib:helper"]
+    reference["questions"][2]["edge_kinds"] = ["calls"]
+    assert _compare(_measurement(), reference)["questions"][2]["status"] == "discrepancy"
 
 
 def test_graph_order_and_irrelevant_namesake_addition_do_not_change_results() -> None:
@@ -515,6 +549,47 @@ def test_every_schema_object_requires_all_fields_and_forbids_extras() -> None:
     prompt = reference_prompt(_case(), "1: def run():")
     assert "source_read" in prompt and "source_search" in prompt
     assert "1: def run():" in prompt
+    assert "schema_version=2" in prompt and 'exactly ["calls"]' in prompt
+
+
+@pytest.mark.parametrize(
+    "operation,kinds",
+    [
+        ("path", []),
+        ("path", ["calls", "calls"]),
+        ("path", ["diagnostic"]),
+        ("callees", ["calls", "references"]),
+        ("callers", ["contains"]),
+        ("ownership", ["calls"]),
+    ],
+)
+def test_question_relations_are_nonempty_unique_and_constrained_by_operation(
+    operation: str, kinds: list[str]
+) -> None:
+    reference = _reference()
+    reference["questions"][0].update(operation=operation, edge_kinds=kinds)
+    with pytest.raises(ValueError):
+        validate_reference(reference)
+
+
+def test_reference_schema_two_rejects_legacy_references_without_changing_adjudication_version() -> (
+    None
+):
+    reference = _reference()
+    validate_reference(reference)
+    del reference["questions"][0]["edge_kinds"]
+    with pytest.raises(ValueError):
+        validate_reference(reference)
+    reference = _reference()
+    reference["schema_version"] = 1
+    with pytest.raises(ValueError, match="enum"):
+        validate_reference(reference)
+    adjudication = _adjudication("unresolved")
+    validate_adjudication(adjudication)
+    assert adjudication["schema_version"] == 1
+    adjudication["schema_version"] = 2
+    with pytest.raises(ValueError, match="enum"):
+        validate_adjudication(adjudication)
 
 
 def _adjudication(category: str = "confirmed_defect") -> dict[str, Any]:

@@ -49,15 +49,24 @@ cannot distinguish multiple uses on one line, state that limitation.
 
 Supply exactly THREE bounded, source-backed navigation questions using operations
 callees, callers, path, dependencies or ownership. Each has an ID, subject key,
-optional target key, expected declaration-key list, question and evidence.
+optional target key, expected declaration-key list, edge_kinds, question and evidence.
+edge_kinds MUST be a nonempty list of UNIQUE relation names chosen among calls,
+references, contains, imports, inherits, implements, type_uses, reads, writes,
+resolves_to, specializes and corresponds_to. Diagnostic is not a graph relation.
+For callers and callees use exactly ["calls"]. For ownership use exactly
+["contains"]. For dependencies and path explicitly choose the relations the
+question asks about; the evaluator will not infer them from prose or language.
+For a containment path use ["contains"]; a mixed field/type dependency path may
+use ["reads", "type_uses"]. Each path step follows the forward direction of one of
+the selected relation kinds. These are structural paths, not execution proofs.
 Questions must be answerable from the supplied scope; do not claim whole-project
 negative answers from a partial reading. For path, expected is an ordered
-source-to-target structural dependency path. For dependencies, include only
-expected in-scope named dependencies, not language primitives. For ownership,
+source-to-target structural dependency path. For dependencies, expected lists
+direct outgoing in-scope named neighbors over edge_kinds, not language primitives. For ownership,
 expected lists direct child declarations. Avoid vacuous questions when a
 nonempty source-backed question is available.
 
-Return only the required JSON object with schema_version=1,
+Return only the required JSON object with schema_version=2,
 case_id={json.dumps(case_id)}, status, inventory_complete, declarations,
 assertions, questions and notes.
 

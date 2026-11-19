@@ -7,6 +7,10 @@ from typing import Any
 import pytest
 
 from tests.graph_eval.navigation import plan_queries, score_answers
+from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.graph import CodeGraph
+from trailmark.models.nodes import CodeUnit, NodeKind, SourceLocation
+from trailmark.query.api import QueryEngine
 
 
 def _reference(complete: bool = True) -> dict[str, Any]:
@@ -16,6 +20,7 @@ def _reference(complete: bool = True) -> dict[str, Any]:
             {
                 "id": "q1",
                 "operation": "callees",
+                "edge_kinds": ["calls"],
                 "subject": "f",
                 "target": None,
                 "expected": ["g"],
@@ -24,6 +29,7 @@ def _reference(complete: bool = True) -> dict[str, Any]:
             {
                 "id": "q2",
                 "operation": "ownership",
+                "edge_kinds": ["contains"],
                 "subject": "f",
                 "target": None,
                 "expected": [],
@@ -32,6 +38,7 @@ def _reference(complete: bool = True) -> dict[str, Any]:
             {
                 "id": "q3",
                 "operation": "path",
+                "edge_kinds": ["calls"],
                 "subject": "f",
                 "target": "g",
                 "expected": ["f", "g"],
@@ -137,3 +144,59 @@ def test_negative_paths_require_a_domain_covered_by_the_search_bound(
         path = [f"m:f{index}" for index in range(node_count)]
         scored = score_answers(plan, [{"id": "A:q3", "status": "ok", "answer": [path]}])
         assert scored[2]["status"] == "discrepancy"
+
+
+def test_explicit_containment_path_uses_actual_public_query_semantics() -> None:
+    location = SourceLocation("main.py", 1, 3, 0, 1)
+    graph = CodeGraph(
+        nodes={
+            ident: CodeUnit(ident, name, kind, location)
+            for ident, name, kind in (
+                ("m", "m", NodeKind.MODULE),
+                ("m:C", "C", NodeKind.CLASS),
+                ("m:C.f", "f", NodeKind.METHOD),
+            )
+        },
+        edges=[
+            CodeEdge("m", "m:C", EdgeKind.CONTAINS),
+            CodeEdge("m:C", "m:C.f", EdgeKind.CONTAINS),
+        ],
+    )
+    reference = _reference()
+    reference["questions"][2].update(expected=["f", "c", "g"], edge_kinds=["contains"])
+    plan = plan_queries(
+        reference, {"mapping": {"f": "m", "c": "m:C", "g": "m:C.f"}}, prefix="A:", profile="runtime"
+    )
+    request = next(row for row in plan["requests"] if row["operation"] == "paths_between")
+    engine = QueryEngine.from_graph(graph)
+    answer = engine.paths_between(**request["arguments"])
+    assert answer == [["m", "m:C", "m:C.f"]]
+    scored = score_answers(plan, [{"id": request["id"], "status": "ok", "answer": answer}])
+    assert scored[2]["status"] == "agree"
+    assert scored[2]["edge_kinds"] == ["contains"]
+
+
+@pytest.mark.parametrize("profile", ["runtime", "formal", "schema", "sql"])
+def test_public_path_relations_come_only_from_the_question(profile: str) -> None:
+    reference = _reference()
+    reference["questions"][2]["edge_kinds"] = ["reads", "type_uses"]
+    plan = plan_queries(
+        reference, {"mapping": {"f": "m:f", "g": "m:g"}}, prefix="A:", profile=profile
+    )
+    path_request = next(row for row in plan["requests"] if row["operation"] == "paths_between")
+    assert path_request["arguments"]["edge_kinds"] == ["reads", "type_uses"]
+
+
+def test_public_question_planning_rejects_missing_or_invalid_relation_semantics() -> None:
+    reference = _reference()
+    del reference["questions"][2]["edge_kinds"]
+    with pytest.raises(ValueError, match="explicit edge_kinds"):
+        plan_queries(
+            reference, {"mapping": {"f": "m:f", "g": "m:g"}}, prefix="A:", profile="runtime"
+        )
+    reference = _reference()
+    reference["questions"][0]["edge_kinds"] = ["references"]
+    with pytest.raises(ValueError, match="callees"):
+        plan_queries(
+            reference, {"mapping": {"f": "m:f", "g": "m:g"}}, prefix="A:", profile="formal"
+        )
