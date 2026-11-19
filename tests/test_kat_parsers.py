@@ -25,6 +25,7 @@ from tests.kat_runner import assert_snapshot_matches, fixture_pair
 PARSER_FIXTURES: list[tuple[str, str]] = [
     ("dafny", "taxonomy"),
     ("fstar", "taxonomy"),
+    ("rocq", "taxonomy"),
     ("aiken", "taxonomy"),
     ("bash", "taxonomy"),
     ("c", "taxonomy"),

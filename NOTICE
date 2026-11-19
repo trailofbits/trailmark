@@ -52,3 +52,8 @@ This product bundles the following third-party components:
   Licensed under the MIT License; upstream notices are retained in LICENSE.
   https://github.com/FStarLang/tree-sitter-fstar
   Vendored commit: f5aca8ce0122f0ac10eaeb6f3081382d59d294f2
+
+- tree-sitter-rocq grammar (src/trailmark/tree_sitter_custom/rocq/)
+  Licensed under MIT; upstream notices and local changes are retained alongside the grammar.
+  https://github.com/aruzdh/tree-sitter-rocq
+  Vendored commit: cd77242808b07ca09eb035573a4670e832cf1b97

@@ -244,6 +244,11 @@ _PROFILES = {
         "F* effects, exceptions and extracted-code failure behavior are not "
         "modeled; no exception events are emitted.",
     ),
+    "rocq": (
+        "UUUUU",
+        "Rocq proof checking and extracted-program failures are not "
+        "modeled; no exception events are emitted.",
+    ),
 }
 _STATUS = {
     "P": ExceptionSupportStatus.PARTIAL,

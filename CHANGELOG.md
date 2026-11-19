@@ -9,6 +9,10 @@
   Resolve operators and qualified names; preserve dependent and monadic binders
   and separate proof/type contexts from executable applications.
 
+- Recover Rocq sentences after syntax errors; retain records, match bodies,
+  section assumptions and module signature references. Separate term/module
+  namespaces and resolve partial logical module paths.
+
 - Correct shared formal type references, import visibility and argument scopes.
   Bound syntax diagnostics and declaration nesting.
 
@@ -17,6 +21,9 @@
 
 - Add F* source graphs with interface correspondence, private visibility, iterative
   pattern binding, refinement dependencies and conservative computational calls.
+
+- Add Rocq/Coq Gallina graphs with lexical modules and sections, explicit imports,
+  project load paths and binder scopes. Require explicit `rocq` selection for `.v`.
 
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as

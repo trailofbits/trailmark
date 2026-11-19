@@ -102,6 +102,12 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "docs/languages.md",
         "Pulse bodies, quotations and splices produce unsupported-syntax diagnostics",
     ),
+    ("docs/languages.md", "Export propagates short-name openings"),
+    (
+        "docs/languages.md",
+        "Rocq/Coq retains Gallina source references without claiming kernel proof dependencies",
+    ),
+    ("docs/languages.md", "automatic detection excludes `.v`"),
     ("docs/entrypoints.md", "except declarations explicitly marked non-executable"),
     ("CONTRIBUTING.md", "supplies unstripped symbols only after every executable byte matches"),
     (
@@ -206,6 +212,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "explicitly computational declaration with non-ghost argument positions",
     ),
     ("docs/languages.md", "including implicit `Tot`"),
+    ("docs/languages.md", "lemma dependencies occurring only in proofs are absent"),
+    ("docs/languages.md", "Module signature clauses retain references in the module namespace"),
     ("docs/graph-model.md", "unresolved reference spellings are omitted"),
     ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars

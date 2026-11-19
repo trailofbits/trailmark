@@ -1,0 +1,279 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:taxonomy.identity"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:taxonomy.use"
+    },
+    {
+      "attributes": {
+        "reference_context": "definition",
+        "spelling": "identity"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 42,
+        "end_line": 2,
+        "file_path": "taxonomy.v",
+        "start_col": 34,
+        "start_line": 2
+      },
+      "source": "taxonomy:taxonomy.use",
+      "target": "taxonomy:taxonomy.identity"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:taxonomy.trusted"
+    },
+    {
+      "attributes": {
+        "reference_context": "definition",
+        "spelling": "identity"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 40,
+        "end_line": 3,
+        "file_path": "taxonomy.v",
+        "start_col": 32,
+        "start_line": 3
+      },
+      "source": "taxonomy:taxonomy.trusted",
+      "target": "taxonomy:taxonomy.identity"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:taxonomy.identity_ok"
+    },
+    {
+      "attributes": {
+        "reference_context": "type",
+        "spelling": "identity"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 38,
+        "end_line": 4,
+        "file_path": "taxonomy.v",
+        "start_col": 30,
+        "start_line": 4
+      },
+      "source": "taxonomy:taxonomy.identity_ok",
+      "target": "taxonomy:taxonomy.identity"
+    }
+  ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "unsupported",
+      "events": "unsupported",
+      "handlers": "unsupported",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "rocq",
+      "notes": "Rocq proof checking and extracted-program failures are not modeled; no exception events are emitted.",
+      "type_hints": "unsupported"
+    }
+  ],
+  "language": "rocq",
+  "nodes": {
+    "taxonomy": {
+      "attributes": {
+        "formal_modules": "[\"taxonomy\"]",
+        "ordered_declarations": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 6,
+        "file_path": "taxonomy.v",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:taxonomy.identity": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "definition",
+        "executable": false,
+        "qualified_name": "taxonomy.identity"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:taxonomy.identity",
+      "kind": "function",
+      "location": {
+        "end_col": 40,
+        "end_line": 1,
+        "file_path": "taxonomy.v",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "identity",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "nat"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:taxonomy.identity_ok": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "theorem",
+        "executable": false,
+        "qualified_name": "taxonomy.identity_ok"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:taxonomy.identity_ok",
+      "kind": "function",
+      "location": {
+        "end_col": 44,
+        "end_line": 4,
+        "file_path": "taxonomy.v",
+        "start_col": 0,
+        "start_line": 4
+      },
+      "name": "identity_ok",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "nat"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:taxonomy.trusted": {
+      "attributes": {
+        "assumed": true,
+        "declaration_role": "assumption",
+        "executable": false,
+        "qualified_name": "taxonomy.trusted"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:taxonomy.trusted",
+      "kind": "function",
+      "location": {
+        "end_col": 46,
+        "end_line": 3,
+        "file_path": "taxonomy.v",
+        "start_col": 0,
+        "start_line": 3
+      },
+      "name": "trusted",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:taxonomy.use": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "definition",
+        "executable": false,
+        "qualified_name": "taxonomy.use"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:taxonomy.use",
+      "kind": "function",
+      "location": {
+        "end_col": 44,
+        "end_line": 2,
+        "file_path": "taxonomy.v",
+        "start_col": 0,
+        "start_line": 2
+      },
+      "name": "use",
+      "parameters": [
+        {
+          "default": null,
+          "name": "n",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "nat"
+          }
+        }
+      ],
+      "return_type": null
+    }
+  },
+  "root_path": "taxonomy.v",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 0,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 4,
+    "languages": [
+      "rocq"
+    ],
+    "parse_diagnostics": [
+      {
+        "grammar": "rocq",
+        "kind": "unsupported",
+        "language": "rocq",
+        "location": {
+          "end_col": 5,
+          "end_line": 5,
+          "file_path": "taxonomy.v",
+          "start_col": 0,
+          "start_line": 5
+        },
+        "message": "Rocq tactics are not elaborated into proof dependencies"
+      }
+    ],
+    "proxies": 0,
+    "source_file_counts": {
+      "rocq": 1
+    },
+    "source_files": 1,
+    "total_nodes": 5
+  },
+  "trailmark_version": "<trailmark-version>"
+}

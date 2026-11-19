@@ -249,6 +249,7 @@ for working with proxies.
 | Lean 4 | `.lean` | `lean` | definitions, theorems, namespaces, structures, classes, inductive types, imports, term applications, explicit symbol and typed field references |
 | Dafny | `.dfy` | `dafny` | modules, classes, datatypes, functions, methods, lemmas, contracts and explicit references |
 | F* | `.fst`, `.fsti` | `fstar` | declarations, interfaces, refinements, module imports, explicit references and computational applications |
+| Rocq/Coq | `.v` | `rocq` | Gallina declarations, modules, assumptions, theorem statements and explicit references; select `rocq` explicitly |
 | Julia | `.jl` | `julia` | modules, types, long/short functions, closures, signatures, branches, imports, conservative local calls |
 | Erlang | `.erl` | `erlang` | functions, records, behaviours, modules |
 | Miden Assembly | `.masm` | `masm` | procedures, entrypoints, constants, invocations |

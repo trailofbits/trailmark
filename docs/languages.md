@@ -8,6 +8,7 @@ header handling, and cross-file linking, are in [Graph model](graph-model.md).
 - [Lean 4](#lean-4)
 - [Dafny](#dafny)
 - [F*](#f)
+- [Rocq/Coq](#rocqcoq)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -453,3 +454,22 @@ treated as unrestricted opens. Pulse bodies, quotations and
 splices produce unsupported-syntax diagnostics. Elaboration, tactics, effect aliases and
 extraction are not evaluated. Record projections do not fall back to unrelated global
 functions; receiver-dependent field resolution remains incomplete.
+
+## Rocq/Coq
+
+Rocq/Coq retains Gallina source references without claiming kernel proof dependencies.
+Definitions, fixpoints, inductives, records, fields, section assumptions and theorem statements
+keep their declaration roles. Explicit Require and Import statements bound cross-file
+visibility. Export propagates short-name openings without inventing qualified module
+members. Selective imports and source Load commands are diagnosed as unsupported.
+Match scrutinees and branch bodies retain references with branch-local pattern binders.
+Module signature clauses retain references in the module namespace, separate from terms.
+Tactics and notation expansion produce diagnostics; lemma dependencies occurring only
+in proofs are absent. Each file receives at most one tactic-coverage diagnostic; no proof success, axiom closure, extraction behavior or runtime calls are
+inferred. Implicit and inductive binders, mutual fixpoint bodies and section imports
+retain their lexical boundaries. From/Require imports use directory identities or
+explicit -Q/-R mappings in the nearest _CoqProject file; other load-path configuration
+is not evaluated. Sentence recovery preserves later declarations after malformed commands.
+Advanced functors, generated declarations, Include expansion and notation declarations
+remain incomplete. Select `--language rocq` explicitly for `.v` files because the
+extension also denotes Verilog; automatic detection excludes `.v`.
