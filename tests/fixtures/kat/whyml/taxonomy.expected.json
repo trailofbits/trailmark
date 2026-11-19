@@ -12,7 +12,7 @@
       },
       "confidence": "certain",
       "kind": "imports",
-      "source": "taxonomy",
+      "source": "taxonomy:Taxonomy",
       "target": "@import:whyml:int.Int"
     },
     {
@@ -253,7 +253,11 @@
           }
         }
       ],
-      "return_type": null
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
     },
     "taxonomy:Taxonomy.model": {
       "attributes": {
@@ -288,7 +292,11 @@
           }
         }
       ],
-      "return_type": null
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
     },
     "taxonomy:Taxonomy.positive": {
       "attributes": {
@@ -358,7 +366,11 @@
           }
         }
       ],
-      "return_type": null
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "unit"
+      }
     },
     "taxonomy:Taxonomy.run": {
       "attributes": {
@@ -393,7 +405,11 @@
           }
         }
       ],
-      "return_type": null
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
     }
   },
   "root_path": "taxonomy.mlw",

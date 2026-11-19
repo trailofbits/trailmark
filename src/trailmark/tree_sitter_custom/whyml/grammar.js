@@ -7,6 +7,7 @@ module.exports = grammar({
   word: ($) => $.identifier,
   reserved: {
     global: ($) => [
+      "end", "done", "do", "downto", "else", "ensures", "true", "false", "axiom", "constant", "exception", "clone",
       "abstract",
       "absurd",
       "alias",
@@ -50,6 +51,7 @@ module.exports = grammar({
       "rec",
       "requires",
       "returns",
+      "return",
       "scope",
       "so",
       "then",
@@ -69,7 +71,7 @@ module.exports = grammar({
   externals: ($) => [$.comment],
   conflicts: ($) => [],
   rules: {
-    source_file: ($) => repeat($.module_declaration),
+    source_file: ($) => repeat(choice($.module_declaration, $._declaration)),
     module_declaration: ($) =>
       seq(
         choice("module", "theory"),
@@ -88,6 +90,7 @@ module.exports = grammar({
         $.val_declaration,
         $.proposition,
         $.exception_declaration,
+        $.meta_declaration,
         $.unsupported_keyword,
       ),
     scope_declaration: ($) =>
@@ -141,7 +144,7 @@ module.exports = grammar({
         "type",
         field("name", $.identifier),
         repeat($.type_variable),
-        optional(seq("=", choice($.record_type, $.variant_type, $._type))),
+        optional(seq("=", seq(optional("private"), choice($.record_type, $.variant_type, $._type)))),
         repeat($.contract),
       ),
     record_type: ($) =>
@@ -170,28 +173,28 @@ module.exports = grammar({
     logic_declaration: ($) =>
       seq(
         choice("function", "predicate", "constant"),
-        field("name", $.identifier),
+        field("name", choice($.identifier, $.operator_name)),
         repeat(field("parameter", $.binder)),
         optional(seq(":", field("type", $._type))),
         optional(seq("=", field("body", $._expression))),
       ),
-    let_declaration: ($) =>
+    let_declaration: ($) => seq("let", optional("rec"), $._let_binding, repeat(seq("with", alias($._let_binding, $.recursive_binding)))),
+    _let_binding: ($) =>
       seq(
-        "let",
-        optional("rec"),
-        repeat(choice("ghost", "lemma", "function", "predicate")),
-        field("name", $.identifier),
+        repeat(choice("ghost", "lemma", "function", "predicate", "constant", "ref")),
+        field("name", choice($.identifier, $.operator_name)),
         repeat(field("parameter", choice($.binder, $.identifier, $.unit))),
         optional(seq(":", field("type", $._type))),
         repeat($.contract),
         "=",
+        repeat($.contract),
         field("body", $._expression),
       ),
     val_declaration: ($) =>
       seq(
         "val",
-        repeat(choice("ghost", "function", "predicate")),
-        field("name", $.identifier),
+        repeat(choice("ghost", "function", "predicate", "constant", "ref")),
+        field("name", choice($.identifier, $.operator_name)),
         repeat(field("parameter", choice($.binder, $.unit))),
         optional(seq(":", field("type", $._type))),
         repeat($.contract),
@@ -209,6 +212,7 @@ module.exports = grammar({
         field("name", $.constructor_identifier),
         optional($._type),
       ),
+    meta_declaration: ($) => seq("meta", $.string, comma(seq(optional(choice("type", "function", "predicate", "axiom", "lemma", "goal", "val")), choice($.identifier, $.constructor_identifier, $.qualified_identifier, $.string, $.number)))),
     binder: ($) =>
       seq(
         "(",
@@ -262,6 +266,10 @@ module.exports = grammar({
         $.for_expression,
         $.assert_expression,
         $.ghost_expression,
+        $.label_expression,
+        $.raise_expression,
+        $.try_expression,
+        $.at_expression,
         $.unsupported_keyword,
       ),
     _atom: ($) =>
@@ -274,9 +282,21 @@ module.exports = grammar({
         $.boolean,
         $.unit,
         $.parenthesized_expression,
+        $.index_expression,
+        $.operator_name,
+        $.record_expression,
       ),
+    record_expression: ($) => seq("{", optional(seq(field("record", $.identifier), "with")), $.record_assignment, repeat(seq(";", $.record_assignment)), optional(";"), "}"),
+    record_assignment: ($) => seq(field("name", $.identifier), "=", field("value", $._expression)),
     unit: ($) => "()",
-    parenthesized_expression: ($) => seq("(", comma($._expression), ")"),
+    parenthesized_expression: ($) => seq("(", comma($._expression), optional(";"), ")"),
+    operator: ($) => token(prec(-1, /[!$%&*+\-./:<=>?@^|~]+/)),
+    operator_name: ($) => seq("(", choice($.operator, "[]", "[]<-"), ")"),
+    index_expression: ($) => prec.left(14, seq(field("object", choice($.identifier, $.qualified_identifier, $.parenthesized_expression, $.index_expression)), "[", $._expression, optional(seq("<-", $._expression)), "]")),
+    label_expression: ($) => prec.right(seq("label", $.constructor_identifier, "in", field("body", $._expression))),
+    at_expression: ($) => prec.left(13, seq($._expression, "at", $.constructor_identifier)),
+    raise_expression: ($) => prec.right(seq(choice("raise", "return"), field("body", $._expression))),
+    try_expression: ($) => seq("try", $._expression, "with", optional("|"), $.match_case, repeat(seq("|", $.match_case)), "end"),
     application: ($) =>
       prec.left(
         12,
@@ -286,7 +306,8 @@ module.exports = grammar({
       choice(
         prec.right(1, seq($._expression, ";", $._expression)),
         prec.right(2, seq($._expression, choice("<-", ":="), $._expression)),
-        prec.right(3, seq($._expression, choice("->", "<->"), $._expression)),
+        prec.right(3, seq($._expression, choice("->", "<->", "by", "so"), $._expression)),
+        prec.left(7, seq($._expression, $.operator, $._expression)),
         prec.left(4, seq($._expression, choice("\\/", "||"), $._expression)),
         prec.left(5, seq($._expression, choice("/\\", "&&"), $._expression)),
         prec.left(
@@ -309,6 +330,7 @@ module.exports = grammar({
           $._expression,
           "then",
           $._expression,
+          optional(";"),
           optional(seq("else", $._expression)),
         ),
       ),
@@ -347,18 +369,20 @@ module.exports = grammar({
     quantifier_binder: ($) =>
       seq(repeat1(field("name", $.identifier)), optional(seq(":", $._type))),
     match_expression: ($) =>
-      seq("match", $._expression, "with", repeat1($.match_case), "end"),
-    match_case: ($) => seq("|", field("pattern", $.pattern), "->", field("body", $._expression)),
+      seq("match", $._expression, "with", optional("|"), $.match_case, repeat(seq("|", $.match_case)), "end"),
+    match_case: ($) => seq(field("pattern", $.pattern), "->", field("body", $._expression)),
     pattern: ($) =>
       choice(
         field("name", $.identifier),
         "_",
         $.constructor_pattern,
+        $.number,
+        $.boolean,
         seq("(", comma($.pattern), ")"),
       ),
     constructor_pattern: ($) =>
       prec.right(seq($.constructor_identifier, repeat($.pattern))),
-    block_expression: ($) => seq("begin", $._expression, "end"),
+    block_expression: ($) => seq("begin", $._expression, optional(";"), "end"),
     while_expression: ($) =>
       seq(
         "while",
@@ -366,6 +390,7 @@ module.exports = grammar({
         "do",
         repeat($.contract),
         field("body", $._expression),
+        optional(";"),
         "done",
       ),
     for_expression: ($) =>
@@ -379,6 +404,7 @@ module.exports = grammar({
         "do",
         repeat($.contract),
         field("body", $._expression),
+        optional(";"),
         "done",
       ),
     assert_expression: ($) =>
@@ -390,23 +416,16 @@ module.exports = grammar({
         "absurd",
         "alias",
         "any",
-        "at",
         "break",
-        "by",
         "coinductive",
         "continue",
         "diverges",
         "epsilon",
         "exn",
         "inductive",
-        "label",
-        "meta",
         "partial",
         "private",
         "pure",
-        "raise",
-        "so",
-        "try",
       ),
     identifier: ($) => /[a-z_][A-Za-z0-9_']*/,
     constructor_identifier: ($) => /[A-Z][A-Za-z0-9_']*/,

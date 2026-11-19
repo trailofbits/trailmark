@@ -429,10 +429,15 @@ predicates, propositions, let/val declarations and contracts. Program applicatio
 distinguished from ghost and contract references; nested calls require computational
 enclosing callees and non-ghost argument positions. Parameters retain source order
 and types. Scope imports, nested comments and local binders are handled structurally.
-Use export propagates inspected members; use import opens them only locally. Clone expansion
-is diagnosed, and unsupported syntax produces parse diagnostics. Mutual `let rec ... with`
-groups and array indexing (`a[i]`) are outside this grammar subset and produce diagnostics.
-Exceptions, module
-interfaces, metas, user operators, collection syntax, advanced patterns and Why3
-transformations are not fully modeled; a clean syntax parse does not establish type
-correctness or verification.
+Use export propagates inspected members; use import opens them only locally. The grammar
+accepts implicit file modules, array indexing and updates, labels, `raise`, `by`/`so`,
+metas, record literals, mutual `let rec ... with` groups and trailing semicolons.
+Complete later modules can be recovered after an unsupported body without promoting
+its local lets to declarations. Clone expansion is diagnosed. Inductive declarations,
+advanced patterns, operator sections, module interfaces and Why3 transformations remain
+incomplete; a clean syntax parse does not establish type correctness or verification.
+
+On the pinned Why3 example tree (`AdaCore/why3@02050ad`, 481 `.mlw`/`.why` files),
+mean per-file syntax-error line coverage fell from 44% to 15%; 43 files still had errors
+covering more than half their lines. Both runs completed without crashes. These figures
+measure syntax recovery, not declaration or dependency accuracy.

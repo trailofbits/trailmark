@@ -148,15 +148,16 @@ def test_scope_import_opens_members(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "text", ["let rec f (x:int) = x with g (y:int) = y", "let f (a:array int) = a[0]"]
-)
-def test_documented_grammar_boundaries_diagnose(tmp_path: Path, text: str) -> None:
-    path = tmp_path / "Boundary.mlw"
-    path.write_text(f"module M\n{text}\nend\n")
-    assert parse_file(str(path)).parse_diagnostics
-    with pytest.raises(ValueError, match="diagnostic"):
-        parse_file(str(path), strict=True)
+def test_mutual_recursion_keeps_each_owner(tmp_path: Path) -> None:
+    path = tmp_path / "mutual.mlw"
+    path.write_text("module M\nlet rec f (x:int) = g x with g (y:int) = f y\nend\n")
+    graph = parse_file(str(path), strict=True)
+    calls = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS
+    }
+    assert calls == {("f", "g"), ("g", "f")}
 
 
 @pytest.mark.parametrize("mode,expected", [("export", {"c", "p"}), ("import", set())])
@@ -191,3 +192,73 @@ def test_use_import_with_an_alias_still_opens_bare_names(
         for e in graph.edges
         if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "G"
     } == expected
+
+
+def test_trailing_sequences_preserve_modules_and_calls(tmp_path: Path) -> None:
+    path = tmp_path / "loops.mlw"
+    path.write_text(
+        "module A\nlet g (x:int) : unit = ()\n"
+        "let f (n:int) : unit = for i = 0 to n do\n"
+        "for j = 0 to i do g j; done; done\nlet k () = g 0\nend\n"
+        "module B\nlet h () = 0\nend\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    assert {"A", "B", "f", "g", "h", "k"} <= {n.name for n in graph.nodes.values()}
+    calls = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS
+    }
+    assert calls == {("f", "g"), ("k", "g")}
+
+
+def test_implicit_module_labels_arrays_and_constructor_arguments(tmp_path: Path) -> None:
+    path = tmp_path / "program.mlw"
+    path.write_text(
+        "use int.Int\ntype t = A int | B\nlet g (x:int):int = x\n"
+        "let h (a:array int):t = label L in let r = g a[0] in A (g r)\n"
+        "let k (a:array int) = a[0] <- g 1\n"
+        "let choose (x:t) = match x with A n -> n | B -> 0 end\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    assert not any(n.name == "r" for n in graph.nodes.values())
+    assert any(
+        dict(n.attributes).get("qualified_name") == "Program.h" for n in graph.nodes.values()
+    )
+    assert {
+        graph.nodes[e.source_id].name
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS and graph.nodes[e.target_id].name == "g"
+    } == {"h", "k"}
+
+
+def test_later_module_survives_unsupported_body(tmp_path: Path) -> None:
+    path = tmp_path / "recover.mlw"
+    path.write_text(
+        "module A\nlet bad () = ??? let local = 1 in local\nend\n"
+        "module B\nlet f (x:int) = x\nlet run () = f 0\nend\n"
+    )
+    graph = parse_file(str(path))
+    assert graph.parse_diagnostics
+    assert not any(
+        dict(n.attributes).get("qualified_name") == "A.local" for n in graph.nodes.values()
+    )
+    assert any(
+        graph.nodes[e.source_id].name == "run" and graph.nodes[e.target_id].name == "f"
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS
+    )
+
+
+@pytest.mark.parametrize(
+    "language,extension,code", [("whyml", "mlw", "module M\n" + "scope S\n" * 140 + "end\n" * 141)]
+)
+def test_deep_declarations_have_a_bounded_diagnostic(
+    tmp_path: Path, language: str, extension: str, code: str
+) -> None:
+    from trailmark.parse import parse_file
+
+    path = tmp_path / f"deep.{extension}"
+    path.write_text(code)
+    graph = parse_file(str(path), language)
+    assert any("depth of 128" in d.message for d in graph.parse_diagnostics)

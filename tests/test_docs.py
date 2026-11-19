@@ -94,7 +94,7 @@ def pyproject_data() -> dict[str, object]:
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "Use export propagates inspected members"),
-    ("docs/languages.md", "Mutual `let rec ... with`"),
+    ("docs/languages.md", "mutual `let rec ... with` groups"),
     (
         "docs/languages.md",
         "WhyML uses an independently authored syntax subset with explicit coverage limits",
@@ -202,6 +202,9 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "docs/graph-model.md",
         "explicitly computational declaration with non-ghost argument positions",
     ),
+    ("docs/languages.md", "mean per-file syntax-error line coverage fell from 44% to 15%"),
+    ("docs/graph-model.md", "unresolved reference spellings are omitted"),
+    ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
     ("README.md", "bounded C declaration wrappers can be expanded"),

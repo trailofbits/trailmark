@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Expand WhyML syntax coverage for implicit modules, arrays, records, labels,
+  raises and mutual recursion. Recover later modules and preserve constructor
+  argument evaluation, unit parameters, ghost fields and return types.
+
+- Correct shared formal type references, import visibility and argument scopes.
+  Bound syntax diagnostics and declaration nesting.
+
 - Add WhyML source graphs with program/specification contexts, scope imports,
   ordered typed parameters and diagnosed grammar boundaries.
 

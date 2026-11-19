@@ -13,6 +13,8 @@ def parameters(node: Node) -> tuple[Parameter, ...]:
     result = []
     for part in node.children_by_field_name("parameter"):
         names = (part,) if part.type == "identifier" else part.children_by_field_name("name")
+        if part.type == "unit":
+            result.append(Parameter("()"))
         typed = part.child_by_field_name("type")
         result.extend(
             Parameter(node_text(n), TypeRef(node_text(typed)) if typed else None) for n in names
@@ -117,6 +119,13 @@ _HANDLERS = {
     "match_case": _pattern,
     "quantifier": _quantifier,
     "application": _arguments,
+    "label_expression": lambda n: [
+        Scope(
+            frozenset(node_text(c) for c in n.named_children if c.type == "constructor_identifier"),
+            n.start_byte,
+            n.end_byte,
+        )
+    ],
     **dict.fromkeys(("contract", "assert_expression", "ghost_expression"), _proof),
 }
 

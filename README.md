@@ -247,7 +247,7 @@ for working with proxies.
 | Circom | `.circom` | `circom` | templates, functions, signals, components |
 | Haskell | `.hs` | `haskell` | functions, data types, type classes, instances |
 | Lean 4 | `.lean` | `lean` | definitions, theorems, namespaces, structures, classes, inductive types, imports, term applications, explicit symbol and typed field references |
-| WhyML | `.mlw`, `.why` | `whyml` | modules, logical declarations, programs, ghost code, contracts and explicit references (syntax subset) |
+| WhyML | `.mlw`, `.why` | `whyml` | modules and implicit file modules, programs, arrays, ghost code, contracts and explicit references (partial syntax coverage) |
 | Julia | `.jl` | `julia` | modules, types, long/short functions, closures, signatures, branches, imports, conservative local calls |
 | Erlang | `.erl` | `erlang` | functions, records, behaviours, modules |
 | Miden Assembly | `.masm` | `masm` | procedures, entrypoints, constants, invocations |
