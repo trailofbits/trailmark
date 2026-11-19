@@ -26,7 +26,6 @@ SKIP = OPAQUE | frozenset(
         "attribute",
         "smt_trigger",
         "variable_pattern",
-        "operator_identifier",
     }
 )
 
@@ -35,7 +34,13 @@ def bindings(root: Node) -> tuple[str, ...]:
     result, pending = [], [root]
     while pending:
         node = pending.pop()
-        if node.type in {"variable_pattern", "binder", "refinement_type"}:
+        if node.type in {
+            "variable_pattern",
+            "binder",
+            "refinement_type",
+            "constraint",
+            "returns_annotation",
+        }:
             result.extend(node_text(n) for n in node.children_by_field_name("name"))
         elif node.type == "ascribed_pattern":
             pattern = node.child_by_field_name("pattern")
@@ -160,6 +165,9 @@ def _open(node: Node) -> list[Scope]:
 
 _HANDLERS = {
     "let_expression": _local,
+    "bind_expression": _local,
+    "dependent_tuple_type": _arrow,
+    "returns_annotation": _dependent,
     "match_branch": _match,
     "arrow_type": _arrow,
     "application_expression": _arguments,
@@ -169,12 +177,49 @@ _HANDLERS = {
 }
 
 
+def _additional_bindings(node: Node) -> list[Scope]:
+    result = []
+    if node.type == "let_operator_expression":
+        body = node.child_by_field_name("body")
+        names = frozenset(
+            name
+            for child in node.named_children
+            if child.type == "operator_binding"
+            for name in bindings(child)
+        )
+        if body:
+            result.append(Scope(names, body.start_byte, body.end_byte))
+    elif node.type == "record_field_declaration" and node.parent:
+        name = node.child_by_field_name("name")
+        if name:
+            result.append(Scope(frozenset({node_text(name)}), node.end_byte, node.parent.end_byte))
+    elif node.type == "introduce_expression":
+        names = frozenset(
+            name
+            for child in walk(node)
+            if child.type == "proof_forall"
+            for part in child.children_by_field_name("parameters")
+            for name in bindings(part)
+        )
+        result.append(Scope(names, node.start_byte, node.end_byte, context="proof"))
+    return result
+
+
 def scopes(root: Node) -> tuple[Scope, ...]:
     result = []
     for node in walk(root, OPAQUE):
         if node.children_by_field_name("parameters"):
             result.extend(_parameters(node))
+        result.extend(_additional_bindings(node))
         handler = _HANDLERS.get(node.type)
         if handler:
             result.extend(handler(node))
+        if node.type in {"assert_expression", "assume_expression", "calc_expression"}:
+            result.append(Scope(frozenset(), node.start_byte, node.end_byte, context="proof"))
+        elif node.type in {"refinement_type", "returns_annotation"}:
+            result.append(Scope(frozenset(), node.start_byte, node.end_byte, context="type"))
+        if node.type in {"binder", "ascribed_pattern", "ascription_expression", "let_expression"}:
+            typed = node.child_by_field_name("type")
+            if typed is not None:
+                result.append(Scope(frozenset(), typed.start_byte, typed.end_byte, context="type"))
     return tuple(result)

@@ -157,6 +157,7 @@
       "attributes": {
         "assumed": false,
         "declaration_role": "function",
+        "effect": "Tot",
         "executable": true,
         "private": false,
         "qualified_name": "Taxonomy.apply",
@@ -202,6 +203,7 @@
       "attributes": {
         "assumed": false,
         "declaration_role": "function",
+        "effect": "Tot",
         "executable": true,
         "private": false,
         "qualified_name": "Taxonomy.identity",
@@ -238,6 +240,8 @@
       "attributes": {
         "assumed": false,
         "declaration_role": "function",
+        "effect": "prop",
+        "executable": false,
         "private": false,
         "qualified_name": "Taxonomy.positive",
         "signature": false
@@ -273,6 +277,7 @@
       "attributes": {
         "assumed": false,
         "declaration_role": "lemma",
+        "effect": "Lemma",
         "executable": false,
         "private": false,
         "qualified_name": "Taxonomy.proof",
@@ -309,6 +314,7 @@
       "attributes": {
         "assumed": false,
         "declaration_role": "function",
+        "effect": "Tot",
         "executable": true,
         "private": false,
         "qualified_name": "Taxonomy.run",
@@ -345,6 +351,7 @@
       "attributes": {
         "assumed": true,
         "declaration_role": "lemma",
+        "effect": "Lemma",
         "executable": false,
         "private": false,
         "qualified_name": "Taxonomy.trusted",

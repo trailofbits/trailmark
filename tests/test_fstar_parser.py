@@ -11,6 +11,77 @@ from trailmark.query.api import QueryEngine
 FIXTURE = Path(__file__).parent / "fixtures/kat/fstar/taxonomy.fst"
 
 
+def test_specification_positions_stay_references(tmp_path: Path) -> None:
+    path = tmp_path / "Contexts.fst"
+    path.write_text(
+        "module Contexts\nlet helper (x:int) : int = x\n"
+        "let a (x:int) = assert (helper x == x); x\n"
+        "let b (x:int) = let z : y:int{helper y > 0} = x in z\n"
+        "let runtime (x:int) : int = helper x\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    pairs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS
+    }
+    assert pairs == {("runtime", "helper")}
+    assert {
+        graph.nodes[e.source_id].name for e in graph.edges if e.kind == EdgeKind.REFERENCES
+    } == {"a", "b", "runtime"}
+
+
+def test_signature_effects_and_privacy_propagate(tmp_path: Path) -> None:
+    (tmp_path / "Base.fst").write_text(
+        "module Base\nprivate val hidden : int -> Tot int\nlet hidden x = x\n"
+        "val proof : int -> Lemma True\nlet proof x = hidden x\n"
+        "val f : int -> Tot int\nlet f x = x\nlet run x = f x\n"
+    )
+    (tmp_path / "Use.fst").write_text("module Use\nopen Base\nlet leaked x = hidden x\n")
+    graph = parse_directory(str(tmp_path), language="fstar", strict=True)
+    calls = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS
+    }
+    assert calls == {("run", "f")}
+    assert not any(
+        e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "leaked"
+        for e in graph.edges
+    )
+    proof = next(
+        n
+        for n in graph.nodes.values()
+        if n.name == "proof" and not dict(n.attributes).get("signature")
+    )
+    assert dict(proof.attributes)["declaration_role"] == "lemma"
+
+
+def test_operator_and_unopened_qualified_applications(tmp_path: Path) -> None:
+    (tmp_path / "Base.fst").write_text("module FStar.Base\nlet f (x:int) : int = x\n")
+    (tmp_path / "Use.fst").write_text(
+        "module Use\nlet ( +^ ) (x:int) (y:int) : int = x+y\n"
+        "let op_At (x:int) (y:int) : int = x+y\n"
+        "let a (x:int) : int = x +^ x\nlet b (x:int) : int = ( +^ ) x x\n"
+        "let c (x:int) : int = x @ x\nlet d (x:int) : int = x `op_At` x\n"
+        "let q (x:int) : int = FStar.Base.f x\nlet r (x:int) : int = Base.f x\n"
+    )
+    graph = parse_directory(str(tmp_path), language="fstar", strict=True)
+    calls = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS
+    }
+    assert calls == {
+        ("a", "op_Plus_Hat"),
+        ("b", "op_Plus_Hat"),
+        ("c", "op_At"),
+        ("d", "op_At"),
+        ("q", "f"),
+        ("r", "f"),
+    }
+
+
 def test_roles_references_calls_and_shadowing() -> None:
     graph = parse_file(str(FIXTURE), strict=True)
     names = {n.id: n.name for n in graph.nodes.values()}
@@ -214,3 +285,63 @@ def test_restricted_imports_are_not_treated_as_unrestricted(tmp_path: Path, dire
     assert any("restricted imports" in d.message for d in graph.parse_diagnostics)
     assert any(n.name == "retained" for n in graph.nodes.values())
     assert not any(e.kind == EdgeKind.REFERENCES for e in graph.edges)
+
+
+def test_interface_exports_and_later_opens(tmp_path: Path) -> None:
+    (tmp_path / "Base.fsti").write_text("module Base\nval public : int -> Tot int\n")
+    (tmp_path / "Base.fst").write_text("module Base\nlet hidden x = x\nlet public x = x\n")
+    (tmp_path / "Other.fst").write_text("module Other\nlet public x = x\n")
+    (tmp_path / "Use.fst").write_text(
+        "module Use\nopen Base\nopen Other\nlet run x = public x\nlet absent x = Base.hidden x\n"
+    )
+    graph = parse_directory(str(tmp_path), "fstar", strict=True)
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert dict(graph.nodes[calls[0].target_id].attributes)["qualified_name"] == "Other.public"
+
+
+def test_monadic_and_dependent_binders_shadow_globals(tmp_path: Path) -> None:
+    path = tmp_path / "Binders.fst"
+    path.write_text(
+        "module Binders\nlet x = 0\nlet y = 0\n"
+        "let a (q:int) = let* x = q in x\n"
+        "let b (q:int) = x <-- q; x\n"
+        "let c (p:(x:int & y:int{y>x})) = p\n"
+        "let positive () = x\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    assert {
+        graph.nodes[e.source_id].name
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.target_id].name in {"x", "y"}
+    } == {"positive"}
+
+
+def test_erased_effect_alias_and_result_types(tmp_path: Path) -> None:
+    path = tmp_path / "Effects.fst"
+    path.write_text(
+        "module Effects\neffect Erased (a:Type) = GTot a\n"
+        "let f (x:int) = x\nlet proof (x:int) : Erased int = f x\n"
+        "let ty (x:int) : Type = int\nlet run x = f x\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    assert {graph.nodes[e.source_id].name for e in graph.edges if e.kind == EdgeKind.CALLS} == {
+        "run"
+    }
+    ty = next(n for n in graph.nodes.values() if n.name == "ty")
+    assert dict(ty.attributes)["executable"] is False
+
+
+@pytest.mark.parametrize(
+    ("language", "suffix", "declarations"),
+    [("fstar", ".fst", "module M\ntype a = int\nlet id (#a:Type) (x:a) : Tot a = x\n")],
+)
+def test_formal_type_uses_respect_lexical_binders(
+    tmp_path: Path, language: str, suffix: str, declarations: str
+) -> None:
+    from trailmark.parse import parse_file
+
+    path = tmp_path / ("Types" + suffix)
+    path.write_text(declarations)
+    graph = parse_file(str(path), language=language, strict=True)
+    assert not any(e.kind == EdgeKind.TYPE_USES for e in graph.edges)

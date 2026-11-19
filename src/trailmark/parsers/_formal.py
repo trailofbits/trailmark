@@ -7,13 +7,14 @@ classification. This module never interprets proof names or runs a verifier.
 from __future__ import annotations
 
 import json
+from bisect import bisect_right
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from heapq import heappop, heappush
 from pathlib import Path
 
-from tree_sitter import Language, Node, Parser
+from tree_sitter import Language, Node, Parser, Range
 
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
@@ -39,6 +40,25 @@ def walk(
             result.append(child)
         if child.type not in skip:
             pending.extend(reversed(child.named_children))
+    return result
+
+
+def parse_regions(parser: Parser, data: bytes, regions: list[tuple[int, int]]) -> list[Node]:
+    """Parse disjoint recovery regions with original offsets and shared source bytes."""
+    starts = [0, *(i + 1 for i, byte in enumerate(data) if byte == 10)]
+    bounded = Parser(parser.language)
+    result = []
+    for start, end in regions:
+        start_line, end_line = bisect_right(starts, start) - 1, bisect_right(starts, end) - 1
+        bounded.included_ranges = [
+            Range(
+                start_point=(start_line, start - starts[start_line]),
+                end_point=(end_line, end - starts[end_line]),
+                start_byte=start,
+                end_byte=end,
+            )
+        ]
+        result.extend(bounded.parse(data).root_node.named_children)
     return result
 
 
@@ -68,20 +88,45 @@ class _ScopeIndex:
         self.offset = 0
         self.active: dict[int, Scope] = {}
         self.ends: list[tuple[int, int]] = []
+        self.arguments: list[tuple[int, int, int]] = []
+        self.parents: dict[str, tuple[int | None, int | str | None, str | None]] = {}
+        stack: list[Scope] = []
+        for scope in sorted(
+            (s for s in scopes if s.context == "argument"), key=lambda s: (s.start, -s.end)
+        ):
+            while stack and stack[-1].end <= scope.start:
+                stack.pop()
+            self.parents[self.key(scope)] = (
+                scope.callee,
+                scope.argument,
+                self.key(stack[-1]) if stack else None,
+            )
+            stack.append(scope)
+
+    @staticmethod
+    def key(scope: Scope) -> str:
+        return f"{scope.start}:{scope.end}:{scope.callee}:{scope.argument}"
 
     def at(self, position: int) -> tuple[Scope, ...]:
         while self.offset < len(self.pending) and self.pending[self.offset][1].start <= position:
             index, scope = self.pending[self.offset]
             self.offset += 1
             self.bound.update(scope.names)
-            if scope.opens or scope.context or scope.callee is not None:
+            if scope.context == "argument":
+                heappush(self.arguments, (-scope.start, -index, scope.end))
+            elif scope.opens or scope.context or scope.callee is not None:
                 self.active[index] = scope
             heappush(self.ends, (scope.end, index))
         while self.ends and self.ends[0][0] <= position:
             _, index = heappop(self.ends)
             self.bound.subtract(self.scopes[index].names)
             self.active.pop(index, None)
-        return tuple(self.active[index] for index in sorted(self.active))
+        while self.arguments and self.arguments[0][2] <= position:
+            heappop(self.arguments)
+        active = list(self.active.values())
+        if self.arguments:
+            active.append(self.scopes[-self.arguments[0][1]])
+        return tuple(active)
 
 
 def lookup_tiers(
@@ -163,7 +208,9 @@ class Source:
         self.graph.edges.append(CodeEdge(parent or self.module, ident, EdgeKind.CONTAINS))
         return ident
 
-    def import_(self, node: Node, name: str, *, relative_path: str | None = None) -> None:
+    def import_(
+        self, node: Node, name: str, *, relative_path: str | None = None, parent: str | None = None
+    ) -> None:
         target = f"@import:{self.language}:{name}"
         self.graph.nodes.setdefault(
             target,
@@ -177,7 +224,7 @@ class Source:
         )
         self.graph.edges.append(
             CodeEdge(
-                self.module,
+                parent or self.module,
                 target,
                 EdgeKind.IMPORTS,
                 location=make_location(node, self.path),
@@ -217,6 +264,13 @@ class Source:
     ) -> None:
         pending = [root]
         index = _ScopeIndex(scopes)
+        if index.parents:
+            unit = self.graph.nodes[owner]
+            attrs = dict(unit.attributes)
+            parents = json.loads(str(attrs.get("_formal_argument_scopes", "{}")))
+            parents.update(index.parents)
+            attrs["_formal_argument_scopes"] = json.dumps(parents)
+            self.graph.nodes[owner] = replace(unit, attributes=tuple(attrs.items()))
         while pending:
             node = pending.pop()
             if node.type in skip or node.is_error or node.is_missing:
@@ -230,10 +284,18 @@ class Source:
                 pending.extend(reversed(node.named_children))
                 continue
             active = index.at(node.start_byte)
-            if name == "_" or index.bound[name.split(".")[0]] > 0:
+            bound_name = node_text(node) if self.language == "tamarin" else name.split(".")[0]
+            if name == "_" or index.bound[bound_name] > 0:
                 continue
             local_opens = tuple(prefix for scope in active for prefix in scope.opens)
             tiers = lookup_tiers(name, namespace, (*opens, *local_opens), aliases or {})
+            if self.language == "fstar" and not any(
+                name == key or name.startswith(key + ".") for key in aliases or {}
+            ):
+                tiers[-1:] = [
+                    [name],
+                    *[[f"{prefix}.{name}"] for prefix in reversed((*opens, *local_opens))],
+                ]
             contexts = [scope.context for scope in active if scope.context is not None]
             reference_context = next((c for c in reversed(contexts) if c != "argument"), context)
             if reference_context == "body" and "argument" in contexts:
@@ -252,12 +314,13 @@ class Source:
                         ("_formal_position", node.start_byte),
                         (
                             "_formal_enclosing",
-                            json.dumps(
-                                [
-                                    [scope.callee, scope.argument]
-                                    for scope in active
+                            next(
+                                (
+                                    index.key(scope)
+                                    for scope in reversed(active)
                                     if scope.context == "argument"
-                                ]
+                                ),
+                                None,
                             ),
                         ),
                     ),
@@ -285,6 +348,7 @@ class FormalParser:
 
     language: str
     extensions: tuple[str, ...]
+    link: Callable[[CodeGraph], None] = staticmethod(link_symbols)
 
     def __init__(self) -> None:
         self._parser = Parser(self.load_language())
@@ -298,12 +362,21 @@ class FormalParser:
     def _parse_file(self, path: str) -> CodeGraph:
         root = self._parser.parse(Path(path).read_bytes()).root_node
         source = Source(root, path, self.language)
+        pending = [(root, 0)]
+        containers = {"module", "module_definition", "module_declaration", "scope_declaration"}
+        while pending:
+            node, depth = pending.pop()
+            depth += node.type in containers
+            if depth > 128:
+                source.unsupported(node, "Declaration nesting exceeds the supported depth of 128")
+                return source.graph
+            pending.extend((child, depth) for child in node.named_children)
         self.extract(root, source)
         return source.graph
 
     def parse_file(self, file_path: str) -> CodeGraph:
         graph = self._parse_file(file_path)
-        link_symbols(graph)
+        self.link(graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
@@ -312,5 +385,5 @@ class FormalParser:
             self.language,
             dir_path,
             self.extensions,
-            link_calls=link_symbols,
+            link_calls=self.link,
         )

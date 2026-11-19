@@ -10,13 +10,30 @@ from trailmark.models.nodes import Attribute, NodeKind, Parameter, TypeRef
 from trailmark.parsers._common import node_text
 from trailmark.parsers._formal import FormalParser, Namespace, Scope, Source, walk
 from trailmark.parsers.fstar._bindings import OPAQUE, SKIP, Binding, bindings, groups, scopes
+from trailmark.parsers.fstar._semantics import link_fstar, operator_name
 from trailmark.tree_sitter_custom._native import bundled_language
 
-_NAMES = frozenset({"identifier", "qualified_identifier", "constructor_identifier"})
+_NAMES = frozenset(
+    {
+        "identifier",
+        "qualified_identifier",
+        "constructor_identifier",
+        "operator",
+        "operator_identifier",
+    }
+)
 
 
 def _spelling(node: Node) -> str | None:
+    if node.type in {"operator", "operator_identifier"}:
+        return operator_name(node_text(node))
     parent = node.parent
+    if (
+        parent is not None
+        and parent.type == "projection_expression"
+        and node == parent.child_by_field_name("field")
+    ):
+        return None
     if parent is not None and parent.type in {
         "record_field",
         "record_field_declaration",
@@ -38,7 +55,11 @@ def _effect(node: Node) -> str:
             return ""
         node = right
     head = node.child_by_field_name("function")
-    return node_text(head) if node.type == "application_expression" and head is not None else ""
+    return (
+        node_text(head)
+        if node.type == "application_expression" and head is not None
+        else node_text(node).split()[0]
+    )
 
 
 def _parameters(slot: Binding) -> tuple[Parameter, ...]:
@@ -57,6 +78,7 @@ class FStarParser(FormalParser):
 
     language = "fstar"
     extensions = (".fst", ".fsti")
+    link = staticmethod(link_fstar)
 
     def load_language(self) -> Language:
         return Language(bundled_language("fstar"))
@@ -82,18 +104,38 @@ class FStarParser(FormalParser):
             "friend_declaration",
         }:
             return self._import(node, env)
-        if node.type in {"let_declaration", "val_declaration"}:
+        if node.type in {"let_declaration", "val_declaration", "instance_declaration"}:
             self._binding(node, env)
-        elif node.type == "type_declaration":
+        elif node.type == "effect_abbreviation":
+            self._effect_declaration(node, env)
+        elif node.type in {"type_declaration", "class_declaration"}:
             self._types(node, env)
         elif node.type == "directive":
-            if any(c.type in {"#check", "#eval"} for c in node.children):
-                env.source.unsupported(
-                    node, "F* interactive evaluation directives are not executed"
-                )
+            self._directive(node, env)
         elif node.type not in SKIP and node.type not in OPAQUE:
             env.source.unsupported(node, f"F* {node.type} is not modeled")
         return env
+
+    @staticmethod
+    def _directive(node: Node, env: Namespace) -> None:
+        if any(c.type in {"#check", "#eval"} for c in node.children):
+            env.source.unsupported(node, "F* interactive evaluation directives are not executed")
+
+    @staticmethod
+    def _effect_declaration(node: Node, env: Namespace) -> None:
+        name = node.child_by_field_name("name")
+        if name is not None:
+            value = node.child_by_field_name("value")
+            env.source.declare(
+                node,
+                node_text(name),
+                "effect",
+                namespace=env.name,
+                attributes=(
+                    ("executable", False),
+                    ("effect_base", _effect(value) if value else ""),
+                ),
+            )
 
     @staticmethod
     def _import(node: Node, env: Namespace) -> Namespace:
@@ -126,20 +168,33 @@ class FStarParser(FormalParser):
         flags = {node_text(p) for p in node.named_children if p.type == "qualifier"}
         bindings_ = scopes(node)
         for slot in slots:
-            effects = {_effect(p) for p in slot.types}
+            effects = {_effect(p).rsplit(".", 1)[-1] for p in slot.types}
             proof = "Lemma" in effects
             attrs: tuple[Attribute, ...] = (
+                ("effect", _effect(slot.types[-1]) if slot.types else ""),
                 ("signature", node.type == "val_declaration"),
                 ("assumed", "assume" in flags),
                 ("private", "private" in flags),
+                (
+                    "executable",
+                    not (
+                        proof
+                        or effects & {"Ghost", "GTot", "Type", "Type0", "prop", "logical", "squash"}
+                        or any(
+                            node_text(p).split()[0]
+                            in {"Type", "Type0", "prop", "logical", "squash"}
+                            for p in slot.types
+                        )
+                        or ("noextract" in flags and "inline_for_extraction" not in flags)
+                    ),
+                ),
+                ("_inherit_effect", not slot.types and node.type != "val_declaration"),
             )
-            if proof or effects & {"Ghost", "GTot"} or "noextract" in flags:
-                attrs += (("executable", False),)
-            elif "Tot" in effects:
-                attrs += (("executable", True),)
             owner = env.source.declare(
                 node,
-                node_text(slot.name),
+                operator_name(node_text(slot.name))
+                if slot.name.type == "operator_identifier"
+                else node_text(slot.name),
                 "lemma" if proof else "value" if node.type == "val_declaration" else "function",
                 namespace=env.name,
                 parameters=_parameters(slot),
@@ -160,8 +215,7 @@ class FStarParser(FormalParser):
             name for pattern in node.children_by_field_name("pattern") for name in bindings(pattern)
         )
         if not names:
-            env.source.unsupported(node, "F* binding pattern is not modeled")
-            return
+            names = (f"<initializer>@{node.start_point.row + 1}",)
         for name in names:
             owner = env.source.declare(node, name, "value", namespace=env.name)
             for value in node.children_by_field_name("value"):
@@ -221,8 +275,10 @@ class FStarParser(FormalParser):
         heads = frozenset(
             head.start_byte
             for part in walk(node, SKIP)
-            if part.type == "application_expression"
-            and (head := part.child_by_field_name("function")) is not None
+            if (
+                head := part.child_by_field_name("function") or part.child_by_field_name("operator")
+            )
+            is not None
         )
         env.source.references(
             owner,

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Recognize implicit F* Tot and inherit val computation/privacy metadata.
+  Resolve operators and qualified names; preserve dependent and monadic binders
+  and separate proof/type contexts from executable applications.
+
+- Correct shared formal type references, import visibility and argument scopes.
+  Bound syntax diagnostics and declaration nesting.
+
 - Add F* source graphs with interface correspondence, private visibility, iterative
   pattern binding, refinement dependencies and conservative computational calls.
 
