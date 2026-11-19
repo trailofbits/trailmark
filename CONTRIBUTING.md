@@ -152,6 +152,12 @@ reports, and copied source snapshots outside the checkout (for example,
 The [roadmap](docs/roadmap.md) summarizes the release-readiness audit; preserve
 full evidence separately and turn individual findings into focused fixes and tests.
 
+For source-first parser evaluation, use the
+[graph evaluation harness](tests/graph_eval/README.md). It freezes two independent
+source-only predictions before measurement and separates documented correctness
+from navigation usefulness. Keep campaign artifacts outside the checkout, and
+review the 32-case pilot before expanding the corpus or changing parsers.
+
 ## Architecture
 
 Trailmark has a parse layer followed by a three-layer analysis stack:

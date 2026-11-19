@@ -285,6 +285,12 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "inconclusive outcomes still fail the gate"),
     ("CONTRIBUTING.md", "pins pytest-gremlins 1.14.3"),
     ("CONTRIBUTING.md", "deterministic work bounds rather than wall-clock thresholds"),
+    # Source-first graph evaluation
+    ("CONTRIBUTING.md", "[graph evaluation harness](tests/graph_eval/README.md)"),
+    ("CONTRIBUTING.md", "review the 32-case pilot before expanding the corpus"),
+    ("tests/graph_eval/README.md", "two independent source-only readers"),
+    ("tests/graph_eval/README.md", "before exposing measurements"),
+    ("tests/graph_eval/README.md", "precision or recall without a complete adjudicated inventory"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
     ("docs/cli.md", "JSON to stdout"),
