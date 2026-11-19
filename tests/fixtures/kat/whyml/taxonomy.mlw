@@ -1,0 +1,11 @@
+module Taxonomy
+  use int.Int
+  predicate positive (x:int) = x >= 0
+  function model (x:int) : int = x + 1
+  let inc (x:int) : int = x + 1
+  let run (x:int) : int
+    requires { positive x }
+    ensures { result = model x }
+    = inc x
+  let lemma proof (x:int) : unit = assert { model x = inc x }
+end

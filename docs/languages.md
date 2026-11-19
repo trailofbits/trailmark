@@ -6,6 +6,11 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
+- [Dafny](#dafny)
+- [F*](#f)
+- [Rocq/Coq](#rocqcoq)
+- [WhyML](#whyml)
+- [TLA+](#tla)
 - [Tamarin](#tamarin)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
@@ -420,6 +425,90 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## Dafny
+
+Dafny uses Dafny 4 function syntax. Modules, classes, traits, datatypes, fields,
+functions, methods and lemmas retain declaration roles. Contracts and proof statements
+produce references; ghost declarations and lemma uses do not create computational calls.
+Input parameters retain source order and types; constructors and iterators retain
+their own roles. Nested calls require computational enclosing callees and non-ghost
+argument positions. Named ghost constructor fields retain `ghost` metadata. Aliases and opened modules
+resolve against inspected imports, including sibling modules. Datatype destructors have
+type-level aliases, and newtype members retain their own declarations. File includes resolve by their exact path relative to
+the including file, within the inspected sources; missing files remain dependencies. Receiver/type inference, export-set semantics,
+verification and compilation are not performed. Older function-syntax modes and
+compiler-specific options are not interpreted. Refinement/inheritance edges, constructor
+calls from `new`, receiver-dependent discriminators and export-set lookup remain incomplete.
+
+## F*
+
+F* parses `.fst` and `.fsti` declarations, module aliases/imports, refinements and
+explicit references. Interfaces retain their source locations and correspond to unique
+implementations. Computational applications, including implicit `Tot`, produce calls;
+implementations inherit effect, lemma and visibility metadata from matching `val` declarations.
+Proof and type uses remain references. Ghost effect abbreviations and erased results do not
+produce calls. Inspected interfaces bound exports, and later opens take precedence. Lexical binders, including local patterns
+and dependent arrows, block unrelated global targets. Private declarations stay local;
+parameter types and refinements retain dependencies. Ordinary option directives are
+accepted without evaluating their settings. Includes re-export inspected module members;
+plain opens do not. Restricted imports and renamings produce diagnostics and are not
+treated as unrestricted opens. Pulse bodies, quotations and
+splices produce unsupported-syntax diagnostics. Elaboration, tactics, effect aliases and
+extraction are not evaluated. Record projections do not fall back to unrelated global
+functions; receiver-dependent field resolution remains incomplete.
+
+## Rocq/Coq
+
+Rocq/Coq retains Gallina source references without claiming kernel proof dependencies.
+Definitions, fixpoints, inductives, records, fields, section assumptions and theorem statements
+keep their declaration roles. Explicit Require and Import statements bound cross-file
+visibility. Export propagates short-name openings without inventing qualified module
+members. Selective imports and source Load commands are diagnosed as unsupported.
+Match scrutinees and branch bodies retain references with branch-local pattern binders.
+Module signature clauses retain references in the module namespace, separate from terms.
+Tactics and notation expansion produce diagnostics; lemma dependencies occurring only
+in proofs are absent. Each file receives at most one tactic-coverage diagnostic; no proof success, axiom closure, extraction behavior or runtime calls are
+inferred. Implicit and inductive binders, mutual fixpoint bodies and section imports
+retain their lexical boundaries. From/Require imports use directory identities or
+explicit -Q/-R mappings in the nearest _CoqProject file; other load-path configuration
+is not evaluated. Sentence recovery preserves later declarations after malformed commands.
+Advanced functors, generated declarations, Include expansion and notation declarations
+remain incomplete. Select `--language rocq` explicitly for `.v` files because the
+extension also denotes Verilog; automatic detection excludes `.v`.
+
+## WhyML
+
+WhyML uses an independently authored syntax subset with explicit coverage limits. It
+retains modules, scopes, abstract or algebraic types, record fields, logical functions,
+predicates, propositions, let/val declarations and contracts. Program applications are
+distinguished from ghost and contract references; nested calls require computational
+enclosing callees and non-ghost argument positions. Parameters retain source order
+and types. Scope imports, nested comments and local binders are handled structurally.
+Use export propagates inspected members; use import opens them only locally. The grammar
+accepts implicit file modules, array indexing and updates, labels, `raise`, `by`/`so`,
+metas, record literals, mutual `let rec ... with` groups and trailing semicolons.
+Complete later modules can be recovered after an unsupported body without promoting
+its local lets to declarations. Clone expansion is diagnosed. Inductive declarations,
+advanced patterns, operator sections, module interfaces and Why3 transformations remain
+incomplete; a clean syntax parse does not establish type correctness or verification.
+
+On the pinned Why3 example tree (`AdaCore/why3@02050ad`, 481 `.mlw`/`.why` files),
+mean per-file syntax-error line coverage fell from 44% to 15%; 43 files still had errors
+covering more than half their lines. Both runs completed without crashes. These figures
+measure syntax recovery, not declaration or dependency accuracy.
+
+## TLA+
+
+TLA+ edges describe specification dependencies. Operators, functions, constants,
+variables, assumptions and theorem statements are retained. EXTENDS controls cross-file
+visibility transitively, including enclosing modules. Separators and RECURSIVE forward
+declarations are accepted; parameters, LAMBDA, quantifier and LET binders shadow globals. LOCAL definitions retain private visibility. Named INSTANCE nodes retain substitution
+references, and single-component `I!Op` uses can reference inspected template members.
+WITH substitutions are diagnosed because the template is not instantiated. Proof steps,
+complex prefixed subexpressions and PlusCal translation remain unsupported. User-defined
+symbolic operator dependencies and inherited instance aliases remain incomplete. No transition system, proof outcome or model-checking result is inferred;
+specification references never become calls.
 
 ## Tamarin
 

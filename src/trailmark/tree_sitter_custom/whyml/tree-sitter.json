@@ -1,0 +1,19 @@
+{
+  "grammars": [
+    {
+      "name": "whyml",
+      "camelcase": "WhyML",
+      "scope": "source.whyml",
+      "path": ".",
+      "file-types": [
+        "mlw",
+        "why"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "Apache-2.0",
+    "description": "Trailmark independently authored WhyML source subset"
+  }
+}

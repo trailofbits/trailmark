@@ -23,6 +23,11 @@ from tests.kat_runner import assert_snapshot_matches, fixture_pair
 # tests/fixtures/kat/<language>/<basename>.<ext> and a sibling
 # <basename>.expected.json snapshot.
 PARSER_FIXTURES: list[tuple[str, str]] = [
+    ("dafny", "taxonomy"),
+    ("fstar", "taxonomy"),
+    ("rocq", "taxonomy"),
+    ("whyml", "taxonomy"),
+    ("tlaplus", "Counter"),
     ("tamarin", "taxonomy"),
     ("aiken", "taxonomy"),
     ("bash", "taxonomy"),

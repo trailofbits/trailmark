@@ -41,6 +41,23 @@ This product bundles the following third-party components:
   Trailmark adds inline/package modifiers, Aptos-style function-type returns,
   acquires clauses, for ranges, and compound assignment operators.
 
+- tree-sitter-dafny grammar (src/trailmark/tree_sitter_custom/dafny/)
+  Copyright (c) 2026 tree-sitter-dafny contributors
+  Licensed under the MIT License
+  https://github.com/hath995/tree-sitter-dafny
+  Vendored commit: 8085572ab23ba703a1f5c1cf753136a3508c68a6
+  Trailmark accepts named ghost fields and named allocation arguments and adds AST fields.
+
+- tree-sitter-fstar grammar (src/trailmark/tree_sitter_custom/fstar/)
+  Licensed under the MIT License; upstream notices are retained in LICENSE.
+  https://github.com/FStarLang/tree-sitter-fstar
+  Vendored commit: f5aca8ce0122f0ac10eaeb6f3081382d59d294f2
+
+- tree-sitter-rocq grammar (src/trailmark/tree_sitter_custom/rocq/)
+  Licensed under MIT; upstream notices and local changes are retained alongside the grammar.
+  https://github.com/aruzdh/tree-sitter-rocq
+  Vendored commit: cd77242808b07ca09eb035573a4670e832cf1b97
+
 - tree-sitter-tamarin grammar (src/trailmark/tree_sitter_custom/tamarin/)
   Licensed under MIT; upstream notices and local changes are retained alongside the grammar.
   https://github.com/aeyno/tree-sitter-tamarin

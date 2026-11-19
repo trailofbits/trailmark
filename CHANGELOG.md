@@ -2,12 +2,46 @@
 
 ## Unreleased
 
+- Repair Dafny postfix/additive precedence, pattern and type-parameter scopes,
+  specification contexts, ghost assignments and by-method bodies.
+
+- Recognize implicit F* Tot and inherit val computation/privacy metadata.
+  Resolve operators and qualified names; preserve dependent and monadic binders
+  and separate proof/type contexts from executable applications.
+
+- Recover Rocq sentences after syntax errors; retain records, match bodies,
+  section assumptions and module signature references. Separate term/module
+  namespaces and resolve partial logical module paths.
+
+- Expand WhyML syntax coverage for implicit modules, arrays, records, labels,
+  raises and mutual recursion. Recover later modules and preserve constructor
+  argument evaluation, unit parameters, ghost fields and return types.
+
+- Retain TLA+ LOCAL definitions and named INSTANCE references. Keep record
+  labels and projection/update fields out of state-variable lookup, and omit
+  punctuation from parameter lists.
+
 - Retain Tamarin let/macro operator terms and fact roles/persistence. Accept
   all-traces and common attributes; share symbol and fact identity across
   unambiguous include trees.
 
 - Correct shared formal type references, import visibility and argument scopes.
   Bound syntax diagnostics and declaration nesting.
+
+- Add Dafny source graphs with typed input parameters, declaration roles, lexical
+  and ghost scopes, explicit computational calls and bounded native scanning.
+
+- Add F* source graphs with interface correspondence, private visibility, iterative
+  pattern binding, refinement dependencies and conservative computational calls.
+
+- Add Rocq/Coq Gallina graphs with lexical modules and sections, explicit imports,
+  project load paths and binder scopes. Require explicit `rocq` selection for `.v`.
+
+- Add WhyML source graphs with program/specification contexts, scope imports,
+  ordered typed parameters and diagnosed grammar boundaries.
+
+- Add TLA+ specification graphs with transitive EXTENDS, recursive forward
+  declarations, lexical binders and explicit proof/PlusCal coverage diagnostics.
 
 - Add Tamarin symbolic graphs with distinct declaration namespaces, syntactic fact
   arity, builtin signatures, bare constants, macros, predicates, file includes,
