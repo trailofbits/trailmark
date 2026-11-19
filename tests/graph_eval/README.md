@@ -67,7 +67,11 @@ sessions, and a restricted source-reading MCP interface. Target files are data,
 including comments and embedded instructions. Repository agent/config metadata
 and symlinks are excluded from reader views. Readers cannot run target build
 scripts, imports, tests, or arbitrary commands. Provider traffic uses restricted
-egress; source reads are audited. Run the isolation probe before trusting results.
+egress; source reads are audited. Authentication stays in host memory and travels
+through private container stdin. The launcher creates a mode-0600 auth file only
+on its verified private runtime tmpfs, then removes it after Codex exits. Credentials
+never enter host temporary files, bind mounts, container environment, arguments,
+or artifacts. Run the isolation probe before trusting results.
 
 Measurements use the frozen installation outside reader containers. The worker
 builds the graph twice, checks full graph hashes, and compares source inventories

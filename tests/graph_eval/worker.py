@@ -8,7 +8,6 @@ import json
 import os
 import shutil
 import subprocess
-import tempfile
 import time
 import tomllib
 import uuid
@@ -56,12 +55,22 @@ def _docker_executable() -> str:
     return executable
 
 
+def _docker_environment() -> dict[str, str]:
+    """Docker subprocesses receive no provider credential environment variables."""
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"OPENAI_API_KEY", "CODEX_API_KEY"}
+    }
+
+
 def _docker(context: str, *arguments: str, **kwargs: Any) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
         [_docker_executable(), "--context", context, *arguments],
         text=True,
         capture_output=True,
         check=True,
+        env=_docker_environment(),
         **kwargs,
     )
 
@@ -255,23 +264,25 @@ def _container_arguments(network: _Network, source: Path, inputs: Path, output: 
     ]
 
 
-def _auth_files(destination: Path) -> None:
-    destination.mkdir(mode=0o700)
+def _auth_payload() -> dict[str, Any]:
+    """Keep credentials in memory until they enter the worker's private stdin."""
     if key := os.environ.get("OPENAI_API_KEY"):
-        path = destination / "auth.json"
-        path.write_text(json.dumps({"auth_mode": "apikey", "OPENAI_API_KEY": key}))
-    else:
-        source = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))) / "auth.json"
-        if not source.is_file():
-            raise ValueError("Codex automation requires OPENAI_API_KEY or an existing auth.json")
-        path = destination / "auth.json"
-        shutil.copyfile(source, path)
-    path.chmod(0o600)
+        return {"auth_mode": "apikey", "OPENAI_API_KEY": key}
+    source = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))) / "auth.json"
+    if not source.is_file():
+        raise ValueError("Codex automation requires OPENAI_API_KEY or an existing auth.json")
+    data = json.loads(source.read_text())
+    mode = data.get("auth_mode", "chatgpt" if data.get("tokens") else "apikey")
+    if mode == "apikey" and isinstance(data.get("OPENAI_API_KEY"), str) and data["OPENAI_API_KEY"]:
+        return {"auth_mode": mode, "OPENAI_API_KEY": data["OPENAI_API_KEY"]}
+    if mode == "chatgpt" and isinstance(data.get("tokens"), dict) and data["tokens"]:
+        return {
+            name: data[name] for name in ("auth_mode", "tokens", "last_refresh") if name in data
+        } | {"auth_mode": mode}
+    raise ValueError("Existing Codex authentication is unsupported or incomplete")
 
 
-def _check_container(
-    inspected: dict[str, Any], network: str, *, credentials: bool = True
-) -> dict[str, Any]:
+def _check_container(inspected: dict[str, Any], network: str) -> dict[str, Any]:
     host = inspected["HostConfig"]
     mounts = inspected["Mounts"]
     if not host["ReadonlyRootfs"] or host["Privileged"] or host["NetworkMode"] != network:
@@ -279,11 +290,17 @@ def _check_container(
     if set(inspected["NetworkSettings"]["Networks"]) != {network}:
         raise ValueError("Worker has an unexpected network attachment")
     expected = {"/source": False, "/input": False, "/output": True}
-    if credentials:
-        expected["/secrets"] = False
     found = {mount["Destination"]: mount["RW"] for mount in mounts if mount["Type"] == "bind"}
     if found != expected:
         raise ValueError("Worker has unexpected host mounts")
+    runtime = set(host.get("Tmpfs", {}).get("/runtime", "").split(","))
+    if not {"rw", "nosuid", "nodev", "mode=0700"} <= runtime:
+        raise ValueError("Worker credentials require a private runtime tmpfs")
+    if any(
+        item.split("=", 1)[0] in {"OPENAI_API_KEY", "CODEX_API_KEY"}
+        for item in inspected["Config"].get("Env", [])
+    ):
+        raise ValueError("Worker must not receive credential environment variables")
     if not any("no-new-privileges" in option for option in host.get("SecurityOpt", [])):
         raise ValueError("Worker allows privilege escalation")
     if "ALL" not in host.get("CapDrop", []):
@@ -294,6 +311,7 @@ def _check_container(
         "internal_network": network,
         "only_source_tools": True,
         "provider_proxy": True,
+        "credentials": "stdin_to_private_tmpfs",
     }
 
 
@@ -349,64 +367,57 @@ def run_agent(
         }
         container = None
         try:
-            with tempfile.TemporaryDirectory(
-                prefix=".worker-auth-", dir=output_dir.parent
-            ) as temporary:
-                secrets = Path(temporary) / "secrets"
-                _auth_files(secrets)
-                with _Network(context, image_id) as network:
-                    arguments = _container_arguments(network, source_root, inputs, attempt)
-                    arguments.extend(["--mount", f"type=bind,src={secrets},dst=/secrets,readonly"])
-                    container = _docker(
-                        context,
-                        "create",
-                        *arguments,
-                        image_id,
-                        *codex_arguments(model, reasoning),
-                        timeout=30,
-                    ).stdout.strip()
-                    network.containers.append(container)
-                    inspected = json.loads(
-                        _docker(context, "inspect", container, timeout=30).stdout
-                    )[0]
-                    metadata["isolation"] = _check_container(inspected, network.name)
-                    # Corpus source is never executed; source reads are audited separately.
-                    with (
-                        (attempt / "events.jsonl").open("w") as stdout,
-                        (attempt / "stderr.log").open("w") as stderr,
-                    ):
-                        result = subprocess.run(  # noqa: S603
-                            [
-                                _docker_executable(),
-                                "--context",
-                                context,
-                                "start",
-                                "--attach",
-                                "--interactive",
-                                container,
-                            ],
-                            input=prompt,
-                            text=True,
-                            stdout=stdout,
-                            stderr=stderr,
-                            check=False,
-                            timeout=timeout,
-                        )
-                    exit_code = int(
-                        json.loads(_docker(context, "inspect", container, timeout=30).stdout)[0][
-                            "State"
-                        ]["ExitCode"]
+            with _Network(context, image_id) as network:
+                arguments = _container_arguments(network, source_root, inputs, attempt)
+                container = _docker(
+                    context,
+                    "create",
+                    *arguments,
+                    image_id,
+                    *codex_arguments(model, reasoning),
+                    timeout=30,
+                ).stdout.strip()
+                network.containers.append(container)
+                inspected = json.loads(_docker(context, "inspect", container, timeout=30).stdout)[0]
+                metadata["isolation"] = _check_container(inspected, network.name)
+                # Corpus source is never executed; source reads are audited separately.
+                with (
+                    (attempt / "events.jsonl").open("w") as stdout,
+                    (attempt / "stderr.log").open("w") as stderr,
+                ):
+                    result = subprocess.run(  # noqa: S603
+                        [
+                            _docker_executable(),
+                            "--context",
+                            context,
+                            "start",
+                            "--attach",
+                            "--interactive",
+                            container,
+                        ],
+                        input=json.dumps({"auth": _auth_payload(), "prompt": prompt}),
+                        text=True,
+                        stdout=stdout,
+                        stderr=stderr,
+                        check=False,
+                        env=_docker_environment(),
+                        timeout=timeout,
                     )
-                    if result.returncode or exit_code:
-                        metadata.update(status="transport_error", exit_code=exit_code)
-                    else:
-                        try:
-                            data = json.loads((attempt / "response.json").read_text())
-                            validate_schema(data, schema)
-                            metadata["status"] = "ok"
-                            _atomic_json(output_dir / "response.json", data)
-                        except (ValueError, OSError) as error:
-                            metadata.update(status="invalid_output", error=str(error))
+                exit_code = int(
+                    json.loads(_docker(context, "inspect", container, timeout=30).stdout)[0][
+                        "State"
+                    ]["ExitCode"]
+                )
+                if result.returncode or exit_code:
+                    metadata.update(status="transport_error", exit_code=exit_code)
+                else:
+                    try:
+                        data = json.loads((attempt / "response.json").read_text())
+                        validate_schema(data, schema)
+                        metadata["status"] = "ok"
+                        _atomic_json(output_dir / "response.json", data)
+                    except (ValueError, OSError) as error:
+                        metadata.update(status="invalid_output", error=str(error))
         except subprocess.TimeoutExpired:
             metadata["status"] = "timeout"
         except (ValueError, subprocess.SubprocessError, OSError) as error:
@@ -475,7 +486,7 @@ def preflight(
             ).stdout.strip()
             network.containers.append(container)
             inspected = json.loads(_docker(context, "inspect", container, timeout=30).stdout)[0]
-            _check_container(inspected, network.name, credentials=False)
+            _check_container(inspected, network.name)
             result = _docker(context, "start", "--attach", container, timeout=60)
             (output_dir / "probe.log").write_text(result.stdout + result.stderr)
             checks = json.loads(result.stdout.strip().splitlines()[-1])
