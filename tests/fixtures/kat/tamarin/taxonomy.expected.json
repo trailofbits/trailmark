@@ -62,7 +62,7 @@
     },
     {
       "attributes": {
-        "reference_context": "specification",
+        "reference_context": "premise",
         "spelling": "Taxonomy.fact.In/1"
       },
       "confidence": "inferred",
@@ -79,7 +79,7 @@
     },
     {
       "attributes": {
-        "reference_context": "specification",
+        "reference_context": "action",
         "spelling": "Taxonomy.fact.Sent/1"
       },
       "confidence": "inferred",
@@ -96,7 +96,7 @@
     },
     {
       "attributes": {
-        "reference_context": "specification",
+        "reference_context": "action",
         "spelling": "Taxonomy.function.h"
       },
       "confidence": "inferred",
@@ -113,7 +113,7 @@
     },
     {
       "attributes": {
-        "reference_context": "specification",
+        "reference_context": "conclusion",
         "spelling": "Taxonomy.fact.Out/1"
       },
       "confidence": "inferred",
@@ -130,7 +130,7 @@
     },
     {
       "attributes": {
-        "reference_context": "specification",
+        "reference_context": "conclusion",
         "spelling": "Taxonomy.function.h"
       },
       "confidence": "inferred",
@@ -220,9 +220,11 @@
     },
     "taxonomy:Taxonomy.fact.In/1": {
       "attributes": {
+        "conditional": false,
         "declaration_role": "fact_symbol",
         "executable": false,
         "implicit": true,
+        "persistent": false,
         "qualified_name": "Taxonomy.fact.In/1"
       },
       "branches": [],
@@ -244,9 +246,11 @@
     },
     "taxonomy:Taxonomy.fact.K/1": {
       "attributes": {
+        "conditional": false,
         "declaration_role": "fact_symbol",
         "executable": false,
         "implicit": true,
+        "persistent": false,
         "qualified_name": "Taxonomy.fact.K/1"
       },
       "branches": [],
@@ -268,9 +272,11 @@
     },
     "taxonomy:Taxonomy.fact.Out/1": {
       "attributes": {
+        "conditional": false,
         "declaration_role": "fact_symbol",
         "executable": false,
         "implicit": true,
+        "persistent": false,
         "qualified_name": "Taxonomy.fact.Out/1"
       },
       "branches": [],
@@ -292,9 +298,11 @@
     },
     "taxonomy:Taxonomy.fact.Sent/1": {
       "attributes": {
+        "conditional": false,
         "declaration_role": "fact_symbol",
         "executable": false,
         "implicit": true,
+        "persistent": false,
         "qualified_name": "Taxonomy.fact.Sent/1"
       },
       "branches": [],
@@ -430,6 +438,7 @@
       "attributes": {
         "assumed": false,
         "declaration_role": "lemma",
+        "diff": false,
         "executable": false,
         "qualified_name": "Taxonomy.lemma.sent_known"
       },
@@ -454,6 +463,7 @@
       "attributes": {
         "assumed": false,
         "declaration_role": "rule",
+        "diff": false,
         "executable": false,
         "qualified_name": "Taxonomy.rule.Hash"
       },

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Retain Tamarin let/macro operator terms and fact roles/persistence. Accept
+  all-traces and common attributes; share symbol and fact identity across
+  unambiguous include trees.
+
+- Correct shared formal type references, import visibility and argument scopes.
+  Bound syntax diagnostics and declaration nesting.
+
 - Add Tamarin symbolic graphs with distinct declaration namespaces, syntactic fact
   arity, builtin signatures, bare constants, macros, predicates, file includes,
   structural conditionals and diagnosed proof boundaries.

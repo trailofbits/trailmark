@@ -175,6 +175,23 @@ def test_empty_import_target_remains_an_explicit_proxy() -> None:
     assert src.graph.nodes[imported].kind == NodeKind.MODULE
 
 
+def test_module_import_prefers_the_importing_directory() -> None:
+    caller, root = source("f\n", "local/caller")
+    owner = caller.declare(root, "caller", "function")
+    caller.import_(root, "Base")
+    caller.references(owner, root, frozenset({"identifier"}), opens=("Base",))
+    expected = None
+    for path in ("local/one", "other/two"):
+        base, body = source("pass\n", path)
+        base.module_name("Base")
+        target = base.declare(body, "f", "function", namespace="Base")
+        if path.startswith("local/"):
+            expected = target
+        caller.graph.merge(base.graph)
+    link_symbols(caller.graph)
+    assert [e.target_id for e in caller.graph.edges if e.kind == EdgeKind.REFERENCES] == [expected]
+
+
 def test_shared_loader_symbol_is_part_of_native_cache_identity(tmp_path: Path) -> None:
     from trailmark.tree_sitter_custom._native import NativeGrammar
 

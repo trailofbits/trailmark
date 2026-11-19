@@ -201,6 +201,9 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "docs/graph-model.md",
         "explicitly computational declaration with non-ghost argument positions",
     ),
+    ("docs/languages.md", "premise, action and conclusion"),
+    ("docs/graph-model.md", "unresolved reference spellings are omitted"),
+    ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
     ("README.md", "bounded C declaration wrappers can be expanded"),

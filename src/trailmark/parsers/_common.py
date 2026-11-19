@@ -435,19 +435,29 @@ def _syntax_diagnostics(
     root: Node, path: str, language: str, grammar: str | None, seen: set[ParseDiagnostic]
 ) -> Iterator[ParseDiagnostic]:
     pending = [root]
+    emitted = 0
     while pending:
         node = pending.pop()
-        pending.extend(
-            reversed(
-                [
-                    child
-                    for child in node.children
-                    if child.has_error or child.is_missing or child.type == "ERROR"
-                ]
-            )
-        )
         if node.type != "ERROR" and not node.is_missing:
+            pending.extend(
+                reversed(
+                    [
+                        child
+                        for child in node.children
+                        if child.has_error or child.is_missing or child.type == "ERROR"
+                    ]
+                )
+            )
             continue
+        if emitted == 256:
+            yield ParseDiagnostic(
+                language,
+                grammar or language,
+                make_location(root, path),
+                "syntax_error",
+                "Additional syntax diagnostics omitted after 256 reports",
+            )
+            return
         diagnostic = ParseDiagnostic(
             language="c_sharp" if language == "csharp" else language,
             grammar=grammar or language,
@@ -459,6 +469,7 @@ def _syntax_diagnostics(
         )
         if diagnostic not in seen:
             seen.add(diagnostic)
+            emitted += 1
             yield diagnostic
 
 

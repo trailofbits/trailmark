@@ -7,7 +7,8 @@ const BUILT_INS = [
   'bilinear-pairing',
   'xor',
   'multiset',
-  'revealing-signing'
+  'revealing-signing', 'natural-numbers', 'reliable-channel', 'locations-report',
+  'dest-pairing', 'dest-signing', 'dest-symmetric-encryption', 'dest-asymmetric-encryption'
 ]
 
 module.exports = grammar({
@@ -78,7 +79,7 @@ module.exports = grammar({
     macros: $ => prec.right(seq('macros', ':', $.macro, repeat(seq(',', $.macro)), optional(','))),
     macro: $ => seq(
       field('name', $.ident), '(', optional($._parameters), ')',
-      '=', field('body', $._msetterm)
+      '=', field('body', $.term_expression)
     ),
     predicates: $ => seq(choice('predicate', 'predicates'), ':', $.predicate,
       repeat(seq(',', $.predicate))),
@@ -106,7 +107,7 @@ module.exports = grammar({
       $.ident,
       '/',
       $.arity,
-      optional('[private]')
+      optional(seq('[', choice('private', 'destructor'), repeat(seq(',', choice('private', 'destructor'))), ']'))
     ),
 
     arity: $ => /\d+?/,
@@ -114,6 +115,7 @@ module.exports = grammar({
 
     equations: $ => seq(
       'equations',
+      optional('[convergent]'),
       ':',
       $.equation,
       repeat(
@@ -365,25 +367,25 @@ module.exports = grammar({
       ']'
     ),
 
-    rule_attr: $ => seq(
+    rule_attr: $ => choice("no_derivcheck", "[AC]", seq("role", "=", "'", $.ident, "'"), seq(
       choice(
         'color=',
         'colour='
       ),
       $.hexcolor
-    ),
+    )),
 
     let_block: $ => seq(
       'let',
-      repeat1(
-        seq(
-          field('name', $.msg_var),
-          '=',
-          field('value', $._msetterm)
-        )
-      ),
+      repeat1($.let_binding),
       'in'
     ),
+
+    let_binding: $ => seq(
+      field('name', $.msg_var), '=', field('value', $.term_expression)
+    ),
+
+    term_expression: $ => $._msetterm,
 
     msg_var: $ => prec.left(4, seq(
       $.ident,
@@ -402,7 +404,7 @@ module.exports = grammar({
     )),
 
     restriction: $ => seq(
-      'restriction',
+      choice('restriction', 'axiom'),
       $.ident,
       optional($.restriction_attrs),
       ':',
@@ -421,7 +423,7 @@ module.exports = grammar({
     ),
 
     lemma: $ => seq(
-      'lemma',
+      choice('lemma', 'diffLemma'),
       optional($.modulo),
       $.ident,
       optional($.lemma_attrs),
@@ -454,14 +456,14 @@ module.exports = grammar({
         'hide_lemma=', $.ident
       ),
       seq(
-        'heuristic=', repeat1($.goal_ranking)
+        'heuristic=', choice(repeat1($.goal_ranking), seq('{', $.ident, '}'))
       ),
       'left',
       'right'
     ),
 
     trace_quantifier: $ => choice(
-      'all-trace',
+      'all-traces',
       'exists-trace'
     ),
 
@@ -496,7 +498,8 @@ module.exports = grammar({
         ')'
       ),
       'contradiction',
-      'induction'
+      'induction', 'rule-equivalence', 'backward-search', 'MIRRORED',
+      seq('step', '(', choice('simplify', 'solve', 'contradiction', 'induction'), ')')
     ),
 
     goal: $ => prec.left(2, choice(
@@ -751,7 +754,8 @@ module.exports = grammar({
           ',',
           choice($.fact, $.embedded_restriction)
         )
-      )
+      ),
+      optional(',')
     ),
 
     builtin_facts: $ => choice(
@@ -923,7 +927,7 @@ module.exports = grammar({
       '∀'
     ),
 
-    hexcolor: $ => /#[0-9a-f]{6}/,
+    hexcolor: $ => /#?[0-9a-fA-F]{6}/,
 
 
     comment: $ => token(

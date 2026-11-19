@@ -426,7 +426,8 @@ ownership, conservative binding, schema identity changes and pinned grammar limi
 Tamarin graphs describe rule and formula references to symbols. Functions, rules,
 restrictions, lemmas, macros and predicates retain their source roles; fact symbols
 are identified by name and syntactic argument count at their first occurrence and
-marked implicit. Declaration kinds use separate namespaces. Macro applications link
+marked implicit. Rule fact references distinguish premise, action and conclusion; fact
+nodes retain persistence. Declaration kinds use separate namespaces. Macro applications link
 to macro definitions, and predicate applications link to predicate definitions,
 including within embedded restrictions. Bodies retain their own dependencies;
 substitution is not performed. Bare nullary functions retain references, while
@@ -437,12 +438,15 @@ symbolic dependencies, following the
 
 Include directives retain file dependencies. Directory analysis links inspected
 `.spthy` fragments by exact paths relative to the including file, transitively;
-single-file analysis does not load included files. Private function symbols remain
+unambiguous include trees share fact identities and symbol scope. Single-file analysis
+does not load included files. Shared fragments included by several independent theories
+are not instantiated separately. Private function symbols remain
 visible across includes: `attacker_private` describes attacker access, not source
 module visibility. Conditional blocks retain both branches and mark their declarations
 `conditional`; flags and boolean conditions are not evaluated, and ambiguous alternative
 definitions are not guessed. Directives do not consume the following source line.
 
-Proof skeletons, variants, tactics, embedded text and SAPIC processes produce
+Common rule/function attributes, `all-traces`, destructor builtin variants and deprecated
+`axiom` declarations are accepted. Proof skeletons, variants, tactics, embedded text and SAPIC processes produce
 unsupported-syntax diagnostics. Facts do not imply rule-to-rule execution edges,
 traces, attacker deductions or successful proofs.

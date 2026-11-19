@@ -8,3 +8,7 @@ Local grammar accepts F/T fact names and exposes builtin operators.
 Local grammar parses include fragments, conditional blocks, macros, predicates and
 embedded restrictions; directive tokens cannot consume a following source line.
 Formula associativity retains the full quantified body.
+Trailmark fixes: visible term boundaries for let bindings and macro bodies;
+correct the explicit all-traces quantifier spelling.
+
+Local review fixes: Operator-term let bindings and macros, all-traces, builtin variants, attributes and trailing fact commas.

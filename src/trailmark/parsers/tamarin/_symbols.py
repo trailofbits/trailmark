@@ -36,6 +36,20 @@ def reference(node: Node, namespace: str) -> str | None:
     return None
 
 
+def _rule_contexts(root: Node) -> list[Scope]:
+    result = []
+    if root.type == "simple_rule":
+        context = "premise"
+        for child in root.children:
+            if child.type == "--[":
+                context = "action"
+            elif child.type in {"-->", "]->"}:
+                context = "conclusion"
+            elif child.type == "facts":
+                result.append(Scope(frozenset(), child.start_byte, child.end_byte, context=context))
+    return result
+
+
 def scopes(root: Node, skip: frozenset[str]) -> tuple[Scope, ...]:
     result = []
     parameters = root.children_by_field_name("parameter")
@@ -43,6 +57,7 @@ def scopes(root: Node, skip: frozenset[str]) -> tuple[Scope, ...]:
         result.append(
             Scope(frozenset(node_text(n) for n in parameters), root.start_byte, root.end_byte)
         )
+    result.extend(_rule_contexts(root))
     for node in walk(root, skip):
         if node.type == "atom" and any(c.type == "quantifier" for c in node.named_children):
             names = frozenset(
@@ -54,11 +69,11 @@ def scopes(root: Node, skip: frozenset[str]) -> tuple[Scope, ...]:
             )
             result.append(Scope(names, node.start_byte, node.end_byte))
         elif node.type == "let_block" and node.parent is not None:
-            for name, value in zip(
-                node.children_by_field_name("name"),
-                node.children_by_field_name("value"),
-                strict=True,
-            ):
+            for binding in node.named_children:
+                name = binding.child_by_field_name("name")
+                value = binding.child_by_field_name("value")
+                if name is None or value is None:
+                    continue
                 bound = frozenset({node_text(name)})
                 result.extend(
                     (

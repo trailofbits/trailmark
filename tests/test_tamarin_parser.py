@@ -47,6 +47,37 @@ def test_fact_arity_and_bare_constants(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.parametrize("operator", ["^", "*", "+", "XOR"])
+def test_operator_let_values_and_macro_bodies_keep_dependencies(
+    tmp_path: Path, operator: str
+) -> None:
+    path = tmp_path / "Terms.spthy"
+    path.write_text(
+        "theory Terms begin\nbuiltins: diffie-hellman, xor, multiset\n"
+        "functions: k/0, f/1\n"
+        f"macros: m(x) = x {operator} f(k)\n"
+        f"rule R: let x = y {operator} f(k) in [In(y)] --> [Out(m(x))]\nend\n"
+    )
+    graph = parse_directory(str(tmp_path), language="tamarin", strict=True)
+    pairs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    }
+    assert {("m", "f"), ("m", "k"), ("R", "f"), ("R", "k")} <= pairs
+    assert ("m", operator) in pairs and ("R", operator) in pairs
+
+
+def test_explicit_all_traces_quantifier(tmp_path: Path) -> None:
+    path = tmp_path / "Traces.spthy"
+    path.write_text(
+        "theory Traces begin\nrule R: [In(x)] --[Seen(x)]-> [Out(x)]\n"
+        'lemma seen: all-traces "All x #i. Seen(x) @ #i ==> Ex #j. K(x) @ #j"\nend\n'
+    )
+    graph = parse_file(str(path), strict=True)
+    assert any(n.name == "seen" for n in graph.nodes.values())
+
+
 def test_nested_comments_and_unsupported_proofs(tmp_path: Path) -> None:
     path = tmp_path / "comments.spthy"
     path.write_text(
@@ -283,3 +314,40 @@ def test_parenthesized_quantifiers_do_not_shadow_following_constants(tmp_path: P
         )
         == 2
     )
+
+
+def test_fact_roles_persistence_and_common_attributes(tmp_path: Path) -> None:
+    path = tmp_path / "Roles.spthy"
+    path.write_text(
+        "theory Roles begin\nbuiltins: reliable-channel, hashing, dest-symmetric-encryption\n"
+        "functions: d/1 [destructor]\n"
+        "rule R [no_derivcheck,colour=ffffff]: [!State(x)] --[ Seen(x), ]-> [Out(h(x))]\n"
+        'axiom A: "All x #i. Seen(x)@i ==> Seen(x)@i"\n'
+        'lemma L: all-traces "All x #i. Seen(x)@i ==> Seen(x)@i"\nend\n'
+    )
+    graph = parse_file(str(path), strict=True)
+    refs = {
+        (graph.nodes[e.target_id].name, dict(e.attributes).get("reference_context"))
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "R"
+    }
+    assert {("State/1", "premise"), ("Seen/1", "action"), ("Out/1", "conclusion")} <= refs
+    state = next(n for n in graph.nodes.values() if n.name == "State/1")
+    assert dict(state.attributes)["persistent"] is True
+    assert {"senc", "sdec"} <= {n.name for n in graph.nodes.values()}
+
+
+def test_include_fragments_share_theory_symbols(tmp_path: Path) -> None:
+    (tmp_path / "main.spthy").write_text(
+        'theory Main begin\nfunctions: k/0\n#include "rules.spthy"\n'
+        'lemma L: "All x #i. Sent(x)@i ==> Sent(x)@i"\nend\n'
+    )
+    (tmp_path / "rules.spthy").write_text("rule Send: [] --> [Sent(k)]\n")
+    graph = parse_directory(str(tmp_path), "tamarin", strict=True)
+    assert len([n for n in graph.nodes.values() if n.name == "Sent/1"]) == 1
+    refs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    }
+    assert {("Send", "k"), ("Send", "Sent/1"), ("L", "Sent/1")} <= refs
