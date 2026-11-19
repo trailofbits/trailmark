@@ -93,10 +93,16 @@ and edge attributes. Public query answers are separate. No display-name or
 basename collapse is allowed.
 
 Public-query evidence must match both the original graph and its runtime
-fingerprint, including package, grammar, and source hashes. Callee and caller
-questions use calls only, even for formal and schema profiles. Structural paths
-may use the profile's other relations. A negative path question is not evaluated
+fingerprint, including package, grammar, and source hashes. Reference schema 2
+requires explicit question `edge_kinds` before measurement. Callee and caller
+questions use `calls`; ownership uses `contains`; dependencies and paths declare
+their relation kinds. The evaluator never infers these from prose or a language
+profile. A negative path question is not evaluated
 when the mapped domain can contain a simple path beyond the 20-edge search bound.
+
+Schema-1 campaigns retain their original evaluator checkout and semantics.
+Replay them there; do not add relation kinds to their sealed references or
+reinterpret their path outcomes as if readers had declared those kinds.
 
 Independent validators supply bounded evidence:
 

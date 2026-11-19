@@ -291,6 +291,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("tests/graph_eval/README.md", "two independent source-only readers"),
     ("tests/graph_eval/README.md", "before exposing measurements"),
     ("tests/graph_eval/README.md", "match both the original graph and its runtime"),
+    ("tests/graph_eval/README.md", "requires explicit question `edge_kinds` before measurement"),
     ("tests/graph_eval/README.md", "negative path question is not evaluated"),
     ("tests/graph_eval/README.md", "model adjudicator classifications pending independent review"),
     ("tests/graph_eval/README.md", "precision or recall without a complete adjudicated inventory"),
