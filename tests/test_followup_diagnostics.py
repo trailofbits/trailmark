@@ -105,7 +105,7 @@ def test_comment_classification_retains_code_and_ignores_byte_order_mark(
     assert _comments_only(root) is expected
 
 
-def test_nested_c_macro_errors_retain_all_diagnostics(tmp_path: Path) -> None:
+def test_nested_c_macro_errors_are_reported_at_the_outer_boundary(tmp_path: Path) -> None:
     path = tmp_path / "macros.c"
     path.write_text(
         "ONE(a)\nTWO(b)\nTHREE(c)\n"
@@ -114,9 +114,27 @@ def test_nested_c_macro_errors_retain_all_diagnostics(tmp_path: Path) -> None:
     diagnostics = parse_file(str(path), "c").parse_diagnostics
     assert [(d.kind, d.location.start_line, d.location.start_col) for d in diagnostics] == [
         ("syntax_error", 1, 0),
-        ("syntax_error", 4, 0),
-        ("syntax_error", 5, 17),
     ]
+
+
+@pytest.mark.parametrize(
+    ("suffix", "language", "grammar", "line"),
+    [
+        ("py", "python", "python", "x = ?; y = 1\n"),
+        ("tsx", "typescript", "tsx", "const x = ?; const y = 1;\n"),
+    ],
+)
+def test_independent_syntax_diagnostics_are_capped(
+    tmp_path: Path, suffix: str, language: str, grammar: str, line: str
+) -> None:
+    path = tmp_path / f"many.{suffix}"
+    path.write_text(line * 1000)
+    diagnostics = parse_file(str(path), language).parse_diagnostics
+    assert len(diagnostics) == 257
+    assert all(d.language == language and d.grammar == grammar for d in diagnostics)
+    assert diagnostics[-1].message == "Additional syntax diagnostics omitted after 256 reports"
+    with pytest.raises(ValueError, match="diagnostic"):
+        parse_file(str(path), language, strict=True)
 
 
 def test_bom_comment_prefix_does_not_hide_trailing_syntax_error(tmp_path: Path) -> None:

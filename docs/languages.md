@@ -6,6 +6,7 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
+- [Dafny](#dafny)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
 - [Zig](#zig)
@@ -419,3 +420,18 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## Dafny
+
+Dafny uses Dafny 4 function syntax. Modules, classes, traits, datatypes, fields,
+functions, methods and lemmas retain declaration roles. Contracts and proof statements
+produce references; ghost declarations and lemma uses do not create computational calls.
+Input parameters retain source order and types; constructors and iterators retain
+their own roles. Nested calls require computational enclosing callees and non-ghost
+argument positions. Named ghost constructor fields retain `ghost` metadata. Aliases and opened modules
+resolve against inspected imports, including sibling modules. Datatype destructors have
+type-level aliases, and newtype members retain their own declarations. File includes resolve by their exact path relative to
+the including file, within the inspected sources; missing files remain dependencies. Receiver/type inference, export-set semantics,
+verification and compilation are not performed. Older function-syntax modes and
+compiler-specific options are not interpreted. Refinement/inheritance edges, constructor
+calls from `new`, receiver-dependent discriminators and export-set lookup remain incomplete.

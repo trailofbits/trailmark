@@ -150,11 +150,32 @@ def materialize_type_use_edges(graph: CodeGraph) -> None:
         if edge.kind == EdgeKind.TYPE_USES
     }
     type_index = _type_index(graph)
+    formal_files = {
+        unit.location.file_path
+        for unit in graph.nodes.values()
+        if "formal_modules" in dict(unit.attributes)
+    }
+    for edge in tuple(graph.edges):
+        if (
+            edge.kind == EdgeKind.REFERENCES
+            and graph.nodes[edge.source_id].location.file_path in formal_files
+            and dict(edge.attributes).get("reference_context") == "type"
+            and graph.nodes[edge.target_id].kind in _TYPE_KINDS
+        ):
+            key = (edge.source_id, edge.target_id, EdgeKind.TYPE_USES)
+            if key not in existing:
+                existing.add(key)
+                graph.edges.append(
+                    CodeEdge(
+                        *key,
+                        attributes=(("type_name", dict(edge.attributes).get("spelling")),),
+                    )
+                )
     new_edges: list[CodeEdge] = []
     for unit in graph.nodes.values():
         # Lean resolves explicit types in its own namespace/import/order context.
         # Retained raw TypeRefs must not be rebound after polyglot/root merging.
-        if "lean_declaration" in dict(unit.attributes):
+        if "lean_declaration" in dict(unit.attributes) or unit.location.file_path in formal_files:
             continue
         for type_ref in unit_type_refs(unit):
             target_id = _resolve_type_ref(type_ref, type_index, unit.id)

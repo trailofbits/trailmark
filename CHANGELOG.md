@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Repair Dafny postfix/additive precedence, pattern and type-parameter scopes,
+  specification contexts, ghost assignments and by-method bodies.
+
+- Correct shared formal type references, import visibility and argument scopes.
+  Bound syntax diagnostics and declaration nesting.
+
+- Add Dafny source graphs with typed input parameters, declaration roles, lexical
+  and ghost scopes, explicit computational calls and bounded native scanning.
+
 - Preserve nested computational calls when all enclosing argument callees are
   resolved and executable, while retaining proof and unknown argument uses as
   references. Index lexical scope intervals and retain explicit re-export and
