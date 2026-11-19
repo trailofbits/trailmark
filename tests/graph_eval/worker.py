@@ -82,23 +82,38 @@ def _atomic_json(path: Path, value: Any) -> None:
     temporary.replace(path)
 
 
+def retain_image(image: str, *, context: str = DEFAULT_CONTEXT) -> dict[str, str]:
+    """Keep each immutable OCI index reachable when later builds replace aliases."""
+    image_id = _docker(
+        context, "image", "inspect", image, "--format", "{{.Id}}", timeout=30
+    ).stdout.strip()
+    if not image_id.startswith("sha256:"):
+        raise ValueError("Worker image did not resolve to an immutable image ID")
+    repository = DEFAULT_IMAGE.rsplit(":", 1)[0]
+    retained = f"{repository}:sha256-{image_id.removeprefix('sha256:')}"
+    _docker(context, "image", "tag", image_id, retained, timeout=30)
+    return {"image": image_id, "retention_tag": retained}
+
+
 def build_image(output_dir: Path, *, context: str = DEFAULT_CONTEXT) -> dict[str, str]:
-    """Build from pinned inputs and return the immutable local image ID."""
+    """Build under a fresh name, then retain the immutable index under its digest."""
     output_dir.mkdir(parents=True, exist_ok=True)
+    repository = DEFAULT_IMAGE.rsplit(":", 1)[0]
+    build_tag = f"{repository}:build-{uuid.uuid4().hex}"
     result = _docker(
         context,
         "build",
         "--tag",
-        DEFAULT_IMAGE,
+        build_tag,
         "--file",
         str(Path(__file__).with_name("worker.Dockerfile")),
         str(Path(__file__).parent),
         timeout=600,
     )
     (output_dir / "image-build.log").write_text(result.stdout + result.stderr)
-    image = _docker(context, "image", "inspect", DEFAULT_IMAGE, "--format", "{{.Id}}")
     metadata = {
-        "image": image.stdout.strip(),
+        **retain_image(build_tag, context=context),
+        "build_tag": build_tag,
         "cli_version": CLI_VERSION,
         "worker_fingerprint": worker_fingerprint(),
         "docker_context": context,
@@ -343,11 +358,22 @@ def run_agent(
     if timeout <= 0:
         raise ValueError("Worker timeout must be positive")
     output_dir.mkdir(parents=True, exist_ok=True)
-    image_id = _docker(
-        context, "image", "inspect", image, "--format", "{{.Id}}", timeout=30
-    ).stdout.strip()
-    if not image_id.startswith("sha256:"):
-        raise ValueError("Worker image did not resolve to an immutable image ID")
+    try:
+        image_id = _docker(
+            context, "image", "inspect", image, "--format", "{{.Id}}", timeout=30
+        ).stdout.strip()
+        if not image_id.startswith("sha256:"):
+            raise ValueError("Worker image did not resolve to an immutable image ID")
+    except (ValueError, OSError, subprocess.SubprocessError) as error:
+        result = {
+            "status": "isolation_error",
+            "role": role,
+            "attempts": [],
+            "response_path": None,
+            "error": str(error),
+        }
+        _atomic_json(output_dir / "worker.json", result)
+        return result
     attempts = []
     for number in (1, 2):
         attempt = output_dir / f"attempt-{number}"

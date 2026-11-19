@@ -318,3 +318,96 @@ def test_worker_retries_only_transport_and_invalid_output(
     )
     assert (output / "response.json").exists() is (expected == "ok")
     assert not list(output.glob("*.tmp"))
+
+
+@pytest.mark.parametrize("failure", ["missing", "timeout", "unavailable", "invalid_id"])
+def test_prelaunch_image_failure_is_terminal_without_provider_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    from tests.graph_eval import worker
+
+    source = tmp_path / "source"
+    source.mkdir()
+    output = tmp_path / "output"
+    calls = []
+
+    def docker(_context: str, *arguments: str, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(arguments)
+        if failure == "missing":
+            raise subprocess.CalledProcessError(1, ["docker", *arguments])
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(["docker", *arguments], 30)
+        if failure == "unavailable":
+            raise OSError("Docker is unavailable")
+        return subprocess.CompletedProcess(arguments, 0, "unresolved-image", "")
+
+    def auth() -> dict[str, Any]:
+        raise AssertionError("A prelaunch failure must not access credentials")
+
+    monkeypatch.setattr(worker, "_docker", docker)
+    monkeypatch.setattr(worker, "_auth_payload", auth)
+    result = worker.run_agent(source, "read source", {}, output)
+    assert result["status"] == "isolation_error"
+    assert result["attempts"] == []
+    assert result["response_path"] is None
+    assert json.loads((output / "worker.json").read_text()) == result
+    assert len(calls) == 1
+    assert calls[0][:2] == ("image", "inspect")
+    assert not list(output.glob("attempt-*"))
+
+
+def test_builds_keep_unique_names_and_digest_retention_tags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.graph_eval import worker
+
+    calls = []
+    image = "sha256:" + "a" * 64
+
+    def docker(_context: str, *arguments: str, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(arguments)
+        stdout = image if arguments[:2] == ("image", "inspect") else ""
+        return subprocess.CompletedProcess(arguments, 0, stdout, "")
+
+    monkeypatch.setattr(worker, "_docker", docker)
+    first = worker.build_image(tmp_path / "first")
+    second = worker.build_image(tmp_path / "second")
+    assert first["build_tag"] != second["build_tag"]
+    assert first["retention_tag"].endswith("sha256-" + "a" * 64)
+    assert ("image", "tag", image, first["retention_tag"]) in calls
+    assert all(worker.DEFAULT_IMAGE not in arguments for arguments in calls)
+
+
+def test_orchestrator_freezes_prelaunch_failure_instead_of_leaving_running_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.graph_eval import campaign, worker
+
+    source = tmp_path / "source-views" / "case"
+    source.mkdir(parents=True)
+    (source / "module.py").write_text("pass\n")
+    manifest = {
+        "worker_image": "sha256:unavailable",
+        "worker_fingerprint": "frozen",
+        "model": "gpt-6.1-sol",
+        "reasoning": "xhigh",
+        "docker_context": "isolated",
+        "source_views": {"case": campaign._view_hash(source)},
+        "limits": {"reader_timeout": 900},
+    }
+    calls = []
+
+    def docker(_context: str, *arguments: str, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(arguments)
+        raise subprocess.CalledProcessError(1, ["docker", *arguments])
+
+    monkeypatch.setattr(worker, "_docker", docker)
+    monkeypatch.setattr(campaign, "run_agent", worker.run_agent)
+    case = {"id": "case", "input_hash": "frozen-input"}
+    result = campaign._agent_job(tmp_path, manifest, case, "reader-A", "read source", {})
+    assert result["status"] == "isolation_error"
+    assert result["worker"]["attempts"] == []
+    path = tmp_path / "cases" / "case" / "reader-A" / "job.json"
+    assert json.loads(path.read_text()) == result
+    assert campaign._agent_job(tmp_path, manifest, case, "reader-A", "read source", {}) == result
+    assert len(calls) == 1

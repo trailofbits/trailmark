@@ -39,6 +39,7 @@ from tests.graph_eval.worker import (
     BLOCKED_COMPONENTS,
     DEFAULT_CONTEXT,
     model_defaults,
+    retain_image,
     run_agent,
     validate_source_view,
     worker_fingerprint,
@@ -131,10 +132,13 @@ def prepare(
             or image != existing["worker_image"]
         ):
             raise ValueError("Prepared campaign runtime differs; use a new campaign directory")
+        retain_image(existing["worker_image"], context=existing["docker_context"])
         return existing
     if workers < 1:
         raise ValueError("Workers must be positive")
     campaign.mkdir(parents=True, exist_ok=True)
+    retained_image = retain_image(image, context=context)
+    image = retained_image["image"]
     projects = (
         read_json(campaign / "projects.json")
         if (campaign / "projects.json").exists()
@@ -206,6 +210,7 @@ def prepare(
         if validator_python
         else sys.executable,
         "worker_image": image,
+        "worker_image_retention_tag": retained_image["retention_tag"],
         "worker_fingerprint": worker_fingerprint(),
         "docker_context": context,
         **model_defaults(),
