@@ -6,6 +6,9 @@ explanation. Rules shared by every language, such as node IDs, overloads,
 header handling, and cross-file linking, are in [Graph model](graph-model.md).
 
 - [Lean 4](#lean-4)
+- [Dafny](#dafny)
+- [F*](#f)
+- [Rocq/Coq](#rocqcoq)
 - [WhyML](#whyml)
 - [Bash](#bash)
 - [Rust and Verus](#rust-and-verus)
@@ -420,6 +423,57 @@ are retained with a `#declaration` suffix alongside concrete method bodies.
 
 See [Parser coverage and declaration identity](parser-coverage.md) for callable
 ownership, conservative binding, schema identity changes and pinned grammar limits.
+
+## Dafny
+
+Dafny uses Dafny 4 function syntax. Modules, classes, traits, datatypes, fields,
+functions, methods and lemmas retain declaration roles. Contracts and proof statements
+produce references; ghost declarations and lemma uses do not create computational calls.
+Input parameters retain source order and types; constructors and iterators retain
+their own roles. Nested calls require computational enclosing callees and non-ghost
+argument positions. Named ghost constructor fields retain `ghost` metadata. Aliases and opened modules
+resolve against inspected imports, including sibling modules. Datatype destructors have
+type-level aliases, and newtype members retain their own declarations. File includes resolve by their exact path relative to
+the including file, within the inspected sources; missing files remain dependencies. Receiver/type inference, export-set semantics,
+verification and compilation are not performed. Older function-syntax modes and
+compiler-specific options are not interpreted. Refinement/inheritance edges, constructor
+calls from `new`, receiver-dependent discriminators and export-set lookup remain incomplete.
+
+## F*
+
+F* parses `.fst` and `.fsti` declarations, module aliases/imports, refinements and
+explicit references. Interfaces retain their source locations and correspond to unique
+implementations. Computational applications, including implicit `Tot`, produce calls;
+implementations inherit effect, lemma and visibility metadata from matching `val` declarations.
+Proof and type uses remain references. Ghost effect abbreviations and erased results do not
+produce calls. Inspected interfaces bound exports, and later opens take precedence. Lexical binders, including local patterns
+and dependent arrows, block unrelated global targets. Private declarations stay local;
+parameter types and refinements retain dependencies. Ordinary option directives are
+accepted without evaluating their settings. Includes re-export inspected module members;
+plain opens do not. Restricted imports and renamings produce diagnostics and are not
+treated as unrestricted opens. Pulse bodies, quotations and
+splices produce unsupported-syntax diagnostics. Elaboration, tactics, effect aliases and
+extraction are not evaluated. Record projections do not fall back to unrelated global
+functions; receiver-dependent field resolution remains incomplete.
+
+## Rocq/Coq
+
+Rocq/Coq retains Gallina source references without claiming kernel proof dependencies.
+Definitions, fixpoints, inductives, records, fields, section assumptions and theorem statements
+keep their declaration roles. Explicit Require and Import statements bound cross-file
+visibility. Export propagates short-name openings without inventing qualified module
+members. Selective imports and source Load commands are diagnosed as unsupported.
+Match scrutinees and branch bodies retain references with branch-local pattern binders.
+Module signature clauses retain references in the module namespace, separate from terms.
+Tactics and notation expansion produce diagnostics; lemma dependencies occurring only
+in proofs are absent. Each file receives at most one tactic-coverage diagnostic; no proof success, axiom closure, extraction behavior or runtime calls are
+inferred. Implicit and inductive binders, mutual fixpoint bodies and section imports
+retain their lexical boundaries. From/Require imports use directory identities or
+explicit -Q/-R mappings in the nearest _CoqProject file; other load-path configuration
+is not evaluated. Sentence recovery preserves later declarations after malformed commands.
+Advanced functors, generated declarations, Include expansion and notation declarations
+remain incomplete. Select `--language rocq` explicitly for `.v` files because the
+extension also denotes Verilog; automatic detection excludes `.v`.
 
 ## WhyML
 

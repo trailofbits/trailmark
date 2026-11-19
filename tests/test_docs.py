@@ -93,6 +93,21 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/languages.md", "File includes resolve by their exact path"),
+    ("docs/languages.md", "Dafny uses Dafny 4 function syntax"),
+    ("docs/languages.md", "Input parameters retain source order and types"),
+    ("docs/languages.md", "Includes re-export inspected module members"),
+    ("docs/languages.md", "Private declarations stay local"),
+    (
+        "docs/languages.md",
+        "Pulse bodies, quotations and splices produce unsupported-syntax diagnostics",
+    ),
+    ("docs/languages.md", "Export propagates short-name openings"),
+    (
+        "docs/languages.md",
+        "Rocq/Coq retains Gallina source references without claiming kernel proof dependencies",
+    ),
+    ("docs/languages.md", "automatic detection excludes `.v`"),
     ("docs/languages.md", "Use export propagates inspected members"),
     ("docs/languages.md", "mutual `let rec ... with` groups"),
     (
@@ -202,6 +217,9 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "docs/graph-model.md",
         "explicitly computational declaration with non-ghost argument positions",
     ),
+    ("docs/languages.md", "including implicit `Tot`"),
+    ("docs/languages.md", "lemma dependencies occurring only in proofs are absent"),
+    ("docs/languages.md", "Module signature clauses retain references in the module namespace"),
     ("docs/languages.md", "mean per-file syntax-error line coverage fell from 44% to 15%"),
     ("docs/graph-model.md", "unresolved reference spellings are omitted"),
     ("docs/graph-model.md", "256 individual errors per file plus a summary"),
