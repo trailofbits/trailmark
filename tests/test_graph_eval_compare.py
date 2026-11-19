@@ -351,6 +351,74 @@ def test_partial_navigation_scores_positive_subsets_without_claiming_negative_co
     assert _compare(measurement, reference)["questions"][0]["status"] == "unknown"
 
 
+def test_complete_negative_navigation_requires_all_inventory_declarations_to_match() -> None:
+    reference, measurement = _reference(), _measurement()
+    reference["declarations"].append(
+        {
+            "key": "middle",
+            "name": "middle",
+            "role": "function",
+            "graph_kind": "function",
+            "owner": "file:main.py",
+            "location": _site(10),
+            "evidence": "Source reader predicted a middle declaration at line 10",
+        }
+    )
+    measurement["graph"]["nodes"]["main:middle"] = _node("middle", 9)
+    measurement["graph"]["edges"][-1]["target"] = "main:middle"
+    measurement["graph"]["edges"].extend(
+        [
+            _edge("main", "main:middle", None, "contains"),
+            _edge("main:middle", "lib:helper", 9),
+        ]
+    )
+    for question in reference["questions"]:
+        question["expected"] = []
+    result = _compare(measurement, reference)
+    assert "middle" not in result["mapping"]
+    assert [row["status"] for row in result["questions"]] == ["blocked"] * 3
+    assert all(row["issues"] == ["unmatched_declaration"] for row in result["questions"])
+    reference["declarations"][-1]["location"] = _site(9)
+    assert [row["status"] for row in _compare(measurement, reference)["questions"]] == [
+        "discrepancy",
+        "discrepancy",
+        "discrepancy",
+    ]
+
+
+def test_enriched_negative_path_search_covers_paths_longer_than_twenty_edges() -> None:
+    reference, measurement = _reference(), _measurement()
+    intermediates = []
+    for index in range(20):
+        key = f"middle{index}"
+        ident = f"chain:{key}"
+        location = _site(index + 1, "chain.py")
+        reference["declarations"].append(
+            {
+                "key": key,
+                "name": key,
+                "role": "function",
+                "graph_kind": "function",
+                "owner": None,
+                "location": location,
+                "evidence": "Known intermediate in the chain",
+            }
+        )
+        measurement["graph"]["nodes"][ident] = _node(key, index + 1, "chain.py")
+        intermediates.append(ident)
+    chain = ["main:run", *intermediates, "lib:helper"]
+    measurement["graph"]["edges"].pop()
+    measurement["graph"]["edges"].extend(
+        _edge(source, target, index + 1)
+        for index, (source, target) in enumerate(zip(chain, chain[1:], strict=False))
+    )
+    reference["questions"][2]["expected"] = []
+    question = _compare(measurement, reference)["questions"][2]
+    assert question["status"] == "discrepancy"
+    assert question["observed"] == chain
+    assert len(question["observed"]) - 1 == 21
+
+
 @pytest.mark.parametrize("profile", ["runtime", "formal", "schema", "sql"])
 def test_callee_and_caller_questions_ignore_noncall_relations_in_every_profile(
     profile: str,

@@ -317,6 +317,13 @@ def _questions(
         if any(key not in mapping for key in keys):
             records.append({**record, "status": "blocked", "issues": ["unmatched_declaration"]})
             continue
+        if (
+            not question["expected"]
+            and reference["inventory_complete"]
+            and any(item["key"] not in mapping for item in reference["declarations"])
+        ):
+            records.append({**record, "status": "blocked", "issues": ["unmatched_declaration"]})
+            continue
         subject = mapping[question["subject"]]
         expected = [mapping[key] for key in question["expected"]]
         kinds = {"calls"}
