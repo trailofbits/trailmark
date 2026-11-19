@@ -1,0 +1,436 @@
+{
+  "edges": [
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
+      "target": "taxonomy:Taxonomy"
+    },
+    {
+      "attributes": {
+        "import_name": "int.Int"
+      },
+      "confidence": "certain",
+      "kind": "imports",
+      "source": "taxonomy:Taxonomy",
+      "target": "@import:whyml:int.Int"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.positive"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.model"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.inc"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.run"
+    },
+    {
+      "attributes": {
+        "reference_context": "contract",
+        "spelling": "positive"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 23,
+        "end_line": 7,
+        "file_path": "taxonomy.mlw",
+        "start_col": 15,
+        "start_line": 7
+      },
+      "source": "taxonomy:Taxonomy.run",
+      "target": "taxonomy:Taxonomy.positive"
+    },
+    {
+      "attributes": {
+        "reference_context": "contract",
+        "spelling": "model"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 28,
+        "end_line": 8,
+        "file_path": "taxonomy.mlw",
+        "start_col": 23,
+        "start_line": 8
+      },
+      "source": "taxonomy:Taxonomy.run",
+      "target": "taxonomy:Taxonomy.model"
+    },
+    {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "inc"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 9,
+        "end_line": 9,
+        "file_path": "taxonomy.mlw",
+        "start_col": 6,
+        "start_line": 9
+      },
+      "source": "taxonomy:Taxonomy.run",
+      "target": "taxonomy:Taxonomy.inc"
+    },
+    {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "inc"
+      },
+      "confidence": "inferred",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.run",
+      "target": "taxonomy:Taxonomy.inc"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy:Taxonomy",
+      "target": "taxonomy:Taxonomy.proof"
+    },
+    {
+      "attributes": {
+        "reference_context": "proof",
+        "spelling": "model"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 49,
+        "end_line": 10,
+        "file_path": "taxonomy.mlw",
+        "start_col": 44,
+        "start_line": 10
+      },
+      "source": "taxonomy:Taxonomy.proof",
+      "target": "taxonomy:Taxonomy.model"
+    },
+    {
+      "attributes": {
+        "reference_context": "proof",
+        "spelling": "inc"
+      },
+      "confidence": "inferred",
+      "kind": "references",
+      "location": {
+        "end_col": 57,
+        "end_line": 10,
+        "file_path": "taxonomy.mlw",
+        "start_col": 54,
+        "start_line": 10
+      },
+      "source": "taxonomy:Taxonomy.proof",
+      "target": "taxonomy:Taxonomy.inc"
+    }
+  ],
+  "exception_support": [
+    {
+      "binary_exception_flow": "unsupported",
+      "cleanup": "unsupported",
+      "declarations": "unsupported",
+      "events": "unsupported",
+      "handlers": "unsupported",
+      "implicit_execution": "unsupported",
+      "interprocedural_propagation": "unsupported",
+      "language": "whyml",
+      "notes": "WhyML raises clauses and verification conditions are not modeled as runtime exception events; no exception events are emitted.",
+      "type_hints": "unsupported"
+    }
+  ],
+  "language": "whyml",
+  "nodes": {
+    "@import:whyml:int.Int": {
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "@import:whyml:int.Int",
+      "kind": "module",
+      "location": {
+        "end_col": 13,
+        "end_line": 2,
+        "file_path": "taxonomy.mlw",
+        "start_col": 2,
+        "start_line": 2
+      },
+      "name": "int.Int",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy": {
+      "attributes": {
+        "formal_modules": "[\"Taxonomy\", \"taxonomy\", \"taxonomy.Taxonomy\"]",
+        "ordered_declarations": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy",
+      "kind": "module",
+      "location": {
+        "end_col": 0,
+        "end_line": 12,
+        "file_path": "taxonomy.mlw",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy": {
+      "attributes": {
+        "declaration_role": "module",
+        "qualified_name": "Taxonomy"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy",
+      "kind": "namespace",
+      "location": {
+        "end_col": 3,
+        "end_line": 11,
+        "file_path": "taxonomy.mlw",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "name": "Taxonomy",
+      "parameters": [],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.inc": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "let",
+        "executable": true,
+        "ghost": false,
+        "qualified_name": "Taxonomy.inc"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.inc",
+      "kind": "function",
+      "location": {
+        "end_col": 31,
+        "end_line": 5,
+        "file_path": "taxonomy.mlw",
+        "start_col": 2,
+        "start_line": 5
+      },
+      "name": "inc",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:Taxonomy.model": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "function",
+        "executable": false,
+        "ghost": false,
+        "qualified_name": "Taxonomy.model"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.model",
+      "kind": "function",
+      "location": {
+        "end_col": 38,
+        "end_line": 4,
+        "file_path": "taxonomy.mlw",
+        "start_col": 2,
+        "start_line": 4
+      },
+      "name": "model",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    },
+    "taxonomy:Taxonomy.positive": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "predicate",
+        "executable": false,
+        "ghost": false,
+        "qualified_name": "Taxonomy.positive"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.positive",
+      "kind": "function",
+      "location": {
+        "end_col": 37,
+        "end_line": 3,
+        "file_path": "taxonomy.mlw",
+        "start_col": 2,
+        "start_line": 3
+      },
+      "name": "positive",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": null
+    },
+    "taxonomy:Taxonomy.proof": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "lemma",
+        "executable": false,
+        "ghost": false,
+        "qualified_name": "Taxonomy.proof"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.proof",
+      "kind": "function",
+      "location": {
+        "end_col": 61,
+        "end_line": 10,
+        "file_path": "taxonomy.mlw",
+        "start_col": 2,
+        "start_line": 10
+      },
+      "name": "proof",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "unit"
+      }
+    },
+    "taxonomy:Taxonomy.run": {
+      "attributes": {
+        "assumed": false,
+        "declaration_role": "let",
+        "executable": true,
+        "ghost": false,
+        "qualified_name": "Taxonomy.run"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Taxonomy.run",
+      "kind": "function",
+      "location": {
+        "end_col": 11,
+        "end_line": 9,
+        "file_path": "taxonomy.mlw",
+        "start_col": 2,
+        "start_line": 6
+      },
+      "name": "run",
+      "parameters": [
+        {
+          "default": null,
+          "name": "x",
+          "type_ref": {
+            "generic_args": [],
+            "module": null,
+            "name": "int"
+          }
+        }
+      ],
+      "return_type": {
+        "generic_args": [],
+        "module": null,
+        "name": "int"
+      }
+    }
+  },
+  "root_path": "taxonomy.mlw",
+  "schema_version": 1,
+  "subgraphs": {},
+  "summary": {
+    "call_edges": 1,
+    "classes": 0,
+    "dependencies": [],
+    "entrypoints": 0,
+    "functions": 5,
+    "languages": [
+      "whyml"
+    ],
+    "parse_diagnostics": [],
+    "proxies": 0,
+    "source_file_counts": {
+      "whyml": 1
+    },
+    "source_files": 1,
+    "total_nodes": 8
+  },
+  "trailmark_version": "<trailmark-version>"
+}

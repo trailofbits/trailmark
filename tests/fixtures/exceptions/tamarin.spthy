@@ -1,0 +1,3 @@
+theory Errors begin
+rule R: [ In(x) ] --> []
+end

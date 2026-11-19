@@ -234,6 +234,36 @@ _PROFILES = {
         "PL/pgSQL RAISE bodies produce syntax diagnostics; dialect-specific handlers and "
         "transactional effects remain unsupported.",
     ),
+    "dafny": (
+        "UUUUU",
+        "Dafny verification failures, halt and compiled-language exceptions "
+        "are not modeled; no exception events are emitted.",
+    ),
+    "fstar": (
+        "UUUUU",
+        "F* effects, exceptions and extracted-code failure behavior are not "
+        "modeled; no exception events are emitted.",
+    ),
+    "rocq": (
+        "UUUUU",
+        "Rocq proof checking and extracted-program failures are not "
+        "modeled; no exception events are emitted.",
+    ),
+    "whyml": (
+        "UUUUU",
+        "WhyML raises clauses and verification conditions are not modeled "
+        "as runtime exception events; no exception events are emitted.",
+    ),
+    "tlaplus": (
+        "UUUUU",
+        "TLA+ specifications do not establish runtime exception behavior; "
+        "no exception events are emitted.",
+    ),
+    "tamarin": (
+        "UUUUU",
+        "Tamarin trace semantics and proof search do not establish runtime "
+        "exceptions; no exception events are emitted.",
+    ),
     "proverif": (
         "UUUUU",
         "ProVerif process blocking and verification results do not "

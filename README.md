@@ -247,6 +247,12 @@ for working with proxies.
 | Circom | `.circom` | `circom` | templates, functions, signals, components |
 | Haskell | `.hs` | `haskell` | functions, data types, type classes, instances |
 | Lean 4 | `.lean` | `lean` | definitions, theorems, namespaces, structures, classes, inductive types, imports, term applications, explicit symbol and typed field references |
+| Dafny | `.dfy` | `dafny` | modules, classes, datatypes, functions, methods, lemmas, contracts and explicit references |
+| F* | `.fst`, `.fsti` | `fstar` | declarations, interfaces, refinements, module imports, explicit references and computational applications |
+| Rocq/Coq | `.v` | `rocq` | Gallina declarations, modules, assumptions, theorem statements and explicit references; select `rocq` explicitly |
+| WhyML | `.mlw`, `.why` | `whyml` | modules and implicit file modules, programs, arrays, ghost code, contracts and explicit references (partial syntax coverage) |
+| TLA+ | `.tla` | `tlaplus` | modules, state variables, operators, assumptions, theorems and specification references |
+| Tamarin | `.spthy` | `tamarin` | rules, function and fact symbols, macros, predicates, includes, conditionals and specification references |
 | ProVerif | `.pv`, `.pvl` | `proverif` | typed pi-calculus functions, events, processes, queries and symbolic references |
 | Julia | `.jl` | `julia` | modules, types, long/short functions, closures, signatures, branches, imports, conservative local calls |
 | Erlang | `.erl` | `erlang` | functions, records, behaviours, modules |

@@ -1,0 +1,18 @@
+{
+  "grammars": [
+    {
+      "name": "tamarin",
+      "camelcase": "Tamarin",
+      "scope": "source.tamarin",
+      "path": ".",
+      "file-types": [
+        "spthy"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "0.0.0",
+    "license": "MIT",
+    "description": "Bundled source grammar"
+  }
+}
