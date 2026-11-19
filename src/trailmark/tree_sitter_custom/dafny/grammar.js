@@ -490,10 +490,10 @@ module.exports = grammar({
     invariant_clause: $ => seq('invariant', repeat($.attribute),
       optional(seq(choice($.identifier, $.integer_literal), ':')), $._expression, optional(';')),
 
-    frame_expression: $ => choice(
+    frame_expression: $ => prec.right(choice(
       seq($._expression, optional(seq('`', $.identifier))),
       seq('`', $.identifier),
-    ),
+    )),
     possible_wild_frame_expression: $ => choice('*', '**', seq('(', '*', ')'), $.frame_expression),
 
     // ========== Generic parameters ==========
@@ -546,7 +546,8 @@ module.exports = grammar({
     arrow_type: $ => prec.right(PREC.ARROW, seq($._type, choice('->', '~>', '-->'), $._type)),
     tuple_type: $ => seq('(', commaSep(seq(optional('ghost'), $._type)), ')'),
 
-    named_type: $ => prec.left(-1, seq($.qualified_name, optional($.generic_instantiation), optional('?'))),
+    _type_qualified_name: $ => prec.right(PREC.PRIMARY + 1, seq($.identifier, repeat(seq('.', $.identifier)))),
+    named_type: $ => prec.right(seq(alias($._type_qualified_name, $.qualified_name), optional($.generic_instantiation), optional('?'))),
     generic_instantiation: $ => seq($._generic_open, commaSep1($._type), $._generic_close),
 
     // ========== Statements ==========
@@ -775,10 +776,12 @@ module.exports = grammar({
     shift_term: $ => seq($.term, repeat(seq(choice($._shift_left, '>>'), $.term))),
 
     // 17.2.7.7 Term (add)
-    term: $ => seq($.factor, repeat(seq(choice('+', '-'), $.factor))),
+    term: $ => choice($.factor,
+      prec.left(PREC.ADD, seq($.term, choice('+', '-'), $.factor))),
 
     // 17.2.7.8 Factor (mul)
-    factor: $ => seq($.bitvector_factor, repeat(seq(choice('*', '/', '%'), $.bitvector_factor))),
+    factor: $ => choice($.bitvector_factor,
+      prec.left(PREC.MUL, seq($.factor, choice('*', '/', '%'), $.bitvector_factor))),
 
     // 17.2.7.9 Bitvector — | is HERE, separate from cardinality
     bitvector_factor: $ => seq($.as_expression, repeat(seq(choice($._bar, $._ampersand, $._caret), $.as_expression))),
@@ -854,7 +857,7 @@ module.exports = grammar({
     // prec.dynamic(10) wins merge when content is valid types.
 
     call_expression: $ => prec.dynamic(10, prec.left(PREC.RELATIONAL, seq(
-      field('function', $._expression),
+      field('function', $._primary_expression),
       field('type_arguments', $.type_arguments),
       '(', commaSep($.actual_binding), ')',
     ))),
@@ -868,16 +871,16 @@ module.exports = grammar({
     // ========== Suffix expressions ==========
 
     suffix_expression: $ => prec.left(PREC.PRIMARY, choice(
-      seq(field('object', $._expression), '.', choice(
+      seq(field('object', $._primary_expression), '.', choice(
         seq(field('member', choice($.identifier, $.integer_literal)),
           optional(seq('#', '[', $._expression, ']')),
           optional($.generic_instantiation)),
         seq('(', commaSep1(seq(choice($.identifier, $.integer_literal), ':=', $._expression)), ')'),
       )),
-      seq($._expression, '@', $.identifier),
-      seq($._expression, '`', $.identifier),
-      seq(field('function', $._expression), '(', commaSep($.actual_binding), ')'),
-      seq($._expression, '[', choice(
+      seq($._primary_expression, '@', $.identifier),
+      seq($._primary_expression, '`', $.identifier),
+      seq(field('function', $._primary_expression), '(', commaSep($.actual_binding), ')'),
+      seq($._primary_expression, '[', choice(
         seq($._expression, ':=', $._expression),
         seq(optional($._expression), '..', optional($._expression)),
         commaSep1($._stmt_expression),

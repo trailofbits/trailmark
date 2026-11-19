@@ -56,19 +56,21 @@ def ghost_parameters(node: Node) -> list[str]:
     ]
 
 
-def _pattern_names(root: Node) -> frozenset[str]:
+def _pattern_names(root: Node, constructors: frozenset[str] = frozenset()) -> frozenset[str]:
     result = set()
     for node in walk(root):
-        if node.type != "case_pattern":
+        if node.type not in {"case_pattern", "id_pattern"}:
             continue
         nested = [n for n in node.named_children if n.type == "case_pattern"]
         if not nested and not any(c.type == "(" for c in node.children):
             result.update(node_text(n) for n in node.named_children if n.type == "identifier")
-    return frozenset(result)
+    return frozenset(result) - constructors
 
 
 def _formal(node: Node) -> list[Scope]:
     name = node.child_by_field_name("name")
+    if name is None and node.type == "type_parameter":
+        name = next((n for n in node.named_children if n.type == "identifier"), None)
     parent = node.parent
     if name is None or parent is None:
         return []
@@ -101,13 +103,12 @@ def _quantifier(node: Node) -> list[Scope]:
     ]
 
 
-def _pattern_scope(node: Node) -> list[Scope]:
-    patterns = [n for n in node.named_children if n.type == "case_pattern"]
+def _pattern_scope(node: Node, constructors: frozenset[str] = frozenset()) -> list[Scope]:
+    patterns = [n for n in node.named_children if n.type.endswith("_pattern")]
     if not patterns:
         return []
-    names = frozenset().union(*(_pattern_names(p) for p in patterns))
-    body = node.named_children[-1]
-    return [Scope(names, body.start_byte, body.end_byte)]
+    names = frozenset().union(*(_pattern_names(p, constructors) for p in patterns))
+    return [Scope(names, patterns[0].start_byte, node.end_byte)]
 
 
 def _lambda(node: Node) -> list[Scope]:
@@ -145,22 +146,36 @@ def _argument(node: Node) -> list[Scope]:
 
 def _proof(node: Node) -> list[Scope]:
     tokens = {c.type for c in node.children if not c.is_named}
+    if node.type == "function_body" and "by" in tokens:
+        method = next((c for c in node.named_children if c.type == "block_statement"), None)
+        if method is not None:
+            return [Scope(frozenset(), node.start_byte, method.start_byte, context="contract")]
+    if node.type.endswith("_clause") and node.type not in {
+        "case_expr_clause",
+        "case_stmt_clause",
+        "fn_case_expr_clause",
+    }:
+        return [Scope(frozenset(), node.start_byte, node.end_byte, context="contract")]
     if node.type in _SPEC or (
         node.type == "forall_statement"
         and any(c.type == "ensures_clause" for c in node.named_children)
     ):
-        return [Scope(frozenset(), node.start_byte, node.end_byte, context="proof")]
+        end = node.named_children[-1].start_byte if node.type.startswith("fn_") else node.end_byte
+        return [Scope(frozenset(), node.start_byte, end, context="proof")]
     if "ghost" not in tokens:
         return []
-    if node.type == "var_decl_statement":
-        return [Scope(frozenset(), node.start_byte, node.end_byte, context="proof")]
+    result = (
+        [Scope(frozenset(), node.start_byte, node.end_byte, context="proof")]
+        if node.type == "var_decl_statement"
+        else []
+    )
     if node.type in {"let_expression", "fn_let_expression"}:
         return [
             Scope(frozenset(), child.start_byte, child.end_byte, context="proof")
             for child in node.named_children[:-1]
             if child.type != "case_pattern"
         ]
-    return []
+    return result
 
 
 _HANDLERS = {
@@ -183,11 +198,79 @@ _HANDLERS = {
 }
 
 
-def scopes(root: Node) -> tuple[Scope, ...]:
+def scopes(root: Node, constructors: frozenset[str] = frozenset()) -> tuple[Scope, ...]:
     result = []
-    for node in walk(root, SKIP):
+    ancestor = root.parent
+    while ancestor is not None:
+        for child in ancestor.named_children:
+            if child.type == "generic_parameters":
+                result.extend(
+                    scope for parameter in child.named_children for scope in _formal(parameter)
+                )
+        ancestor = ancestor.parent
+    nodes = walk(root, SKIP)
+    for node in nodes:
         handler = _HANDLERS.get(node.type)
-        if handler:
+        if handler == _pattern_scope:
+            result.extend(_pattern_scope(node, constructors))
+        elif handler:
             result.extend(handler(node))
+        result.extend(_statement_scopes(node))
         result.extend(_proof(node))
+    result.extend(_ghost_assignments(root, nodes))
     return tuple(result)
+
+
+def _statement_scopes(node: Node) -> list[Scope]:
+    result = []
+    if node.type == "var_decl_statement" and node.parent is not None:
+        names = _pattern_names(node)
+        result.append(Scope(names, node.start_byte, node.parent.end_byte))
+    elif node.type == "for_statement":
+        name = next((n for n in node.named_children if n.type == "identifier"), None)
+        body = next((n for n in node.named_children if n.type == "block_statement"), None)
+        if name is not None and body is not None:
+            result.append(Scope(frozenset({node_text(name)}), name.start_byte, node.end_byte))
+    return result
+
+
+def _assignment_bindings(root: Node, nodes: list[Node]) -> list[tuple[str, int, int, bool]]:
+    bindings = []
+    for node in nodes:
+        if node.type not in {"var_decl_statement", "formal"}:
+            continue
+        ghost = any(c.type == "ghost" for c in node.children)
+        if node.type == "formal":
+            name = node.child_by_field_name("name")
+            if name is not None:
+                bindings.append((node_text(name), root.start_byte, root.end_byte, ghost))
+        elif node.parent is not None:
+            names = [
+                c.child_by_field_name("name")
+                for c in node.named_children
+                if c.type == "local_var_decl"
+            ]
+            bindings.extend(
+                (node_text(n), node.end_byte, node.parent.end_byte, ghost)
+                for n in names
+                if n is not None
+            )
+    return bindings
+
+
+def _ghost_assignments(root: Node, nodes: list[Node]) -> list[Scope]:
+    bindings = _assignment_bindings(root, nodes)
+    result = []
+    for node in nodes:
+        if node.type != "assign_statement":
+            continue
+        mark = next((c for c in node.children if c.type == ":="), None)
+        if mark is None:
+            continue
+        names = [node_text(n) for n in node.named_children if n.end_byte <= mark.start_byte]
+        active = {
+            name: ghost for name, start, end, ghost in bindings if start <= node.start_byte < end
+        }
+        if names and all(active.get(name, False) for name in names):
+            result.append(Scope(frozenset(), mark.end_byte, node.end_byte, context="proof"))
+    return result

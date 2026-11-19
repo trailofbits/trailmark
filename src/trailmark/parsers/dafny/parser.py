@@ -18,13 +18,27 @@ _CONTAINERS = {
     "class_decl": NodeKind.CLASS,
     "trait_decl": NodeKind.TRAIT,
     "datatype_decl": NodeKind.ENUM,
+    "newtype_decl": NodeKind.STRUCT,
 }
 _FUNCTIONS = {"function_decl", "method_decl", "constructor_decl", "iterator_decl"}
 _VALUES = {"synonym_type_decl", "newtype_decl", "field_decl", "constant_field_decl"}
-_NAMES = frozenset({"name_segment", "qualified_name", "suffix_expression"})
+_NAMES = frozenset(
+    {"name_segment", "qualified_name", "suffix_expression", "identifier", "this_expression"}
+)
 
 
 def _spelling(node: Node) -> str | None:
+    if node.type == "identifier":
+        parent = node.parent
+        return (
+            node_text(node)
+            if parent is not None
+            and parent.type in {"constructor_pattern", "id_pattern"}
+            and node == parent.named_children[0]
+            else None
+        )
+    if node.type == "this_expression":
+        return "this"
     if node.type == "name_segment":
         name = next((n for n in node.named_children if n.type == "identifier"), None)
         return node_text(name) if name is not None else None
@@ -62,19 +76,29 @@ def _imports(nodes: list[Node], env: Namespace) -> Namespace:
             text = next((n for n in node.named_children if n.type == "string_literal"), None)
             if text is not None:
                 path = node_text(text).strip('"')
-                env.source.import_(node, path, relative_path=path)
+                env.source.import_(node, path, relative_path=path, parent=env.parent)
         if node.type != "module_import":
             continue
         target = next((n for n in node.named_children if n.type == "qualified_name"), None)
         if target is None:
             continue
         name = node.child_by_field_name("name")
-        env.source.import_(node, node_text(target))
+        canonical = _import_name(node_text(target), env)
+        env.source.import_(node, canonical, parent=env.parent)
         if name:
-            aliases[node_text(name)] = node_text(target)
+            aliases[node_text(name)] = canonical
         if any(n.type == "opened" for n in node.children):
-            opened.append(node_text(target))
+            opened.append(canonical)
     return replace(env, opens=tuple(opened), aliases=aliases)
+
+
+def _import_name(name: str, env: Namespace) -> str:
+    enclosing = env.name
+    while enclosing:
+        if f"{enclosing}.{name}" in env.source.modules:
+            return f"{enclosing}.{name}"
+        enclosing = enclosing.rpartition(".")[0]
+    return name
 
 
 def _role(node: Node, tokens: set[str]) -> str:
@@ -100,6 +124,19 @@ class DafnyParser(FormalParser):
         return Language(bundled_language("dafny"))
 
     def extract(self, root: Node, source: Source) -> None:
+        self._constructors = frozenset(
+            node_text(name)
+            for node in walk(root, SKIP)
+            if node.type == "datatype_ctor"
+            and (name := node.child_by_field_name("name")) is not None
+        )
+        pending = [(root, "")]
+        while pending:
+            node, namespace = pending.pop()
+            if node.type == "module_definition" and (name := node.child_by_field_name("name")):
+                namespace = f"{namespace}.{node_text(name)}" if namespace else node_text(name)
+                source.module_name(namespace)
+            pending.extend((child, namespace) for child in node.named_children)
         self._declarations(root, Namespace(source))
 
     def _declarations(self, root: Node, env: Namespace) -> None:
@@ -153,7 +190,15 @@ class DafnyParser(FormalParser):
             namespace=env.name,
             parent=env.parent,
             parameters=parameters(node),
-            attributes=(("executable", True), ("qualified_aliases", json.dumps([alias])))
+            attributes=(
+                (
+                    "executable",
+                    not dict(
+                        env.source.graph.nodes[env.parent or env.source.module].attributes
+                    ).get("ghost", False),
+                ),
+                ("qualified_aliases", json.dumps([alias])),
+            )
             + _ghost_metadata(node),
         )
         for formal in (n for n in node.named_children if n.type == "datatype_formal"):
@@ -166,7 +211,10 @@ class DafnyParser(FormalParser):
                     namespace=f"{env.name}.{node_text(name)}",
                     parent=owner,
                     kind=NodeKind.STATE_VARIABLE,
-                    attributes=(("ghost", any(c.type == "ghost" for c in formal.children)),),
+                    attributes=(
+                        ("ghost", any(c.type == "ghost" for c in formal.children)),
+                        ("qualified_aliases", json.dumps([f"{env.name}.{node_text(field)}"])),
+                    ),
                 )
 
     def _value(self, node: Node, env: Namespace, modifiers: set[str]) -> None:
@@ -210,13 +258,15 @@ class DafnyParser(FormalParser):
             parameters=parameters(node),
             attributes=attrs,
         )
-        bindings = scopes(node)
+        bindings = scopes(node, self._constructors)
         for region in node.named_children:
             if region == name or region.type in SKIP:
                 continue
             context = "contract" if region.type.endswith("_clause") else "type"
             if region.type in {"function_body", "block_statement"}:
                 context = "proof" if ghost else "body"
+                if region.type == "function_body" and "by" in tokens and "method" in tokens:
+                    context = "contract"
             self._references(region, owner, env, bindings=bindings, context=context)
 
     @staticmethod
@@ -234,7 +284,7 @@ class DafnyParser(FormalParser):
             _NAMES,
             namespace=env.name,
             opens=env.opens,
-            aliases=env.aliases,
+            aliases={"this": env.name, **env.aliases},
             scopes=bindings,
             skip=SKIP,
             application_heads=heads,

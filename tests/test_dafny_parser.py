@@ -255,3 +255,85 @@ def test_include_paths_do_not_select_an_unrelated_same_named_file(
     ]
     assert {n.name for n in refs} == ({"P", "c"} if included.startswith("left") else set())
     assert all(Path(n.location.file_path).parent.name == "left" for n in refs)
+
+
+def test_postfix_precedence_and_long_additive_chains(tmp_path: Path) -> None:
+    path = tmp_path / "Expressions.dfy"
+    path.write_text(
+        "function F(x:int):int {x}\npredicate P(x:int) {true}\n"
+        "function A(x:int):int {x + F(x)}\npredicate B(x:int) {!P(x)}\n"
+        "function H(x:string):string {x}\n"
+        "function Cat(a:string,b:string):string {a+b+a+b+a+b+a+b+a+b+H(a)}\n"
+        "module T { datatype U = One | Two }\n"
+        "function G(u:T.U):int {0}\nfunction S():set<int> {set id:T.U :: G(id)}\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    calls = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS
+    }
+    assert {("A", "F"), ("B", "P"), ("Cat", "H"), ("S", "G")} <= calls
+
+
+def test_patterns_loop_specs_and_ghost_assignments(tmp_path: Path) -> None:
+    path = tmp_path / "Scopes.dfy"
+    path.write_text(
+        "datatype Opt = None | Some(v:int)\nfunction x():int {0}\n"
+        "function F(x:int):int {x}\npredicate P(x:int) {true}\n"
+        "function Run(o:Opt):int {match o case Some(x) => x case None => 0}\n"
+        "method M() { ghost var y := 0; y := F(1); "
+        "for x := 0 to 10 invariant P(x) {var z := x;} }\n"
+        "function ByM(x:int):int {F(x)} by method {return F(x);}\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    refs = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    }
+    calls = {
+        (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
+        for e in graph.edges
+        if e.kind == EdgeKind.CALLS
+    }
+    assert {("Run", "Some"), ("Run", "None"), ("M", "P"), ("M", "F")} <= refs
+    assert ("Run", "x") not in refs and ("M", "x") not in refs
+    assert ("M", "P") not in calls and ("M", "F") not in calls
+    by_method = [
+        e
+        for e in graph.edges
+        if graph.nodes[e.source_id].name == "ByM"
+        and graph.nodes[e.target_id].name == "F"
+        and e.kind == EdgeKind.CALLS
+    ]
+    assert len(by_method) == 1
+
+
+@pytest.mark.parametrize(
+    "language,extension,code", [("dafny", "dfy", "module M {" * 140 + "}" * 140)]
+)
+def test_deep_declarations_have_a_bounded_diagnostic(
+    tmp_path: Path, language: str, extension: str, code: str
+) -> None:
+    from trailmark.parse import parse_file
+
+    path = tmp_path / f"deep.{extension}"
+    path.write_text(code)
+    graph = parse_file(str(path), language)
+    assert any("depth of 128" in d.message for d in graph.parse_diagnostics)
+
+
+@pytest.mark.parametrize(
+    ("language", "suffix", "declarations"),
+    [("dafny", ".dfy", "type T = int\nclass C<T> { function F(x:T): T { x } }\n")],
+)
+def test_formal_type_uses_respect_lexical_binders(
+    tmp_path: Path, language: str, suffix: str, declarations: str
+) -> None:
+    from trailmark.parse import parse_file
+
+    path = tmp_path / ("Types" + suffix)
+    path.write_text(declarations)
+    graph = parse_file(str(path), language=language, strict=True)
+    assert not any(e.kind == EdgeKind.TYPE_USES for e in graph.edges)
