@@ -412,7 +412,9 @@ Proto retains nested messages/enums, map fields and oneof members; IDs include
 lexical owners, and public imports retain the actual filename. GraphQL honors
 explicit schema root mappings and SDL extension fields in single-file and
 directory parses. List/non-null wrappers remain recursive TypeRefs so named
-leaf types retain dependency edges. Thrift IDs use source-file identity instead
+leaf types retain dependency edges. GraphQL `implements` clauses retain interface
+relationships for object types, interfaces, and SDL extensions.
+Thrift IDs use source-file identity instead
 of the first target-language namespace; namespaces remain metadata. Container
 arguments and declared throws are represented as type references.
 
