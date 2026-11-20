@@ -439,21 +439,21 @@ incomplete-graph warning even for some valid VB.NET programs.
 
 ## Schema frontends and FunC/Sway declarations
 
-Rego retains same-file bare, negated, and indexed rule dependencies as
-`references` from the owning clause to the rule aggregate. These policy
-dependencies can be traversed with clause dispatch edges; they do not claim
-runtime function calls. Parameters, `some` bindings, and local assignments block
-same-name rule binding. Recovery files retain diagnostics without guessing these
-bindings. Cross-file policy data resolution and OPA evaluation are not performed.
+Tact traits retain their method and receiver declarations as owned nodes.
+Contract and trait `with` clauses produce `inherits` edges. Imported trait bodies
+and virtual dispatch are not expanded; unresolved inherited calls remain explicit.
 
 Cairo qualified calls resolve to visible local module and impl declarations,
 including explicit `super` imports and aliases. Unknown imports, ambiguous
 aliases, and generic path heads remain unresolved rather than choosing a
 same-name local implementation. Cross-file crate and trait dispatch are not inferred.
 
-Tact traits retain their method and receiver declarations as owned nodes.
-Contract and trait `with` clauses produce `inherits` edges. Imported trait bodies
-and virtual dispatch are not expanded; unresolved inherited calls remain explicit.
+Rego retains same-file bare, negated, and indexed rule dependencies as
+`references` from the owning clause to the rule aggregate. These policy
+dependencies can be traversed with clause dispatch edges; they do not claim
+runtime function calls. Parameters, `some` bindings, and local assignments block
+same-name rule binding. Recovery files retain diagnostics without guessing these
+bindings. Cross-file policy data resolution and OPA evaluation are not performed.
 
 Proto retains nested messages/enums, map fields and oneof members; IDs include
 lexical owners, and public imports retain the actual filename. GraphQL honors

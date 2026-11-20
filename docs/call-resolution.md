@@ -110,19 +110,27 @@ not proof that the graph contains every executable path. A large number of
 proxies does not mean calls were dropped; each one is a call that was kept but
 not resolved.
 
-## C# qualified static calls
+## C++ out-of-line methods
 
-An explicit `Type.Method(...)` call can navigate to a unique declared static
-method in its namespace or enclosing type scope. Matching partial class
-declarations are considered together across inspected files. Targets use
-inferred confidence; overloads, generic type owners, aliases, value receivers,
-and incomplete inherited scopes remain uncertain. `global::` qualification
-starts at the global namespace.
+Simple qualified definitions such as `Stream::flush` and `Stream::~Stream`
+attach to an identifiable class or struct. A same-file declaration takes
+precedence; a cross-file owner must be unique. Namespace-qualified free
+functions, template-qualified owners, and ambiguous class owners are not
+reclassified. Existing definition IDs are preserved, while method names and
+containment reflect the class owner.
 
-Namespace imports do not justify guessing an outer type. Nearer namespace/type
-names stop fallback, and local, parameter, pattern, catch, loop, lambda, and
-partial-class value bindings block type interpretation. Calls are reconsidered
-after directory merging so later declarations can retract a per-file candidate.
+Bare calls within those methods can navigate to a unique method in that class.
+Overloads and shadowing local values remain uncertain; header prototypes do
+not compete with extracted method definitions.
+
+## Dart explicit receivers
+
+An explicit `this.method(...)` call can navigate to a unique method in its
+nearest lexical class with inferred confidence. A local value with the same
+method name does not shadow explicit `this`. Missing and inherited methods,
+chained receivers, and other value receivers remain unresolved. Calls through
+`super.method(...)` retain their source sites without guessing inheritance.
+
 
 ## Dart declared factory results
 
@@ -139,26 +147,21 @@ files. Prefixed, filtered, conditional, package, missing, and re-exported type
 scopes remain conservative. This pass does not propagate arbitrary expression
 types or infer a factory's return type from its implementation.
 
-## Dart explicit receivers
 
-An explicit `this.method(...)` call can navigate to a unique method in its
-nearest lexical class with inferred confidence. A local value with the same
-method name does not shadow explicit `this`. Missing and inherited methods,
-chained receivers, and other value receivers remain unresolved. Calls through
-`super.method(...)` retain their source sites without guessing inheritance.
+## C# qualified static calls
 
-## C++ out-of-line methods
+An explicit `Type.Method(...)` call can navigate to a unique declared static
+method in its namespace or enclosing type scope. Matching partial class
+declarations are considered together across inspected files. Targets use
+inferred confidence; overloads, generic type owners, aliases, value receivers,
+and incomplete inherited scopes remain uncertain. `global::` qualification
+starts at the global namespace.
 
-Simple qualified definitions such as `Stream::flush` and `Stream::~Stream`
-attach to an identifiable class or struct. A same-file declaration takes
-precedence; a cross-file owner must be unique. Namespace-qualified free
-functions, template-qualified owners, and ambiguous class owners are not
-reclassified. Existing definition IDs are preserved, while method names and
-containment reflect the class owner.
+Namespace imports do not justify guessing an outer type. Nearer namespace/type
+names stop fallback, and local, parameter, pattern, catch, loop, lambda, and
+partial-class value bindings block type interpretation. Calls are reconsidered
+after directory merging so later declarations can retract a per-file candidate.
 
-Bare calls within those methods can navigate to a unique method in that class.
-Overloads and shadowing local values remain uncertain; header prototypes do
-not compete with extracted method definitions.
 
 ## Rust limits
 
@@ -209,37 +212,15 @@ entrypoints, and operator desugaring are not invented. A missing edge is not pro
 of dead code. `main` follows the generic entrypoint rule; script execution needs
 an entrypoint override. Syntax errors warn that the graph may be incomplete.
 
-C++ retains declared-member navigation for
-`static_cast<EnclosingClass&>(value).method()` inside that class's member
-functions, including identifiable out-of-line definitions. The injected class
-name and a unique declared method must remain unshadowed; prototypes count toward
-overload ambiguity. Local type aliases, generic classes, member using-declarations,
-and incomplete or duplicate method families keep their proxies.
-A plain nonvirtual method in a class without bases receives inferred confidence.
-An explicit virtual method or any source base clause makes the concrete declared
-target uncertain and adds `cpp_cast_dispatch_uncertain=True`, even when the base
-is unavailable. This is source navigation to the declared member; it does not
-claim an exhaustive set of runtime dispatch targets.
+## Dart constructors
 
-C# bare calls have one bounded overload tie-breaker: when all declared candidates
-have identical provided parameter types, a unique declaration with every parameter
-supplied wins over declarations that need optional defaults. This inferred binding
-requires ordinary positional arguments, one nongeneric class/struct declaration
-context, and no uninspected base-class family. Named arguments, generic methods,
-`params`, reference parameters, virtual methods, differing provided types, and
-families spread across declaration contexts remain uncertain. Directory merging
-rechecks the family and can retract an earlier per-file selection.
-
-## C# construction
-
-Explicit C# `new Type(...)` expressions retain constructor call sites, including
-construction inside a `throw` expression. A unique declared instance constructor
-in the same file can resolve with `inferred` confidence. Static constructors are
-excluded. Missing, implicit, generic and overloaded constructors remain uncertain
-proxies; Trailmark does not select overloads by argument types. Import aliases
-and generic type parameters block constructor type lookup. Potentially competing
-namespace imports block binding to outer namesakes.
-A `global::` type qualification retains its absolute meaning.
+Dart constructor calls resolve to a unique constructor declaration in the same
+file when the class name is unshadowed. This includes named constructors such
+as `Context._internal()` and calls made inside factory constructors. The
+`calls` edge targets the constructor method, preserving its source site for
+caller and callee queries. Constructor binding has `inferred` confidence.
+Imported class aliases and inferred receiver types do not participate in
+constructor type lookup.
 
 ## Swift self and cleanup
 
@@ -254,12 +235,38 @@ A Swift `defer` body belongs to its enclosing function or method. Its calls and
 branches retain that owner; `defer` does not create a function call or a closure
 node. Actual closures nested inside cleanup code keep their own nodes and calls.
 
-## Dart constructors
+## C# construction
 
-Dart constructor calls resolve to a unique constructor declaration in the same
-file when the class name is unshadowed. This includes named constructors such
-as `Context._internal()` and calls made inside factory constructors. The
-`calls` edge targets the constructor method, preserving its source site for
-caller and callee queries. Constructor binding has `inferred` confidence.
-Imported class aliases and inferred receiver types do not participate in
-constructor type lookup.
+Explicit C# `new Type(...)` expressions retain constructor call sites, including
+construction inside a `throw` expression. A unique declared instance constructor
+in the same file can resolve with `inferred` confidence. Static constructors are
+excluded. Missing, implicit, generic and overloaded constructors remain uncertain
+proxies; Trailmark does not select overloads by argument types. Import aliases
+and generic type parameters block constructor type lookup. Potentially competing
+namespace imports block binding to outer namesakes.
+A `global::` type qualification retains its absolute meaning.
+
+## C# optional-default overloads
+
+C# bare calls have one bounded overload tie-breaker: when all declared candidates
+have identical provided parameter types, a unique declaration with every parameter
+supplied wins over declarations that need optional defaults. This inferred binding
+requires ordinary positional arguments, one nongeneric class/struct declaration
+context, and no uninspected base-class family. Named arguments, generic methods,
+`params`, reference parameters, virtual methods, differing provided types, and
+families spread across declaration contexts remain uncertain. Directory merging
+rechecks the family and can retract an earlier per-file selection.
+
+## C++ cast receivers
+
+C++ retains declared-member navigation for
+`static_cast<EnclosingClass&>(value).method()` inside that class's member
+functions, including identifiable out-of-line definitions. The injected class
+name and a unique declared method must remain unshadowed; prototypes count toward
+overload ambiguity. Local type aliases, generic classes, member using-declarations,
+and incomplete or duplicate method families keep their proxies.
+A plain nonvirtual method in a class without bases receives inferred confidence.
+An explicit virtual method or any source base clause makes the concrete declared
+target uncertain and adds `cpp_cast_dispatch_uncertain=True`, even when the base
+is unavailable. This is source navigation to the declared member; it does not
+claim an exhaustive set of runtime dispatch targets.
