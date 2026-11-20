@@ -61,6 +61,32 @@ def test_schema_languages_do_not_emit_runtime_call_edges(tmp_path: Path) -> None
         assert [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS] == []
 
 
+def test_graphql_implements_relationships_include_interfaces_and_extensions(tmp_path: Path) -> None:
+    (tmp_path / "types.graphql").write_text(
+        "interface Node { id: ID! }\n"
+        "interface Named implements Node { id: ID!, name: String }\n"
+        "interface Extra { value: Int }\n"
+        "type User implements Node & Named { id: ID!, name: String }\n"
+    )
+    (tmp_path / "extension.graphql").write_text("extend type User implements Extra\n")
+    (tmp_path / "interface_extension.graphql").write_text(
+        "extend interface Named implements Extra\n"
+    )
+
+    graph = parse_directory(str(tmp_path), language="graphql")
+
+    edges = [edge for edge in graph.edges if edge.kind == EdgeKind.IMPLEMENTS]
+    assert {(edge.source_id, edge.target_id) for edge in edges} == {
+        ("types:Named", "types:Node"),
+        ("types:User", "types:Node"),
+        ("types:User", "types:Named"),
+        ("types:User", "types:Extra"),
+        ("types:Named", "types:Extra"),
+    }
+    assert all(edge.location is not None for edge in edges)
+    assert not [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
+
+
 def test_thrift_generic_parameter_types_preserve_closing_brackets(tmp_path: Path) -> None:
     source = tmp_path / "store.thrift"
     source.write_text(
