@@ -84,7 +84,7 @@ class WhyMLParser(FormalParser):
             if node.type == "unsupported_keyword":
                 source.unsupported(node, f"WhyML {node_text(node)} syntax is not modeled")
         implicit = Namespace(source, Path(source.path).stem.capitalize())
-        for node in self._items(root):
+        for node in self._items(root, source.data):
             if node.type == "module_declaration":
                 self._container(node, Namespace(source))
             elif node.type in {"use_declaration", "clone_declaration"}:
@@ -93,10 +93,9 @@ class WhyMLParser(FormalParser):
                 source.module_name(implicit.name)
                 self._declaration(node, implicit)
 
-    def _items(self, root: Node) -> list[Node]:
+    def _items(self, root: Node, data: bytes) -> list[Node]:
         if not root.has_error:
             return list(root.named_children)
-        data = root.text or b""
         comments = [(n.start_byte, n.end_byte) for n in walk(root) if n.type == "comment"]
         starts = [
             m.start()

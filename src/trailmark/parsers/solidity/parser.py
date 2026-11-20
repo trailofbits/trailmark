@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -37,6 +38,7 @@ from trailmark.parsers._declarations import (
 )
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.solidity._modifiers import link_calls, resolve_modifier_calls
 from trailmark.parsers.solidity._state import (
     StorageTypes,
     add_state_access_edges,
@@ -93,6 +95,7 @@ class SolidityParser:
             _visit_module(tree.root_node, file_path, module_id, graph)
         resolve_local_method_calls(graph)
         resolve_inherited_method_calls(graph)
+        resolve_modifier_calls(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -103,6 +106,7 @@ class SolidityParser:
             "solidity",
             dir_path,
             _EXTENSIONS,
+            link_calls=link_calls,
         )
 
 
@@ -309,6 +313,8 @@ def _extract_function(
     for header in node.named_children:
         if header != body and header.type in {"modifier_invocation", "base_constructor_invocation"}:
             calls.extend(_collect_func_body(header, file_path)[2])
+            if header.type == "modifier_invocation" and (name := _modifier_name(header, node)):
+                calls.append((name, header))
     if body is not None:
         recorded = {site.id for _, site in calls}
         for site in walk_owned(body):
@@ -356,6 +362,28 @@ def _extract_function(
         )
 
 
+def _modifier_name(invocation: Node, declaration: Node) -> str:
+    parts = []
+    for child in invocation.children:
+        if child.type == "(":
+            break
+        if child.type in {"identifier", "."}:
+            parts.append(node_text(child))
+    name = "".join(parts)
+    if declaration.type == "constructor_definition":
+        contract = declaration.parent.parent if declaration.parent is not None else None
+        if contract is not None:
+            for child in contract.named_children:
+                if child.type == "inheritance_specifier":
+                    ancestor = child.child_by_field_name("ancestor")
+                    if ancestor is not None and name in {
+                        node_text(ancestor),
+                        node_text(ancestor).rsplit(".", 1)[-1],
+                    }:
+                        return ""
+    return name
+
+
 def _get_function_name(node: Node) -> str:
     """Extract the function name from a definition node."""
     if node.type == "constructor_definition":
@@ -376,6 +404,8 @@ def _function_attributes(
 ) -> tuple[tuple[str, str], ...]:
     """Record Solidity semantics needed by entrypoint consumers."""
     attributes: list[tuple[str, str]] = []
+    if node.type == "modifier_definition":
+        attributes.append(("solidity_declaration_kind", "modifier"))
     for child in node.children:
         if child.type == "visibility":
             attributes.append(("solidity_visibility", node_text(child)))
@@ -474,21 +504,58 @@ def _add_call_edges(
 ) -> None:
     """Add CALLS edges for all collected call expressions."""
     for call_name, call_node in calls:
+        location = make_location(call_node, file_path)
+        function = call_node.child_by_field_name("function")
+        if function is not None:
+            start = _callee_start(function)
+            if start.start_byte > function.start_byte:
+                # The pinned grammar can put a comparison's left operand inside
+                # a receiver. Keep only the actual callee, without reparsing text.
+                call_name = (function.text or b"")[start.start_byte - function.start_byte :].decode(
+                    errors="replace"
+                )
+                location = replace(
+                    location,
+                    start_line=start.start_point.row + 1,
+                    start_col=start.start_point.column,
+                )
         target_id = _resolve_call_target(call_name, module_id)
         confidence = _call_confidence(call_name)
-        graph.edges.append(
-            guard_call(
-                CodeEdge(
-                    source_id=source_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CALLS,
-                    confidence=confidence,
-                    location=make_location(call_node, file_path),
-                ),
-                call_node,
-                graph=graph,
+        modifier = call_node.type == "modifier_invocation"
+        edge = CodeEdge(
+            source_id=source_id,
+            target_id=target_id,
+            kind=EdgeKind.CALLS,
+            confidence=confidence,
+            location=location,
+            attributes=(
+                ("solidity_call_kind", "modifier"),
+                ("modifier_name", call_name),
+                ("binding_blocked", True),
             )
+            if modifier
+            else (),
         )
+        graph.edges.append(edge if modifier else guard_call(edge, call_node, graph=graph))
+
+
+def _callee_start(node: Node) -> Node:
+    """Recover a receiver's start through unparenthesized grammar prefixes."""
+    while True:
+        if node.type == "expression" and len(node.named_children) == 1:
+            child = node.named_children[0]
+        elif node.type in {"member_expression", "binary_expression", "call_expression"}:
+            field = {
+                "member_expression": "object",
+                "binary_expression": "right",
+                "call_expression": "function",
+            }[node.type]
+            child = node.child_by_field_name(field)
+        else:
+            return node
+        if child is None:
+            return node
+        node = child
 
 
 def _call_confidence(call_name: str) -> EdgeConfidence:

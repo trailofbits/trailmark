@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -90,6 +91,7 @@ class CSharpParser:
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
         bind_lexical_calls(graph)
+        _bind_constructors(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -357,6 +359,10 @@ def _extract_function(
         cyclomatic_complexity=compute_complexity(branches),
         branches=tuple(branches),
         docstring=_extract_docstring(node),
+        attributes=(("csharp_constructor", True),)
+        if node.type == "constructor_declaration"
+        and not any(c.type == "modifier" and node_text(c) == "static" for c in node.children)
+        else (),
     )
     func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
@@ -428,7 +434,9 @@ def _visit_node(
     calls: list[tuple[str, Node]],
 ) -> None:
     """Capture body sites without entering nested callable owners."""
-    types = _BRANCH_NODE_TYPES | _THROW_TYPES | {"invocation_expression"}
+    types = (
+        _BRANCH_NODE_TYPES | _THROW_TYPES | {"invocation_expression", "object_creation_expression"}
+    )
     for current in owned_syntax(node, types, boundaries=_NESTED_CALLABLES):
         if current.type in _BRANCH_NODE_TYPES:
             cond = current.child_by_field_name("condition")
@@ -442,6 +450,10 @@ def _visit_node(
             call_name = _extract_call_name(current)
             if call_name:
                 calls.append((call_name, current))
+        elif current.type == "object_creation_expression":
+            created_type = current.child_by_field_name("type")
+            if created_type is not None:
+                calls.append((node_text(created_type), current))
 
 
 def _extract_call_name(node: Node) -> str:
@@ -494,6 +506,25 @@ def _add_call_edges(
 ) -> None:
     """Add CALLS edges for each collected call."""
     for call_name, call_node in calls:
+        if call_node.type == "object_creation_expression":
+            alias, imports = _constructor_type_barriers(call_node, call_name.split(".", 1)[0])
+            graph.edges.append(
+                CodeEdge(
+                    func_id,
+                    f"{func_id}.$constructor.{call_name}",
+                    EdgeKind.CALLS,
+                    confidence=EdgeConfidence.UNCERTAIN,
+                    location=make_location(call_node, file_path),
+                    attributes=(
+                        ("binding_blocked", True),
+                        ("constructor_type", call_name),
+                        ("raw_target", call_name),
+                        ("constructor_binding_blocked", alias),
+                        ("constructor_imports", imports),
+                    ),
+                )
+            )
+            continue
         target_id = _resolve_call_target(
             call_name,
             module_id,
@@ -643,3 +674,83 @@ def _extract_nested_functions(
                 else f"$lambda@{nested.start_point.row + 1}_{nested.start_point.column}"
             )
             _extract_function(nested, file_path, module_id, func_id, graph, name_override=name)
+
+
+def _bind_constructors(graph: CodeGraph) -> None:
+    """Link explicit new expressions to a unique declared instance constructor."""
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    types = {
+        unit.id.split(":", 1)[-1]: unit.id
+        for unit in graph.nodes.values()
+        if unit.kind in {NodeKind.CLASS, NodeKind.STRUCT}
+    }
+    constructors: dict[str, list[str]] = {}
+    for unit in graph.nodes.values():
+        if dict(unit.attributes).get("csharp_constructor") and unit.id in owners:
+            constructors.setdefault(owners[unit.id], []).append(unit.id)
+    for index, edge in enumerate(graph.edges):
+        raw_type = dict(edge.attributes).get("constructor_type")
+        if edge.kind != EdgeKind.CALLS or not isinstance(raw_type, str):
+            continue
+        if dict(edge.attributes).get("constructor_binding_blocked"):
+            continue
+        name = raw_type.removeprefix("global::")
+        if not all(part.isidentifier() for part in name.split(".")):
+            continue
+        owner = owners.get(edge.source_id, "")
+        while owner in graph.nodes and graph.nodes[owner].kind not in {
+            NodeKind.CLASS,
+            NodeKind.STRUCT,
+            NodeKind.NAMESPACE,
+            NodeKind.MODULE,
+        }:
+            owner = owners.get(owner, "")
+        scope = owner.split(":", 1)[1].split(".") if ":" in owner else []
+        namespace = owner
+        while namespace in graph.nodes and graph.nodes[namespace].kind != NodeKind.NAMESPACE:
+            namespace = owners.get(namespace, "")
+        minimum = len(namespace.split(":", 1)[-1].split(".")) if namespace else 0
+        depths = [0] if raw_type.startswith("global::") else range(len(scope), -1, -1)
+        for depth in depths:
+            if depth < minimum and dict(edge.attributes).get("constructor_imports"):
+                break
+            qualified = ".".join([*scope[:depth], name])
+            target_type = types.get(qualified)
+            if target_type is None:
+                continue
+            candidates = constructors.get(target_type, [])
+            if len(candidates) == 1:
+                graph.edges[index] = replace(
+                    edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED
+                )
+            break
+
+
+def _constructor_type_barriers(call: Node, head: str) -> tuple[bool, bool]:
+    if head.startswith("global::"):
+        return False, False
+    alias = imports = False
+    scope = call.parent
+    while scope is not None:
+        for child in scope.named_children:
+            if child.type == "type_parameter_list":
+                for parameter in child.named_children:
+                    name = parameter.child_by_field_name("name")
+                    if name is not None and node_text(name) == head:
+                        alias = True
+        if scope.type in {
+            "compilation_unit",
+            "namespace_declaration",
+            "file_scoped_namespace_declaration",
+        }:
+            body = scope.child_by_field_name("body") or scope
+            for child in body.named_children:
+                if child.type != "using_directive":
+                    continue
+                name = child.child_by_field_name("name")
+                if name is None:
+                    imports = True
+                elif node_text(name) == head:
+                    alias = True
+        scope = scope.parent
+    return alias, imports

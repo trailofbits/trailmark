@@ -26,6 +26,7 @@ from trailmark.parsers._common import (
     collect_body_info,
     compute_complexity,
     extract_type_parameters,
+    link_cross_file_calls,
     make_location,
     module_id_from_path,
     node_text,
@@ -56,7 +57,7 @@ _BRANCH_NODE_TYPES = frozenset(
 
 _THROW_TYPES = frozenset({"throw_statement"})
 
-_EXTENSIONS = (".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx")
+_EXTENSIONS = (".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx", ".h")
 
 _CPP_TYPE_NODES = frozenset(
     {
@@ -87,6 +88,7 @@ class CppParser:
         module_id = module_id_from_path(file_path)
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
+        _bind_out_of_line_methods(graph)
         resolve_local_method_calls(graph)
         bind_lexical_calls(graph)
         collect_exception_events(tree.root_node, file_path, graph)
@@ -99,7 +101,53 @@ class CppParser:
             "cpp",
             dir_path,
             _EXTENSIONS,
+            link_calls=_link_cpp_calls,
         )
+
+
+def _link_cpp_calls(graph: CodeGraph) -> None:
+    _bind_out_of_line_methods(graph)
+    resolve_local_method_calls(graph)
+    bind_lexical_calls(graph)
+    link_cross_file_calls(graph)
+
+
+def _bind_out_of_line_methods(graph: CodeGraph) -> None:
+    """Attach simple qualified definitions to an identifiable class owner."""
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    types: dict[str, list[CodeUnit]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind in {NodeKind.CLASS, NodeKind.STRUCT, NodeKind.NAMESPACE}:
+            types.setdefault(unit.id.split(":", 1)[-1], []).append(unit)
+    replacements: dict[str, str] = {}
+    for unit in list(graph.nodes.values()):
+        if unit.kind != NodeKind.FUNCTION or "::" not in unit.name:
+            continue
+        qualifier, name = unit.name.rsplit("::", 1)
+        if not all(part.isidentifier() for part in qualifier.split("::")):
+            continue
+        if not name.removeprefix("~").isidentifier():
+            continue
+        owner = owners.get(unit.id, "")
+        container = graph.nodes.get(owner)
+        if container is None or container.kind not in {NodeKind.MODULE, NodeKind.NAMESPACE}:
+            continue
+        prefix = (
+            container.id.split(":", 1)[-1] + "." if container.kind == NodeKind.NAMESPACE else ""
+        )
+        candidates = types.get(prefix + qualifier.replace("::", "."), [])
+        local = [c for c in candidates if c.location.file_path == unit.location.file_path]
+        candidates = local or candidates
+        if len(candidates) != 1 or candidates[0].kind not in {NodeKind.CLASS, NodeKind.STRUCT}:
+            continue
+        replacements[unit.id] = candidates[0].id
+        graph.nodes[unit.id] = replace(unit, name=name, kind=NodeKind.METHOD)
+    graph.edges[:] = [
+        replace(edge, source_id=replacements[edge.target_id])
+        if edge.kind == EdgeKind.CONTAINS and edge.target_id in replacements
+        else edge
+        for edge in graph.edges
+    ]
 
 
 def _visit_module(
