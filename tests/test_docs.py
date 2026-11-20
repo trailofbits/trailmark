@@ -93,6 +93,7 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/parser-coverage.md", "Module-local tables"),
     ("docs/parser-coverage.md", "An unconditional nested function definition"),
     ("docs/languages.md", "LET definitions retain separate lexical nodes"),
     ("docs/parser-coverage.md", "`constructor_call` metadata"),
