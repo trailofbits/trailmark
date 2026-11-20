@@ -1,12 +1,13 @@
 """TLA+ declaration and specification dependencies, without model checking."""
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from tree_sitter import Language, Node
 from tree_sitter_language_pack import get_language
 
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.nodes import NodeKind, Parameter
-from trailmark.parsers._common import node_text
+from trailmark.parsers._common import make_location, node_text
 from trailmark.parsers._formal import FormalParser, Namespace, Scope, Source, walk
 from trailmark.parsers.tlaplus._proofs import extract_proof, link_proofs
 
@@ -62,7 +63,7 @@ def _bound(node: Node) -> list[Scope]:
     return result
 
 
-def _scopes(root: Node) -> tuple[Scope, ...]:
+def _scopes(root: Node, *, bind_lets: bool = True) -> tuple[Scope, ...]:
     result = []
     for node in walk(root, _SKIP):
         if node.type in {"quantifier_bound", "choose", "unbounded_quantification"}:
@@ -75,14 +76,16 @@ def _scopes(root: Node) -> tuple[Scope, ...]:
             )
             names = frozenset(name for p in parameters for name in _names(p))
             result.append(Scope(names, node.start_byte, node.end_byte))
-        elif node.type == "let_in":
-            names = frozenset(
-                node_text(name)
-                for child in node.named_children
-                if child.type in _DECLARATIONS
-                if (name := child.child_by_field_name("name")) is not None
-            )
-            result.append(Scope(names, node.start_byte, node.end_byte))
+        elif node.type == "let_in" and bind_lets:
+            for child in node.named_children:
+                if child.type == "recursive_declaration":
+                    result.append(Scope(_names(child), child.start_byte, node.end_byte))
+                elif child.type in _DECLARATIONS:
+                    name = child.child_by_field_name("name")
+                    if name is not None:
+                        result.append(
+                            Scope(frozenset({node_text(name)}), _local_start(child), node.end_byte)
+                        )
     return tuple(result)
 
 
@@ -117,6 +120,137 @@ def _prefixed(node: Node, env: Namespace) -> dict[int, str]:
         if instance in env.aliases:
             prefixed[head.start_byte] = f"{env.aliases[instance]}.{node_text(head)}"
     return prefixed
+
+
+@dataclass(frozen=True)
+class _LetScope:
+    node: Node
+    definitions: dict[str, list[tuple[int, str]]]
+
+
+def _local_start(node: Node) -> int:
+    body = node.child_by_field_name("definition")
+    return body.start_byte if node.type == "function_definition" and body else node.end_byte
+
+
+def _local_definitions(
+    root: Node, owner: str, source: Source
+) -> tuple[list[tuple[Node, str]], list[_LetScope]]:
+    """Give each LET group an unexported identity under its containing declaration."""
+    units: list[tuple[Node, str]] = []
+    scopes = []
+    pending = [(root, owner)]
+    while pending:
+        node, parent = pending.pop()
+        if node.type in _SKIP:
+            continue
+        owners = {}
+        if node.type == "let_in":
+            qualified = dict(source.graph.nodes[parent].attributes)["qualified_name"]
+            namespace = f"{qualified}.<let@{node.start_point.row + 1}:{node.start_point.column}>"
+            definitions: dict[str, list[tuple[int, str]]] = {}
+            forwards = {}
+            for recursive in node.named_children:
+                if recursive.type != "recursive_declaration":
+                    continue
+                for declared in recursive.named_children:
+                    name = declared.child_by_field_name("name") or declared
+                    ident = source.declare(
+                        declared,
+                        node_text(name),
+                        "operator",
+                        namespace=namespace,
+                        parent=parent,
+                        attributes=(("executable", False), ("private", True), ("signature", True)),
+                    )
+                    forwards[node_text(name)] = declared.start_byte
+                    definitions[node_text(name)] = [(declared.start_byte, ident)]
+            implemented = set()
+            for child in node.named_children:
+                name = child.child_by_field_name("name")
+                if child.type not in _DECLARATIONS or name is None:
+                    continue
+                ident = source.declare(
+                    child,
+                    node_text(name),
+                    _DECLARATIONS[child.type],
+                    namespace=namespace,
+                    parent=parent,
+                    parameters=_parameters(child),
+                    attributes=(("executable", False), ("private", True), ("lexical", True)),
+                )
+                units.append((child, ident))
+                owners[child.id] = ident
+                spelling = node_text(name)
+                if spelling in forwards and spelling not in implemented:
+                    definitions[spelling] = []
+                definitions.setdefault(spelling, []).append(
+                    (forwards.get(spelling, _local_start(child)), ident)
+                )
+                implemented.add(spelling)
+            scopes.append(_LetScope(node, definitions))
+        pending.extend(
+            (child, owners.get(child.id, parent)) for child in reversed(node.named_children)
+        )
+    return units, scopes
+
+
+def _local_references(
+    body: Node, owner: str, source: Source, lets: list[_LetScope], binders: tuple[Scope, ...]
+) -> None:
+    for node in walk(body, _SKIP | frozenset(_DECLARATIONS)):
+        if node.type != "identifier_ref" or (name := _spelling(node)) is None:
+            continue
+        if _prefixed_head(node):
+            continue
+        active = [
+            scope
+            for scope in lets
+            if scope.node.start_byte <= node.start_byte < scope.node.end_byte
+            and name in scope.definitions
+            and any(start <= node.start_byte for start, _ in scope.definitions[name])
+        ]
+        if not active:
+            continue
+        scope = max(active, key=lambda scope: scope.node.start_byte)
+        if any(
+            binding.start >= scope.node.start_byte and binding.blocks(name, node.start_byte)
+            for binding in binders
+        ):
+            continue
+        targets = [ident for start, ident in scope.definitions[name] if start <= node.start_byte]
+        if len(targets) == 1:
+            source.graph.edges.append(
+                CodeEdge(
+                    owner,
+                    targets[0],
+                    EdgeKind.REFERENCES,
+                    EdgeConfidence.INFERRED,
+                    make_location(node, source.path),
+                    attributes=(("reference_context", "specification"), ("spelling", name)),
+                )
+            )
+
+
+def _prefixed_head(node: Node) -> bool:
+    parent = node.parent
+    while parent is not None:
+        if parent.type == "prefixed_op":
+            prefix = parent.child_by_field_name("prefix")
+            op = parent.child_by_field_name("op")
+            components = list(prefix.named_children) if prefix is not None else []
+            heads = [
+                component.named_children[0] for component in components if component.named_children
+            ]
+            if op is not None:
+                heads.append(op)
+            if any(
+                node.start_byte == (head.child_by_field_name("name") or head).start_byte
+                for head in heads
+            ):
+                return True
+        parent = parent.parent
+    return False
 
 
 class TLAPlusParser(FormalParser):
@@ -305,16 +439,22 @@ class TLAPlusParser(FormalParser):
                 extract_proof(node, child, owner, env, _spelling)
         prefixed = _prefixed(node, env)
         scopes = _scopes(node)
-        for body in node.named_children:
-            if body != name and body not in node.children_by_field_name("parameter"):
+        binders = _scopes(node, bind_lets=False)
+        locals_, lets = _local_definitions(node, owner, env.source)
+        for declaration, declaring_owner in [(node, owner), *locals_]:
+            parameters_ = declaration.children_by_field_name("parameter")
+            for body in declaration.named_children:
+                if body == declaration.child_by_field_name("name") or body in parameters_:
+                    continue
                 env.source.references(
-                    owner,
+                    declaring_owner,
                     body,
                     frozenset({"identifier_ref"}),
                     namespace=env.name,
                     opens=env.opens,
                     scopes=scopes,
-                    skip=_SKIP,
+                    skip=_SKIP | frozenset(_DECLARATIONS),
                     context="specification",
                     spelling=lambda n: prefixed.get(n.start_byte, _spelling(n)),
                 )
+                _local_references(body, declaring_owner, env.source, lets, binders)

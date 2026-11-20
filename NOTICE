@@ -6,6 +6,13 @@ This product includes software developed at Trail of Bits, Inc.
 
 This product bundles the following third-party components:
 
+- tree-sitter-rego grammar (src/trailmark/tree_sitter_custom/rego/)
+  Copyright (c) 2022 Oleksii Demennikov
+  Licensed under the MIT License
+  https://github.com/FallenAngel97/tree-sitter-rego
+  Vendored commit: da2a1f63cd877efb05d56de61fe516e90012b9a7
+  Trailmark accepts compound references in bracket indices.
+
 - tree-sitter-circom grammar (src/trailmark/tree_sitter_custom/circom/)
   Copyright 2024 Decurity
   Licensed under the MIT License
