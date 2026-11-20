@@ -22,6 +22,7 @@ from trailmark.parsers._common import (
     node_text,
 )
 from trailmark.parsers._declarations import _runtime_target, prepare_call_bindings
+from trailmark.parsers._ecmascript_imports import ImportBinding, import_bindings
 from trailmark.parsers._nesting import nesting_diagnostic
 from trailmark.parsers._walk import owned_syntax
 
@@ -120,7 +121,7 @@ def discover_callables(
             class_owner = owner if node.type in CLASSES else None
         stack.append((node.end_byte, owner, class_owner))
     # Forward nested declarations are available only after discovery completes.
-    _guard_discovered_calls(graph, calls)
+    _guard_discovered_calls(graph, calls, import_bindings(root, file_path, graph.language))
 
 
 def _bounded_discovery(root: Node, file_path: str, graph: CodeGraph) -> list[Node]:
@@ -216,7 +217,9 @@ def declared_name(node: Node, override: str | None) -> str | None:
     return node_text(name) if name is not None else None
 
 
-def _guard_discovered_calls(graph: CodeGraph, calls: dict[SourceLocation, Node]) -> None:
+def _guard_discovered_calls(
+    graph: CodeGraph, calls: dict[SourceLocation, Node], imports: dict[str, ImportBinding]
+) -> None:
     prepare_call_bindings(graph)
     aliases = {
         original: unit.id
@@ -226,7 +229,7 @@ def _guard_discovered_calls(graph: CodeGraph, calls: dict[SourceLocation, Node])
     maximum = max((k.count(".") for k in aliases), default=0)
     graph.edges[:] = [
         _construction_edge(
-            _guard_context_call(edge, calls[edge.location], graph, aliases, maximum),
+            _guard_context_call(edge, calls[edge.location], graph, aliases, maximum, imports),
             calls[edge.location],
             graph,
         )
@@ -240,7 +243,12 @@ def _guard_discovered_calls(graph: CodeGraph, calls: dict[SourceLocation, Node])
 
 
 def _guard_context_call(
-    edge: CodeEdge, occurrence: Node, graph: CodeGraph, aliases: dict[str, str], maximum: int
+    edge: CodeEdge,
+    occurrence: Node,
+    graph: CodeGraph,
+    aliases: dict[str, str],
+    maximum: int,
+    imports: dict[str, ImportBinding],
 ) -> CodeEdge:
     name = _execution_name(occurrence)
     if name.startswith(("this.", "super.")) and _class_initializer(occurrence):
@@ -255,6 +263,18 @@ def _guard_context_call(
         edge = _guard_named_call(edge, occurrence, graph, name)
     else:
         edge = guard_call(edge, occurrence, graph=graph)
+    imported = imports.get(name)
+    if imported is not None and edge.target_id == edge.source_id.split(":", 1)[0] + ":" + name:
+        return replace(
+            edge,
+            target_id=imported.target,
+            confidence=EdgeConfidence.UNCERTAIN if imported.type_only else EdgeConfidence.INFERRED,
+            attributes=(
+                *edge.attributes,
+                ("import_binding", True),
+                ("binding_blocked", imported.type_only),
+            ),
+        )
     if aliases and "." in name:
         qualified = edge.source_id.split(":", 1)[0] + ":" + name
         target = _runtime_target(qualified, aliases, maximum=maximum)
