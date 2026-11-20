@@ -78,6 +78,10 @@ site's `location` (or `None` if unavailable). A proxy node's own location is
 only its first occurrence; use each row's `location` when a call repeats. A
 name that matches no function returns `[]`.
 
+Solidity receiver calls inside comparisons retain the callee text and each call's
+own span, excluding preceding comparison operands. Repeated calls to the same
+unresolved receiver member share a proxy while retaining separate call-site rows.
+
 The report and `unresolved_calls()` work for every supported language.
 
 ## What unresolved calls mean for results
@@ -105,6 +109,43 @@ produce no call sites, so they are outside its counts. Zero unresolved calls is
 not proof that the graph contains every executable path. A large number of
 proxies does not mean calls were dropped; each one is a call that was kept but
 not resolved.
+
+## C# qualified static calls
+
+An explicit `Type.Method(...)` call can navigate to a unique declared static
+method in its namespace or enclosing type scope. Matching partial class
+declarations are considered together across inspected files. Targets use
+inferred confidence; overloads, generic type owners, aliases, value receivers,
+and incomplete inherited scopes remain uncertain. `global::` qualification
+starts at the global namespace.
+
+Namespace imports do not justify guessing an outer type. Nearer namespace/type
+names stop fallback, and local, parameter, pattern, catch, loop, lambda, and
+partial-class value bindings block type interpretation. Calls are reconsidered
+after directory merging so later declarations can retract a per-file candidate.
+
+## Dart declared factory results
+
+A direct `final value = factory(...)` initializer can provide a receiver type
+for subsequent `value.method(...)` calls in the same straight-line block.
+The factory must already resolve to an ordinary function or method in the same
+file and declare a simple class return type. A unique method in that class
+becomes an inferred target. Mutable locals, captured or nested uses, callable
+getters, generic parameters, type aliases, and nullable or compound return types
+do not receive this inference.
+
+Cross-file class lookup accepts directly imported, inspected relative `.dart`
+files. Prefixed, filtered, conditional, package, missing, and re-exported type
+scopes remain conservative. This pass does not propagate arbitrary expression
+types or infer a factory's return type from its implementation.
+
+## Dart explicit receivers
+
+An explicit `this.method(...)` call can navigate to a unique method in its
+nearest lexical class with inferred confidence. A local value with the same
+method name does not shadow explicit `this`. Missing and inherited methods,
+chained receivers, and other value receivers remain unresolved. Calls through
+`super.method(...)` retain their source sites without guessing inheritance.
 
 ## C++ out-of-line methods
 
@@ -179,3 +220,46 @@ An explicit virtual method or any source base clause makes the concrete declared
 target uncertain and adds `cpp_cast_dispatch_uncertain=True`, even when the base
 is unavailable. This is source navigation to the declared member; it does not
 claim an exhaustive set of runtime dispatch targets.
+
+C# bare calls have one bounded overload tie-breaker: when all declared candidates
+have identical provided parameter types, a unique declaration with every parameter
+supplied wins over declarations that need optional defaults. This inferred binding
+requires ordinary positional arguments, one nongeneric class/struct declaration
+context, and no uninspected base-class family. Named arguments, generic methods,
+`params`, reference parameters, virtual methods, differing provided types, and
+families spread across declaration contexts remain uncertain. Directory merging
+rechecks the family and can retract an earlier per-file selection.
+
+## C# construction
+
+Explicit C# `new Type(...)` expressions retain constructor call sites, including
+construction inside a `throw` expression. A unique declared instance constructor
+in the same file can resolve with `inferred` confidence. Static constructors are
+excluded. Missing, implicit, generic and overloaded constructors remain uncertain
+proxies; Trailmark does not select overloads by argument types. Import aliases
+and generic type parameters block constructor type lookup. Potentially competing
+namespace imports block binding to outer namesakes.
+A `global::` type qualification retains its absolute meaning.
+
+## Swift self and cleanup
+
+An explicit `self.method()` call resolves to a unique method on its nearest
+lexical type, including merged extensions. Capture rebinding, syntax recovery,
+and lexical binding barriers block this inference. Overloads and other value receivers
+remain unresolved; Trailmark does not perform Swift type checking or infer
+inherited implementations. These local method bindings have `inferred`
+confidence.
+
+A Swift `defer` body belongs to its enclosing function or method. Its calls and
+branches retain that owner; `defer` does not create a function call or a closure
+node. Actual closures nested inside cleanup code keep their own nodes and calls.
+
+## Dart constructors
+
+Dart constructor calls resolve to a unique constructor declaration in the same
+file when the class name is unshadowed. This includes named constructors such
+as `Context._internal()` and calls made inside factory constructors. The
+`calls` edge targets the constructor method, preserving its source site for
+caller and callee queries. Constructor binding has `inferred` confidence.
+Imported class aliases and inferred receiver types do not participate in
+constructor type lookup.

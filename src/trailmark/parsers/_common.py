@@ -131,6 +131,17 @@ def module_id_from_path(file_path: str) -> str:
     return path.stem if path.stem != "__init__" else path.parent.name
 
 
+def planned_source(file_path: str) -> tuple[str, str] | None:
+    """Return a directory-selected source's module and language, without fallback."""
+    sources = _DIRECTORY_SOURCES.get()
+    if sources is None:
+        return None
+    path = _absolute_lexical_path(Path(file_path))
+    owner = sources.owners.get(path)
+    # directory_sources creates both maps from the same selected path keys.
+    return (sources.module_ids[path], owner) if owner is not None else None
+
+
 def _absolute_lexical_path(path: Path) -> Path:
     """Return an absolute path without resolving symlink targets."""
     return Path(os.path.abspath(path))
@@ -854,6 +865,9 @@ def link_type_relationships(graph: CodeGraph) -> None:
     edges: list[CodeEdge] = []
     for edge in graph.edges:
         if edge.kind in {EdgeKind.INHERITS, EdgeKind.IMPLEMENTS}:
+            if dict(edge.attributes).get("exact_target"):
+                edges.append(edge)
+                continue
             raw = edge.target_id.rsplit(":", 1)[-1]
             # Nested types can refer to siblings in an enclosing lexical type.
             # Walk outward before falling back to the language-wide name index.

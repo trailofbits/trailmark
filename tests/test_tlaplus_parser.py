@@ -54,7 +54,11 @@ def test_binders_do_not_resolve_to_globals(tmp_path: Path) -> None:
         "L == LET f(x) == x IN f(1)\n====\n"
     )
     graph = parse_file(str(path), strict=True)
-    assert not any(e.kind == EdgeKind.REFERENCES for e in graph.edges)
+    assert not any(
+        e.kind == EdgeKind.REFERENCES
+        and dict(graph.nodes[e.target_id].attributes).get("declaration_role") == "constant"
+        for e in graph.edges
+    )
 
 
 def test_extends_limits_visibility_and_instances_are_diagnosed(tmp_path: Path) -> None:
@@ -118,7 +122,9 @@ def test_binding_matrix(tmp_path: Path, body: str, expected: int) -> None:
             [
                 e
                 for e in graph.edges
-                if e.kind == EdgeKind.REFERENCES and graph.nodes[e.target_id].name == "x"
+                if e.kind == EdgeKind.REFERENCES
+                and graph.nodes[e.target_id].name == "x"
+                and dict(graph.nodes[e.target_id].attributes).get("declaration_role") == "constant"
             ]
         )
         == expected
@@ -181,7 +187,13 @@ def test_reusable_local_operators_and_bare_constants_keep_dependencies(tmp_path:
         for e in graph.edges
         if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "Op"
     }
-    assert refs == {"P", "c"}
+    assert refs == {"Wrap", "c"}
+    assert any(
+        e.kind == EdgeKind.REFERENCES
+        and graph.nodes[e.source_id].name == "Wrap"
+        and graph.nodes[e.target_id].name == "P"
+        for e in graph.edges
+    )
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 

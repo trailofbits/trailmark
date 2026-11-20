@@ -47,6 +47,7 @@ from trailmark.parsers.cpp._cast_receivers import (
     call_attributes,
     class_attributes,
 )
+from trailmark.parsers.cpp._export_markers import mark_recovered_classes, recover_export_markers
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -62,7 +63,7 @@ _BRANCH_NODE_TYPES = frozenset(
 
 _THROW_TYPES = frozenset({"throw_statement"})
 
-_EXTENSIONS = (".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx")
+_EXTENSIONS = (".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx", ".h")
 
 _CPP_TYPE_NODES = frozenset(
     {
@@ -91,13 +92,18 @@ class CppParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="cpp", root_path=file_path)
         module_id = module_id_from_path(file_path)
+        recovered, markers = recover_export_markers(self._parser, source, tree)
+        if markers:
+            # Keep diagnostics from the unmodified parse, including unrelated errors.
+            add_module_node(tree.root_node, file_path, module_id, graph)
         with callable_scope(graph):
-            _visit_module(tree.root_node, file_path, module_id, graph)
+            _visit_module(recovered.root_node, file_path, module_id, graph)
+        mark_recovered_classes(graph, markers)
         _bind_out_of_line_methods(graph)
         resolve_local_method_calls(graph)
         bind_lexical_calls(graph)
         bind_cast_calls(graph)
-        collect_exception_events(tree.root_node, file_path, graph)
+        collect_exception_events(recovered.root_node, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

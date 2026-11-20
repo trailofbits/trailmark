@@ -38,6 +38,7 @@ and does not use the language-pack cache.
 **Bundled grammars** ship as C sources inside Trailmark. See
 [below](#bundled-grammars) for build requirements. Grammar licenses, revisions
 and local changes are recorded in `NOTICE` and the grammar directories.
+Rego uses a bundled grammar that accepts compound reference indices.
 
 ### Offline and TLS-inspected networks
 
@@ -57,6 +58,8 @@ location on the target machine.
 Bundled grammars are compiled the first time a file needs them. This requires a
 C compiler (`cc`), Python development headers, and write access to the installed grammar directories. Ordinary Rust
 uses the bundled Rust grammar; `verus!` blocks additionally load the Verus grammar.
+VB.NET also uses a bundled grammar to preserve valid declarations and call sites
+that the upstream language-pack grammar misparses.
 Both scanners preserve Unicode code points in block comments. The Rust grammar
 matches the revision pinned by language-pack 1.22.1; its provenance and the local
 scanner correction are recorded in `NOTICE`.

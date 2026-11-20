@@ -156,7 +156,7 @@ class RocqParser(FormalParser):
         context = _Context(Namespace(source, namespace))
         stack: list[_Context] = []
         warned = False
-        for sentence in sentences(root, self._parser):
+        for sentence in sentences(root, self._parser, source.data):
             commands = [
                 c for c in sentence.named_children if c.type not in {"attributes", "comment"}
             ]

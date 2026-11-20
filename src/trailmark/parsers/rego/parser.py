@@ -5,8 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from tree_sitter import Node, Parser
-from tree_sitter_language_pack import get_language
+from tree_sitter import Language, Node, Parser
 
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
@@ -27,6 +26,7 @@ from trailmark.parsers._simple import (
     descendants,
     named_children,
 )
+from trailmark.tree_sitter_custom._native import bundled_language
 
 _EXTENSIONS = (".rego",)
 _BRANCH_TYPES = frozenset({"literal"})
@@ -41,7 +41,7 @@ class RegoParser:
         return "rego"
 
     def __init__(self) -> None:
-        self._parser = Parser(get_language("rego"))
+        self._parser = Parser(Language(bundled_language("rego")))
 
     def parse_file(self, file_path: str) -> CodeGraph:
         source = Path(file_path).read_bytes()
@@ -62,13 +62,26 @@ def _visit_root(root: Node, file_path: str, fallback_module_id: str, graph: Code
     add_module_node(root, file_path, module_id, graph)
     if module is None:
         return
+    rules = [
+        rule
+        for policy in named_children(module)
+        if policy.type == "policy"
+        for rule in named_children(policy)
+        if rule.type == "rule"
+    ]
+    rule_names = frozenset(
+        _rule_name(head)
+        for rule in rules
+        if (head := next((c for c in named_children(rule) if c.type == "rule_head"), None))
+        is not None
+    )
     for child in named_children(module):
         if child.type == "import":
             _extract_import(child, graph, module_id)
         elif child.type == "policy":
             for rule in named_children(child):
                 if rule.type == "rule":
-                    _extract_rule(rule, file_path, module_id, graph)
+                    _extract_rule(rule, file_path, module_id, graph, rule_names)
 
 
 def _find_module(root: Node) -> Node | None:
@@ -93,7 +106,9 @@ def _package_name(module: Node | None) -> str:
     return ""
 
 
-def _extract_rule(node: Node, file_path: str, module_id: str, graph: CodeGraph) -> None:
+def _extract_rule(
+    node: Node, file_path: str, module_id: str, graph: CodeGraph, rule_names: frozenset[str]
+) -> None:
     head = next((child for child in named_children(node) if child.type == "rule_head"), None)
     if head is None:
         return
@@ -157,6 +172,8 @@ def _extract_rule(node: Node, file_path: str, module_id: str, graph: CodeGraph) 
             )
             for e in graph.edges[previous:]
         ]
+    else:
+        _add_rule_references(node, head, clause_id, module_id, file_path, graph, rule_names)
     bodies = [child for child in node.named_children if child.type == "rule_body"]
     if any(node_text(body).lstrip().startswith("(") for body in bodies):
         graph.parse_diagnostics.append(
@@ -168,6 +185,81 @@ def _extract_rule(node: Node, file_path: str, module_id: str, graph: CodeGraph) 
                 message="Inline-if call syntax is split by this grammar; use a braced rule body",
             )
         )
+
+
+def _add_rule_references(
+    rule: Node,
+    head: Node,
+    clause_id: str,
+    module_id: str,
+    file_path: str,
+    graph: CodeGraph,
+    rule_names: frozenset[str],
+) -> None:
+    blocked = {
+        node_text(variable)
+        for arguments in descendants(head)
+        if arguments.type == "rule_args"
+        for variable in descendants(arguments)
+        if variable.type == "var"
+    }
+    bodies = [child for child in rule.named_children if child.type == "rule_body"]
+    binders: list[tuple[Node, set[str]]] = []
+    for body in bodies:
+        for node in descendants(body):
+            introduced: set[str] = set()
+            if node.type == "some_decl":
+                introduced.update(
+                    node_text(v)
+                    for term in node.named_children
+                    if term.type == "term"
+                    for v in descendants(term)
+                    if v.type == "var"
+                )
+            elif node.type == "expr_infix":
+                operator = next(
+                    (c for c in node.named_children if c.type == "infix_operator"), None
+                )
+                if operator is not None and any(
+                    c.type == "assignment" for c in descendants(operator)
+                ):
+                    introduced.update(
+                        node_text(v) for v in descendants(node.named_children[0]) if v.type == "var"
+                    )
+            if introduced:
+                scope = node
+                while scope != body and not scope.type.endswith("_compr"):
+                    scope = scope.parent if scope.parent is not None else body
+                binders.append((scope, introduced))
+    for body in bodies:
+        for ref in descendants(body):
+            if ref.type != "ref" or not ref.named_children:
+                continue
+            name = ref.named_children[0]
+            if name.type != "var" or node_text(name) not in rule_names - blocked:
+                continue
+            if any(
+                node_text(name) in names and scope.start_byte <= name.start_byte < scope.end_byte
+                for scope, names in binders
+            ):
+                continue
+            parent = ref.parent
+            if (
+                parent is not None
+                and parent.type == "expr_call"
+                and ref == parent.named_children[0]
+            ):
+                continue
+            graph.edges.append(
+                CodeEdge(
+                    clause_id,
+                    f"{module_id}:{node_text(name)}",
+                    EdgeKind.REFERENCES,
+                    confidence=EdgeConfidence.INFERRED,
+                    location=make_location(name, file_path),
+                    attributes=(("reference_context", "policy"),),
+                )
+            )
 
 
 def _rule_name(head: Node) -> str:
