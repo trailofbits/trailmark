@@ -132,3 +132,12 @@ def test_constructor_name_shadow_stays_unresolved(tmp_path: Path) -> None:
     calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
     assert len(calls) == 2
     assert all(e.target_id.startswith("proxy.") for e in calls)
+
+
+def test_unnamed_constructor_navigation(tmp_path: Path) -> None:
+    from trailmark.models.edges import EdgeKind
+
+    graph = _parse(tmp_path, "class Context { Context(); }\nContext make() => Context();\n")
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert (calls[0].source_id, calls[0].target_id) == ("app:make", "app:Context.Context")
