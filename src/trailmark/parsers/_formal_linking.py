@@ -285,18 +285,36 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
     attrs = dict(edge.attributes)
     raw = attrs.pop("_formal_candidates", None)
     application = attrs.pop("_formal_application", False)
+    bound_application = attrs.pop("_formal_bound_application", False)
     position = attrs.pop("_formal_position", None)
     enclosing = attrs.pop("_formal_enclosing", None)
-    target = symbols.resolve(edge, json.loads(raw)) if isinstance(raw, str) else edge.target_id
+    target = (
+        (None if bound_application else symbols.resolve(edge, json.loads(raw)))
+        if isinstance(raw, str)
+        else edge.target_id
+    )
     if target is None:
         if not (
-            symbols.graph.language == "whyml"
-            and application
-            and attrs.get("reference_context") in {"body", "argument"}
+            application
+            and (
+                (
+                    symbols.graph.language == "fstar"
+                    and attrs.get("reference_context")
+                    in {"body", "argument", "proof", "definition"}
+                )
+                or (
+                    symbols.graph.language == "whyml"
+                    and attrs.get("reference_context") in {"body", "argument"}
+                )
+            )
         ):
             return None
         name = str(attrs["spelling"])
-        target = f"proxy.unresolved:{edge.source_id}.$application.{name}"
+        role = "bound" if bound_application else "unresolved"
+        target = f"proxy.{role}:{edge.source_id}.$application.{name}"
+        attrs["unresolved_application"] = True
+        if bound_application:
+            attrs["binding_blocked"] = True
         symbols.graph.nodes.setdefault(
             target,
             CodeUnit(
@@ -305,7 +323,10 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
                 NodeKind.PROXY,
                 edge.location or symbols.graph.nodes[edge.source_id].location,
                 origin=NodeOrigin.PROXY,
-                attributes=(("executable", True), ("unresolved_application", True)),
+                attributes=(
+                    ("executable", symbols.graph.language == "whyml"),
+                    ("unresolved_application", True),
+                ),
             ),
         )
     if (
@@ -319,7 +340,11 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
         target_id=target,
         attributes=tuple(attrs.items()),
         confidence=EdgeConfidence.UNCERTAIN
-        if dict(symbols.graph.nodes[target].attributes).get("unresolved_application")
+        if attrs.get("unresolved_application")
+        or (
+            (unit := symbols.graph.nodes.get(target)) is not None
+            and dict(unit.attributes).get("unresolved_application")
+        )
         else EdgeConfidence.INFERRED
         if isinstance(raw, str)
         else edge.confidence,

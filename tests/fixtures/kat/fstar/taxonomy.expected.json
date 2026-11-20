@@ -7,6 +7,24 @@
       "target": "taxonomy:Taxonomy.positive"
     },
     {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "op_Greater_Equals",
+        "unresolved_application": true
+      },
+      "confidence": "uncertain",
+      "kind": "references",
+      "location": {
+        "end_col": 34,
+        "end_line": 3,
+        "file_path": "taxonomy.fst",
+        "start_col": 32,
+        "start_line": 3
+      },
+      "source": "taxonomy:Taxonomy.positive",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.positive.$application.op_Greater_Equals"
+    },
+    {
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy",
@@ -92,6 +110,25 @@
       "target": "taxonomy:Taxonomy.apply"
     },
     {
+      "attributes": {
+        "binding_blocked": true,
+        "reference_context": "body",
+        "spelling": "identity",
+        "unresolved_application": true
+      },
+      "confidence": "uncertain",
+      "kind": "references",
+      "location": {
+        "end_col": 65,
+        "end_line": 7,
+        "file_path": "taxonomy.fst",
+        "start_col": 57,
+        "start_line": 7
+      },
+      "source": "taxonomy:Taxonomy.apply",
+      "target": "proxy.bound:taxonomy:Taxonomy.apply.$application.identity"
+    },
+    {
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy",
@@ -131,6 +168,52 @@
   ],
   "language": "fstar",
   "nodes": {
+    "proxy.bound:taxonomy:Taxonomy.apply.$application.identity": {
+      "attributes": {
+        "executable": false,
+        "unresolved_application": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.bound:taxonomy:Taxonomy.apply.$application.identity",
+      "kind": "proxy",
+      "location": {
+        "end_col": 65,
+        "end_line": 7,
+        "file_path": "taxonomy.fst",
+        "start_col": 57,
+        "start_line": 7
+      },
+      "name": "identity",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Taxonomy.positive.$application.op_Greater_Equals": {
+      "attributes": {
+        "executable": false,
+        "unresolved_application": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.positive.$application.op_Greater_Equals",
+      "kind": "proxy",
+      "location": {
+        "end_col": 34,
+        "end_line": 3,
+        "file_path": "taxonomy.fst",
+        "start_col": 32,
+        "start_line": 3
+      },
+      "name": "op_Greater_Equals",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "attributes": {
         "formal_modules": "[\"Taxonomy\", \"taxonomy\"]",
@@ -388,12 +471,12 @@
       "fstar"
     ],
     "parse_diagnostics": [],
-    "proxies": 0,
+    "proxies": 2,
     "source_file_counts": {
       "fstar": 1
     },
     "source_files": 1,
-    "total_nodes": 7
+    "total_nodes": 9
   },
   "trailmark_version": "<trailmark-version>"
 }
