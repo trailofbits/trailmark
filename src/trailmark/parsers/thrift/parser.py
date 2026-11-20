@@ -137,9 +137,53 @@ def _extract_service(node: Node, file_path: str, module_id: str, graph: CodeGrap
         location=make_location(node, file_path),
     )
     add_contains_edge(graph, module_id, service_id)
+    _extract_service_base(node, file_path, module_id, service_id, graph)
     for child in named_children(node):
         if child.type == "function_definition":
             _extract_function(child, file_path, service_id, graph)
+
+
+def _extract_service_base(
+    node: Node, file_path: str, module_id: str, service_id: str, graph: CodeGraph
+) -> None:
+    parts: list[Node] = []
+    extends = False
+    for child in node.children:
+        if child.type == "extends":
+            extends = True
+        elif child.type == "{":
+            break
+        elif extends and child.type in {"identifier", "."}:
+            parts.append(child)
+    if not parts:
+        return
+    raw = "".join(node_text(part) for part in parts)
+    target = f"{module_id}:{raw}"
+    qualifier, separator, name = raw.partition(".")
+    if separator:
+        includes: set[str] = set()
+        for sibling in named_children(node.parent) if node.parent is not None else []:
+            if sibling.type != "include_statement":
+                continue
+            included = first_child_type(sibling, frozenset({"string"}))
+            if included is None:
+                continue
+            path = Path(node_text(included).strip("\"'"))
+            if path.stem == qualifier:
+                includes.add(f"{module_id_from_path(str(Path(file_path).parent / path))}:{name}")
+        if len(includes) == 1:
+            target = includes.pop()
+    start = make_location(parts[0], file_path)
+    end = make_location(parts[-1], file_path)
+    graph.edges.append(
+        CodeEdge(
+            source_id=service_id,
+            target_id=target,
+            kind=EdgeKind.INHERITS,
+            location=replace(start, end_line=end.end_line, end_col=end.end_col),
+            attributes=(("exact_target", True),),
+        )
+    )
 
 
 def _extract_function(node: Node, file_path: str, service_id: str, graph: CodeGraph) -> None:

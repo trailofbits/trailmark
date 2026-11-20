@@ -1,0 +1,18 @@
+{
+  "grammars": [
+    {
+      "name": "vb",
+      "camelcase": "VB",
+      "scope": "source.vb",
+      "path": ".",
+      "file-types": [
+        "vb"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Trailmark corrections to CodeAnt-AI Visual Basic .NET grammar"
+  }
+}

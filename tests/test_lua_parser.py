@@ -86,8 +86,10 @@ alias()
     graph = parse_directory(str(tmp_path), language="lua")
     calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
     assert len(calls) == 4
-    assert all(e.confidence == EdgeConfidence.UNCERTAIN for e in calls)
-    assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
+    methods = [e for e in calls if e.target_id == "sample:M.run"]
+    assert len(methods) == 1 and methods[0].confidence == EdgeConfidence.INFERRED
+    assert all(e.confidence == EdgeConfidence.UNCERTAIN for e in calls if e not in methods)
+    assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls if e not in methods)
 
 
 def test_reassignments_including_closures_invalidate_binding(tmp_path: Path) -> None:
