@@ -398,6 +398,8 @@ def _visit_class_body(
                 class_id,
                 graph,
             )
+        elif child.type == "template_declaration":
+            _visit_template_body(child, file_path, module_id, class_id, graph)
         elif child.type == "declaration":
             _check_inline_method(
                 child,

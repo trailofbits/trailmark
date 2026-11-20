@@ -69,6 +69,17 @@ def test_namespace_and_constexpr_constructor_owners_keep_physical_sites(
         "#define CTOR constexpr\n#un\\\ndef CTOR\n",
         "#define CTOR constexpr\n#un\\\ndef/**/CTOR\n",
         "#define CTOR constexpr\n#undef CT\\\nOR\n",
+        "#define CTOR constexpr\n#define CT\\\nOR int\n",
+        "#define CTOR constexpr\n#define CT\\\nOR(x) x\n",
+        "#define CTOR constexpr\n#/**/define CTOR consteval\n",
+        "#define CTOR constexpr\n# /* x */ define CTOR int\n",
+        "#define CTOR constexpr\n#/**/undef CTOR\n",
+        "#define CTOR constexpr\n#/*one\ntwo*/define CTOR consteval\n",
+        "#define CTOR constexpr\n#\v/**/define CTOR consteval\n",
+        "#define CTOR constexpr\n#\f/**/define CTOR consteval\n",
+        "#define CTOR constexpr\n#/\\\n*one*/define CTOR consteval\n",
+        "#define CTOR constexpr\n%:define CTOR consteval\n",
+        "#define CTOR constexpr\n??=define CTOR consteval\n",
         "#define CTOR constexpr\n#define CTOR int\n",
     ],
 )
@@ -115,3 +126,66 @@ def test_comments_and_strings_cannot_create_declaration_markers(tmp_path: Path) 
     graph = parse_file(str(path), "cpp", strict=True)
     assert "sample:actual.A" in graph.nodes
     assert "cpp_declaration_markers" not in dict(graph.nodes["sample"].attributes)
+
+
+def test_literal_and_comment_directives_do_not_revoke_constructor_annotation(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "sample.cpp"
+    path.write_text(
+        '#define CTOR constexpr\nconst char* s = R"(\n#define CTOR int\n)";\n'
+        "/*\n#undef CTOR\n*/\nclass Buffer { CTOR explicit Buffer() {} };\n"
+    )
+    graph = parse_file(str(path), "cpp")
+    markers = json.loads(str(dict(graph.nodes["sample"].attributes)["cpp_declaration_markers"]))
+    assert [m["role"] for m in markers] == ["constructor_annotation"]
+
+
+def test_proven_annotation_chain_preserves_complete_namespace_and_class(tmp_path: Path) -> None:
+    path = tmp_path / "sample.cpp"
+    path.write_text(
+        "#define API\n#define CTOR constexpr\n"
+        "#if FLAG\n#define INLINE inline __attribute__((always_inline))\n"
+        "#else\n#define INLINE inline\n#endif\n"
+        "API\nnamespace detail {\nvoid helper() {}\n"
+        "template<class T> struct Store {\n"
+        " template<class... U> CTOR INLINE Store(U&... values) { helper(); }\n"
+        " void after() { helper(); }\n};\n"
+        "void tail() { helper(); }\n}\nvoid outside() {}\n"
+    )
+    graph = parse_file(str(path), "cpp")
+    assert graph.nodes["sample:detail.Store"].kind == NodeKind.STRUCT
+    assert graph.nodes["sample:detail.tail"].kind == NodeKind.FUNCTION
+    assert "sample:outside" in graph.nodes
+    assert "sample:detail.outside" not in graph.nodes
+    sources = {e.source_id for e in graph.edges if e.kind == EdgeKind.CALLS}
+    assert "sample:detail.Store.after" in sources
+    assert "sample:detail.tail" in sources
+    assert any(graph.nodes[key].name == "Store" for key in sources)
+    markers = json.loads(str(dict(graph.nodes["sample"].attributes)["cpp_declaration_markers"]))
+    assert {m["name"] for m in markers} == {"API", "CTOR", "INLINE"}
+
+
+def test_unproven_annotation_in_chain_is_not_removed(tmp_path: Path) -> None:
+    path = tmp_path / "sample.cpp"
+    path.write_text(
+        "#define CTOR constexpr\n#define INLINE mystery\nstruct Store { CTOR INLINE Store() {} };\n"
+    )
+    graph = parse_file(str(path), "cpp")
+    assert "cpp_declaration_markers" not in dict(graph.nodes["sample"].attributes)
+
+
+def test_standalone_template_prefix_preserves_method_owner(tmp_path: Path) -> None:
+    path = tmp_path / "sample.cpp"
+    path.write_text(
+        "#define API\nAPI\n/** public view */\n"
+        "template<class T> class View { public:\n"
+        " const T* data() { return nullptr; }\n};\nvoid outside() {}\n"
+    )
+    graph = parse_file(str(path), "cpp")
+    assert graph.nodes["sample:View"].kind == NodeKind.CLASS
+    assert graph.nodes["sample:View.data"].kind == NodeKind.METHOD
+    assert "sample:data" not in graph.nodes
+    assert "sample:outside" in graph.nodes
+    markers = json.loads(str(dict(graph.nodes["sample"].attributes)["cpp_declaration_markers"]))
+    assert [m["role"] for m in markers] == ["template_prefix"]
