@@ -689,7 +689,10 @@ def test_solidity_call_options_and_declaration_arguments() -> None:
     graph = parse_directory(str(FIXTURES / "solidity/function_pointer"), "solidity")
     assert "function_pointer:C.work" not in _calls(graph, "function_pointer:C.dispatch")
     graph = parse_directory(str(FIXTURES / "solidity/modifier_arguments"), "solidity")
-    assert _calls(graph, "modifier_arguments:C.f") == ["modifier_arguments:C.authorize"]
+    assert _calls(graph, "modifier_arguments:C.f") == [
+        "modifier_arguments:C.gate",
+        "modifier_arguments:C.authorize",
+    ]
     graph = parse_directory(str(FIXTURES / "solidity/constructor_arguments"), "solidity")
     assert _calls(graph, "constructor_arguments:Child.constructor") == [
         "constructor_arguments:compute"

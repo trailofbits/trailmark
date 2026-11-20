@@ -231,6 +231,11 @@ immutables, and transient variables are excluded.
 occurrence. Repeated accesses are separate edges in the JSON export. The four
 query methods return distinct nodes, ordered by ID, and `[]` for unknown names.
 
+Modifier applications retain `calls` edges tagged `solidity_call_kind=modifier`,
+including inherited modifiers. Repeated applications retain separate source sites.
+Argument-expression calls belong to the applying declaration; modifier bodies
+own their calls and storage accesses. This does not expand modifier control flow.
+
 | Syntax | Recorded as |
 | --- | --- |
 | Assignment, `delete x` | write |
@@ -253,8 +258,8 @@ an EVM storage-slot or mapping-key analysis.
 - Declaration initializers and compiler-generated public getters are not
   modeled.
 - Modifier bodies own their accesses. The effects of a modifier are not
-  attributed to the functions that use it, and the absence of a modifier edge
-  does not establish the absence of access control.
+  copied to the direct state-access edges of functions that use it. Call
+  traversal can reach the modifier without propagating its storage effects.
 - State edges do not change the default call traversals.
 - An absent edge is not proof that a function cannot access storage.
 - Other language parsers do not yet emit state-access edges.
