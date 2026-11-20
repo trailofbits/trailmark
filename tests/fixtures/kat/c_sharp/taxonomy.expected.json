@@ -399,6 +399,9 @@
       "return_type": null
     },
     "taxonomy:Taxonomy.Dog.Bark": {
+      "attributes": {
+        "csharp_optional_signature": "{\"parameters\": [[\"bool\", true]], \"context\": 1697}"
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -512,6 +515,9 @@
       "return_type": null
     },
     "taxonomy:Taxonomy.Dog.Greet": {
+      "attributes": {
+        "csharp_optional_signature": "{\"parameters\": [[\"string\", false]], \"context\": 1697}"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -616,6 +622,7 @@
     },
     "taxonomy:Taxonomy.Math.Add": {
       "attributes": {
+        "csharp_optional_signature": "{\"parameters\": [[\"int\", false], [\"int\", false]], \"context\": 295}",
         "csharp_static": true
       },
       "branches": [],
@@ -660,6 +667,7 @@
     },
     "taxonomy:Taxonomy.Math.Branchy": {
       "attributes": {
+        "csharp_optional_signature": "{\"parameters\": [[\"int\", false], [\"string\", false]], \"context\": 295}",
         "csharp_static": true
       },
       "branches": [
@@ -827,6 +835,7 @@
     },
     "taxonomy:Taxonomy.Math.FetchAsync": {
       "attributes": {
+        "csharp_optional_signature": "{\"parameters\": [[\"string\", false]], \"context\": 295}",
         "csharp_static": true
       },
       "branches": [],

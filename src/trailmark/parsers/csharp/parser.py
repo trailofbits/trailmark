@@ -38,11 +38,17 @@ from trailmark.parsers._declarations import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import owned_syntax
+from trailmark.parsers.csharp._optional_overloads import (
+    argument_attributes,
+    base_alias_attributes,
+    link_calls,
+    resolve_optional_overloads,
+    signature_attributes,
+)
 from trailmark.parsers.csharp._static_calls import (
     bind_static_calls,
     call_attributes,
     class_attributes,
-    link_static_calls,
     record_global_usings,
 )
 
@@ -101,6 +107,7 @@ class CSharpParser:
         bind_lexical_calls(graph)
         _bind_constructors(graph)
         bind_static_calls(graph)
+        resolve_optional_overloads(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -111,7 +118,7 @@ class CSharpParser:
             "csharp",
             dir_path,
             _EXTENSIONS,
-            link_calls=link_static_calls,
+            link_calls=link_calls,
         )
 
 
@@ -246,7 +253,7 @@ def _extract_class(
         location=location,
         type_parameters=extract_type_parameters(node),
         docstring=_extract_docstring(node),
-        attributes=class_attributes(node),
+        attributes=(*class_attributes(node), *base_alias_attributes(node)),
     )
     add_type(graph, class_unit)
     parent = container_id if container_id else module_id
@@ -385,6 +392,7 @@ def _extract_function(
                 and any(c.type == "modifier" and node_text(c) == "static" for c in node.children)
                 else ()
             ),
+            *signature_attributes(node),
         ),
     )
     func_id = add_callable(graph, unit)
@@ -571,7 +579,7 @@ def _add_call_edges(
             call_node,
             graph=graph,
         )
-        metadata = call_attributes(edge, call_node, graph)
+        metadata = (*call_attributes(edge, call_node, graph), *argument_attributes(call_node))
         graph.edges.append(replace(edge, attributes=(*edge.attributes, *metadata)))
 
 
