@@ -418,6 +418,8 @@ directory parses. List/non-null wrappers remain recursive TypeRefs so named
 leaf types retain dependency edges. Thrift IDs use source-file identity instead
 of the first target-language namespace; namespaces remain metadata. Container
 arguments and declared throws are represented as type references.
+Thrift service `extends` clauses retain `inherits` edges to local services and
+services qualified by an included file, with the base reference's source span.
 
 FunC dot/tilde method variants retain specialized declarations and bare fallback
 semantics. Function-valued parameters and locals block unrelated same-name
