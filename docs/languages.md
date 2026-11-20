@@ -474,6 +474,8 @@ inferred. Implicit and inductive binders, mutual fixpoint bodies and section imp
 retain their lexical boundaries. From/Require imports use directory identities or
 explicit -Q/-R mappings in the nearest _CoqProject file; other load-path configuration
 is not evaluated. Sentence recovery preserves later declarations after malformed commands.
+Recovered Rocq and WhyML declarations and references keep their original source coordinates,
+including leading whitespace before the first syntax node.
 Advanced functors, generated declarations, Include expansion and notation declarations
 remain incomplete. Select `--language rocq` explicitly for `.v` files because the
 extension also denotes Verilog; automatic detection excludes `.v`.
