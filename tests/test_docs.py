@@ -324,6 +324,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/cli.md", "--strict"),
     ("docs/augmenting.md", "originalUriBaseIds"),
     ("docs/languages.md", "Thrift IDs use source-file identity"),
+    (
+        "docs/languages.md",
+        "Cairo qualified calls resolve to visible local module and impl declarations",
+    ),
     ("docs/languages.md", "Tact traits retain their method and receiver declarations"),
     ("docs/languages.md", "GraphQL `implements` clauses retain interface"),
     ("docs/languages.md", "Thrift service `extends` clauses retain `inherits` edges"),

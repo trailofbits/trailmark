@@ -425,6 +425,11 @@ incomplete-graph warning even for some valid VB.NET programs.
 
 ## Schema frontends and FunC/Sway declarations
 
+Cairo qualified calls resolve to visible local module and impl declarations,
+including explicit `super` imports and aliases. Unknown imports, ambiguous
+aliases, and generic path heads remain unresolved rather than choosing a
+same-name local implementation. Cross-file crate and trait dispatch are not inferred.
+
 Tact traits retain their method and receiver declarations as owned nodes.
 Contract and trait `with` clauses produce `inherits` edges. Imported trait bodies
 and virtual dispatch are not expanded; unresolved inherited calls remain explicit.

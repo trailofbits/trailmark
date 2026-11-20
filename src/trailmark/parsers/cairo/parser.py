@@ -27,6 +27,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers.cairo._qualified import resolve_qualified_calls
 from trailmark.tree_sitter_custom._native import bundled_language
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -59,6 +60,7 @@ class CairoParser:
         graph = CodeGraph(language="cairo", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
+        resolve_qualified_calls(tree.root_node, graph, module_id)
         _resolve_lexical_calls(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
