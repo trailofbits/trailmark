@@ -271,6 +271,14 @@ the same implementation can link with inferred confidence; other sends stay
 uncertain. Class
 methods use `module:Class.+selector` IDs; instance methods retain
 `module:Class.selector`. Blocks have separate source-position owners.
+
+Objective-C accepts balanced standalone `NS_ASSUME_NONNULL_BEGIN` and
+`NS_ASSUME_NONNULL_END` annotation regions without losing class declarations or
+implementation bodies. It parses the original bytes around the annotation tokens,
+preserving physical source locations, and records `objc_nullability_regions` on
+the module. Redefined, unmatched, nested or cross-branch annotations stay in the
+ordinary recovery path; unrelated syntax diagnostics remain visible.
+
 Dart constructors use `module:Class.Class` and `module:Class.Class.named` IDs.
 Constructor initializers and arrow bodies retain calls, and deferred local bodies
 have separate owners. These syntax edges do not imply runtime dispatch inference.
