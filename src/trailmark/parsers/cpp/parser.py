@@ -56,7 +56,7 @@ _BRANCH_NODE_TYPES = frozenset(
 
 _THROW_TYPES = frozenset({"throw_statement"})
 
-_EXTENSIONS = (".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx")
+_EXTENSIONS = (".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx", ".h")
 
 _CPP_TYPE_NODES = frozenset(
     {

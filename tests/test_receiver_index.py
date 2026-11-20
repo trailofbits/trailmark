@@ -31,7 +31,9 @@ def test_receiver_assignment_order(tmp_path: Path, body: str, targets: list[str]
     calls = [
         edge
         for edge in graph.edges
-        if edge.kind == EdgeKind.CALLS and not dict(edge.attributes).get("deferred")
+        if edge.kind == EdgeKind.CALLS
+        and not dict(edge.attributes).get("deferred")
+        and not dict(edge.attributes).get("constructor_call")
     ]
     assert [edge.target_id for edge in calls] == targets
 
@@ -50,7 +52,13 @@ def test_many_receivers_index_each_body_once(
     path = tmp_path / "app.ts"
     path.write_text("class A{m(){}} function run(){let x=new A();" + "x.m();" * 2000 + "}")
     graph = parse_file(str(path))
-    calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
+    constructions = [edge for edge in graph.edges if dict(edge.attributes).get("constructor_call")]
+    assert len(constructions) == 1 and constructions[0].target_id == "app:A"
+    calls = [
+        edge
+        for edge in graph.edges
+        if edge.kind == EdgeKind.CALLS and not dict(edge.attributes).get("constructor_call")
+    ]
     assert len(calls) == 2000 and all(edge.target_id == "app:A.m" for edge in calls)
     assert len(scanned) == 1
     # A later file must not reuse syntax or assignments from the previous parse.
