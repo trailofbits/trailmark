@@ -44,6 +44,11 @@
     },
     {
       "attributes": {
+        "csharp_static_global": false,
+        "csharp_static_imports": true,
+        "csharp_static_method": "Parse",
+        "csharp_static_original": "int.Parse",
+        "csharp_static_type": "int",
         "raw_target": "int.Parse"
       },
       "confidence": "inferred",
@@ -59,6 +64,11 @@
     },
     {
       "attributes": {
+        "csharp_static_global": false,
+        "csharp_static_imports": true,
+        "csharp_static_method": "Yield",
+        "csharp_static_original": "Task.Yield",
+        "csharp_static_type": "Task",
         "raw_target": "Task.Yield"
       },
       "confidence": "inferred",
@@ -220,6 +230,10 @@
       "return_type": null
     },
     "taxonomy:Taxonomy.Animal": {
+      "attributes": {
+        "csharp_value_member:Name": true,
+        "csharp_value_member:Species": true
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -288,6 +302,10 @@
       }
     },
     "taxonomy:Taxonomy.Dog": {
+      "attributes": {
+        "csharp_bases": "[\"Animal\", \"IGreeter\"]",
+        "csharp_value_member:Breed": true
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -498,6 +516,9 @@
       }
     },
     "taxonomy:Taxonomy.Math": {
+      "attributes": {
+        "csharp_value_member:Constant": true
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -516,6 +537,9 @@
       "return_type": null
     },
     "taxonomy:Taxonomy.Math.Add": {
+      "attributes": {
+        "csharp_static": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -557,6 +581,9 @@
       }
     },
     "taxonomy:Taxonomy.Math.Branchy": {
+      "attributes": {
+        "csharp_static": true
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -721,6 +748,9 @@
       }
     },
     "taxonomy:Taxonomy.Math.FetchAsync": {
+      "attributes": {
+        "csharp_static": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,

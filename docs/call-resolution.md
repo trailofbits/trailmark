@@ -106,6 +106,20 @@ not proof that the graph contains every executable path. A large number of
 proxies does not mean calls were dropped; each one is a call that was kept but
 not resolved.
 
+## C# qualified static calls
+
+An explicit `Type.Method(...)` call can navigate to a unique declared static
+method in its namespace or enclosing type scope. Matching partial class
+declarations are considered together across inspected files. Targets use
+inferred confidence; overloads, generic type owners, aliases, value receivers,
+and incomplete inherited scopes remain uncertain. `global::` qualification
+starts at the global namespace.
+
+Namespace imports do not justify guessing an outer type. Nearer namespace/type
+names stop fallback, and local, parameter, pattern, catch, loop, lambda, and
+partial-class value bindings block type interpretation. Calls are reconsidered
+after directory merging so later declarations can retract a per-file candidate.
+
 ## Rust limits
 
 Rust code commonly produces many proxies. Common patterns:
