@@ -442,6 +442,14 @@ Parameters shadow outer imports through nested callbacks. Calling a whole-module
 require remains an uncertain proxy;
 external `node:` module IDs normalize the namespace separator to a dot. Import
 resolution is cached per declaration.
+Explicit ECMAScript named imports and local export aliases bind to their selected
+relative source module, including directory `index` modules and TypeScript
+imports with emitted JavaScript suffixes. Local parameters and declarations
+still shadow imports. Export inspection stays within the selected directory
+sources and languages; single-file parsing does not inspect import targets.
+Type-only imports, missing exports, package imports,
+default imports, and re-exports remain proxies rather than using unrelated
+same-name functions elsewhere in the project.
 
 Generator expressions and callable initializers wrapped in parentheses, `as`,
 `satisfies`, type assertions or non-null assertions retain their variable binding.
