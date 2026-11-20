@@ -95,6 +95,7 @@ def pyproject_data() -> dict[str, object]:
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/parser-coverage.md", "Explicit ECMAScript named imports"),
     ("docs/parser-coverage.md", "`constructor_call` metadata"),
+    ("docs/parser-coverage.md", "selected named imports also reach explicit constructor bodies"),
     ("docs/languages.md", "File includes resolve by their exact path"),
     ("docs/languages.md", "Dafny uses Dafny 4 function syntax"),
     ("docs/languages.md", "Input parameters retain source order and types"),

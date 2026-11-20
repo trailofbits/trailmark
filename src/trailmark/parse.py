@@ -436,6 +436,10 @@ def _merge_language_graphs(path: str, languages: list[str]) -> CodeGraph:
         node_id for node_id, lang in node_languages.items() if lang in {"c", "cpp", "objc"}
     }
     link_cross_file_calls(merged, eligible_ids=c_family_ids)
+    if any(lang in {"javascript", "typescript"} for lang in languages):
+        from trailmark.parsers._ecmascript import bind_imported_constructors
+
+        bind_imported_constructors(merged)
     # merge() doesn't touch `language`; preserve the polyglot marker.
     merged.language = "polyglot"
     apply_repository_links(merged, path)
