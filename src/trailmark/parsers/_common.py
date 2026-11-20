@@ -854,6 +854,9 @@ def link_type_relationships(graph: CodeGraph) -> None:
     edges: list[CodeEdge] = []
     for edge in graph.edges:
         if edge.kind in {EdgeKind.INHERITS, EdgeKind.IMPLEMENTS}:
+            if dict(edge.attributes).get("exact_target"):
+                edges.append(edge)
+                continue
             raw = edge.target_id.rsplit(":", 1)[-1]
             # Nested types can refer to siblings in an enclosing lexical type.
             # Walk outward before falling back to the language-wide name index.
