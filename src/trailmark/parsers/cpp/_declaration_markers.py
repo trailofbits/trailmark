@@ -204,7 +204,7 @@ def recover_declaration_markers(
                 and not (
                     parent.type == "ERROR"
                     and parent.named_children[0] == node
-                    and _template(node, source)
+                    and (_template(node, source) or _constructor(node, source, known))
                 )
             ):
                 continue

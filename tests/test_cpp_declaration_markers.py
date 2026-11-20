@@ -141,15 +141,18 @@ def test_literal_and_comment_directives_do_not_revoke_constructor_annotation(
     assert [m["role"] for m in markers] == ["constructor_annotation"]
 
 
-def test_proven_annotation_chain_preserves_complete_namespace_and_class(tmp_path: Path) -> None:
+@pytest.mark.parametrize("initializer", ["", ": args{{0}, values...} "])
+def test_proven_annotation_chain_preserves_complete_namespace_and_class(
+    tmp_path: Path, initializer: str
+) -> None:
     path = tmp_path / "sample.cpp"
     path.write_text(
         "#define API\n#define CTOR constexpr\n"
         "#if FLAG\n#define INLINE inline __attribute__((always_inline))\n"
         "#else\n#define INLINE inline\n#endif\n"
         "API\nnamespace detail {\nvoid helper() {}\n"
-        "template<class T> struct Store {\n"
-        " template<class... U> CTOR INLINE Store(U&... values) { helper(); }\n"
+        "template<class T> struct Store {\n int args[1];\n"
+        " template<class... U> CTOR INLINE Store(U&... values) " + initializer + "{ helper(); }\n"
         " void after() { helper(); }\n};\n"
         "void tail() { helper(); }\n}\nvoid outside() {}\n"
     )
