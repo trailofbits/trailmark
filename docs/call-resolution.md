@@ -154,3 +154,14 @@ definitions are not expanded. Generated methods, implicit constructors, compiler
 entrypoints, and operator desugaring are not invented. A missing edge is not proof
 of dead code. `main` follows the generic entrypoint rule; script execution needs
 an entrypoint override. Syntax errors warn that the graph may be incomplete.
+
+## C# construction
+
+Explicit C# `new Type(...)` expressions retain constructor call sites, including
+construction inside a `throw` expression. A unique declared instance constructor
+in the same file can resolve with `inferred` confidence. Static constructors are
+excluded. Missing, implicit, generic and overloaded constructors remain uncertain
+proxies; Trailmark does not select overloads by argument types. Import aliases
+and generic type parameters block constructor type lookup. Potentially competing
+namespace imports block binding to outer namesakes.
+A `global::` type qualification retains its absolute meaning.
