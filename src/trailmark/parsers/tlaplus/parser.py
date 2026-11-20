@@ -9,6 +9,7 @@ from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.nodes import NodeKind, Parameter
 from trailmark.parsers._common import make_location, node_text
 from trailmark.parsers._formal import FormalParser, Namespace, Scope, Source, walk
+from trailmark.parsers.tlaplus._proofs import extract_proof, link_proofs
 
 _OPAQUE = frozenset({"terminal_proof", "non_terminal_proof"})
 _SKIP = _OPAQUE | frozenset({"comment", "block_comment", "string"})
@@ -257,6 +258,7 @@ class TLAPlusParser(FormalParser):
 
     language = "tlaplus"
     extensions = (".tla",)
+    link = staticmethod(link_proofs)
 
     def load_language(self) -> Language:
         return get_language("tlaplus")
@@ -432,8 +434,9 @@ class TLAPlusParser(FormalParser):
         for child in walk(node, _OPAQUE, include_skipped=True):
             if child.type in _OPAQUE:
                 env.source.unsupported(
-                    child, "TLA+ proof steps and prefixed subexpressions are omitted"
+                    child, "TLA+ proof steps retain source syntax only; proofs are not checked"
                 )
+                extract_proof(node, child, owner, env, _spelling)
         prefixed = _prefixed(node, env)
         scopes = _scopes(node)
         binders = _scopes(node, bind_lets=False)
