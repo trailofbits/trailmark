@@ -506,8 +506,12 @@ variables, assumptions and theorem statements are retained. EXTENDS controls cro
 visibility transitively, including enclosing modules. Separators and RECURSIVE forward
 declarations are accepted; parameters, LAMBDA, quantifier and LET binders shadow globals. LOCAL definitions retain private visibility. Named INSTANCE nodes retain substitution
 references, and single-component `I!Op` uses can reference inspected template members.
-WITH substitutions are diagnosed because the template is not instantiated. Proof steps,
-complex prefixed subexpressions and PlusCal translation remain unsupported. User-defined
+WITH substitutions are diagnosed because the template is not instantiated. Proof steps
+retain private, non-executable source owners and `references` edges for expressions and
+BY/USE/DEF citations. Step labels resolve only within their proof hierarchy and source
+order; unavailable or ambiguous citations remain uncertain proxies. Proof binders that
+need elaboration block module-level namesake binding. A diagnostic still marks each
+proof as unchecked. Complex prefixed subexpressions and PlusCal translation remain unsupported. User-defined
 symbolic operator dependencies and inherited instance aliases remain incomplete. No transition system, proof outcome or model-checking result is inferred;
 specification references never become calls.
 
