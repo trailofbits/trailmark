@@ -13,6 +13,8 @@ The languages are Python, TypeScript, Rust, Solidity, F*, TLA+, GraphQL, and SQL
 [corpus.py](corpus.py) pins repositories and revisions;
 [pilot.py](pilot.py) fixes source ranges and rationales before any measurement.
 These are purposeful coverage samples, not ecosystem defect-rate estimates.
+The [pilot review](PILOT.md) records independently reproduced findings and the
+method changes required before expanding the sample.
 
 The frozen baseline is commit
 `455f6554aa1b6c138c62a7d2a114ae4aba111af7`. Create an unchanged worktree at that
@@ -73,6 +75,13 @@ on its verified private runtime tmpfs, then removes it after Codex exits. Creden
 never enter host temporary files, bind mounts, container environment, arguments,
 or artifacts. Run the isolation probe before trusting results.
 
+Before Docker or credential access, the worker enforces a conservative
+1,048,576-byte UTF-8 prompt budget for the pinned CLI's character limit. Oversized
+inputs return `input_limit_exceeded` with zero attempts. Exact prompt/schema
+artifacts remain under `rejected-input/`, with sizes and hashes. The worker never
+truncates, splits, or retries them. Change scope or preregister batching in a new
+protocol rather than modifying sealed inputs.
+
 Measurements use the frozen installation outside reader containers. The worker
 builds the graph twice, checks full graph hashes, and compares source inventories
 before and after parsing. Nondeterminism or source changes invalidate the result.
@@ -103,6 +112,17 @@ when the mapped domain can contain a simple path beyond the 20-edge search bound
 Schema-1 campaigns retain their original evaluator checkout and semantics.
 Replay them there; do not add relation kinds to their sealed references or
 reinterpret their path outcomes as if readers had declared those kinds.
+
+Judge prompts explicitly excerpt default global diagnostics and entrypoint lists
+to the case, retaining unknown locations and labelling scalar counts as global.
+An exclusion ledger records rules, counts, and hashes; full originals stay sealed.
+Readers, source text, the scoped graph, and every public-navigation answer remain
+unchanged. Named reference tables then share repeated evidence with an exact
+serialized round-trip check. This encoding preserves the case excerpt, not the
+original global context. `prompt-evidence.json`, `prompt-presentation.json`, and
+`prompt-provenance.json` freeze both views, their versions, hashes, and final size.
+The output schema enumerates the exact required claim IDs; semantic validation
+also rejects missing, duplicate, or extra decisions.
 
 Independent validators supply bounded evidence:
 

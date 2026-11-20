@@ -294,6 +294,12 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("tests/graph_eval/README.md", "requires explicit question `edge_kinds` before measurement"),
     ("tests/graph_eval/README.md", "negative path question is not evaluated"),
     ("tests/graph_eval/README.md", "model adjudicator classifications pending independent review"),
+    ("tests/graph_eval/README.md", "[pilot review](PILOT.md)"),
+    ("tests/graph_eval/README.md", "inputs return `input_limit_exceeded` with zero attempts"),
+    ("tests/graph_eval/README.md", "encoding preserves the case excerpt"),
+    ("tests/graph_eval/README.md", "schema enumerates the exact required claim IDs"),
+    ("tests/graph_eval/PILOT.md", "protocol should not expand unchanged"),
+    ("tests/graph_eval/PILOT.md", "These are not accuracy"),
     ("tests/graph_eval/README.md", "precision or recall without a complete adjudicated inventory"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
