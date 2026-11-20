@@ -82,7 +82,11 @@ subroutine declaration establishes their classification.
 
 Lua assignments to lexical locals never create global candidates. A custom or
 reassigned `_ENV` blocks free-name global inference and unproven `require`
-imports, while explicit lexical bindings remain available. R local assignments
+imports, while explicit lexical bindings remain available. Module-local tables
+with explicit dot or colon method definitions can resolve their own member calls
+with inferred confidence. Reassigned, aliased, conditionally defined, dynamically
+written or escaped tables remain conservative; this is not general table or
+metatable dataflow analysis. R local assignments
 respect source order; statically qualified base environment mutators invalidate
 inference. Known unshadowed base quoting constructors are opaque to execution
 walking. Arbitrary R nonstandard evaluation remains outside this model.
