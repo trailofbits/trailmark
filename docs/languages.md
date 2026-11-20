@@ -447,6 +447,8 @@ ownership, conservative binding, schema identity changes and pinned grammar limi
 Dafny uses Dafny 4 function syntax. Modules, classes, traits, datatypes, fields,
 functions, methods and lemmas retain declaration roles. Contracts and proof statements
 produce references; ghost declarations and lemma uses do not create computational calls.
+Proof expressions keep their computational continuations outside the proof context,
+including assertions, assumptions and calculations nested in branches.
 Input parameters retain source order and types; constructors and iterators retain
 their own roles. Arrow-typed parameter applications retain uncertain callback sites
 without binding to same-name global functions. Contracts and proof uses remain
