@@ -45,15 +45,15 @@
       "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, stored in a private ContextVar, read by directory parsing and module ID planning, and reset in finally. directory_sources yields None rather than exposing the record. No consumer rebinds its fields or hashes, serializes, or compares the record. Mutable nested maps remain equally mutable under either decorator. Re-reviewed against the current source and graph callers during exception-evidence review preparation; public NativeGrammar immutability remains separately tested and is not exempted. Re-reviewed after syntax-diagnostic coalescing and capping: those changes do not alter this private record or its readers; the module-level fingerprint changed because it includes the whole source file."
     },
     {
-      "fingerprint": "a3bc69c24fa1886b860b1e301bb55e7fff557c7ca04c20bbef7d0546506a894a",
+      "fingerprint": "9383335aec94247d07f2737ee8ecb4f67e119d4122dbc909c45bfba7d6ce49e9",
       "function": "<module>",
       "line": 60,
       "mutated": "False",
       "operator": "boolean",
       "original": "True",
       "path": "src/trailmark/parsers/rust/_scopes.py",
-      "source_hash": "f7fa38b44770f0c51409aa84f5ad0a3a8abbcc26f3b9b55acf47520603d50017",
-      "reason": "Equivalent private resolution-record mutability: _Resolution is constructed with graph, imports, locals, declarations and root; consumers read its fields or mutate the referenced graph. Updates use dataclasses.replace to construct another record, not field rebinding. It is neither returned by the parser nor hashed, serialized, or compared. Re-reviewed against current resolver callers; the frozen-field guard has no observable parser effect."
+      "source_hash": "06c33bb58b6e5acea0a7a0e31b5773caa2810e68a4d80e8eecf236df71c16450",
+      "reason": "Equivalent private resolution-record mutability: _Resolution is constructed with graph, imports, locals, declarations and root; consumers read its fields or mutate the referenced graph. Updates use dataclasses.replace to construct another record, not field rebinding. It is neither returned by the parser nor hashed, serialized, or compared. Re-reviewed against current resolver callers; the frozen-field guard has no observable parser effect. Re-reviewed after macro template source navigation: the resolver changes admit private template owner scopes and exclude macro containers/dynamic names as runtime bindings. Record construction and consumers still use reads or dataclasses.replace; no private record fields are rebound or exposed. Only the whole-module fingerprint changes."
     },
     {
       "fingerprint": "a2bb79f1ae7b3acfd41c8887936f84d55e6596d958cdcaafb9535cbea4271fc6",
