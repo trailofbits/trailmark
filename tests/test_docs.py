@@ -93,11 +93,27 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/parser-coverage.md", "Explicit ECMAScript named imports"),
+    ("docs/parser-coverage.md", "`constructor_call` metadata"),
+    ("docs/parser-coverage.md", "selected named imports also reach explicit constructor bodies"),
+    ("docs/parser-coverage.md", "Rego bracket indices accept compound references"),
+    ("docs/installation.md", "Rego uses a bundled grammar"),
+    ("docs/parser-coverage.md", "Module-local tables"),
+    ("docs/parser-coverage.md", "An unconditional nested function definition"),
+    ("docs/languages.md", "LET definitions retain separate lexical nodes"),
+    ("docs/parser-coverage.md", "`constructor_call` metadata"),
+    ("docs/parser-coverage.md", "Explicit ECMAScript named imports"),
+    ("docs/languages.md", "Recovered Rocq and WhyML declarations and references"),
+    ("docs/languages.md", "Proof expressions keep their computational continuations"),
     ("docs/parser-coverage.md", "Inline visibility modifiers"),
     ("docs/parser-coverage.md", "Literal Ruby `alias_method` and `alias` declarations"),
+    ("docs/languages.md", "Routine recovery respects top-level statement boundaries"),
     ("docs/languages.md", "File includes resolve by their exact path"),
     ("docs/languages.md", "Dafny uses Dafny 4 function syntax"),
+    ("docs/languages.md", "Unavailable program callees retain"),
+    ("docs/languages.md", "Template names do not supply runtime function or type bindings"),
     ("docs/languages.md", "Input parameters retain source order and types"),
+    ("docs/languages.md", "Arrow-typed parameter applications retain uncertain callback sites"),
     ("docs/languages.md", "Includes re-export inspected module members"),
     ("docs/languages.md", "Private declarations stay local"),
     (
@@ -197,7 +213,14 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/parser-coverage.md", "Calls keep their normal confidence"),
     ("docs/parser-coverage.md", "the last definition keeps its plain ID"),
     ("docs/parser-coverage.md", "Java constructor binding also runs after the directory merge"),
+    ("docs/parser-coverage.md", "VB.NET uses a bundled grammar with source-preserving corrections"),
+    ("docs/installation.md", "VB.NET also uses a bundled grammar"),
+    ("docs/parser-coverage.md", "Anonymous Java subclasses record source-located base type"),
     ("docs/parser-coverage.md", "arrows inherit lexical `this`"),
+    (
+        "docs/parser-coverage.md",
+        "Named generator declarations, including `async function*`, resolve direct calls",
+    ),
     ("docs/parser-coverage.md", "`{owner}.{name}@ambiguous`"),
     ("docs/skills-compatibility.md", "current query facade has no confidence"),
     ("docs/skills-compatibility.md", "SARIF description-only bases"),
@@ -232,12 +255,20 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "explicitly computational declaration with non-ghost argument positions",
     ),
     ("docs/languages.md", "including implicit `Tot`"),
+    (
+        "docs/languages.md",
+        "The inherited `effect` string is retained on unannotated implementations",
+    ),
     ("docs/languages.md", "lemma dependencies occurring only in proofs are absent"),
     ("docs/languages.md", "Module signature clauses retain references in the module namespace"),
     ("docs/languages.md", "mean per-file syntax-error line coverage fell from 44% to 15%"),
     ("docs/languages.md", "premise, action and conclusion"),
     ("docs/languages.md", "library_resolution=directory"),
     ("docs/graph-model.md", "unresolved reference spellings are omitted"),
+    (
+        "docs/call-resolution.md",
+        "Solidity receiver calls inside comparisons retain the callee text",
+    ),
     ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
@@ -256,6 +287,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/installation.md", "parses Rust with the language-pack grammar instead"),
     ("docs/exceptions.md", "Only a callable's own signature declares exceptions"),
     ("docs/exceptions.md", "Python bare raises infer unshadowed builtin exception names"),
+    (
+        "docs/parser-coverage.md",
+        "Python assignment-expression (`:=`) targets also block unrelated function names",
+    ),
     ("docs/exceptions.md", "they do not make it a raising function"),
     ("docs/exceptions.md", "A bare Ruby `raise` or `fail` is an uncertain `rethrow`"),
     ("docs/exceptions.md", "record the callee name as their expression"),
@@ -300,6 +335,15 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/cli.md", "--strict"),
     ("docs/augmenting.md", "originalUriBaseIds"),
     ("docs/languages.md", "Thrift IDs use source-file identity"),
+    ("docs/languages.md", "Modifier applications retain `calls` edges"),
+    ("docs/languages.md", "Rego retains same-file bare, negated, and indexed rule dependencies"),
+    (
+        "docs/languages.md",
+        "Cairo qualified calls resolve to visible local module and impl declarations",
+    ),
+    ("docs/languages.md", "Tact traits retain their method and receiver declarations"),
+    ("docs/languages.md", "GraphQL `implements` clauses retain interface"),
+    ("docs/languages.md", "Thrift service `extends` clauses retain `inherits` edges"),
     ("docs/entrypoints.md", "run_ticktock"),
     ("docs/python-api.md", "parameter_types"),
     ("docs/python-api.md", "parameter_defaults"),
@@ -891,6 +935,7 @@ def _read_requires_python(pyproject_data: dict[str, object]) -> str:
         "`macro_signature_unresolved`",
         "`syntax_error_context`",
         "`assert!(...)`",
+        "generic impl declarations",
         "`unsupported_syntax`",
         "`package fun`",
         "`file:api.init`",
@@ -983,6 +1028,8 @@ def test_round5_binding_contracts(marker: str) -> None:
         "default parameter expressions",
         "Getter and setter bodies",
         "Descendants of C# overloads",
+        "default property backing ivars",
+        "different fixed positional arities",
         "indexed once per body",
         "`$returned@line_column_endbyte`",
         "numbered block/lambda parameters",
@@ -1021,3 +1068,83 @@ def test_release_followup_graph_contracts() -> None:
 )
 def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
+
+
+def test_csharp_qualified_static_call_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "An explicit `Type.Method(...)` call can navigate to a unique declared static" in guide
+    assert "Matching partial class\ndeclarations are considered together" in guide
+    assert "later declarations can retract a per-file candidate" in guide
+
+
+def test_csharp_optional_default_tie_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "a unique declaration with every parameter\nsupplied wins" in guide
+    assert "families spread across declaration contexts remain uncertain" in guide
+    assert "can retract an earlier per-file selection" in guide
+
+
+def test_dart_declared_factory_result_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "A direct `final value = factory(...)` initializer can provide a receiver type" in guide
+    assert "callable\ngetters, generic parameters, type aliases" in guide
+    assert "infer a factory's return type from its implementation" in guide
+
+
+def test_dart_explicit_receiver_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "An explicit `this.method(...)` call can navigate to a unique method" in guide
+    assert "`super.method(...)` retain their source sites without guessing inheritance" in guide
+
+
+def test_cpp_out_of_line_method_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "Simple qualified definitions such as `Stream::flush` and `Stream::~Stream`" in guide
+    assert "Existing definition IDs are preserved" in guide
+    assert "Overloads and shadowing local values remain uncertain" in guide
+
+
+def test_objc_conditional_implementation_contract() -> None:
+    guide = (DOCS / "languages.md").read_text()
+    assert "Objective-C parser retains recognized method definitions inside conditional" in guide
+    assert "without evaluating the" in guide
+    assert "preprocessor conditions" in guide
+
+
+def test_cpp_h_directory_discovery_contract() -> None:
+    text = _flat("docs/languages.md")
+    assert "C, C++, and Objective-C directory scopes accept `.h` headers" in text
+    assert "Objective-C takes precedence when selected, then C++, then C" in text
+    assert "`.h` alone does not trigger automatic detection" in text
+
+
+def test_csharp_constructor_site_contract() -> None:
+    text = _flat("docs/call-resolution.md")
+    assert "Explicit C# `new Type(...)` expressions retain constructor call sites" in text
+    assert "Static constructors are excluded" in text
+    assert "namespace imports block binding to outer namesakes" in text
+
+
+def test_swift_self_and_cleanup_resolution_contract() -> None:
+    text = _flat("docs/call-resolution.md")
+    assert "`self.method()` call resolves to a unique method" in text
+    assert "Capture rebinding, syntax recovery" in text
+    assert "A Swift `defer` body belongs to its enclosing function or method" in text
+    assert "Actual closures nested inside cleanup code keep their own nodes and calls" in text
+
+
+def test_zig_typed_local_navigation_contract() -> None:
+    text = _flat("docs/languages.md")
+    assert "unique local variable with an explicit named-container type" in text
+    assert "direct `.init()` initializer" in text
+    assert "parameters and captures block this inference" in text
+
+
+def test_dart_constructor_resolution_contract() -> None:
+    text = _flat("docs/call-resolution.md")
+    assert "Dart constructor calls resolve to a unique constructor declaration" in text
+    assert "`Context._internal()`" in text
+    assert (
+        "Imported class aliases and inferred receiver types do not participate in "
+        "constructor type lookup."
+    ) in text

@@ -1,0 +1,25 @@
+{
+  "grammars": [
+    {
+      "name": "cairo",
+      "scope": "source.cairo",
+      "path": ".",
+      "file-types": [
+        "cairo"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Cairo grammar with generic impl parameters",
+    "authors": [
+      {
+        "name": "Tree-sitter Cairo contributors"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/tree-sitter-grammars/tree-sitter-cairo"
+    }
+  }
+}

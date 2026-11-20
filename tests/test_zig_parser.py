@@ -157,3 +157,70 @@ def test_container_constant_alias_does_not_bind_across_files(tmp_path: Path) -> 
     assert len(calls) == 1
     assert calls[0].confidence == EdgeConfidence.UNCERTAIN
     assert graph.nodes[calls[0].target_id].kind == NodeKind.PROXY
+
+
+def test_explicit_local_type_binds_methods_and_inferred_constructor(tmp_path: Path) -> None:
+    path = _source(
+        tmp_path,
+        "const Iterator = struct {\n"
+        " fn init() Iterator { return .{}; }\n"
+        " fn next(self: *Iterator) void { _ = self; }\n"
+        "};\n"
+        "fn run() void {\n"
+        " var iterator: Iterator = .init();\n"
+        " defer iterator.next();\n"
+        "}\n",
+    )
+    graph = parse_file(str(path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert {(e.source_id, e.target_id) for e in calls} == {
+        ("sample:run", "sample:Iterator.init"),
+        ("sample:run", "sample:Iterator.next"),
+    }
+    assert {e.location.start_line for e in calls if e.location} == {6, 7}
+    assert all(e.confidence == EdgeConfidence.INFERRED for e in calls)
+    engine = QueryEngine.from_graph(graph)
+    assert {n["id"] for n in engine.callers_of("sample:Iterator.next")} == {"sample:run"}
+
+
+def test_typed_receiver_inference_respects_scope_and_shadowing(tmp_path: Path) -> None:
+    path = _source(
+        tmp_path,
+        "const S = struct { fn run(self: *S) void { _ = self; } };\n"
+        "fn parameter(s: S) void { s.run(); }\n"
+        "fn before() void { s.run(); var s: S = .{}; }\n"
+        "fn outside() void { { var s: S = .{}; } s.run(); }\n"
+        "fn duplicate() void {\n var s: S = .{};\n"
+        " { const s = unknown; s.run(); }\n s.run();\n}\n"
+        "fn unknown() void { var s: External = undefined; s.run(); }\n",
+    )
+    graph = parse_file(str(path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 6
+    assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
+
+
+def test_typed_pointer_receiver_and_type_name_shadow(tmp_path: Path) -> None:
+    path = _source(
+        tmp_path,
+        "const S = struct { fn run(self: *const S) void { _ = self; } };\n"
+        "fn known() void { var s: *const S = undefined; s.run(); }\n"
+        "fn shadow(S: type) void { var s: S = undefined; s.run(); }\n",
+    )
+    graph = parse_file(str(path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert calls[0].target_id == "sample:S.run"
+    assert graph.nodes[calls[1].target_id].kind == NodeKind.PROXY
+
+
+def test_capture_blocks_typed_local_receiver_inference(tmp_path: Path) -> None:
+    path = _source(
+        tmp_path,
+        "const S = struct { fn run(self: *S) void { _ = self; } };\n"
+        "fn caller(items: []S) void {\n var s: S = .{};\n"
+        " for (items) |s| { s.run(); }\n s.run();\n}\n",
+    )
+    graph = parse_file(str(path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 2
+    assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)

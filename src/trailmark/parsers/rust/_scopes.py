@@ -153,6 +153,7 @@ def _bare_target(
             NodeKind.FUNCTION,
             NodeKind.METHOD,
             NodeKind.MODULE,
+            NodeKind.TEMPLATE,
         }:
             continue
         candidate = _member_target(scope, name, context, location)
@@ -239,6 +240,9 @@ def _scope_members(
     members: dict[tuple[str, str], list[str]] = {}
     for edge in graph.edges:
         if edge.kind == EdgeKind.CONTAINS and edge.source_id in graph.nodes:
+            attrs = dict(graph.nodes[edge.target_id].attributes)
+            if attrs.get("macro_template") or attrs.get("template_name_parameter"):
+                continue
             name = _binding_name(edge.target_id, graph, declarations)
             members.setdefault((edge.source_id, name), []).append(edge.target_id)
     return members
