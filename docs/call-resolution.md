@@ -78,6 +78,10 @@ site's `location` (or `None` if unavailable). A proxy node's own location is
 only its first occurrence; use each row's `location` when a call repeats. A
 name that matches no function returns `[]`.
 
+Solidity receiver calls inside comparisons retain the callee text and each call's
+own span, excluding preceding comparison operands. Repeated calls to the same
+unresolved receiver member share a proxy while retaining separate call-site rows.
+
 The report and `unresolved_calls()` work for every supported language.
 
 ## What unresolved calls mean for results
@@ -167,3 +171,36 @@ definitions are not expanded. Generated methods, implicit constructors, compiler
 entrypoints, and operator desugaring are not invented. A missing edge is not proof
 of dead code. `main` follows the generic entrypoint rule; script execution needs
 an entrypoint override. Syntax errors warn that the graph may be incomplete.
+
+## C# construction
+
+Explicit C# `new Type(...)` expressions retain constructor call sites, including
+construction inside a `throw` expression. A unique declared instance constructor
+in the same file can resolve with `inferred` confidence. Static constructors are
+excluded. Missing, implicit, generic and overloaded constructors remain uncertain
+proxies; Trailmark does not select overloads by argument types. Import aliases
+and generic type parameters block constructor type lookup. Potentially competing
+namespace imports block binding to outer namesakes.
+A `global::` type qualification retains its absolute meaning.
+
+## Swift self and cleanup
+
+An explicit `self.method()` call resolves to a unique method on its nearest
+lexical type, including merged extensions. Capture rebinding, syntax recovery,
+and lexical binding barriers block this inference. Overloads and other value receivers
+remain unresolved; Trailmark does not perform Swift type checking or infer
+inherited implementations. These local method bindings have `inferred`
+confidence.
+
+A Swift `defer` body belongs to its enclosing function or method. Its calls and
+branches retain that owner; `defer` does not create a function call or a closure
+node. Actual closures nested inside cleanup code keep their own nodes and calls.
+
+## Dart constructors
+
+Dart constructor calls resolve to a unique constructor declaration in the same
+file when the class name is unshadowed. This includes named constructors such
+as `Context._internal()` and calls made inside factory constructors. The
+`calls` edge targets the constructor method, preserving its source site for
+caller and callee queries. Constructor binding has `inferred` confidence;
+imported class aliases and receiver type inference are not modeled.

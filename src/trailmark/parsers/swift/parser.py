@@ -105,6 +105,7 @@ class SwiftParser:
             _visit_module(tree.root_node, file_path, module_id, graph)
         _merge_extensions(graph)
         bind_lexical_calls(graph)
+        _bind_self_calls(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -113,6 +114,7 @@ class SwiftParser:
         graph = parse_directory(self.parse_file, "swift", dir_path, _EXTENSIONS)
         _merge_extensions(graph)
         bind_lexical_calls(graph)
+        _bind_self_calls(graph)
         return graph
 
 
@@ -303,9 +305,10 @@ def _nested_functions(
     func_id: str,
     graph: CodeGraph,
 ) -> None:
-    if body is not None:
+    pending = [body] if body is not None else []
+    while pending:
         for deferred in walk_owned(
-            body,
+            pending.pop(),
             boundaries=frozenset(
                 {
                     "function_declaration",
@@ -315,7 +318,11 @@ def _nested_functions(
                 }
             ),
         ):
-            if deferred.type in {"function_declaration", "lambda_literal"}:
+            if _is_defer_body(deferred):
+                statements = first_child_by_type(deferred, "statements")
+                if statements is not None:
+                    pending.append(statements)
+            elif deferred.type in {"function_declaration", "lambda_literal"}:
                 name = first_child_by_type(deferred, "simple_identifier")
                 nested_name = (
                     node_text(name)
@@ -368,9 +375,14 @@ def _collect_func_body(
     branches: list[BranchInfo] = []
     exception_types: list[TypeRef] = []
     calls: list[tuple[str, Node]] = []
-    if body is not None:
+    pending = [body] if body is not None else []
+    boundaries = frozenset(
+        {"function_declaration", "lambda_literal", "class_declaration", "object_declaration"}
+    )
+    while pending:
+        current = pending.pop()
         collect_body_info(
-            body,
+            current,
             file_path,
             _BRANCH_NODE_TYPES,
             "call_expression",
@@ -378,15 +390,14 @@ def _collect_func_body(
             branches,
             exception_types,
             calls,
-            skip_types=frozenset(
-                {
-                    "function_declaration",
-                    "lambda_literal",
-                    "class_declaration",
-                    "object_declaration",
-                }
-            ),
+            skip_types=boundaries,
         )
+        for node in walk_owned(current, boundaries=boundaries):
+            if _is_defer_body(node):
+                statements = first_child_by_type(node, "statements")
+                if statements is not None:
+                    pending.append(statements)
+    calls = [(name, node) for name, node in calls if not _is_defer_call(node)]
     return branches, exception_types, calls
 
 
@@ -398,6 +409,12 @@ def _add_call_edges(
 ) -> None:
     for call_name, call_node in calls:
         confidence = EdgeConfidence.CERTAIN if "." not in call_name else EdgeConfidence.INFERRED
+        attributes = (("bare_name", call_name),) if call_name.isidentifier() else ()
+        if call_name.startswith("self.") and call_name[5:].isidentifier():
+            attributes = (("swift_self_method", call_name[5:]),)
+            if _self_binding_blocked(call_node):
+                attributes += (("binding_blocked", True),)
+                confidence = EdgeConfidence.UNCERTAIN
         graph.edges.append(
             guard_call(
                 CodeEdge(
@@ -406,7 +423,7 @@ def _add_call_edges(
                     kind=EdgeKind.CALLS,
                     confidence=confidence,
                     location=make_location(call_node, file_path),
-                    attributes=(("bare_name", call_name),) if call_name.isidentifier() else (),
+                    attributes=attributes,
                 ),
                 call_node,
                 graph=graph,
@@ -512,3 +529,79 @@ def _extension_moves(
         moved[ident] = destination
         pending.extend(children.get(ident, ()))
     moved[extension] = owner
+
+
+def _is_defer_call(node: Node) -> bool:
+    """The grammar represents reserved defer statements as trailing closures."""
+    return (
+        node.type == "call_expression"
+        and bool(node.named_children)
+        and node.named_children[0].type == "simple_identifier"
+        and node_text(node.named_children[0]) == "defer"
+    )
+
+
+def _is_defer_body(node: Node) -> bool:
+    suffix = node.parent
+    return (
+        node.type == "lambda_literal"
+        and suffix is not None
+        and suffix.type == "call_suffix"
+        and suffix.parent is not None
+        and _is_defer_call(suffix.parent)
+    )
+
+
+def _bind_self_calls(graph: CodeGraph) -> None:
+    """Resolve a unique method on the nearest lexical self type."""
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    methods: dict[tuple[str, str], list[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind == NodeKind.METHOD and unit.id in owners:
+            methods.setdefault((owners[unit.id], unit.name), []).append(unit.id)
+    for index, edge in enumerate(graph.edges):
+        attributes = dict(edge.attributes)
+        name = attributes.get("swift_self_method")
+        if (
+            edge.kind != EdgeKind.CALLS
+            or not isinstance(name, str)
+            or attributes.get("binding_blocked")
+        ):
+            continue
+        owner = owners.get(edge.source_id, "")
+        seen: set[str] = set()
+        while owner in graph.nodes and owner not in seen:
+            seen.add(owner)
+            if graph.nodes[owner].kind in {
+                NodeKind.CLASS,
+                NodeKind.STRUCT,
+                NodeKind.ENUM,
+                NodeKind.INTERFACE,
+            }:
+                candidates = methods.get((owner, name), [])
+                if len(candidates) == 1:
+                    graph.edges[index] = replace(
+                        edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED
+                    )
+                break
+            owner = owners.get(owner, "")
+
+
+def _self_binding_blocked(call: Node) -> bool:
+    """Do not infer lexical self across capture rebinding or syntax recovery."""
+    ancestor = call.parent
+    while ancestor is not None and ancestor.type != "class_declaration":
+        if ancestor.type in {"lambda_literal", "function_declaration"} and ancestor.has_error:
+            return True
+        captures = ancestor.child_by_field_name("captures")
+        if captures is not None:
+            for item in captures.named_children:
+                name = item.child_by_field_name("name")
+                if (
+                    name is not None
+                    and node_text(name) == "self"
+                    and item.child_by_field_name("value") is not None
+                ):
+                    return True
+        ancestor = ancestor.parent
+    return False
