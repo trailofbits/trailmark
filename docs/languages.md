@@ -448,6 +448,9 @@ F* parses `.fst` and `.fsti` declarations, module aliases/imports, refinements a
 explicit references. Interfaces retain their source locations and correspond to unique
 implementations. Computational applications, including implicit `Tot`, produce calls;
 implementations inherit effect, lemma and visibility metadata from matching `val` declarations.
+The inherited `effect` string is retained on unannotated implementations, including
+matches in a companion interface. Explicit implementation effects are preserved;
+ambiguous signatures do not supply an effect.
 Proof and type uses remain references. Ghost effect abbreviations and erased results do not
 produce calls. Inspected interfaces bound exports, and later opens take precedence. Lexical binders, including local patterns
 and dependent arrows, block unrelated global targets. Private declarations stay local;
