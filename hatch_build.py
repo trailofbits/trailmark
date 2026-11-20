@@ -18,6 +18,7 @@ GRAMMARS = {
     "circom": "14",
     "move": "14",
     "rust": "14",
+    "vb": "14",
     "verus": "15",
     "dafny": "14",
     "fstar": "15",
@@ -25,6 +26,7 @@ GRAMMARS = {
     "whyml": "15",
     "tamarin": "14",
     "proverif": "15",
+    "rego": "14",
 }
 GENERATED_FILES = {
     name: ("src/parser.c", "src/tree_sitter/parser.h")
