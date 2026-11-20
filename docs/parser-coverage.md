@@ -472,3 +472,11 @@ marker token, then verifies the class name and complete declaration span.
 Recovered classes retain `cpp_export_marker` and marker byte offsets. Original
 syntax diagnostics remain available, including unrelated errors. This bounded
 recovery does not expand macros; unrecognized or ambiguous shapes stay unchanged.
+
+C++ also retains literal namespaces after a standalone uppercase declaration
+marker. Within an inspected class, constructor and destructor annotations can be
+omitted from the syntactic view only when every local object-macro definition is
+empty or `constexpr`, with no conflicting definition or `#undef`. The next name
+must match that class exactly. Recovery preserves original bytes, source sites,
+and diagnostics; `cpp_declaration_markers` records each excluded token and role.
+Macro-generated namespace prefixes and unproven annotations remain unexpanded.

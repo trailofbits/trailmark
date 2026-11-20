@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -41,6 +42,7 @@ from trailmark.parsers._declarations import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.cpp._declaration_markers import recover_declaration_markers
 from trailmark.parsers.cpp._export_markers import mark_recovered_classes, recover_export_markers
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -87,12 +89,27 @@ class CppParser:
         graph = CodeGraph(language="cpp", root_path=file_path)
         module_id = module_id_from_path(file_path)
         recovered, markers = recover_export_markers(self._parser, source, tree)
-        if markers:
+        recovered, declaration_markers = recover_declaration_markers(
+            self._parser, source, recovered
+        )
+        if markers or declaration_markers:
             # Keep diagnostics from the unmodified parse, including unrelated errors.
             add_module_node(tree.root_node, file_path, module_id, graph)
         with callable_scope(graph):
             _visit_module(recovered.root_node, file_path, module_id, graph)
         mark_recovered_classes(graph, markers)
+        if declaration_markers:
+            unit = graph.nodes[module_id]
+            graph.nodes[module_id] = replace(
+                unit,
+                attributes=(
+                    *unit.attributes,
+                    (
+                        "cpp_declaration_markers",
+                        json.dumps([asdict(m) for m in declaration_markers]),
+                    ),
+                ),
+            )
         resolve_local_method_calls(graph)
         bind_lexical_calls(graph)
         collect_exception_events(recovered.root_node, file_path, graph)
