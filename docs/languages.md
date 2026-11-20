@@ -425,6 +425,13 @@ incomplete-graph warning even for some valid VB.NET programs.
 
 ## Schema frontends and FunC/Sway declarations
 
+Rego retains same-file bare, negated, and indexed rule dependencies as
+`references` from the owning clause to the rule aggregate. These policy
+dependencies can be traversed with clause dispatch edges; they do not claim
+runtime function calls. Parameters, `some` bindings, and local assignments block
+same-name rule binding. Recovery files retain diagnostics without guessing these
+bindings. Cross-file policy data resolution and OPA evaluation are not performed.
+
 Cairo qualified calls resolve to visible local module and impl declarations,
 including explicit `super` imports and aliases. Unknown imports, ambiguous
 aliases, and generic path heads remain unresolved rather than choosing a
