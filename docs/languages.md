@@ -538,8 +538,10 @@ extension also denotes Verilog; automatic detection excludes `.v`.
 WhyML uses an independently authored syntax subset with explicit coverage limits. It
 retains modules, scopes, abstract or algebraic types, record fields, logical functions,
 predicates, propositions, let/val declarations and contracts. Program applications are
-distinguished from ghost and contract references; nested calls require computational
-enclosing callees and non-ghost argument positions. Parameters retain source order
+distinguished from ghost and contract references. Unavailable program callees retain
+uncertain application sites; calls in their arguments also retain uncertain execution
+status. Known ghost callees and ghost argument positions suppress runtime calls.
+Parameters retain source order
 and types. Scope imports, nested comments and local binders are handled structurally.
 Use export propagates inspected members; use import opens them only locally. The grammar
 accepts implicit file modules, array indexing and updates, labels, `raise`, `by`/`so`,
