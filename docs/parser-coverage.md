@@ -31,6 +31,10 @@ uses the TSX grammar for `.tsx`; interface methods retain signature metadata.
 Unknown receiver writes and conditional writes invalidate concrete-constructor
 inference; expired block-local declarations do not affect an outer receiver.
 
+Named generator declarations, including `async function*`, resolve direct calls
+to their lexical owner in JavaScript, TypeScript, and TSX. A same-name outer
+function does not override that binding, including for calls before the declaration.
+
 Lexical callable parameters and locals prevent binding to unrelated same-name
 functions. Such calls remain uncertain proxies with `binding_blocked` metadata,
 including after directory linking. This guard does not infer callback values or
