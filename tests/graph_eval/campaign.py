@@ -6,6 +6,7 @@ import concurrent.futures
 import contextlib
 import datetime as dt
 import fcntl
+import hashlib
 import json
 import os
 import shutil
@@ -18,10 +19,12 @@ from typing import Any
 from tests.graph_eval.corpus import BASELINE, SEED, checkout_projects
 from tests.graph_eval.measure import measure_project
 from tests.graph_eval.pilot import select_cases, source_bundle
-from tests.graph_eval.prompts import adjudication_prompt, reference_prompt
+from tests.graph_eval.prompt_payload import ENCODING_VERSION, PROJECTION_VERSION
+from tests.graph_eval.prompts import AdjudicationPrompt, build_adjudication_prompt, reference_prompt
 from tests.graph_eval.schema import (
     ADJUDICATION_SCHEMA,
     REFERENCE_SCHEMA,
+    adjudication_schema,
     validate_adjudication,
     validate_reference,
 )
@@ -217,6 +220,9 @@ def prepare(
         "reference_schema_sha256": digest(REFERENCE_SCHEMA),
         "adjudication_schema_sha256": digest(ADJUDICATION_SCHEMA),
         "prompt_sha256": file_digest(Path(__file__).with_name("prompts.py")),
+        "prompt_payload_sha256": file_digest(Path(__file__).with_name("prompt_payload.py")),
+        "judge_encoding": ENCODING_VERSION,
+        "judge_projection": PROJECTION_VERSION,
         "contract": contract,
         "limits": {
             "workers": workers,
@@ -259,9 +265,12 @@ def _validate_protocol(manifest: dict[str, Any]) -> None:
         "reference_schema_sha256": digest(REFERENCE_SCHEMA),
         "adjudication_schema_sha256": digest(ADJUDICATION_SCHEMA),
         "prompt_sha256": file_digest(Path(__file__).with_name("prompts.py")),
+        "prompt_payload_sha256": file_digest(Path(__file__).with_name("prompt_payload.py")),
+        "judge_encoding": ENCODING_VERSION,
+        "judge_projection": PROJECTION_VERSION,
     }
     for key, value in actual.items():
-        if manifest[key] != value:
+        if manifest.get(key) != value:
             raise ValueError(f"Protocol implementation changed after freeze: {key}")
     _check_tool_source(manifest["tool_runtime"])
 
@@ -567,6 +576,7 @@ def _prefix_claims(value: Any, prefix: str) -> Any:
 
 
 def _projection(measurement: dict[str, Any], case: dict[str, Any]) -> dict[str, Any]:
+    """Select graph evidence; the prompt builder separately excerpts global query context."""
     graph = measurement.get("graph", {})
     nodes = graph.get("nodes", {})
 
@@ -609,6 +619,31 @@ def _projection(measurement: dict[str, Any], case: dict[str, Any]) -> dict[str, 
         "deterministic": measurement.get("deterministic"),
         "query_answers": measurement.get("query_answers", []),
     }
+
+
+def _save_judge_prompt(
+    destination: Path,
+    built: AdjudicationPrompt,
+    prompt: str,
+    output_schema: dict[str, Any],
+) -> None:
+    """Freeze reviewable logical/presentation evidence before any worker launch."""
+    metadata = {
+        **built.provenance,
+        "full_prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        "full_prompt_utf8_bytes": len(prompt.encode("utf-8")),
+        "output_schema_sha256": digest(output_schema),
+        "prompt_payload_sha256": file_digest(Path(__file__).with_name("prompt_payload.py")),
+    }
+    for name, value in (
+        ("prompt-evidence.json", built.logical_payload),
+        ("prompt-presentation.json", built.presentation),
+        ("prompt-provenance.json", metadata),
+    ):
+        path = destination / "judge" / name
+        if path.exists() and read_json(path) != value:
+            raise ValueError(f"Frozen judge presentation changed: {name}")
+        write_json(path, value)
 
 
 def case_result(campaign: Path, case: dict[str, Any]) -> dict[str, Any]:
@@ -729,18 +764,18 @@ def run_judges(
             f"--- Documented contract: {name} ---\n{(campaign / 'contract' / name).read_text()}"
             for name in manifest["contract"]
         )
-        prompt = adjudication_prompt(case, *readers, summary, comparisons) + "\n\n" + contract
-        result = _agent_job(campaign, manifest, case, "judge", prompt, ADJUDICATION_SCHEMA)
+        built = build_adjudication_prompt(case, *readers, summary, comparisons)
+        prompt = built.text + "\n\n" + contract
+        required_ids = built.logical_payload["required_claim_ids"]
+        output_schema = adjudication_schema(required_ids)
+        _save_judge_prompt(destination, built, prompt, output_schema)
+        result = _agent_job(campaign, manifest, case, "judge", prompt, output_schema)
         if result["status"] == "ok":
             output = read_json(Path(result["output_path"]))
             try:
                 validate_adjudication_claims(
                     output,
-                    {
-                        claim["claim_id"]
-                        for comparison in comparisons
-                        for claim in comparison["discrepancies"]
-                    },
+                    set(required_ids),
                 )
             except ValueError as error:
                 result.update(status="invalid_output", error=str(error))
