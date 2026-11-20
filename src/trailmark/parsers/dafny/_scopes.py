@@ -160,7 +160,11 @@ def _proof(node: Node) -> list[Scope]:
         node.type == "forall_statement"
         and any(c.type == "ensures_clause" for c in node.named_children)
     ):
-        end = node.named_children[-1].start_byte if node.type.startswith("fn_") else node.end_byte
+        end = (
+            node.named_children[-1].start_byte
+            if node.type.endswith("_expression")
+            else node.end_byte
+        )
         return [Scope(frozenset(), node.start_byte, end, context="proof")]
     if "ghost" not in tokens:
         return []
