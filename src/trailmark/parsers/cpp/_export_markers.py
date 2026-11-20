@@ -85,13 +85,19 @@ def recover_export_markers(
         return original, ()
     candidates.sort(key=lambda candidate: candidate[0].start_byte)
     ranges = []
-    start_byte, start_point = 0, (0, 0)
-    for marker, _ in candidates:
-        if start_byte < marker.start_byte:
-            ranges.append(Range(start_point, marker.start_point, start_byte, marker.start_byte))
-        start_byte, start_point = marker.end_byte, marker.end_point
-    if start_byte < len(source):
-        ranges.append(Range(start_point, original.root_node.end_point, start_byte, len(source)))
+    eof = (source.count(b"\n"), len(source.rsplit(b"\n", 1)[-1]))
+    for allowed in original.included_ranges:
+        start_byte, start_point = allowed.start_byte, allowed.start_point
+        limit = min(allowed.end_byte, len(source))
+        for marker, _ in candidates:
+            if marker.end_byte <= start_byte or marker.start_byte >= limit:
+                continue
+            if start_byte < marker.start_byte:
+                ranges.append(Range(start_point, marker.start_point, start_byte, marker.start_byte))
+            start_byte, start_point = marker.end_byte, marker.end_point
+        if start_byte < limit:
+            end_point = allowed.end_point if allowed.end_byte <= len(source) else eof
+            ranges.append(Range(start_point, end_point, start_byte, limit))
     bounded = Parser(parser.language)
     bounded.included_ranges = ranges
     recovered = bounded.parse(source)

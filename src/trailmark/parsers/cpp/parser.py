@@ -41,6 +41,7 @@ from trailmark.parsers._declarations import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.cpp._block_macros import mark_recovered_bodies, recover_block_bodies
 from trailmark.parsers.cpp._export_markers import mark_recovered_classes, recover_export_markers
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -87,12 +88,20 @@ class CppParser:
         graph = CodeGraph(language="cpp", root_path=file_path)
         module_id = module_id_from_path(file_path)
         recovered, markers = recover_export_markers(self._parser, source, tree)
-        if markers:
+        recovered, bodies = recover_block_bodies(self._parser, source, recovered)
+        # A repaired body can expose a previously swallowed class boundary.
+        recovered, more_markers = recover_export_markers(self._parser, source, recovered)
+        markers = (*markers, *more_markers)
+        if more_markers:
+            recovered, more_bodies = recover_block_bodies(self._parser, source, recovered)
+            bodies = (*bodies, *more_bodies)
+        if markers or bodies:
             # Keep diagnostics from the unmodified parse, including unrelated errors.
             add_module_node(tree.root_node, file_path, module_id, graph)
         with callable_scope(graph):
             _visit_module(recovered.root_node, file_path, module_id, graph)
         mark_recovered_classes(graph, markers)
+        mark_recovered_bodies(graph, bodies)
         resolve_local_method_calls(graph)
         bind_lexical_calls(graph)
         collect_exception_events(recovered.root_node, file_path, graph)
