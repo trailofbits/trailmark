@@ -408,6 +408,12 @@ The C and C++ parsers recover functions inside preprocessor conditional blocks
 and tree-sitter error nodes, so code that does not parse cleanly as a whole
 still yields its functions.
 
+The Objective-C parser retains recognized method definitions inside conditional
+implementation blocks, including nested `#if`, `#elif`, and `#else` arms. It
+preserves their class owners and physical call sites without evaluating the
+preprocessor conditions. Methods that the grammar cannot recognize remain a
+syntax-recovery limitation.
+
 ## VB.NET
 
 The `vb` frontend targets Visual Basic .NET (`.vb`), not VB6 or VBA. It extracts

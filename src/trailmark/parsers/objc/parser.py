@@ -19,6 +19,7 @@ don't collide in node IDs.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 
@@ -238,12 +239,25 @@ def _extract_class_implementation(
         )
         add_contains_edge(graph, module_id, class_id)
 
-    for impl_def in node.children:
-        if impl_def.type != "implementation_definition":
-            continue
-        for method in impl_def.children:
-            if method.type == "method_definition":
-                _extract_method_definition(method, file_path, class_id, graph)
+    for method in _implementation_methods(node):
+        _extract_method_definition(method, file_path, class_id, graph)
+
+
+def _implementation_methods(node: Node) -> Iterator[Node]:
+    """Expose recognized method definitions through conditional wrappers only."""
+    pending = list(reversed(node.named_children))
+    while pending:
+        child = pending.pop()
+        if child.type == "method_definition":
+            yield child
+        elif child.type in {
+            "implementation_definition",
+            "preproc_if",
+            "preproc_ifdef",
+            "preproc_elif",
+            "preproc_else",
+        }:
+            pending.extend(reversed(child.named_children))
 
 
 def _extract_method_signature(

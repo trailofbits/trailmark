@@ -1060,6 +1060,13 @@ def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
 
 
+def test_objc_conditional_implementation_contract() -> None:
+    guide = (DOCS / "languages.md").read_text()
+    assert "Objective-C parser retains recognized method definitions inside conditional" in guide
+    assert "without evaluating the" in guide
+    assert "preprocessor conditions" in guide
+
+
 def test_cpp_h_directory_discovery_contract() -> None:
     text = _flat("docs/languages.md")
     assert "C, C++, and Objective-C directory scopes accept `.h` headers" in text
