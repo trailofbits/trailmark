@@ -120,6 +120,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "Arrow-typed parameter applications retain uncertain callback sites"),
     ("docs/languages.md", "Includes re-export inspected module members"),
     ("docs/languages.md", "Private declarations stay local"),
+    ("docs/languages.md", "Arguments of an unknown returned callee retain references"),
     (
         "docs/languages.md",
         "Bound callback applications and unavailable application heads in bodies or proofs "
