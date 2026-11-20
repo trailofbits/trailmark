@@ -391,6 +391,11 @@ Invalid block-scope `static` prototypes remain blocked unless a same-file functi
 definition supplies the target, including when a misparsed macro swallows a prototype.
 Java constructor binding also runs after the directory merge. JavaScript and
 TypeScript arrows inherit lexical `this`; regular function expressions do not.
+JavaScript and TypeScript `new` expressions retain located call edges with
+`constructor_call` metadata, including default parameters and dynamic callee
+expressions. Explicit local class constructors bind to their method nodes;
+unknown constructor targets remain uncertain proxies. Constructor arguments
+and nested callee expressions retain their separate execution sites.
 Abstract TypeScript classes own their methods. Anonymous classes have positioned
 `$class@line_column` owners, and namespace classes have IDs such as
 `file:NS.Inner.method`. Local classes and class expressions do not inherit the
