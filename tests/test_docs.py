@@ -1019,3 +1019,10 @@ def test_release_followup_graph_contracts() -> None:
 )
 def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
+
+
+def test_dart_declared_factory_result_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "A direct `final value = factory(...)` initializer can provide a receiver type" in guide
+    assert "callable\ngetters, generic parameters, type aliases" in guide
+    assert "infer a factory's return type from its implementation" in guide

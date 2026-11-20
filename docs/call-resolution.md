@@ -106,6 +106,21 @@ not proof that the graph contains every executable path. A large number of
 proxies does not mean calls were dropped; each one is a call that was kept but
 not resolved.
 
+## Dart declared factory results
+
+A direct `final value = factory(...)` initializer can provide a receiver type
+for subsequent `value.method(...)` calls in the same straight-line block.
+The factory must already resolve to an ordinary function or method in the same
+file and declare a simple class return type. A unique method in that class
+becomes an inferred target. Mutable locals, captured or nested uses, callable
+getters, generic parameters, type aliases, and nullable or compound return types
+do not receive this inference.
+
+Cross-file class lookup accepts directly imported, inspected relative `.dart`
+files. Prefixed, filtered, conditional, package, missing, and re-exported type
+scopes remain conservative. This pass does not propagate arbitrary expression
+types or infer a factory's return type from its implementation.
+
 ## Rust limits
 
 Rust code commonly produces many proxies. Common patterns:

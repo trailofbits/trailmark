@@ -55,6 +55,7 @@ from trailmark.parsers._declarations import bind_lexical_calls
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.dart._return_receivers import link_return_receivers, record_return_receivers
 
 _EXTENSIONS = (".dart",)
 
@@ -103,6 +104,8 @@ class DartParser:
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
         bind_lexical_calls(graph)
+        record_return_receivers(tree.root_node, module_id, graph)
+        link_return_receivers(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -113,6 +116,7 @@ class DartParser:
             "dart",
             dir_path,
             _EXTENSIONS,
+            link_calls=link_return_receivers,
         )
 
 
