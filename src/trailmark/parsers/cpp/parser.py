@@ -42,6 +42,11 @@ from trailmark.parsers._declarations import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.cpp._cast_receivers import (
+    bind_cast_calls,
+    call_attributes,
+    class_attributes,
+)
 from trailmark.parsers.cpp._export_markers import mark_recovered_classes, recover_export_markers
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -97,6 +102,7 @@ class CppParser:
         _bind_out_of_line_methods(graph)
         resolve_local_method_calls(graph)
         bind_lexical_calls(graph)
+        bind_cast_calls(graph)
         collect_exception_events(recovered.root_node, file_path, graph)
         return graph
 
@@ -115,6 +121,7 @@ def _link_cpp_calls(graph: CodeGraph) -> None:
     _bind_out_of_line_methods(graph)
     resolve_local_method_calls(graph)
     bind_lexical_calls(graph)
+    bind_cast_calls(graph)
     link_cross_file_calls(graph)
 
 
@@ -361,6 +368,7 @@ def _extract_class(
         kind=NodeKind.CLASS,
         location=location,
         type_parameters=extract_type_parameters(generic_node or node),
+        attributes=class_attributes(node),
         docstring=_extract_docstring(node),
     )
     add_type(graph, unit)
@@ -492,6 +500,7 @@ def _extract_struct(
         kind=NodeKind.STRUCT,
         location=location,
         type_parameters=extract_type_parameters(generic_node or node),
+        attributes=class_attributes(node),
     )
     add_type(graph, unit)
     add_contains_edge(graph, owner, struct_id)
@@ -589,21 +598,22 @@ def _add_call_edges(
             module_id,
         )
         confidence = _call_confidence(call_name)
+        edge = guard_call(
+            CodeEdge(
+                source_id=func_id,
+                target_id=target_id,
+                kind=EdgeKind.CALLS,
+                confidence=confidence,
+                location=make_location(call_node, file_path),
+                attributes=(("bare_name", call_name),)
+                if re.fullmatch(r"[A-Za-z_]\w*", call_name)
+                else (),
+            ),
+            call_node,
+            graph=graph,
+        )
         graph.edges.append(
-            guard_call(
-                CodeEdge(
-                    source_id=func_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CALLS,
-                    confidence=confidence,
-                    location=make_location(call_node, file_path),
-                    attributes=(("bare_name", call_name),)
-                    if re.fullmatch(r"[A-Za-z_]\w*", call_name)
-                    else (),
-                ),
-                call_node,
-                graph=graph,
-            )
+            replace(edge, attributes=(*edge.attributes, *call_attributes(edge, call_node, graph)))
         )
 
 

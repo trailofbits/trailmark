@@ -1116,6 +1116,14 @@ def test_cpp_out_of_line_method_contract() -> None:
     assert "Overloads and shadowing local values remain uncertain" in guide
 
 
+def test_cpp_cast_declared_member_navigation_contract() -> None:
+    guide = _flat("docs/call-resolution.md")
+    assert "prototypes count toward overload ambiguity" in guide
+    assert "any source base clause makes the concrete declared target uncertain" in guide
+    assert "`cpp_cast_dispatch_uncertain=True`" in guide
+    assert "does not claim an exhaustive set of runtime dispatch targets" in guide
+
+
 def test_objc_conditional_implementation_contract() -> None:
     guide = (DOCS / "languages.md").read_text()
     assert "Objective-C parser retains recognized method definitions inside conditional" in guide
