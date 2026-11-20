@@ -19,7 +19,12 @@ def test_computational_and_specification_contexts() -> None:
     calls = {
         (names[e.source_id], names[e.target_id]) for e in graph.edges if e.kind == EdgeKind.CALLS
     }
-    assert calls == {("Normalize", "Clamp")}
+    assert calls == {("Normalize", "Clamp"), ("Apply", "Clamp")}
+    callback = next(
+        e for e in graph.edges if e.kind == EdgeKind.CALLS and names[e.source_id] == "Apply"
+    )
+    assert graph.nodes[callback.target_id].origin.value == "proxy"
+    assert callback.confidence.value == "uncertain"
     refs = {
         (names[e.source_id], names[e.target_id])
         for e in graph.edges
@@ -30,7 +35,7 @@ def test_computational_and_specification_contexts() -> None:
         ("ClampWithin", "Clamp"),
         ("Normalize", "ClampWithin"),
     } <= refs
-    assert not any(a == "Apply" for a, _ in refs)
+    assert ("Apply", "Clamp") in refs
     trusted = next(n for n in graph.nodes.values() if n.name == "Trusted")
     assert dict(trusted.attributes)["assumed"] is True
 

@@ -172,6 +172,9 @@
   "language": "java",
   "nodes": {
     "Taxonomy": {
+      "attributes": {
+        "java_package": "taxonomy"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
