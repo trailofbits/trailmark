@@ -118,6 +118,9 @@ def _visit_top_level_node(
         _extract_ruby_module(child, file_path, module_id, graph)
     elif child.type == "call":
         _check_require(child, graph)
+        visibility, definitions = _inline_visibility(child)
+        for definition in definitions:
+            _extract_function(definition, file_path, module_id, None, graph, visibility=visibility)
 
 
 @bounded_nesting
@@ -237,6 +240,19 @@ def _visit_class_body(
             visibility = node_text(child)
         elif child.type == "call":
             _named_visibility(child, named_visibility)
+            inline_visibility, definitions = _inline_visibility(child)
+            for definition in definitions:
+                _extract_function(
+                    definition,
+                    file_path,
+                    module_id,
+                    class_id,
+                    graph,
+                    singleton=singleton,
+                    visibility=inline_visibility,
+                    controller=controller,
+                    worker=worker,
+                )
         elif child.type in {"method", "singleton_method"}:
             _extract_function(
                 child,
@@ -766,6 +782,23 @@ def _function_identity(
         container_id = module_id
 
     return func_id, kind, container_id
+
+
+def _inline_visibility(node: Node) -> tuple[str, list[Node]]:
+    """Find declarations evaluated as arguments of a visibility modifier."""
+    method = node.child_by_field_name("method")
+    args = node.child_by_field_name("arguments")
+    receiver = node.child_by_field_name("receiver")
+    if (
+        method is None
+        or node_text(method) not in {"private", "protected", "public"}
+        or args is None
+        or receiver is not None
+    ):
+        return "", []
+    return node_text(method), [
+        arg for arg in args.named_children if arg.type in {"method", "singleton_method"}
+    ]
 
 
 def _named_visibility(child: Node, named_visibility: dict[str, str]) -> None:
