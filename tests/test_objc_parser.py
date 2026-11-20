@@ -6,6 +6,7 @@ from pathlib import Path
 
 from trailmark.models.graph import CodeGraph
 from trailmark.parsers.objc import ObjCParser
+from trailmark.query.api import QueryEngine
 
 
 def _parse(tmp_path: Path, body: str, name: str = "Foo.m") -> CodeGraph:
@@ -86,3 +87,37 @@ class TestImports:
             "#import <Foundation/Foundation.h>\nvoid f(void) {}\n",
         )
         assert "Foundation" in graph.dependencies
+
+
+def test_conditional_implementation_methods_keep_owners_and_sites(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        "@implementation Result\n"
+        "- (void)close {}\n"
+        "#if ! __has_feature(objc_arc)\n"
+        "- (void)finalize { [self close]; }\n"
+        "#elif OTHER\n"
+        "#if NESTED\n"
+        "- (void)nested { [self close]; }\n"
+        "#endif\n"
+        "#else\n"
+        "- (void)alternative { [self close]; }\n"
+        "#endif\n"
+        "@end\n"
+        "@implementation Other\n"
+        "- (void)close {}\n"
+        "@end\n",
+    )
+    assert not graph.parse_diagnostics
+    engine = QueryEngine.from_graph(graph)
+    for selector, line in (("finalize", 4), ("nested", 7), ("alternative", 10)):
+        source = f"Foo:Result.{selector}"
+        assert {n["id"] for n in engine.callees_of(source)} == {"Foo:Result.close"}
+        sites = [e for e in graph.edges if e.source_id == source and e.kind.value == "calls"]
+        assert len(sites) == 1
+        assert sites[0].location is not None and sites[0].location.start_line == line
+    assert {n["id"] for n in engine.callers_of("Foo:Result.close")} == {
+        "Foo:Result.finalize",
+        "Foo:Result.nested",
+        "Foo:Result.alternative",
+    }

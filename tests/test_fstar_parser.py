@@ -12,6 +12,59 @@ from trailmark.query.api import QueryEngine
 FIXTURE = Path(__file__).parent / "fixtures/kat/fstar/taxonomy.fst"
 
 
+@pytest.mark.parametrize("effect", ["Tot", "ML", "Stack", "Lemma"])
+@pytest.mark.parametrize("interface", [False, True])
+def test_implementation_inherits_signature_effect(
+    tmp_path: Path, effect: str, interface: bool
+) -> None:
+    result = "True" if effect == "Lemma" else "int"
+    body = "()" if effect == "Lemma" else "x"
+    signature = f"val target : int -> {effect} {result}\n"
+    path = tmp_path / "Effects.fst"
+    path.write_text(
+        "module Effects\n" + ("" if interface else signature) + f"let target x = {body}\n"
+    )
+    if interface:
+        (tmp_path / "Effects.fsti").write_text("module Effects\n" + signature)
+    graph = parse_directory(str(tmp_path), "fstar", strict=True)
+    nodes = [node for node in graph.nodes.values() if node.name == "target"]
+    assert len(nodes) == 2
+    assert {dict(node.attributes)["effect"] for node in nodes} == {effect}
+    correspondence = [edge for edge in graph.edges if edge.kind == EdgeKind.CORRESPONDS_TO]
+    assert len(correspondence) == 1
+    assert dict(graph.nodes[correspondence[0].source_id].attributes)["signature"] is True
+    assert not dict(graph.nodes[correspondence[0].target_id].attributes)["signature"]
+
+
+def test_explicit_implementation_effect_is_preserved(tmp_path: Path) -> None:
+    path = tmp_path / "Effects.fst"
+    path.write_text(
+        "module Effects\nval target : int -> ML int\nlet target (x:int) : Tot int = x\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    implementation = next(
+        node
+        for node in graph.nodes.values()
+        if node.name == "target" and not dict(node.attributes).get("signature")
+    )
+    assert dict(implementation.attributes)["effect"] == "Tot"
+
+
+def test_ambiguous_signature_effect_is_not_inherited(tmp_path: Path) -> None:
+    path = tmp_path / "Effects.fst"
+    path.write_text(
+        "module Effects\nval target : int -> Tot int\n"
+        "val target : int -> ML int\nlet target x = x\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    implementation = next(
+        node
+        for node in graph.nodes.values()
+        if node.name == "target" and not dict(node.attributes).get("signature")
+    )
+    assert dict(implementation.attributes)["effect"] == ""
+
+
 def test_specification_positions_stay_references(tmp_path: Path) -> None:
     path = tmp_path / "Contexts.fst"
     path.write_text(

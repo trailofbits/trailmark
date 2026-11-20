@@ -17,7 +17,7 @@ from pathlib import Path
 from tree_sitter import Language, Node, Parser, Range
 
 from trailmark.models.diagnostics import ParseDiagnostic
-from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import Attribute, CodeUnit, NodeKind, NodeOrigin, Parameter
 from trailmark.parsers._common import (
@@ -146,8 +146,9 @@ def lookup_tiers(
 class Source:
     """Build a file graph from explicit declarations and adapter-selected regions."""
 
-    def __init__(self, root: Node, path: str, language: str) -> None:
+    def __init__(self, root: Node, path: str, language: str, *, data: bytes = b"") -> None:
         self.path, self.language = path, language
+        self.data = data
         self.module = module_id_from_path(path)
         self.graph = CodeGraph(language=language, root_path=path)
         add_module_node(root, path, self.module, self.graph)
@@ -259,6 +260,7 @@ class Source:
         scopes: tuple[Scope, ...] = (),
         skip: frozenset[str] = frozenset(),
         application_heads: frozenset[int] = frozenset(),
+        bound_applications: dict[int, str] | None = None,
         context: str = "body",
         spelling: Callable[[Node], str | None] | None = None,
     ) -> None:
@@ -285,11 +287,12 @@ class Source:
                 continue
             active = index.at(node.start_byte)
             bound_name = node_text(node) if self.language == "tamarin" else name.split(".")[0]
+            bound_target = (bound_applications or {}).get(node.start_byte)
             bound = index.bound[bound_name] > 0
             bound_application = (
                 self.language == "fstar" and bound and node.start_byte in application_heads
             )
-            if name == "_" or (bound and not bound_application):
+            if name == "_" or (bound and bound_target is None and not bound_application):
                 continue
             local_opens = tuple(prefix for scope in active for prefix in scope.opens)
             tiers = lookup_tiers(name, namespace, (*opens, *local_opens), aliases or {})
@@ -307,13 +310,14 @@ class Source:
             self.graph.edges.append(
                 CodeEdge(
                     owner,
-                    "@pending",
+                    bound_target or "@pending",
                     EdgeKind.REFERENCES,
+                    confidence=EdgeConfidence.UNCERTAIN if bound_target else EdgeConfidence.CERTAIN,
                     location=make_location(node, self.path),
                     attributes=(
                         ("reference_context", reference_context),
                         ("spelling", name),
-                        ("_formal_candidates", json.dumps(tiers)),
+                        ("_formal_candidates", None if bound_target else json.dumps(tiers)),
                         ("_formal_application", node.start_byte in application_heads),
                         ("_formal_bound_application", bound_application),
                         ("_formal_position", node.start_byte),
@@ -365,8 +369,9 @@ class FormalParser:
         raise NotImplementedError
 
     def _parse_file(self, path: str) -> CodeGraph:
-        root = self._parser.parse(Path(path).read_bytes()).root_node
-        source = Source(root, path, self.language)
+        data = Path(path).read_bytes()
+        root = self._parser.parse(data).root_node
+        source = Source(root, path, self.language, data=data)
         pending = [(root, 0)]
         containers = {"module", "module_definition", "module_declaration", "scope_declaration"}
         while pending:
