@@ -27,6 +27,7 @@ from trailmark.parsers._common import (
     collect_body_info,
     compute_complexity,
     extract_type_parameters,
+    link_cross_file_calls,
     make_location,
     module_id_from_path,
     node_text,
@@ -42,6 +43,12 @@ from trailmark.parsers._declarations import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.cpp._block_macros import mark_recovered_bodies, recover_block_bodies
+from trailmark.parsers.cpp._cast_receivers import (
+    bind_cast_calls,
+    call_attributes,
+    class_attributes,
+)
 from trailmark.parsers.cpp._declaration_markers import recover_declaration_markers
 from trailmark.parsers.cpp._export_markers import mark_recovered_classes, recover_export_markers
 
@@ -59,7 +66,7 @@ _BRANCH_NODE_TYPES = frozenset(
 
 _THROW_TYPES = frozenset({"throw_statement"})
 
-_EXTENSIONS = (".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx")
+_EXTENSIONS = (".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx", ".h")
 
 _CPP_TYPE_NODES = frozenset(
     {
@@ -92,12 +99,22 @@ class CppParser:
         recovered, declaration_markers = recover_declaration_markers(
             self._parser, source, recovered
         )
-        if markers or declaration_markers:
+        recovered, bodies = recover_block_bodies(self._parser, source, recovered)
+        # A repaired body can expose a previously swallowed class boundary.
+        recovered, more_markers = recover_export_markers(self._parser, source, recovered)
+        markers = (*markers, *more_markers)
+        recovered, more_declarations = recover_declaration_markers(self._parser, source, recovered)
+        declaration_markers = (*declaration_markers, *more_declarations)
+        if more_markers or more_declarations:
+            recovered, more_bodies = recover_block_bodies(self._parser, source, recovered)
+            bodies = (*bodies, *more_bodies)
+        if markers or declaration_markers or bodies:
             # Keep diagnostics from the unmodified parse, including unrelated errors.
             add_module_node(tree.root_node, file_path, module_id, graph)
         with callable_scope(graph):
             _visit_module(recovered.root_node, file_path, module_id, graph)
         mark_recovered_classes(graph, markers)
+        mark_recovered_bodies(graph, bodies)
         if declaration_markers:
             unit = graph.nodes[module_id]
             graph.nodes[module_id] = replace(
@@ -110,8 +127,10 @@ class CppParser:
                     ),
                 ),
             )
+        _bind_out_of_line_methods(graph)
         resolve_local_method_calls(graph)
         bind_lexical_calls(graph)
+        bind_cast_calls(graph)
         collect_exception_events(recovered.root_node, file_path, graph)
         return graph
 
@@ -122,7 +141,54 @@ class CppParser:
             "cpp",
             dir_path,
             _EXTENSIONS,
+            link_calls=_link_cpp_calls,
         )
+
+
+def _link_cpp_calls(graph: CodeGraph) -> None:
+    _bind_out_of_line_methods(graph)
+    resolve_local_method_calls(graph)
+    bind_lexical_calls(graph)
+    bind_cast_calls(graph)
+    link_cross_file_calls(graph)
+
+
+def _bind_out_of_line_methods(graph: CodeGraph) -> None:
+    """Attach simple qualified definitions to an identifiable class owner."""
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    types: dict[str, list[CodeUnit]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind in {NodeKind.CLASS, NodeKind.STRUCT, NodeKind.NAMESPACE}:
+            types.setdefault(unit.id.split(":", 1)[-1], []).append(unit)
+    replacements: dict[str, str] = {}
+    for unit in list(graph.nodes.values()):
+        if unit.kind != NodeKind.FUNCTION or "::" not in unit.name:
+            continue
+        qualifier, name = unit.name.rsplit("::", 1)
+        if not all(part.isidentifier() for part in qualifier.split("::")):
+            continue
+        if not name.removeprefix("~").isidentifier():
+            continue
+        owner = owners.get(unit.id, "")
+        container = graph.nodes.get(owner)
+        if container is None or container.kind not in {NodeKind.MODULE, NodeKind.NAMESPACE}:
+            continue
+        prefix = (
+            container.id.split(":", 1)[-1] + "." if container.kind == NodeKind.NAMESPACE else ""
+        )
+        candidates = types.get(prefix + qualifier.replace("::", "."), [])
+        local = [c for c in candidates if c.location.file_path == unit.location.file_path]
+        candidates = local or candidates
+        if len(candidates) != 1 or candidates[0].kind not in {NodeKind.CLASS, NodeKind.STRUCT}:
+            continue
+        replacements[unit.id] = candidates[0].id
+        graph.nodes[unit.id] = replace(unit, name=name, kind=NodeKind.METHOD)
+    graph.edges[:] = [
+        replace(edge, source_id=replacements[edge.target_id])
+        if edge.kind == EdgeKind.CONTAINS and edge.target_id in replacements
+        else edge
+        for edge in graph.edges
+    ]
 
 
 def _visit_module(
@@ -330,6 +396,7 @@ def _extract_class(
         kind=NodeKind.CLASS,
         location=location,
         type_parameters=extract_type_parameters(generic_node or node),
+        attributes=class_attributes(node),
         docstring=_extract_docstring(node),
     )
     add_type(graph, unit)
@@ -463,6 +530,7 @@ def _extract_struct(
         kind=NodeKind.STRUCT,
         location=location,
         type_parameters=extract_type_parameters(generic_node or node),
+        attributes=class_attributes(node),
     )
     add_type(graph, unit)
     add_contains_edge(graph, owner, struct_id)
@@ -560,21 +628,22 @@ def _add_call_edges(
             module_id,
         )
         confidence = _call_confidence(call_name)
+        edge = guard_call(
+            CodeEdge(
+                source_id=func_id,
+                target_id=target_id,
+                kind=EdgeKind.CALLS,
+                confidence=confidence,
+                location=make_location(call_node, file_path),
+                attributes=(("bare_name", call_name),)
+                if re.fullmatch(r"[A-Za-z_]\w*", call_name)
+                else (),
+            ),
+            call_node,
+            graph=graph,
+        )
         graph.edges.append(
-            guard_call(
-                CodeEdge(
-                    source_id=func_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CALLS,
-                    confidence=confidence,
-                    location=make_location(call_node, file_path),
-                    attributes=(("bare_name", call_name),)
-                    if re.fullmatch(r"[A-Za-z_]\w*", call_name)
-                    else (),
-                ),
-                call_node,
-                graph=graph,
-            )
+            replace(edge, attributes=(*edge.attributes, *call_attributes(edge, call_node, graph)))
         )
 
 

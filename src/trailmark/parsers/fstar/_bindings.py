@@ -28,6 +28,15 @@ SKIP = OPAQUE | frozenset(
         "variable_pattern",
     }
 )
+APPLICATION_HEAD_TYPES = frozenset(
+    {
+        "identifier",
+        "qualified_identifier",
+        "constructor_identifier",
+        "operator",
+        "operator_identifier",
+    }
+)
 
 
 def bindings(root: Node) -> tuple[str, ...]:
@@ -138,17 +147,29 @@ def _arrow(node: Node) -> list[Scope]:
     return [Scope(frozenset(bindings(left)), right.start_byte, right.end_byte)]
 
 
+def application_head(node: Node) -> Node | None:
+    """Unwrap only parentheses; other computed function expressions stay opaque."""
+    head = node.child_by_field_name("function") or node.child_by_field_name("operator")
+    while head is not None and head.type == "parenthesized_expression":
+        if head.has_error:
+            return None
+        head = head.child_by_field_name("body")
+    return head if head is not None and head.type in APPLICATION_HEAD_TYPES else None
+
+
 def _arguments(node: Node) -> list[Scope]:
-    head = node.child_by_field_name("function")
-    if head is None:
+    if node.child_by_field_name("function") is None:
         return []
+    head = application_head(node)
+    # Unknown returned callees must not borrow a nested factory's start position.
+    # Preserve their argument scopes so those references cannot fall back to body.
     return [
         Scope(
             frozenset(),
             arg.start_byte,
             arg.end_byte,
             context="argument",
-            callee=head.start_byte,
+            callee=head.start_byte if head is not None else None,
             argument=index,
         )
         for index, arg in enumerate(node.children_by_field_name("argument"))

@@ -5,10 +5,64 @@ from pathlib import Path
 import pytest
 
 from trailmark.models.edges import EdgeKind
+from trailmark.models.nodes import NodeOrigin
 from trailmark.parse import parse_directory, parse_file
 from trailmark.query.api import QueryEngine
 
 FIXTURE = Path(__file__).parent / "fixtures/kat/fstar/taxonomy.fst"
+
+
+@pytest.mark.parametrize("effect", ["Tot", "ML", "Stack", "Lemma"])
+@pytest.mark.parametrize("interface", [False, True])
+def test_implementation_inherits_signature_effect(
+    tmp_path: Path, effect: str, interface: bool
+) -> None:
+    result = "True" if effect == "Lemma" else "int"
+    body = "()" if effect == "Lemma" else "x"
+    signature = f"val target : int -> {effect} {result}\n"
+    path = tmp_path / "Effects.fst"
+    path.write_text(
+        "module Effects\n" + ("" if interface else signature) + f"let target x = {body}\n"
+    )
+    if interface:
+        (tmp_path / "Effects.fsti").write_text("module Effects\n" + signature)
+    graph = parse_directory(str(tmp_path), "fstar", strict=True)
+    nodes = [node for node in graph.nodes.values() if node.name == "target"]
+    assert len(nodes) == 2
+    assert {dict(node.attributes)["effect"] for node in nodes} == {effect}
+    correspondence = [edge for edge in graph.edges if edge.kind == EdgeKind.CORRESPONDS_TO]
+    assert len(correspondence) == 1
+    assert dict(graph.nodes[correspondence[0].source_id].attributes)["signature"] is True
+    assert not dict(graph.nodes[correspondence[0].target_id].attributes)["signature"]
+
+
+def test_explicit_implementation_effect_is_preserved(tmp_path: Path) -> None:
+    path = tmp_path / "Effects.fst"
+    path.write_text(
+        "module Effects\nval target : int -> ML int\nlet target (x:int) : Tot int = x\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    implementation = next(
+        node
+        for node in graph.nodes.values()
+        if node.name == "target" and not dict(node.attributes).get("signature")
+    )
+    assert dict(implementation.attributes)["effect"] == "Tot"
+
+
+def test_ambiguous_signature_effect_is_not_inherited(tmp_path: Path) -> None:
+    path = tmp_path / "Effects.fst"
+    path.write_text(
+        "module Effects\nval target : int -> Tot int\n"
+        "val target : int -> ML int\nlet target x = x\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    implementation = next(
+        node
+        for node in graph.nodes.values()
+        if node.name == "target" and not dict(node.attributes).get("signature")
+    )
+    assert dict(implementation.attributes)["effect"] == ""
 
 
 def test_specification_positions_stay_references(tmp_path: Path) -> None:
@@ -46,7 +100,9 @@ def test_signature_effects_and_privacy_propagate(tmp_path: Path) -> None:
     }
     assert calls == {("run", "f")}
     assert not any(
-        e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "leaked"
+        e.kind == EdgeKind.REFERENCES
+        and graph.nodes[e.source_id].name == "leaked"
+        and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
         for e in graph.edges
     )
     proof = next(
@@ -90,13 +146,19 @@ def test_roles_references_calls_and_shadowing() -> None:
     assert ("proof", "positive", EdgeKind.REFERENCES) in edges
     assert ("proof", "identity", EdgeKind.REFERENCES) in edges
     assert not any(a in {"proof", "apply"} and kind == EdgeKind.CALLS for a, _, kind in edges)
-    assert not any(a == "apply" and b == "identity" for a, b, _ in edges)
+    assert not any(
+        graph.nodes[e.source_id].name == "apply"
+        and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    )
     trusted = next(n for n in graph.nodes.values() if n.name == "trusted")
     assert dict(trusted.attributes)["assumed"] is True
     engine = QueryEngine.from_graph(graph)
     assert {n["name"] for n in engine.reachable_from("proof", edge_kinds=("references",))} == {
         "positive",
         "identity",
+        "op_Greater_Equals",
     }
     assert engine.reachable_from("proof") == []
 
@@ -126,7 +188,11 @@ def test_local_binders_and_local_opens(tmp_path: Path) -> None:
         "let c (x:int) = (fun f -> f x) (fun y -> y)\n"
     )
     graph = parse_directory(str(tmp_path), "fstar", strict=True)
-    refs = [e for e in graph.edges if e.kind == EdgeKind.REFERENCES]
+    refs = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
+    ]
     assert [(graph.nodes[e.source_id].name, graph.nodes[e.target_id].name) for e in refs] == [
         ("b", "f")
     ]
@@ -199,6 +265,7 @@ def test_binding_scope_boundaries(tmp_path: Path, expression: str, expected: int
                 if e.kind == EdgeKind.REFERENCES
                 and graph.nodes[e.source_id].name == "run"
                 and graph.nodes[e.target_id].name == "x"
+                and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
             ]
         )
         == expected
@@ -234,7 +301,7 @@ def test_private_declarations_stay_in_their_module(tmp_path: Path) -> None:
     assert {
         (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
         for e in graph.edges
-        if e.kind == EdgeKind.REFERENCES
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
     } == {("public", "hidden")}
 
 
@@ -264,7 +331,9 @@ def test_reexports_retain_constants_and_reusable_predicates(
     assert {
         graph.nodes[e.target_id].name
         for e in graph.edges
-        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "run"
+        if e.kind == EdgeKind.REFERENCES
+        and graph.nodes[e.source_id].name == "run"
+        and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
     } == expected
 
 
