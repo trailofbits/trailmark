@@ -168,3 +168,5 @@ def test_overload_priority_attribute_blocks_the_optional_default_tie(tmp_path: P
         "void Add(string x) {} [OverloadResolutionPriority(1)] void Add(string x, int n = 0) {}",
     )
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
+    longer = next(u for u in graph.nodes.values() if u.name == "Add" and len(u.parameters) == 2)
+    assert "csharp_optional_signature" not in dict(longer.attributes)
