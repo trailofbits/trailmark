@@ -22,7 +22,9 @@ def test_constructor_assigned_interface_dispatch_resolves(tmp_path: Path) -> Non
     edge = next(
         edge
         for edge in graph.edges
-        if edge.source_id == "handler:entry" and edge.kind == EdgeKind.CALLS
+        if edge.source_id == "handler:entry"
+        and edge.kind == EdgeKind.CALLS
+        and not dict(edge.attributes).get("constructor_call")
     )
     assert edge.target_id == "handler:HandlerImpl.process"
     assert edge.confidence == EdgeConfidence.INFERRED

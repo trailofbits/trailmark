@@ -246,6 +246,13 @@
       "return_type": null
     },
     "taxonomy:Animal": {
+      "attributes": {
+        "cpp_cast_complete": true,
+        "cpp_cast_declared_methods": "[\"describe\", \"Animal\"]",
+        "cpp_cast_generic": false,
+        "cpp_cast_has_bases": false,
+        "cpp_cast_virtual_methods": "[]"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -341,6 +348,13 @@
       }
     },
     "taxonomy:Dog": {
+      "attributes": {
+        "cpp_cast_complete": true,
+        "cpp_cast_declared_methods": "[\"greet\", \"bark\", \"Dog\"]",
+        "cpp_cast_generic": false,
+        "cpp_cast_has_bases": true,
+        "cpp_cast_virtual_methods": "[\"greet\"]"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -510,6 +524,13 @@
       }
     },
     "taxonomy:Greeter": {
+      "attributes": {
+        "cpp_cast_complete": true,
+        "cpp_cast_declared_methods": "[\"greet\"]",
+        "cpp_cast_generic": false,
+        "cpp_cast_has_bases": false,
+        "cpp_cast_virtual_methods": "[\"greet\"]"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -549,6 +570,13 @@
       "return_type": null
     },
     "taxonomy:Pair": {
+      "attributes": {
+        "cpp_cast_complete": true,
+        "cpp_cast_declared_methods": "[]",
+        "cpp_cast_generic": true,
+        "cpp_cast_has_bases": false,
+        "cpp_cast_virtual_methods": "[]"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,

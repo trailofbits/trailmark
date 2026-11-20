@@ -288,14 +288,25 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
     bound_application = attrs.pop("_formal_bound_application", False)
     position = attrs.pop("_formal_position", None)
     enclosing = attrs.pop("_formal_enclosing", None)
-    if not isinstance(raw, str):
-        return _Linked(edge)
-    target = None if bound_application else symbols.resolve(edge, json.loads(raw))
+    target = (
+        (None if bound_application else symbols.resolve(edge, json.loads(raw)))
+        if isinstance(raw, str)
+        else edge.target_id
+    )
     if target is None:
         if not (
-            symbols.graph.language == "fstar"
-            and application
-            and attrs.get("reference_context") in {"body", "argument", "proof", "definition"}
+            application
+            and (
+                (
+                    symbols.graph.language == "fstar"
+                    and attrs.get("reference_context")
+                    in {"body", "argument", "proof", "definition"}
+                )
+                or (
+                    symbols.graph.language == "whyml"
+                    and attrs.get("reference_context") in {"body", "argument"}
+                )
+            )
         ):
             return None
         name = str(attrs["spelling"])
@@ -312,7 +323,10 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
                 NodeKind.PROXY,
                 edge.location or symbols.graph.nodes[edge.source_id].location,
                 origin=NodeOrigin.PROXY,
-                attributes=(("executable", False), ("unresolved_application", True)),
+                attributes=(
+                    ("executable", symbols.graph.language == "whyml"),
+                    ("unresolved_application", True),
+                ),
             ),
         )
     if (
@@ -327,7 +341,13 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
         attributes=tuple(attrs.items()),
         confidence=EdgeConfidence.UNCERTAIN
         if attrs.get("unresolved_application")
-        else EdgeConfidence.INFERRED,
+        or (
+            (unit := symbols.graph.nodes.get(target)) is not None
+            and dict(unit.attributes).get("unresolved_application")
+        )
+        else EdgeConfidence.INFERRED
+        if isinstance(raw, str)
+        else edge.confidence,
     )
     return _Linked(
         linked,
@@ -341,9 +361,9 @@ def _computational(graph: CodeGraph, ident: str) -> bool:
     return dict(graph.nodes[ident].attributes).get("executable") is True
 
 
-def _argument_evaluated(unit: CodeUnit | None, argument: int | str | None) -> bool:
-    if unit is None:
-        return False
+def _argument_evaluated(unit: CodeUnit | None, argument: int | str | None) -> bool | None:
+    if unit is None or dict(unit.attributes).get("unresolved_application"):
+        return None
     attrs = dict(unit.attributes)
     if attrs.get("executable") is not True:
         return False
@@ -357,10 +377,10 @@ def _argument_evaluated(unit: CodeUnit | None, argument: int | str | None) -> bo
 
 def _runtime(
     reference: _Linked,
-    evaluated: dict[tuple[str, int | None, int | str | None], bool],
+    evaluated: dict[tuple[str, int | None, int | str | None], bool | None],
     parents: dict[str, dict[str, list]],
-    cache: dict[tuple[str, str], bool],
-) -> bool:
+    cache: dict[tuple[str, str], bool | None],
+) -> bool | None:
     context = dict(reference.edge.attributes).get("reference_context")
     if context == "body":
         return True
@@ -370,14 +390,18 @@ def _runtime(
     key = reference.enclosing
     pending = []
     while key is not None and (owner, key) not in cache:
-        position, argument, parent = parents[owner][key]
+        _, _, parent = parents[owner][key]
         pending.append(key)
-        if not evaluated.get((owner, position, argument), False):
-            cache[owner, key] = False
-            break
         key = parent
     value = cache.get((owner, key), True) if key is not None else True
     for key in reversed(pending):
+        position, argument, _ = parents[owner][key]
+        local = evaluated.get((owner, position, argument))
+        value = (
+            False
+            if local is False or value is False
+            else (None if local is None or value is None else True)
+        )
         cache[owner, key] = value
     return value
 
@@ -399,7 +423,7 @@ def link_symbols(graph: CodeGraph, *, qualified_prefixes: tuple[str, ...] = ()) 
         for owner, scopes in parents.items()
         for position, argument, _ in scopes.values()
     }
-    cache: dict[tuple[str, str], bool] = {}
+    cache: dict[tuple[str, str], bool | None] = {}
     for ident, unit in tuple(graph.nodes.items()):
         graph.nodes[ident] = replace(
             unit,
@@ -409,13 +433,20 @@ def link_symbols(graph: CodeGraph, *, qualified_prefixes: tuple[str, ...] = ()) 
     for reference in references:
         edge = reference.edge
         result.append(edge)
+        runtime = _runtime(reference, evaluated, parents, cache)
         if (
             reference.application
-            and _runtime(reference, evaluated, parents, cache)
+            and (runtime is True or (runtime is None and graph.language == "whyml"))
             and _computational(graph, edge.source_id)
             and _computational(graph, edge.target_id)
         ):
-            result.append(replace(edge, kind=EdgeKind.CALLS))
+            result.append(
+                replace(
+                    edge,
+                    kind=EdgeKind.CALLS,
+                    confidence=EdgeConfidence.UNCERTAIN if runtime is None else edge.confidence,
+                )
+            )
     graph.edges = list(dict.fromkeys([*result, *symbols.correspondence()]))
     targets = {e.target_id for e in graph.edges}
     for ident in list(graph.nodes):
