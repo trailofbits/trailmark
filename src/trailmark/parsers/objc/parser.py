@@ -33,6 +33,7 @@ from trailmark.models.nodes import (
     CodeUnit,
     NodeKind,
     Parameter,
+    SourceLocation,
     TypeRef,
 )
 from trailmark.parsers._binding_index import binding_scope
@@ -48,11 +49,12 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._declarations import callable_scope
+from trailmark.parsers._declarations import add_type, callable_scope
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c.parser import visit_c_declaration
+from trailmark.parsers.objc._enum_macros import point, recover_enum_macros
 from trailmark.parsers.objc._nullability import parse_nullability_regions
 from trailmark.parsers.objc._receivers import (
     bind_ivar_messages,
@@ -91,12 +93,31 @@ class ObjCParser:
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single .m / .mm / .h file into a CodeGraph."""
         source = Path(file_path).read_bytes()
-        tree = self._parser.parse(source)
-        tree, nullability_regions = parse_nullability_regions(self._parser, source, tree)
+        original = self._parser.parse(source)
+        tree, nullability_regions = parse_nullability_regions(self._parser, source, original)
+        tree, enum_macros = recover_enum_macros(self._parser, source, tree)
         graph = CodeGraph(language="objc", root_path=file_path)
         module_id = module_id_from_path(file_path)
+        if enum_macros:
+            add_module_node(original.root_node, file_path, module_id, graph)
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
+            for fact in enum_macros:
+                start, end = point(source, fact.start), point(source, fact.end)
+                unit = CodeUnit(
+                    id=f"{module_id}:{fact.name}",
+                    name=fact.name,
+                    kind=NodeKind.ENUM,
+                    location=SourceLocation(file_path, start[0] + 1, end[0] + 1, start[1], end[1]),
+                    attributes=(("objc_enum_macro", fact.macro),),
+                )
+                add_type(graph, unit)
+                add_contains_edge(graph, module_id, unit.id)
+        if enum_macros:
+            unit = graph.nodes[module_id]
+            graph.nodes[module_id] = replace(
+                unit, location=make_location(original.root_node, file_path)
+            )
         if nullability_regions:
             unit = graph.nodes[module_id]
             graph.nodes[module_id] = replace(

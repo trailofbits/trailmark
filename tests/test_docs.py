@@ -93,6 +93,7 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/parser-coverage.md", "Objective-C recovers complete translation-unit"),
     ("docs/languages.md", "Step labels resolve only within their proof hierarchy"),
     ("docs/parser-coverage.md", "Objective-C accepts balanced standalone"),
     ("docs/parser-coverage.md", "Standard unqualified Julia `@inbounds` wrappers"),
