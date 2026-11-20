@@ -106,6 +106,14 @@ not proof that the graph contains every executable path. A large number of
 proxies does not mean calls were dropped; each one is a call that was kept but
 not resolved.
 
+## Dart explicit receivers
+
+An explicit `this.method(...)` call can navigate to a unique method in its
+nearest lexical class with inferred confidence. A local value with the same
+method name does not shadow explicit `this`. Missing and inherited methods,
+chained receivers, and other value receivers remain unresolved. Calls through
+`super.method(...)` retain their source sites without guessing inheritance.
+
 ## Rust limits
 
 Rust code commonly produces many proxies. Common patterns:

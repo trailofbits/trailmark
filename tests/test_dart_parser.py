@@ -6,6 +6,7 @@ from pathlib import Path
 
 from trailmark.models.graph import CodeGraph
 from trailmark.parsers.dart import DartParser
+from trailmark.query.api import QueryEngine
 
 
 def _parse(tmp_path: Path, body: str, name: str = "app.dart") -> CodeGraph:
@@ -93,3 +94,45 @@ class TestCallEdges:
         )
         sources = {e.source_id for e in graph.edges if e.kind.value == "calls"}
         assert "app:a" in sources
+
+
+def test_explicit_this_calls_use_nearest_class_even_with_local_shadow(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        "class Box {\n"
+        " void work() {}\n"
+        " void run(void Function() work) { this.work(); }\n"
+        "}\n"
+        "class Other { void work() {} }\n",
+    )
+    calls = [e for e in graph.edges if e.source_id == "app:Box.run" and e.kind.value == "calls"]
+    assert len(calls) == 1 and calls[0].target_id == "app:Box.work"
+    assert calls[0].confidence.value == "inferred"
+    assert calls[0].location is not None and calls[0].location.start_line == 3
+    engine = QueryEngine.from_graph(graph)
+    assert {n["id"] for n in engine.callers_of("app:Box.work")} == {"app:Box.run"}
+
+
+def test_this_missing_and_other_receivers_stay_uncertain(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        "class Base { void work() {} }\n"
+        "class Box extends Base {\n"
+        " void run(Base other) { this.work(); other.work(); }\n"
+        "}\n",
+    )
+    calls = [e for e in graph.edges if e.source_id == "app:Box.run" and e.kind.value == "calls"]
+    assert len(calls) == 2
+    assert all(e.target_id != "app:Base.work" for e in calls)
+
+
+def test_super_call_site_is_retained_without_inheritance_guess(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        "class Base { void work() {} }\nclass Box extends Base { void run() { super.work(); } }\n",
+    )
+    calls = [e for e in graph.edges if e.source_id == "app:Box.run" and e.kind.value == "calls"]
+    assert len(calls) == 1
+    assert calls[0].target_id != "app:Base.work"
+    assert dict(calls[0].attributes)["raw_target"] == "super.work"
+    assert calls[0].location is not None and calls[0].location.start_line == 2
