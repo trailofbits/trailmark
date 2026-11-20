@@ -1060,6 +1060,13 @@ def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
 
 
+def test_cpp_out_of_line_method_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "Simple qualified definitions such as `Stream::flush` and `Stream::~Stream`" in guide
+    assert "Existing definition IDs are preserved" in guide
+    assert "Overloads and shadowing local values remain uncertain" in guide
+
+
 def test_objc_conditional_implementation_contract() -> None:
     guide = (DOCS / "languages.md").read_text()
     assert "Objective-C parser retains recognized method definitions inside conditional" in guide
