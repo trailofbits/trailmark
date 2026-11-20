@@ -264,6 +264,13 @@ Swift extensions retain methods and attach to an unambiguous extracted type with
 replacing its kind or source location. Local functions and closures own their bodies.
 Kotlin recursively extracts nested and companion containers. Both prefer known
 lexical methods over same-named free functions and preserve uncertain callable values.
+Kotlin bare calls can distinguish local overloads with different fixed positional
+arities. This requires one matching argument count and fixed signatures throughout
+the nearest overload family. Defaults, variadic or extension signatures, named or
+spread arguments, trailing lambdas and equal-arity overloads remain conservative;
+member families with explicit supertypes, enum or data-class declarations, or
+implicit `Any` method names also remain conservative because inherited or generated
+candidates are incomplete. Compiler type-based overload resolution is not performed.
 Recursive type and callable extraction in JavaScript, TypeScript, C++, C#, Dart,
 Java, Objective-C, PHP,
 Python, Kotlin and Swift, and Ruby containers and blocks, is limited to 48 extraction
