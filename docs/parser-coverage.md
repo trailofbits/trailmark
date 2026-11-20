@@ -316,6 +316,9 @@ binders. Bare calls remain eligible for local/inherited method and cross-file
 global linking; known local callable values stay uncertain. Rails actions and
 Sidekiq `perform` entrypoints require
 public instance-method metadata; private and singleton helpers are excluded.
+Inline visibility modifiers (`private def`, `protected def`, and `public def`)
+retain their method declarations, bodies, and visibility without changing the
+default visibility of following methods.
 Runtime metaprogramming, reopened class inheritance, and lambda-body coverage remain
 limited.
 
