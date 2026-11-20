@@ -146,6 +146,7 @@ def _key(edge: CodeEdge) -> tuple[str, SourceLocation | None, AttributeValue]:
 def link_proofs(graph: CodeGraph) -> None:
     """Keep unresolved proof source references after ordinary visibility linking."""
     pending = [e for e in graph.edges if dict(e.attributes).get("tlaplus_proof_reference")]
+    _materialize_proxies(graph)
     link_symbols(graph)
     retained = {_key(e) for e in graph.edges}
     for edge in pending:
@@ -160,11 +161,16 @@ def link_proofs(graph: CodeGraph) -> None:
                 attributes=tuple(attrs.items()),
             )
         )
+    _materialize_proxies(graph)
+
+
+def _materialize_proxies(graph: CodeGraph) -> None:
     for edge in graph.edges:
         if (
             edge.target_id not in graph.nodes
             and edge.location is not None
             and dict(edge.attributes).get("reference_context") == "proof"
+            and "_formal_candidates" not in dict(edge.attributes)
         ):
             spelling = str(dict(edge.attributes)["spelling"])
             graph.nodes[edge.target_id] = CodeUnit(
