@@ -287,9 +287,7 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
     application = attrs.pop("_formal_application", False)
     position = attrs.pop("_formal_position", None)
     enclosing = attrs.pop("_formal_enclosing", None)
-    if not isinstance(raw, str):
-        return _Linked(edge)
-    target = symbols.resolve(edge, json.loads(raw))
+    target = symbols.resolve(edge, json.loads(raw)) if isinstance(raw, str) else edge.target_id
     if target is None:
         if not (
             symbols.graph.language == "whyml"
@@ -322,7 +320,9 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
         attributes=tuple(attrs.items()),
         confidence=EdgeConfidence.UNCERTAIN
         if dict(symbols.graph.nodes[target].attributes).get("unresolved_application")
-        else EdgeConfidence.INFERRED,
+        else EdgeConfidence.INFERRED
+        if isinstance(raw, str)
+        else edge.confidence,
     )
     return _Linked(
         linked,

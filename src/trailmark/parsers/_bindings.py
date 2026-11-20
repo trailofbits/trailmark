@@ -60,6 +60,9 @@ _SCOPE_POLICIES = {
             "function",
             "generator_function",
             "generator_function_declaration",
+            "class",
+            "class_declaration",
+            "abstract_class_declaration",
         },
     ),
 }
@@ -68,6 +71,7 @@ _SCOPE_POLICIES = {
 _DECLARATIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "python": (
         ("assignment", "left"),
+        ("named_expression", "name"),
         ("for_statement", "left"),
         ("function_definition", "name"),
         ("class_definition", "name"),
@@ -76,12 +80,17 @@ _DECLARATIONS: dict[str, tuple[tuple[str, str], ...]] = {
         ("formal_parameters", ""),
         ("variable_declarator", "name"),
         ("function_declaration", "name"),
+        ("generator_function_declaration", "name"),
+        ("class_declaration", "name"),
         ("assignment_expression", "left"),
     ),
     "typescript": (
         ("formal_parameters", ""),
         ("variable_declarator", "name"),
         ("function_declaration", "name"),
+        ("generator_function_declaration", "name"),
+        ("class_declaration", "name"),
+        ("abstract_class_declaration", "name"),
         ("assignment_expression", "left"),
     ),
     "c": (("init_declarator", "declarator"), ("declaration", "declarator")),
@@ -368,6 +377,7 @@ def _local_callable(
         not in {
             "function_definition",
             "function_declaration",
+            "generator_function_declaration",
             "local_function_statement",
             "local_function_declaration",
             "arrow_function",
@@ -375,6 +385,9 @@ def _local_callable(
             "function",
             "generator_function",
             "class_definition",
+            "class_declaration",
+            "abstract_class_declaration",
+            "class",
         }
     ):
         return None

@@ -148,19 +148,32 @@ class BashParser:
         module = module_id_from_path(file_path)
         graph = CodeGraph(language="bash", root_path=file_path)
         add_module_node(root, file_path, module, graph)
-        names: dict[str, list[tuple[str, int, bool]]] = defaultdict(list)
+        names: dict[str, list[tuple[str, int, bool, str | None]]] = defaultdict(list)
         commands: list[tuple[str, Node]] = []
-        imports: list[tuple[str, Node, str, bool]] = []
+        imports: list[tuple[str, Node, str, bool, str]] = []
         mutations: set[str] = set()
+        aliases: list[tuple[int, str | None]] = []
+        parse_positions: dict[str, int] = {}
+        script = f"{module}:<script>"
         dynamic_mutation = False
 
         def unit(node: Node, owner: str, name: str, body: Node) -> None:
             ident = f"{owner}:{name}" if owner == module else f"{owner}.{name}"
             if ident in graph.nodes:
                 ident += f"@{node.start_byte}"
+            parse_positions[ident] = node.start_byte if owner == module else parse_positions[owner]
             branches: list[BranchInfo] = []
             if name != "<script>":
-                names[name].append((ident, node.end_byte, node.parent == root))
+                parent = node.parent
+                direct = parent == root or (
+                    parent is not None
+                    and parent.parent is not None
+                    and parent.parent.type == "function_definition"
+                    and parent.parent.child_by_field_name("body") == parent
+                )
+                names[name].append(
+                    (ident, node.end_byte, parent == root, owner if direct else None)
+                )
 
             def scan(current: Node) -> None:
                 nonlocal dynamic_mutation
@@ -194,7 +207,19 @@ class BashParser:
                     raw, args, forced_builtin = _invocation(current)
                     if raw in {"eval", "source", "."}:
                         dynamic_mutation = True
-                    if raw in {"alias", "unalias", "unset", "enable"}:
+                    if raw in {"alias", "unalias"}:
+                        if ident != script:
+                            dynamic_mutation = True
+                        else:
+                            for arg in args:
+                                literal = _literal(arg)
+                                aliases.append(
+                                    (
+                                        current.start_byte,
+                                        literal.split("=", 1)[0] if literal else None,
+                                    )
+                                )
+                    if raw in {"unset", "enable"}:
                         for arg in args:
                             literal = _literal(arg)
                             if literal is None:
@@ -204,7 +229,7 @@ class BashParser:
                     if raw in {"source", "."} and args:
                         dependency = _literal(args[0])
                         if dependency:
-                            imports.append((dependency, current, raw, forced_builtin))
+                            imports.append((dependency, current, raw, forced_builtin, ident))
                 for child in current.named_children:
                     scan(child)
 
@@ -224,8 +249,17 @@ class BashParser:
             add_contains_edge(graph, owner, ident)
 
         unit(root, module, "<script>", root)
-        for dependency, site, raw, forced_builtin in imports:
-            if not forced_builtin and (raw in names or raw in mutations):
+
+        def aliased(owner: str, site: Node, name: str) -> bool:
+            # A function's complete body is parsed when its enclosing top-level
+            # definition is read. A later alias cannot rewrite those AST words.
+            position = site.start_byte if owner == script else parse_positions[owner]
+            return any(at <= position and alias in {None, name} for at, alias in aliases)
+
+        for dependency, site, raw, forced_builtin, owner in imports:
+            if not forced_builtin and (
+                raw in names or raw in mutations or aliased(owner, site, raw)
+            ):
                 continue
             if dependency not in graph.dependencies:
                 graph.dependencies.append(dependency)
@@ -237,7 +271,6 @@ class BashParser:
                         location=make_location(site, file_path),
                     )
                 )
-        script = f"{module}:<script>"
         for owner, command in commands:
             callee = command.child_by_field_name("name")
             if callee is None:
@@ -247,16 +280,22 @@ class BashParser:
             if name_text == "time":
                 raw, _, _ = _invocation(command)
             candidates = names.get(raw, [])
-            # Only unconditional top-level declarations are considered below;
-            # shell function lookup and sourced files can still change at runtime.
+            # Nested definitions become available only after direct execution in
+            # the same body. They do not create unconditional script bindings.
             target = None
             if (
                 re.fullmatch(r"[A-Za-z_][\w-]*", raw)
                 and not dynamic_mutation
                 and raw not in mutations
+                and not aliased(owner, command, raw)
                 and len(candidates) == 1
-                and candidates[0][2]
-                and (owner != script or candidates[0][1] <= command.start_byte)
+                and (
+                    candidates[0][2]
+                    and (owner != script or candidates[0][1] <= command.start_byte)
+                    or candidates[0][3] == owner
+                    and candidates[0][1] <= command.start_byte
+                    or candidates[0][0] == owner
+                )
             ):
                 target = candidates[0][0]
             graph.edges.append(
