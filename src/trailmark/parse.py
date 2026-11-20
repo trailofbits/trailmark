@@ -306,7 +306,7 @@ def _parse_and_merge(
 ) -> CodeGraph:
     """Assign files once and plan collision-safe module IDs before parsing."""
     extensions = {
-        lang: _LANGUAGE_EXTENSIONS[lang] + ((".h",) if lang in {"c", "objc"} else ())
+        lang: _LANGUAGE_EXTENSIONS[lang] + ((".h",) if lang in {"c", "cpp", "objc"} else ())
         for lang in languages
     }
     all_extensions = tuple({ext for values in extensions.values() for ext in values})
@@ -317,9 +317,13 @@ def _parse_and_merge(
         candidates = [lang for lang in languages if suffix in extensions[lang]]
         if not candidates:
             continue
-        # Objective-C also accepts C declarations. Its visitor retains C
-        # types, so mixed headers need neither reparsing nor record merging.
-        owner = "objc" if len(candidates) > 1 and suffix == ".h" else candidates[0]
+        # Headers are inspected once. Keep Objective-C's existing precedence;
+        # otherwise select C++ when it is among the requested/detected frontends.
+        owner = (
+            next(lang for lang in ("objc", "cpp", "c") if lang in candidates)
+            if suffix == ".h"
+            else candidates[0]
+        )
         owners[file_path] = "csharp" if owner == "c_sharp" else owner
     with directory_sources(path, owners, defer_proxies=True):
         return _merge_language_graphs(path, languages)
@@ -362,7 +366,7 @@ def _finish_source_manifest(
     manifest: dict[str, object], languages: list[str], *, root_name: str | None = None
 ) -> None:
     extensions = {extension for lang in languages for extension in _LANGUAGE_EXTENSIONS[lang]}
-    if any(lang in {"c", "objc"} for lang in languages):
+    if any(lang in {"c", "cpp", "objc"} for lang in languages):
         extensions.add(".h")
     for file in cast(list[dict[str, str]], manifest["files"]):
         if root_name is not None and file["root"] != root_name:
@@ -436,6 +440,10 @@ def _merge_language_graphs(path: str, languages: list[str]) -> CodeGraph:
         node_id for node_id, lang in node_languages.items() if lang in {"c", "cpp", "objc"}
     }
     link_cross_file_calls(merged, eligible_ids=c_family_ids)
+    if any(lang in {"javascript", "typescript"} for lang in languages):
+        from trailmark.parsers._ecmascript import bind_imported_constructors
+
+        bind_imported_constructors(merged)
     # merge() doesn't touch `language`; preserve the polyglot marker.
     merged.language = "polyglot"
     apply_repository_links(merged, path)

@@ -5,8 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from tree_sitter import Node, Parser
-from tree_sitter_language_pack import get_language
+from tree_sitter import Language, Node, Parser
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -28,6 +27,8 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers.cairo._qualified import resolve_qualified_calls
+from trailmark.tree_sitter_custom._native import bundled_language
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -50,7 +51,7 @@ class CairoParser:
         return "cairo"
 
     def __init__(self) -> None:
-        self._parser = Parser(get_language("cairo"))
+        self._parser = Parser(Language(bundled_language("cairo")))
 
     def parse_file(self, file_path: str) -> CodeGraph:
         """Parse a single Cairo file into a CodeGraph."""
@@ -59,6 +60,7 @@ class CairoParser:
         graph = CodeGraph(language="cairo", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
+        resolve_qualified_calls(tree.root_node, graph, module_id)
         _resolve_lexical_calls(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
