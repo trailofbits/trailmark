@@ -938,6 +938,7 @@ def _read_requires_python(pyproject_data: dict[str, object]) -> str:
         "`syntax_error_context`",
         "`assert!(...)`",
         "generic impl declarations",
+        "literal `self` receiver",
         "`unsupported_syntax`",
         "`package fun`",
         "`file:api.init`",

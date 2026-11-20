@@ -28,6 +28,12 @@ from trailmark.parsers._common import (
 )
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers.cairo._qualified import resolve_qualified_calls
+from trailmark.parsers.cairo._self_calls import (
+    bind_self_calls,
+    impl_parameters,
+    self_call,
+    self_parameter,
+)
 from trailmark.tree_sitter_custom._native import bundled_language
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -62,6 +68,7 @@ class CairoParser:
         _visit_module(tree.root_node, file_path, module_id, graph)
         resolve_qualified_calls(tree.root_node, graph, module_id)
         _resolve_lexical_calls(graph)
+        bind_self_calls(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -353,12 +360,18 @@ def _extract_impl_core(
         return
     owner_id = container_id or module_id
     type_id = _child_id(owner_id, impl_name, module_id)
+    prior = graph.nodes.get(type_id)
+    count = dict(prior.attributes).get("cairo_impl_count") if prior else None
     graph.nodes[type_id] = CodeUnit(
         id=type_id,
         name=impl_name,
         kind=NodeKind.NAMESPACE,
         location=make_location(node, file_path),
-        attributes=(("cairo_impl", True),),
+        attributes=(
+            ("cairo_impl", True),
+            ("cairo_impl_parameters", impl_parameters(node)),
+            ("cairo_impl_count", count + 1 if isinstance(count, int) else 1),
+        ),
     )
     add_contains_edge(graph, owner_id, type_id)
 
@@ -450,7 +463,8 @@ def _extract_function(
     branches, exception_types, calls = _collect_func_body(body, file_path)
     complexity = compute_complexity(branches)
     docstring = _extract_docstring(node)
-
+    prior = graph.nodes.get(func_id)
+    count = dict(prior.attributes).get("cairo_definition_count") if prior else None
     unit = CodeUnit(
         id=func_id,
         name=func_name,
@@ -462,6 +476,10 @@ def _extract_function(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,
+        attributes=(
+            *self_parameter(node),
+            ("cairo_definition_count", count + 1 if isinstance(count, int) else 1),
+        ),
     )
     graph.nodes[func_id] = unit
     add_contains_edge(graph, owner, func_id)
@@ -581,12 +599,16 @@ def _add_call_edges(
         target_id = _resolve_call_target(call_name, module_id, container_id)
         confidence = _call_confidence(call_name)
         graph.edges.append(
-            CodeEdge(
-                source_id=source_id,
-                target_id=target_id,
-                kind=EdgeKind.CALLS,
-                confidence=confidence,
-                location=make_location(call_node, file_path),
+            self_call(
+                CodeEdge(
+                    source_id=source_id,
+                    target_id=target_id,
+                    kind=EdgeKind.CALLS,
+                    confidence=confidence,
+                    location=make_location(call_node, file_path),
+                ),
+                call_node,
+                graph,
             )
         )
 

@@ -125,6 +125,10 @@ and named `impl Bound: Trait<T>` parameters, with concrete method owners and sit
 Impl namespaces
 are explicit containment nodes. Concrete methods of contract `abi(embed_v0)`
 implementations are exposed entrypoints; private helpers remain private. The
+literal `self` receiver can link to a unique inspected method in the same lexical
+module when self types, impl parameter signatures, receiver modes and positional
+argument counts agree. Competing or generic methods, unknown signatures and impl
+type aliases remain uncertain; arbitrary receiver types are not inferred. The
 pinned Cairo grammar rejects common `assert!(...)` macro statements. They produce
 syntax diagnostics and cause strict parsing to fail even for compiler-valid input.
 
