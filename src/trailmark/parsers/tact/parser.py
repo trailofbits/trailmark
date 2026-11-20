@@ -74,7 +74,7 @@ def _visit_root(root: Node, file_path: str, module_id: str, graph: CodeGraph) ->
             _extract_import(child, graph, module_id)
         elif child.type == "struct":
             _extract_struct(child, file_path, module_id, module_id, graph)
-        elif child.type == "contract":
+        elif child.type in {"contract", "trait"}:
             _extract_contract(child, file_path, module_id, graph)
         elif child.type in _FUNCTION_TYPES:
             _extract_function(child, file_path, module_id, module_id, graph)
@@ -88,11 +88,23 @@ def _extract_contract(node: Node, file_path: str, module_id: str, graph: CodeGra
     graph.nodes[contract_id] = CodeUnit(
         id=contract_id,
         name=name,
-        kind=NodeKind.CONTRACT,
+        kind=NodeKind.TRAIT if node.type == "trait" else NodeKind.CONTRACT,
         location=make_location(node, file_path),
     )
     add_contains_edge(graph, module_id, contract_id)
-    body = first_child_type(node, frozenset({"contract_body"}))
+    traits = node.child_by_field_name("traits")
+    if traits is not None:
+        for trait in named_children(traits):
+            if trait.type == "identifier":
+                graph.edges.append(
+                    CodeEdge(
+                        contract_id,
+                        f"{module_id}:{node_text(trait)}",
+                        EdgeKind.INHERITS,
+                        location=make_location(trait, file_path),
+                    )
+                )
+    body = first_child_type(node, frozenset({"contract_body", "trait_body"}))
     if body is None:
         return
     for child in named_children(body):

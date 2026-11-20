@@ -31,6 +31,10 @@ uses the TSX grammar for `.tsx`; interface methods retain signature metadata.
 Unknown receiver writes and conditional writes invalidate concrete-constructor
 inference; expired block-local declarations do not affect an outer receiver.
 
+Named generator declarations, including `async function*`, resolve direct calls
+to their lexical owner in JavaScript, TypeScript, and TSX. A same-name outer
+function does not override that binding, including for calls before the declaration.
+
 Lexical callable parameters and locals prevent binding to unrelated same-name
 functions. Such calls remain uncertain proxies with `binding_blocked` metadata,
 including after directory linking. This guard does not infer callback values or
@@ -41,10 +45,16 @@ scope; methods in module-level and function-local classes do not shadow module
 functions or leak their names into an enclosing function. Java variables and parameters
 occupy a separate namespace and do not block method calls.
 
+Python assignment-expression (`:=`) targets also block unrelated function names,
+including calls before the assignment and captures in nested functions. Defaults
+bind these targets in the enclosing scope, rather than the function being defined.
+
 Rust and Verus preserve repeated same-name impl methods with source-offset
 suffixes instead of combining their bodies. Ambiguous trait and concrete generic
 impl dispatch remains unresolved. Declaration-owned `unsafe(no_mangle)` and
 `unsafe(export_name = "symbol")` attributes expose Rust 2024 entrypoints.
+Literal macro declaration templates retain source dependencies as uncertain
+references, separate from runtime calls; their names do not enter runtime type lookup.
 
 Go retains grouped, variadic, function-typed and unnamed parameters. Unnamed
 slots use `$argN`; variadic types retain `...`. Explicit single-type generic
@@ -105,7 +115,10 @@ exclude comments, strings and later statements. SQL dependencies are
 `corresponds_to` edges, not runtime calls; search paths are not evaluated. Replacing
 a routine overload removes its previous body dependencies and containment edge.
 
-Cairo module, trait, impl, struct and enum IDs retain their owners. Impl namespaces
+Cairo module, trait, impl, struct and enum IDs retain their owners. A bundled
+Cairo grammar retains generic impl declarations, including anonymous `+Trait<T>`
+and named `impl Bound: Trait<T>` parameters, with concrete method owners and sites.
+Impl namespaces
 are explicit containment nodes. Concrete methods of contract `abi(embed_v0)`
 implementations are exposed entrypoints; private helpers remain private. The
 pinned Cairo grammar rejects common `assert!(...)` macro statements. They produce
@@ -130,6 +143,11 @@ blocks and `pub proc` declarations are entrypoints. The bundled grammar does not
 cover all recent Miden syntax, including some visibility and branch forms.
 
 Bash command effects use statically decoded words without shell evaluation.
+An unconditional nested function definition can bind later calls in the same
+body; it does not establish a script-wide binding. Alias changes after an
+enclosing function was parsed do not rewrite its command sites. Earlier alias
+barriers, conditional definitions, duplicate names and runtime mutations remain
+conservative.
 Quoted/escaped mutation builtins invalidate inference. Reserved `time` preserves
 the timed call. Named `coproc` compound bodies retain enclosing function spans
 and command ownership. Bash 5.3 `${ command; }` and `${| command; }` substitutions
@@ -248,7 +266,13 @@ conditional-access calls are retained.
 
 Java lambdas and local/anonymous classes own deferred bodies. Explicit construction
 and constructor chaining have located edges; unknown or overloaded constructors
-remain proxies. Servlet entrypoints require servlet ancestry, an instance method,
+remain proxies. Anonymous Java subclasses record source-located base type relationships
+and resolve bare helper calls through an inspected class chain with inferred confidence.
+Nearest overrides retain their signature; multiple inherited overloads, private methods,
+unknown bases and cycles remain uncertain. Anonymous interface bases use `implements`;
+uninspected bases retain `type_uses` rather than guessing a class or interface kind.
+Enclosing-method fallback remains uncertain when inherited lookup finds no supported target.
+Servlet entrypoints require servlet ancestry, an instance method,
 a void return and request/response parameters. Unrecognized framework
 intermediates such as `FrameworkServlet` do not establish servlet ancestry.
 
@@ -256,6 +280,13 @@ Swift extensions retain methods and attach to an unambiguous extracted type with
 replacing its kind or source location. Local functions and closures own their bodies.
 Kotlin recursively extracts nested and companion containers. Both prefer known
 lexical methods over same-named free functions and preserve uncertain callable values.
+Kotlin bare calls can distinguish local overloads with different fixed positional
+arities. This requires one matching argument count and fixed signatures throughout
+the nearest overload family. Defaults, variadic or extension signatures, named or
+spread arguments, trailing lambdas and equal-arity overloads remain conservative;
+member families with explicit supertypes, enum or data-class declarations, or
+implicit `Any` method names also remain conservative because inherited or generated
+candidates are incomplete. Compiler type-based overload resolution is not performed.
 Recursive type and callable extraction in JavaScript, TypeScript, C++, C#, Dart,
 Java, Objective-C, PHP,
 Python, Kotlin and Swift, and Ruby containers and blocks, is limited to 48 extraction
@@ -316,6 +347,9 @@ binders. Bare calls remain eligible for local/inherited method and cross-file
 global linking; known local callable values stay uncertain. Rails actions and
 Sidekiq `perform` entrypoints require
 public instance-method metadata; private and singleton helpers are excluded.
+Inline visibility modifiers (`private def`, `protected def`, and `public def`)
+retain their method declarations, bodies, and visibility without changing the
+default visibility of following methods.
 Runtime metaprogramming, reopened class inheritance, and lambda-body coverage remain
 limited.
 
@@ -391,6 +425,11 @@ Invalid block-scope `static` prototypes remain blocked unless a same-file functi
 definition supplies the target, including when a misparsed macro swallows a prototype.
 Java constructor binding also runs after the directory merge. JavaScript and
 TypeScript arrows inherit lexical `this`; regular function expressions do not.
+JavaScript and TypeScript `new` expressions retain located call edges with
+`constructor_call` metadata, including default parameters and dynamic callee
+expressions. Explicit local class constructors bind to their method nodes;
+unknown constructor targets remain uncertain proxies. Constructor arguments
+and nested callee expressions retain their separate execution sites.
 Abstract TypeScript classes own their methods. Anonymous classes have positioned
 `$class@line_column` owners, and namespace classes have IDs such as
 `file:NS.Inner.method`. Local classes and class expressions do not inherit the
@@ -413,6 +452,14 @@ Parameters shadow outer imports through nested callbacks. Calling a whole-module
 require remains an uncertain proxy;
 external `node:` module IDs normalize the namespace separator to a dot. Import
 resolution is cached per declaration.
+Explicit ECMAScript named imports and local export aliases bind to their selected
+relative source module, including directory `index` modules and TypeScript
+imports with emitted JavaScript suffixes. Local parameters and declarations
+still shadow imports. Export inspection stays within the selected directory
+sources and languages; single-file parsing does not inspect import targets.
+Type-only imports, missing exports, package imports,
+default imports, and re-exports remain proxies rather than using unrelated
+same-name functions elsewhere in the project.
 
 Generator expressions and callable initializers wrapped in parentheses, `as`,
 `satisfies`, type assertions or non-null assertions retain their variable binding.

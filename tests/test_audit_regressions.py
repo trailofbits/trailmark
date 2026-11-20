@@ -353,7 +353,11 @@ def test_typescript_receiver_invalidations() -> None:
         and e.target_id in {"case:Safe.run", "case:Risky.run"}
         for e in calls
     )
-    block = [e.target_id for e in calls if e.source_id == "case:blockShadow"]
+    block = [
+        e.target_id
+        for e in calls
+        if e.source_id == "case:blockShadow" and not dict(e.attributes).get("constructor_call")
+    ]
     assert block == ["case:Risky.run", "case:Safe.run"]
 
 

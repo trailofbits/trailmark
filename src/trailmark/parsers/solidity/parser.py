@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -503,6 +504,21 @@ def _add_call_edges(
 ) -> None:
     """Add CALLS edges for all collected call expressions."""
     for call_name, call_node in calls:
+        location = make_location(call_node, file_path)
+        function = call_node.child_by_field_name("function")
+        if function is not None:
+            start = _callee_start(function)
+            if start.start_byte > function.start_byte:
+                # The pinned grammar can put a comparison's left operand inside
+                # a receiver. Keep only the actual callee, without reparsing text.
+                call_name = (function.text or b"")[start.start_byte - function.start_byte :].decode(
+                    errors="replace"
+                )
+                location = replace(
+                    location,
+                    start_line=start.start_point.row + 1,
+                    start_col=start.start_point.column,
+                )
         target_id = _resolve_call_target(call_name, module_id)
         confidence = _call_confidence(call_name)
         modifier = call_node.type == "modifier_invocation"
@@ -511,7 +527,7 @@ def _add_call_edges(
             target_id=target_id,
             kind=EdgeKind.CALLS,
             confidence=confidence,
-            location=make_location(call_node, file_path),
+            location=location,
             attributes=(
                 ("solidity_call_kind", "modifier"),
                 ("modifier_name", call_name),
@@ -521,6 +537,25 @@ def _add_call_edges(
             else (),
         )
         graph.edges.append(edge if modifier else guard_call(edge, call_node, graph=graph))
+
+
+def _callee_start(node: Node) -> Node:
+    """Recover a receiver's start through unparenthesized grammar prefixes."""
+    while True:
+        if node.type == "expression" and len(node.named_children) == 1:
+            child = node.named_children[0]
+        elif node.type in {"member_expression", "binary_expression", "call_expression"}:
+            field = {
+                "member_expression": "object",
+                "binary_expression": "right",
+                "call_expression": "function",
+            }[node.type]
+            child = node.child_by_field_name(field)
+        else:
+            return node
+        if child is None:
+            return node
+        node = child
 
 
 def _call_confidence(call_name: str) -> EdgeConfidence:
