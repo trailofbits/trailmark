@@ -109,6 +109,7 @@
     },
     {
       "attributes": {
+        "binding_blocked": true,
         "raw_target": "d.bark"
       },
       "confidence": "inferred",

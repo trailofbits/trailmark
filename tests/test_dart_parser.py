@@ -6,6 +6,7 @@ from pathlib import Path
 
 from trailmark.models.graph import CodeGraph
 from trailmark.parsers.dart import DartParser
+from trailmark.query.api import QueryEngine
 
 
 def _parse(tmp_path: Path, body: str, name: str = "app.dart") -> CodeGraph:
@@ -93,3 +94,93 @@ class TestCallEdges:
         )
         sources = {e.source_id for e in graph.edges if e.kind.value == "calls"}
         assert "app:a" in sources
+
+
+def test_named_and_factory_constructor_navigation(tmp_path: Path) -> None:
+    from trailmark.models.edges import EdgeKind
+    from trailmark.query.api import QueryEngine
+
+    graph = _parse(
+        tmp_path,
+        "class Context {\n"
+        "  Context._internal();\n"
+        "  factory Context() { return Context._internal(); }\n"
+        "}\n"
+        "Context make() => Context._internal();\n",
+    )
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert {(e.source_id, e.target_id) for e in calls} == {
+        ("app:Context.Context", "app:Context.Context._internal"),
+        ("app:make", "app:Context.Context._internal"),
+    }
+    assert {e.location.start_line for e in calls if e.location} == {3, 5}
+    engine = QueryEngine.from_graph(graph)
+    assert {n["id"] for n in engine.callers_of("app:Context.Context._internal")} == {
+        "app:Context.Context",
+        "app:make",
+    }
+
+
+def test_constructor_name_shadow_stays_unresolved(tmp_path: Path) -> None:
+    from trailmark.models.edges import EdgeKind
+
+    graph = _parse(
+        tmp_path,
+        "class Context { Context.named(); }\n"
+        "void invoke(dynamic Context) { Context.named(); }\n"
+        "void external() { Missing.named(); }\n",
+    )
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 2
+    assert all(e.target_id.startswith("proxy.") for e in calls)
+
+
+def test_unnamed_constructor_navigation(tmp_path: Path) -> None:
+    from trailmark.models.edges import EdgeKind
+
+    graph = _parse(tmp_path, "class Context { Context(); }\nContext make() => Context();\n")
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert (calls[0].source_id, calls[0].target_id) == ("app:make", "app:Context.Context")
+
+
+def test_explicit_this_calls_use_nearest_class_even_with_local_shadow(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        "class Box {\n"
+        " void work() {}\n"
+        " void run(void Function() work) { this.work(); }\n"
+        "}\n"
+        "class Other { void work() {} }\n",
+    )
+    calls = [e for e in graph.edges if e.source_id == "app:Box.run" and e.kind.value == "calls"]
+    assert len(calls) == 1 and calls[0].target_id == "app:Box.work"
+    assert calls[0].confidence.value == "inferred"
+    assert calls[0].location is not None and calls[0].location.start_line == 3
+    engine = QueryEngine.from_graph(graph)
+    assert {n["id"] for n in engine.callers_of("app:Box.work")} == {"app:Box.run"}
+
+
+def test_this_missing_and_other_receivers_stay_uncertain(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        "class Base { void work() {} }\n"
+        "class Box extends Base {\n"
+        " void run(Base other) { this.work(); other.work(); }\n"
+        "}\n",
+    )
+    calls = [e for e in graph.edges if e.source_id == "app:Box.run" and e.kind.value == "calls"]
+    assert len(calls) == 2
+    assert all(e.target_id != "app:Base.work" for e in calls)
+
+
+def test_super_call_site_is_retained_without_inheritance_guess(tmp_path: Path) -> None:
+    graph = _parse(
+        tmp_path,
+        "class Base { void work() {} }\nclass Box extends Base { void run() { super.work(); } }\n",
+    )
+    calls = [e for e in graph.edges if e.source_id == "app:Box.run" and e.kind.value == "calls"]
+    assert len(calls) == 1
+    assert calls[0].target_id != "app:Base.work"
+    assert dict(calls[0].attributes)["raw_target"] == "super.work"
+    assert calls[0].location is not None and calls[0].location.start_line == 2

@@ -78,6 +78,10 @@ site's `location` (or `None` if unavailable). A proxy node's own location is
 only its first occurrence; use each row's `location` when a call repeats. A
 name that matches no function returns `[]`.
 
+Solidity receiver calls inside comparisons retain the callee text and each call's
+own span, excluding preceding comparison operands. Repeated calls to the same
+unresolved receiver member share a proxy while retaining separate call-site rows.
+
 The report and `unresolved_calls()` work for every supported language.
 
 ## What unresolved calls mean for results
@@ -105,6 +109,27 @@ produce no call sites, so they are outside its counts. Zero unresolved calls is
 not proof that the graph contains every executable path. A large number of
 proxies does not mean calls were dropped; each one is a call that was kept but
 not resolved.
+
+## Dart explicit receivers
+
+An explicit `this.method(...)` call can navigate to a unique method in its
+nearest lexical class with inferred confidence. A local value with the same
+method name does not shadow explicit `this`. Missing and inherited methods,
+chained receivers, and other value receivers remain unresolved. Calls through
+`super.method(...)` retain their source sites without guessing inheritance.
+
+## C++ out-of-line methods
+
+Simple qualified definitions such as `Stream::flush` and `Stream::~Stream`
+attach to an identifiable class or struct. A same-file declaration takes
+precedence; a cross-file owner must be unique. Namespace-qualified free
+functions, template-qualified owners, and ambiguous class owners are not
+reclassified. Existing definition IDs are preserved, while method names and
+containment reflect the class owner.
+
+Bare calls within those methods can navigate to a unique method in that class.
+Overloads and shadowing local values remain uncertain; header prototypes do
+not compete with extracted method definitions.
 
 ## Rust limits
 
@@ -154,3 +179,36 @@ definitions are not expanded. Generated methods, implicit constructors, compiler
 entrypoints, and operator desugaring are not invented. A missing edge is not proof
 of dead code. `main` follows the generic entrypoint rule; script execution needs
 an entrypoint override. Syntax errors warn that the graph may be incomplete.
+
+## C# construction
+
+Explicit C# `new Type(...)` expressions retain constructor call sites, including
+construction inside a `throw` expression. A unique declared instance constructor
+in the same file can resolve with `inferred` confidence. Static constructors are
+excluded. Missing, implicit, generic and overloaded constructors remain uncertain
+proxies; Trailmark does not select overloads by argument types. Import aliases
+and generic type parameters block constructor type lookup. Potentially competing
+namespace imports block binding to outer namesakes.
+A `global::` type qualification retains its absolute meaning.
+
+## Swift self and cleanup
+
+An explicit `self.method()` call resolves to a unique method on its nearest
+lexical type, including merged extensions. Capture rebinding, syntax recovery,
+and lexical binding barriers block this inference. Overloads and other value receivers
+remain unresolved; Trailmark does not perform Swift type checking or infer
+inherited implementations. These local method bindings have `inferred`
+confidence.
+
+A Swift `defer` body belongs to its enclosing function or method. Its calls and
+branches retain that owner; `defer` does not create a function call or a closure
+node. Actual closures nested inside cleanup code keep their own nodes and calls.
+
+## Dart constructors
+
+Dart constructor calls resolve to a unique constructor declaration in the same
+file when the class name is unshadowed. This includes named constructors such
+as `Context._internal()` and calls made inside factory constructors. The
+`calls` edge targets the constructor method, preserving its source site for
+caller and callee queries. Constructor binding has `inferred` confidence;
+imported class aliases and receiver type inference are not modeled.
