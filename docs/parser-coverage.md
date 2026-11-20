@@ -155,6 +155,10 @@ contributes calls. Long and short callable-struct methods have receiver metadata
 and separate bodies; callable-object dispatch remains uncertain. Macro expansion
 and grammar recovery can still leave graphs incomplete. Skipped Julia macros emit
 `unsupported_syntax` diagnostics and fail strict parsing.
+Standard unqualified Julia `@inbounds` wrappers retain explicit calls in their
+source bodies. Inspected macro redefinitions, uncertain imports, dynamic loading,
+bare modules and syntax recovery keep the wrapper opaque. Callback values remain
+uncertain; no array dispatch or macro expansion is inferred.
 
 C tag and callable namespaces retain both declarations when names coincide.
 Indirect pointer calls remain uncertain. C++ anonymous namespace functions are
