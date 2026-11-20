@@ -1061,6 +1061,13 @@ def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
 
 
+def test_dart_declared_factory_result_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "A direct `final value = factory(...)` initializer can provide a receiver type" in guide
+    assert "callable\ngetters, generic parameters, type aliases" in guide
+    assert "infer a factory's return type from its implementation" in guide
+
+
 def test_dart_explicit_receiver_contract() -> None:
     guide = (DOCS / "call-resolution.md").read_text()
     assert "An explicit `this.method(...)` call can navigate to a unique method" in guide
@@ -1114,4 +1121,7 @@ def test_dart_constructor_resolution_contract() -> None:
     text = _flat("docs/call-resolution.md")
     assert "Dart constructor calls resolve to a unique constructor declaration" in text
     assert "`Context._internal()`" in text
-    assert "imported class aliases and receiver type inference are not modeled" in text
+    assert (
+        "Imported class aliases and inferred receiver types do not participate in "
+        "constructor type lookup."
+    ) in text
