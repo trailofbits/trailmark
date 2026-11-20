@@ -1,0 +1,16 @@
+Cairo grammar: https://github.com/tree-sitter-grammars/tree-sitter-cairo
+Vendored commit: 6238f609bea233040fe927858156dee5515a0745
+License: MIT; see LICENSE.
+
+grammar.js mechanically combines upstream utils.js, cairo_0.js, cairo_1.js and
+grammar.js into one file so builds need no auxiliary JavaScript imports.
+Local changes: impl heads use declaration type parameters rather than type
+arguments; anonymous +Trait<T> impl parameters are accepted.
+src/scanner.c is unchanged upstream source.
+
+Upstream source SHA-256:
+032bb05fc41c0cc7a2166ed683ffbde51ce98c5a463d8051e6abaf1bf624d2d9  utils.js
+b3d2d9b0927c430d202089f9e6cef252a837036e9606ac2ccf28507a056004b7  cairo_0.js
+3158cb2e3a4e06a809b0f7b08e877a1962daaf5daa0f97e026172893656df34f  cairo_1.js
+7ef592919bdce86bcd4d29f8a91c336a70e972bab3564aed731e9af51aba5392  grammar.js
+db7a7afa9901800d8e2f98cf861ef84e8954b549d3757cae9b1482dab1a958fa  src/scanner.c

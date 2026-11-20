@@ -78,6 +78,10 @@ site's `location` (or `None` if unavailable). A proxy node's own location is
 only its first occurrence; use each row's `location` when a call repeats. A
 name that matches no function returns `[]`.
 
+Solidity receiver calls inside comparisons retain the callee text and each call's
+own span, excluding preceding comparison operands. Repeated calls to the same
+unresolved receiver member share a proxy while retaining separate call-site rows.
+
 The report and `unresolved_calls()` work for every supported language.
 
 ## What unresolved calls mean for results
@@ -167,3 +171,12 @@ confidence.
 A Swift `defer` body belongs to its enclosing function or method. Its calls and
 branches retain that owner; `defer` does not create a function call or a closure
 node. Actual closures nested inside cleanup code keep their own nodes and calls.
+
+## Dart constructors
+
+Dart constructor calls resolve to a unique constructor declaration in the same
+file when the class name is unshadowed. This includes named constructors such
+as `Context._internal()` and calls made inside factory constructors. The
+`calls` edge targets the constructor method, preserving its source site for
+caller and callee queries. Constructor binding has `inferred` confidence;
+imported class aliases and receiver type inference are not modeled.

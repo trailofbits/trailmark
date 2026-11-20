@@ -157,6 +157,16 @@ single-file parsing. Bash syntax errors warn that the graph may be incomplete.
 These rules apply to ordinary Rust as well as Verus blocks. For the patterns
 that typically stay unresolved, see [Rust limits](call-resolution.md#rust-limits).
 
+### Macro template source
+
+Literal `macro_rules!` declaration arms retain separate `template` nodes for their
+source declarations, with `macro_template` metadata and uncertain `references`
+dependencies. Each arm keeps its own identities and physical source spans.
+Template names do not supply runtime function or type bindings. Metavariable
+callees retain proxy dependencies; repetition and arms that cannot be parsed as
+literal Rust declarations remain opaque with diagnostics. No macro expansion or
+generated runtime dispatch is inferred.
+
 ### Verus
 
 The Rust parser extracts ordinary, `spec`, and `proof` functions with bodies
@@ -188,9 +198,13 @@ and literal `@import` dependencies. IDs include the container, for example
 is an untrusted API entrypoint. `pub fn` alone is not an external entrypoint.
 
 Bare calls and explicit calls through named local containers resolve within the
-file. Calls through parameters, local variables, instance receivers, imported
-modules, function pointers, and builtins remain uncertain. Local bindings and
-captures conservatively shadow declarations throughout the enclosing function.
+file. A unique local variable with an explicit named-container type can bind
+member calls within its lexical block after its declaration. The direct `.init()`
+initializer of that typed local can bind to the same container; these bindings
+have `inferred` confidence. Simple pointer annotations are supported. Duplicate
+bindings, parameters and captures block this inference throughout the function.
+Other value receivers, imported modules, function pointers, and builtins remain
+uncertain. Local bindings and captures conservatively shadow declarations.
 Comptime execution, generated/anonymous types, test blocks, and container methods
 declared inside function bodies are not analyzed. Zig syntax errors produce a
 warning; the resulting graph may be incomplete.
@@ -343,6 +357,9 @@ functions, and procedures, plus `corresponds_to` edges from routines and views
 to the objects they reference. It is not a SQL dialect validator and does not
 analyze query semantics. The SQL grammar ships as the `tree-sitter-sql` wheel
 dependency, so it does not use the shared grammar cache.
+Routine recovery respects top-level statement boundaries, including quoted bodies,
+so adjacent functions keep separate spans and parameters. Recovered functions and
+procedures retain inferred relation dependencies; syntax diagnostics remain visible.
 
 ## PowerShell
 
@@ -408,13 +425,21 @@ incomplete-graph warning even for some valid VB.NET programs.
 
 ## Schema frontends and FunC/Sway declarations
 
+Tact traits retain their method and receiver declarations as owned nodes.
+Contract and trait `with` clauses produce `inherits` edges. Imported trait bodies
+and virtual dispatch are not expanded; unresolved inherited calls remain explicit.
+
 Proto retains nested messages/enums, map fields and oneof members; IDs include
 lexical owners, and public imports retain the actual filename. GraphQL honors
 explicit schema root mappings and SDL extension fields in single-file and
 directory parses. List/non-null wrappers remain recursive TypeRefs so named
-leaf types retain dependency edges. Thrift IDs use source-file identity instead
+leaf types retain dependency edges. GraphQL `implements` clauses retain interface
+relationships for object types, interfaces, and SDL extensions.
+Thrift IDs use source-file identity instead
 of the first target-language namespace; namespaces remain metadata. Container
 arguments and declared throws are represented as type references.
+Thrift service `extends` clauses retain `inherits` edges to local services and
+services qualified by an included file, with the base reference's source span.
 
 FunC dot/tilde method variants retain specialized declarations and bare fallback
 semantics. Function-valued parameters and locals block unrelated same-name
@@ -432,8 +457,13 @@ ownership, conservative binding, schema identity changes and pinned grammar limi
 Dafny uses Dafny 4 function syntax. Modules, classes, traits, datatypes, fields,
 functions, methods and lemmas retain declaration roles. Contracts and proof statements
 produce references; ghost declarations and lemma uses do not create computational calls.
+Proof expressions keep their computational continuations outside the proof context,
+including assertions, assumptions and calculations nested in branches.
 Input parameters retain source order and types; constructors and iterators retain
-their own roles. Nested calls require computational enclosing callees and non-ghost
+their own roles. Arrow-typed parameter applications retain uncertain callback sites
+without binding to same-name global functions. Contracts and proof uses remain
+references; ghost parameters and inner shadowing binders do not become runtime callbacks.
+Nested calls require computational enclosing callees and non-ghost
 argument positions. Named ghost constructor fields retain `ghost` metadata. Aliases and opened modules
 resolve against inspected imports, including sibling modules. Datatype destructors have
 type-level aliases, and newtype members retain their own declarations. File includes resolve by their exact path relative to
@@ -448,6 +478,9 @@ F* parses `.fst` and `.fsti` declarations, module aliases/imports, refinements a
 explicit references. Interfaces retain their source locations and correspond to unique
 implementations. Computational applications, including implicit `Tot`, produce calls;
 implementations inherit effect, lemma and visibility metadata from matching `val` declarations.
+The inherited `effect` string is retained on unannotated implementations, including
+matches in a companion interface. Explicit implementation effects are preserved;
+ambiguous signatures do not supply an effect.
 Proof and type uses remain references. Ghost effect abbreviations and erased results do not
 produce calls. Inspected interfaces bound exports, and later opens take precedence. Lexical binders, including local patterns
 and dependent arrows, block unrelated global targets. Private declarations stay local;
@@ -474,6 +507,8 @@ inferred. Implicit and inductive binders, mutual fixpoint bodies and section imp
 retain their lexical boundaries. From/Require imports use directory identities or
 explicit -Q/-R mappings in the nearest _CoqProject file; other load-path configuration
 is not evaluated. Sentence recovery preserves later declarations after malformed commands.
+Recovered Rocq and WhyML declarations and references keep their original source coordinates,
+including leading whitespace before the first syntax node.
 Advanced functors, generated declarations, Include expansion and notation declarations
 remain incomplete. Select `--language rocq` explicitly for `.v` files because the
 extension also denotes Verilog; automatic detection excludes `.v`.
@@ -502,8 +537,11 @@ measure syntax recovery, not declaration or dependency accuracy.
 ## TLA+
 
 TLA+ edges describe specification dependencies. Operators, functions, constants,
-variables, assumptions and theorem statements are retained. EXTENDS controls cross-file
-visibility transitively, including enclosing modules. Separators and RECURSIVE forward
+variables, assumptions and theorem statements are retained.
+LET definitions retain separate lexical nodes, their own body references and recursive
+dependencies. Their names stay within the enclosing LET; specification references do
+not produce deferred call edges.
+EXTENDS controls cross-file visibility transitively, including enclosing modules. Separators and RECURSIVE forward
 declarations are accepted; parameters, LAMBDA, quantifier and LET binders shadow globals. LOCAL definitions retain private visibility. Named INSTANCE nodes retain substitution
 references, and single-component `I!Op` uses can reference inspected template members.
 WITH substitutions are diagnosed because the template is not instantiated. Proof steps,
