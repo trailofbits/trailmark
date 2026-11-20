@@ -157,7 +157,9 @@
     },
     "taxonomy:AnimalImpl": {
       "attributes": {
-        "cairo_impl": true
+        "cairo_impl": true,
+        "cairo_impl_count": 1,
+        "cairo_impl_parameters": "[]"
       },
       "branches": [],
       "cyclomatic_complexity": null,
@@ -177,6 +179,12 @@
       "return_type": null
     },
     "taxonomy:AnimalImpl.describe": {
+      "attributes": {
+        "cairo_definition_count": 1,
+        "cairo_self_generic": false,
+        "cairo_self_mode": "snapshot",
+        "cairo_self_type": "Animal"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -217,6 +225,9 @@
       "return_type": null
     },
     "taxonomy:AnimalTrait.describe": {
+      "attributes": {
+        "cairo_definition_count": 1
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -257,6 +268,9 @@
       "return_type": null
     },
     "taxonomy:add": {
+      "attributes": {
+        "cairo_definition_count": 1
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -298,6 +312,12 @@
       }
     },
     "taxonomy:bark": {
+      "attributes": {
+        "cairo_definition_count": 1,
+        "cairo_self_generic": false,
+        "cairo_self_mode": "snapshot",
+        "cairo_self_type": "Dog"
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -330,6 +350,9 @@
       }
     },
     "taxonomy:branchy": {
+      "attributes": {
+        "cairo_definition_count": 1
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -416,6 +439,9 @@
       }
     },
     "taxonomy:make_animal": {
+      "attributes": {
+        "cairo_definition_count": 1
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -448,6 +474,9 @@
       }
     },
     "taxonomy:make_dog": {
+      "attributes": {
+        "cairo_definition_count": 1
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -489,6 +518,9 @@
       }
     },
     "taxonomy:use_animal": {
+      "attributes": {
+        "cairo_definition_count": 1
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
