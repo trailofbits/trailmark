@@ -569,3 +569,14 @@ marker token, then verifies the class name and complete declaration span.
 Recovered classes retain `cpp_export_marker` and marker byte offsets. Original
 syntax diagnostics remain available, including unrelated errors. This bounded
 recovery does not expand macros; unrecognized or ambiguous shapes stay unchanged.
+
+C++ can recover a balanced physical function body when uppercase block macros
+make the grammar split it into fake functions. Bare wrappers require a direct
+statement semicolon in their block; function-like wrappers accept only empty or
+literal `...` headers. Expression-bearing headers are not omitted. Original-byte
+included ranges preserve every source position, existing recovery ranges, and
+raw syntax diagnostics. Recovered functions retain `cpp_body_recovered` and
+`cpp_block_macro_spans` provenance. This records physical source ownership without
+expanding the macros or inferring their control flow. Unbalanced conditional-arm
+braces, unknown literal recovery, and residual nested function definitions prevent
+recovery. A bounded second class/body pass handles boundaries exposed by recovery.

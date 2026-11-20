@@ -1082,6 +1082,14 @@ def test_cpp_export_marker_recovery_contract() -> None:
     assert "syntax diagnostics remain available, including unrelated errors" in guide
 
 
+def test_cpp_physical_block_macro_recovery_contract() -> None:
+    guide = _flat("docs/parser-coverage.md")
+    assert "Expression-bearing headers are not omitted" in guide
+    assert "`cpp_body_recovered` and `cpp_block_macro_spans` provenance" in guide
+    assert "physical source ownership without expanding the macros" in guide
+    assert "raw syntax diagnostics" in guide
+
+
 def test_csharp_qualified_static_call_contract() -> None:
     guide = (DOCS / "call-resolution.md").read_text()
     assert "An explicit `Type.Method(...)` call can navigate to a unique declared static" in guide
