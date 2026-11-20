@@ -93,6 +93,8 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/parser-coverage.md", "Rego bracket indices accept compound references"),
+    ("docs/installation.md", "Rego uses a bundled grammar"),
     ("docs/parser-coverage.md", "Module-local tables"),
     ("docs/parser-coverage.md", "An unconditional nested function definition"),
     ("docs/languages.md", "LET definitions retain separate lexical nodes"),

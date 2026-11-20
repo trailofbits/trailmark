@@ -5,8 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from tree_sitter import Node, Parser
-from tree_sitter_language_pack import get_language
+from tree_sitter import Language, Node, Parser
 
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
@@ -27,6 +26,7 @@ from trailmark.parsers._simple import (
     descendants,
     named_children,
 )
+from trailmark.tree_sitter_custom._native import bundled_language
 
 _EXTENSIONS = (".rego",)
 _BRANCH_TYPES = frozenset({"literal"})
@@ -41,7 +41,7 @@ class RegoParser:
         return "rego"
 
     def __init__(self) -> None:
-        self._parser = Parser(get_language("rego"))
+        self._parser = Parser(Language(bundled_language("rego")))
 
     def parse_file(self, file_path: str) -> CodeGraph:
         source = Path(file_path).read_bytes()

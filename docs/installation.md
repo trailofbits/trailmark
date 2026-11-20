@@ -38,6 +38,7 @@ and does not use the language-pack cache.
 **Bundled grammars** ship as C sources inside Trailmark. See
 [below](#bundled-grammars) for build requirements. Grammar licenses, revisions
 and local changes are recorded in `NOTICE` and the grammar directories.
+Rego uses a bundled grammar that accepts compound reference indices.
 
 ### Offline and TLS-inspected networks
 

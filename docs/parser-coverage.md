@@ -353,6 +353,8 @@ clause IDs such as `policy:allow.$clause@file_3_0`. Logical rules have potential
 `calls` edges to their clauses, marked `rego_clause`; these represent policy
 alternatives, not a runtime evaluation sequence. Calls and branches belong to the
 individual clause. Defaults and clauses in different files remain separate.
+Rego bracket indices accept compound references such as
+`types[input.request.object.spec.type]` without entering file-wide error recovery.
 The pinned grammar rejects nested reference rule heads and some qualified calls;
 inline-if call syntax that is split without an ERROR node is explicitly diagnosed.
 
