@@ -110,6 +110,7 @@ def _inherit_signatures(graph: CodeGraph, signatures: dict) -> None:
         signature = dict(candidates[0].attributes)
         attrs["private"] = bool(attrs.get("private") or signature.get("private"))
         if inherit:
+            attrs["effect"] = signature.get("effect", "")
             attrs["executable"] = signature.get("executable", False)
             if signature.get("declaration_role") == "lemma":
                 attrs["declaration_role"] = "lemma"

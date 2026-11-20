@@ -175,7 +175,11 @@ def materialize_type_use_edges(graph: CodeGraph) -> None:
     for unit in graph.nodes.values():
         # Lean resolves explicit types in its own namespace/import/order context.
         # Retained raw TypeRefs must not be rebound after polyglot/root merging.
-        if "lean_declaration" in dict(unit.attributes) or unit.location.file_path in formal_files:
+        if (
+            "lean_declaration" in dict(unit.attributes)
+            or dict(unit.attributes).get("macro_template")
+            or unit.location.file_path in formal_files
+        ):
             continue
         for type_ref in unit_type_refs(unit):
             target_id = _resolve_type_ref(type_ref, type_index, unit.id)
@@ -252,7 +256,7 @@ def _escape_proxy_symbol(raw_symbol: str) -> str:
 def _type_index(graph: CodeGraph) -> dict[str, str | None]:
     index: dict[str, str | None] = {}
     for node_id, node in graph.nodes.items():
-        if node.kind not in _TYPE_KINDS:
+        if node.kind not in _TYPE_KINDS or dict(node.attributes).get("macro_template"):
             continue
         for key in {
             node_id,

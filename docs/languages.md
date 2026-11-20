@@ -157,6 +157,16 @@ single-file parsing. Bash syntax errors warn that the graph may be incomplete.
 These rules apply to ordinary Rust as well as Verus blocks. For the patterns
 that typically stay unresolved, see [Rust limits](call-resolution.md#rust-limits).
 
+### Macro template source
+
+Literal `macro_rules!` declaration arms retain separate `template` nodes for their
+source declarations, with `macro_template` metadata and uncertain `references`
+dependencies. Each arm keeps its own identities and physical source spans.
+Template names do not supply runtime function or type bindings. Metavariable
+callees retain proxy dependencies; repetition and arms that cannot be parsed as
+literal Rust declarations remain opaque with diagnostics. No macro expansion or
+generated runtime dispatch is inferred.
+
 ### Verus
 
 The Rust parser extracts ordinary, `spec`, and `proof` functions with bodies
@@ -343,6 +353,9 @@ functions, and procedures, plus `corresponds_to` edges from routines and views
 to the objects they reference. It is not a SQL dialect validator and does not
 analyze query semantics. The SQL grammar ships as the `tree-sitter-sql` wheel
 dependency, so it does not use the shared grammar cache.
+Routine recovery respects top-level statement boundaries, including quoted bodies,
+so adjacent functions keep separate spans and parameters. Recovered functions and
+procedures retain inferred relation dependencies; syntax diagnostics remain visible.
 
 ## PowerShell
 
@@ -415,6 +428,8 @@ directory parses. List/non-null wrappers remain recursive TypeRefs so named
 leaf types retain dependency edges. Thrift IDs use source-file identity instead
 of the first target-language namespace; namespaces remain metadata. Container
 arguments and declared throws are represented as type references.
+Thrift service `extends` clauses retain `inherits` edges to local services and
+services qualified by an included file, with the base reference's source span.
 
 FunC dot/tilde method variants retain specialized declarations and bare fallback
 semantics. Function-valued parameters and locals block unrelated same-name
@@ -432,8 +447,13 @@ ownership, conservative binding, schema identity changes and pinned grammar limi
 Dafny uses Dafny 4 function syntax. Modules, classes, traits, datatypes, fields,
 functions, methods and lemmas retain declaration roles. Contracts and proof statements
 produce references; ghost declarations and lemma uses do not create computational calls.
+Proof expressions keep their computational continuations outside the proof context,
+including assertions, assumptions and calculations nested in branches.
 Input parameters retain source order and types; constructors and iterators retain
-their own roles. Nested calls require computational enclosing callees and non-ghost
+their own roles. Arrow-typed parameter applications retain uncertain callback sites
+without binding to same-name global functions. Contracts and proof uses remain
+references; ghost parameters and inner shadowing binders do not become runtime callbacks.
+Nested calls require computational enclosing callees and non-ghost
 argument positions. Named ghost constructor fields retain `ghost` metadata. Aliases and opened modules
 resolve against inspected imports, including sibling modules. Datatype destructors have
 type-level aliases, and newtype members retain their own declarations. File includes resolve by their exact path relative to
@@ -448,6 +468,9 @@ F* parses `.fst` and `.fsti` declarations, module aliases/imports, refinements a
 explicit references. Interfaces retain their source locations and correspond to unique
 implementations. Computational applications, including implicit `Tot`, produce calls;
 implementations inherit effect, lemma and visibility metadata from matching `val` declarations.
+The inherited `effect` string is retained on unannotated implementations, including
+matches in a companion interface. Explicit implementation effects are preserved;
+ambiguous signatures do not supply an effect.
 Proof and type uses remain references. Ghost effect abbreviations and erased results do not
 produce calls. Inspected interfaces bound exports, and later opens take precedence. Lexical binders, including local patterns
 and dependent arrows, block unrelated global targets. Private declarations stay local;
