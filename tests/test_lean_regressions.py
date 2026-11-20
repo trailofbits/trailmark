@@ -210,7 +210,7 @@ def test_call_exports_contain_no_temporary_lookup_or_import_flags(tmp_path: Path
     graph = _parse(tmp_path, "def f (n : Nat) := n\ndef g := f 1\ndef h := absent 1\n")
     for edge in graph.edges:
         assert (
-            not {"lean_candidates", "lean_receiver_candidates", "import_binding"}
+            not {"_lookup", "lean_candidates", "lean_receiver_candidates", "import_binding"}
             & dict(edge.attributes).keys()
         )
     assert _targets(graph, "Sample:g", EdgeKind.CALLS) == ["Sample:f"]

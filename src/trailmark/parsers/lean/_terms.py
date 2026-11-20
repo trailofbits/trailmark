@@ -6,10 +6,11 @@ from dataclasses import replace
 
 from tree_sitter import Node
 
+from trailmark.models._parsing import Lookup, PendingReference
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import Attribute, BranchInfo, CodeUnit, NodeKind
+from trailmark.models.nodes import BranchInfo, CodeUnit, NodeKind
 from trailmark.parsers._common import add_contains_edge, make_location, node_text
 from trailmark.parsers._simple import first_child_type
 from trailmark.parsers.lean._resolution import candidates
@@ -84,12 +85,12 @@ class TermExtractor:
             result.append(Task(child, local))
         return result
 
-    def lookup(self, node: Node, name: str) -> str:
+    def lookup(self, node: Node, name: str) -> Lookup:
         return candidates(
             node, name, namespace=self.namespace, opens=self.opens, group=self.mutual_group
         )
 
-    def type_candidates(self, node: Node | None, ctx: Context) -> str | None:
+    def type_candidates(self, node: Node | None, ctx: Context) -> Lookup | None:
         while node is not None:
             if node.type in {"paren", "universe_app", "explicit_mode"}:
                 node = next(iter(node.named_children), None)
@@ -356,13 +357,13 @@ class TermExtractor:
             self.project(node, suffix, ctx, binding, "projection")
         elif binding is not None:
             if binding.target is not None:
-                self.reference(node, binding.target, ctx, ())
+                self.reference(node, binding.target, ctx)
         else:
-            self.reference(node, name, ctx, (("lean_candidates", self.lookup(node, name)),))
+            self.reference(node, name, ctx, PendingReference(lookup=self.lookup(node, name)))
         return []
 
     def reference(
-        self, node: Node, target: str, ctx: Context, attributes: tuple[Attribute, ...]
+        self, node: Node, target: str, ctx: Context, pending: PendingReference | None = None
     ) -> None:
         edge = CodeEdge(
             ctx.owner,
@@ -370,15 +371,18 @@ class TermExtractor:
             EdgeKind.REFERENCES,
             EdgeConfidence.INFERRED,
             make_location(node, self.path),
-            (("lean_reference_context", ctx.reference_context), *attributes),
+            (("lean_reference_context", ctx.reference_context),),
         )
+        if pending is not None:
+            edge = self.graph._parse_state.stage(edge, pending)
         self.graph.edges.append(edge)
         if ctx.type_uses:
             self.graph.edges.append(
                 replace(
                     edge,
                     kind=EdgeKind.TYPE_USES,
-                    attributes=(*attributes, ("type_name", node_text(node))),
+                    attributes=tuple((k, v) for k, v in edge.attributes if k == "_lookup")
+                    + (("type_name", node_text(node)),),
                 )
             )
 
@@ -391,31 +395,31 @@ class TermExtractor:
             node,
             name,
             replace(ctx, reference_context=context, type_uses=False),
-            (
-                ("lean_receiver_candidates", binding.type_candidates),
-                ("lean_field", name),
-            ),
+            PendingReference(receiver=binding.type_candidates, field=name),
         )
 
     def call(self, node: Node, name: str, ctx: Context) -> None:
         binding = ctx.bindings.get(name.split(".", 1)[0])
         if binding is None:
-            attributes = (("lean_candidates", self.lookup(node, name)),)
+            pending = PendingReference(lookup=self.lookup(node, name))
+            attributes = ()
             target = name
         else:
+            pending = None
             target = binding.target if "." not in name else None
             attributes = (
                 ()
                 if target
                 else (("binding_blocked", True), ("binding_reason", "lexical_callable"))
             )
+        edge = CodeEdge(
+            ctx.owner,
+            target or name,
+            EdgeKind.CALLS,
+            EdgeConfidence.INFERRED if binding and target else EdgeConfidence.UNCERTAIN,
+            make_location(node, self.path),
+            attributes,
+        )
         self.graph.edges.append(
-            CodeEdge(
-                ctx.owner,
-                target or name,
-                EdgeKind.CALLS,
-                EdgeConfidence.INFERRED if binding and target else EdgeConfidence.UNCERTAIN,
-                make_location(node, self.path),
-                attributes,
-            )
+            self.graph._parse_state.stage(edge, pending) if pending is not None else edge
         )

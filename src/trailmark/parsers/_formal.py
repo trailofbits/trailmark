@@ -16,6 +16,7 @@ from pathlib import Path
 
 from tree_sitter import Language, Node, Parser, Range
 
+from trailmark.models._parsing import ArgumentScope, Lookup, PendingReference
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -78,6 +79,20 @@ class Scope:
         return self.start <= position < self.end and name.split(".")[0] in self.names
 
 
+def argument_scopes(head: Node | None, arguments: list[Node]) -> list[Scope]:
+    return [
+        Scope(
+            frozenset(),
+            argument.start_byte,
+            argument.end_byte,
+            context="argument",
+            callee=head.start_byte if head is not None else None,
+            argument=index,
+        )
+        for index, argument in enumerate(arguments)
+    ]
+
+
 class _ScopeIndex:
     """Sweep source-ordered references without revisiting unrelated scopes."""
 
@@ -89,14 +104,14 @@ class _ScopeIndex:
         self.active: dict[int, Scope] = {}
         self.ends: list[tuple[int, int]] = []
         self.arguments: list[tuple[int, int, int]] = []
-        self.parents: dict[str, tuple[int | None, int | str | None, str | None]] = {}
+        self.parents: dict[str, ArgumentScope] = {}
         stack: list[Scope] = []
         for scope in sorted(
             (s for s in scopes if s.context == "argument"), key=lambda s: (s.start, -s.end)
         ):
             while stack and stack[-1].end <= scope.start:
                 stack.pop()
-            self.parents[self.key(scope)] = (
+            self.parents[self.key(scope)] = ArgumentScope(
                 scope.callee,
                 scope.argument,
                 self.key(stack[-1]) if stack else None,
@@ -151,6 +166,8 @@ class Source:
         self.data = data
         self.module = module_id_from_path(path)
         self.graph = CodeGraph(language=language, root_path=path)
+        self.graph._parse_state.resolved_type_files.add(path)
+        self.ghost_fields: set[str] = set()
         add_module_node(root, path, self.module, self.graph)
         self.modules = {Path(path).stem}
         self.module_name(Path(path).stem)
@@ -206,6 +223,8 @@ class Source:
             parameters=parameters,
             attributes=(("declaration_role", role), ("qualified_name", qualified), *attributes),
         )
+        if kind == NodeKind.STATE_VARIABLE and dict(attributes).get("ghost"):
+            self.ghost_fields.add(qualified)
         self.graph.edges.append(CodeEdge(parent or self.module, ident, EdgeKind.CONTAINS))
         return ident
 
@@ -266,13 +285,7 @@ class Source:
     ) -> None:
         pending = [root]
         index = _ScopeIndex(scopes)
-        if index.parents:
-            unit = self.graph.nodes[owner]
-            attrs = dict(unit.attributes)
-            parents = json.loads(str(attrs.get("_formal_argument_scopes", "{}")))
-            parents.update(index.parents)
-            attrs["_formal_argument_scopes"] = json.dumps(parents)
-            self.graph.nodes[owner] = replace(unit, attributes=tuple(attrs.items()))
+        self.graph._parse_state.arguments.setdefault(owner, {}).update(index.parents)
         while pending:
             node = pending.pop()
             if node.type in skip or node.is_error or node.is_missing:
@@ -307,30 +320,29 @@ class Source:
             reference_context = next((c for c in reversed(contexts) if c != "argument"), context)
             if reference_context == "body" and "argument" in contexts:
                 reference_context = "argument"
+            edge = CodeEdge(
+                owner,
+                bound_target or "@pending",
+                EdgeKind.REFERENCES,
+                confidence=EdgeConfidence.UNCERTAIN if bound_target else EdgeConfidence.CERTAIN,
+                location=make_location(node, self.path),
+                attributes=(("reference_context", reference_context), ("spelling", name)),
+            )
             self.graph.edges.append(
-                CodeEdge(
-                    owner,
-                    bound_target or "@pending",
-                    EdgeKind.REFERENCES,
-                    confidence=EdgeConfidence.UNCERTAIN if bound_target else EdgeConfidence.CERTAIN,
-                    location=make_location(node, self.path),
-                    attributes=(
-                        ("reference_context", reference_context),
-                        ("spelling", name),
-                        ("_formal_candidates", None if bound_target else json.dumps(tiers)),
-                        ("_formal_application", node.start_byte in application_heads),
-                        ("_formal_bound_application", bound_application),
-                        ("_formal_position", node.start_byte),
-                        (
-                            "_formal_enclosing",
-                            next(
-                                (
-                                    index.key(scope)
-                                    for scope in reversed(active)
-                                    if scope.context == "argument"
-                                ),
-                                None,
+                self.graph._parse_state.stage(
+                    edge,
+                    PendingReference(
+                        lookup=None if bound_target else Lookup(tuple(map(tuple, tiers))),
+                        application=node.start_byte in application_heads,
+                        bound_application=bound_application,
+                        position=node.start_byte,
+                        enclosing=next(
+                            (
+                                index.key(scope)
+                                for scope in reversed(active)
+                                if scope.context == "argument"
                             ),
+                            None,
                         ),
                     ),
                 )

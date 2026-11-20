@@ -7,6 +7,7 @@ from dataclasses import field as dataclass_field
 
 from tree_sitter import Node
 
+from trailmark.models._parsing import Lookup
 from trailmark.models.nodes import Attribute, BranchInfo, NodeKind, Parameter, TypeRef
 from trailmark.parsers._common import node_text
 from trailmark.parsers._simple import first_child_type
@@ -31,7 +32,7 @@ SKIP_TERMS = TRIVIA | {
 @dataclass(frozen=True)
 class Binding:
     target: str | None = None
-    type_candidates: str | None = None
+    type_candidates: Lookup | None = None
 
 
 @dataclass(frozen=True)

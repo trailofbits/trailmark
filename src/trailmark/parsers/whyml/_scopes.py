@@ -4,7 +4,7 @@ from tree_sitter import Node
 
 from trailmark.models.nodes import Parameter, TypeRef
 from trailmark.parsers._common import node_text
-from trailmark.parsers._formal import Scope, walk
+from trailmark.parsers._formal import Scope, argument_scopes, walk
 
 SKIP = frozenset({"comment", "string", "attribute", "type_variable"})
 
@@ -100,17 +100,7 @@ def _arguments(node: Node) -> list[Scope]:
     head = node.child_by_field_name("function")
     if head is None:
         return []
-    return [
-        Scope(
-            frozenset(),
-            arg.start_byte,
-            arg.end_byte,
-            context="argument",
-            callee=head.start_byte,
-            argument=i,
-        )
-        for i, arg in enumerate(node.children_by_field_name("argument"))
-    ]
+    return argument_scopes(head, node.children_by_field_name("argument"))
 
 
 _HANDLERS = {

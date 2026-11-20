@@ -16,7 +16,7 @@ from tree_sitter import Language, Parser
 
 from trailmark.tree_sitter_custom import _native
 from trailmark.tree_sitter_custom import verus as verus_mod
-from trailmark.tree_sitter_custom._native import NativeGrammar
+from trailmark.tree_sitter_custom._native import NativeGrammar, bundled_grammar
 
 
 @pytest.mark.parametrize("suffix", [None, "", 1])
@@ -40,18 +40,15 @@ def test_native_grammar_configuration_is_immutable(tmp_path: Path, field: str) -
         setattr(grammar, field, None)
 
 
-@pytest.mark.parametrize("name", ["circom", "masm", "move", "verus"])
+@pytest.mark.parametrize("name", ["circom", "masm", "move", "rust", "verus"])
 def test_bundled_manifest_includes_every_compiled_source_and_header(name: str) -> None:
-    from importlib import import_module
-
-    module = import_module(f"trailmark.tree_sitter_custom.{name}")
-    grammar = module._GRAMMAR
+    grammar = bundled_grammar(name)
     actual = {
         p.relative_to(grammar.directory).as_posix()
         for p in grammar.directory.rglob("*")
         if p.suffix in {".c", ".h"}
     }
-    assert set(grammar.sources) == actual
+    assert set(grammar.sources) == actual | {"../binding.c", "../nested_comment.h"}
 
 
 @pytest.mark.parametrize("platform", ["darwin", "linux"])
@@ -68,7 +65,7 @@ def test_build_publishes_complete_output_atomically(tmp_path: Path, platform: st
         }
         assert "-shared" in cmd
         assert "-fPIC" in cmd
-        assert f"-I{verus_mod._GRAMMAR.directory / 'src'}" in cmd
+        assert f"-I{bundled_grammar('verus').directory / 'src'}" in cmd
         assert f"-I{_native.sysconfig.get_path('include')}" in cmd
         assert ("-undefined" in cmd) == (platform == "darwin")
         if platform == "darwin":
@@ -86,7 +83,7 @@ def test_build_publishes_complete_output_atomically(tmp_path: Path, platform: st
         patch.object(subprocess, "run", side_effect=compile_binding) as compiler,
         patch.object(sys, "platform", platform),
     ):
-        verus_mod._GRAMMAR.build(output)
+        bundled_grammar("verus").build(output)
     compiler.assert_called_once()
     assert output.read_bytes() == b"new complete binding"
     assert list(tmp_path.iterdir()) == [output]
@@ -114,7 +111,7 @@ def test_failed_build_preserves_previous_output_and_cleans_temporary(
 
     expected = ImportError if isinstance(error, subprocess.CalledProcessError) else type(error)
     with patch.object(subprocess, "run", side_effect=fail), pytest.raises(expected) as caught:
-        verus_mod._GRAMMAR.build(output)
+        bundled_grammar("verus").build(output)
     if isinstance(error, subprocess.CalledProcessError):
         assert "exit 17" in str(caught.value)
         assert "read-only filesystem" in str(caught.value)
@@ -129,7 +126,7 @@ def test_failed_publish_cleans_temporary(tmp_path: Path) -> None:
         patch.object(os, "replace", side_effect=PermissionError("read-only destination")),
         pytest.raises(PermissionError, match="read-only destination"),
     ):
-        verus_mod._GRAMMAR.build(output)
+        bundled_grammar("verus").build(output)
     assert list(tmp_path.iterdir()) == []
 
 
@@ -141,25 +138,26 @@ def test_read_only_directory_does_not_invoke_compiler(tmp_path: Path) -> None:
         patch.object(subprocess, "run") as compiler,
         pytest.raises(PermissionError, match="read-only"),
     ):
-        verus_mod._GRAMMAR.build(tmp_path / "binding.so")
+        bundled_grammar("verus").build(tmp_path / "binding.so")
     compiler.assert_not_called()
 
 
 @pytest.fixture
-def grammar_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def grammar_sources(tmp_path: Path) -> NativeGrammar:
     # Use independent contents, not generated megabyte-sized C files, for cache tests.
-    for relative in verus_mod._GRAMMAR.sources:
-        path = tmp_path / relative
+    directory = tmp_path / "grammar"
+    for relative in bundled_grammar("verus").sources:
+        path = directory / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f"original {relative}")
-    monkeypatch.setattr(verus_mod, "_GRAMMAR", NativeGrammar(tmp_path, verus_mod._GRAMMAR.sources))
-    return tmp_path
+    return NativeGrammar(directory, bundled_grammar("verus").sources, "tree_sitter_verus")
 
 
 @pytest.mark.parametrize(
     "relative",
     [
-        "binding.c",
+        "../binding.c",
+        "../nested_comment.h",
         "src/parser.c",
         "src/scanner.c",
         "src/tree_sitter/alloc.h",
@@ -168,38 +166,38 @@ def grammar_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     ],
 )
 def test_each_compiled_input_invalidates_binding_even_with_same_mtime(
-    grammar_sources: Path, relative: str
+    grammar_sources: NativeGrammar, relative: str
 ) -> None:
-    original = verus_mod._GRAMMAR.binding_path()
-    source = grammar_sources / relative
+    original = grammar_sources.binding_path()
+    source = grammar_sources.directory / relative
     stat = source.stat()
     source.write_text("changed contents")
     os.utime(source, ns=(stat.st_atime_ns, stat.st_mtime_ns))
-    changed = verus_mod._GRAMMAR.binding_path()
+    changed = grammar_sources.binding_path()
     assert changed != original
-    assert changed.parent == grammar_sources
+    assert changed.parent == grammar_sources.directory
     assert changed.suffix == original.suffix
-    assert verus_mod._GRAMMAR.binding_path() == changed
+    assert grammar_sources.binding_path() == changed
 
 
-def test_touching_unchanged_source_reuses_binding(grammar_sources: Path) -> None:
-    original = verus_mod._GRAMMAR.binding_path()
-    source = grammar_sources / "src/parser.c"
+def test_touching_unchanged_source_reuses_binding(grammar_sources: NativeGrammar) -> None:
+    original = grammar_sources.binding_path()
+    source = grammar_sources.directory / "src/parser.c"
     os.utime(source, (1, 1))
-    assert verus_mod._GRAMMAR.binding_path() == original
+    assert grammar_sources.binding_path() == original
 
 
-def test_build_configuration_invalidates_binding(grammar_sources: Path) -> None:
-    original = verus_mod._GRAMMAR.binding_path()
+def test_build_configuration_invalidates_binding(grammar_sources: NativeGrammar) -> None:
+    original = grammar_sources.binding_path()
     with patch.object(_native.sysconfig, "get_config_var", return_value="different-python-abi"):
-        assert verus_mod._GRAMMAR.binding_path() != original
+        assert grammar_sources.binding_path() != original
     with patch.object(_native.sysconfig, "get_platform", return_value="different-platform"):
-        assert verus_mod._GRAMMAR.binding_path() != original
+        assert grammar_sources.binding_path() != original
     with patch.object(NativeGrammar, "compiler_flags", return_value=["cc", "-different-option"]):
-        assert verus_mod._GRAMMAR.binding_path() != original
+        assert grammar_sources.binding_path() != original
 
 
-def test_cold_warm_and_changed_source_loading(grammar_sources: Path) -> None:
+def test_cold_warm_and_changed_source_loading(grammar_sources: NativeGrammar) -> None:
     capsule = object()
     module = SimpleNamespace(language=Mock(return_value=capsule))
     loader = Mock()
@@ -214,10 +212,10 @@ def test_cold_warm_and_changed_source_loading(grammar_sources: Path) -> None:
         patch.object(_native.importlib.util, "module_from_spec", return_value=module),
     ):
         for _ in range(2):
-            assert verus_mod.language() is capsule
+            assert grammar_sources.language() is capsule
         assert build.call_count == 1
-        (grammar_sources / "src/scanner.c").write_text("new scanner")
-        assert verus_mod.language() is capsule
+        (grammar_sources.directory / "src/scanner.c").write_text("new scanner")
+        assert grammar_sources.language() is capsule
     assert build.call_count == 2
     first, second = [call.args[0] for call in build.call_args_list]
     assert first != second
@@ -326,7 +324,7 @@ def test_shared_scanner_nests_comments_and_has_no_serialized_state(
     subprocess.run([str(executable)], check=True, capture_output=True)  # noqa: S603
 
 
-def test_precompilation_discovers_grammars_and_uses_their_runtime_loader(tmp_path: Path) -> None:
+def test_precompilation_discovers_all_generated_grammars(tmp_path: Path) -> None:
     for name in ("legacy", "shared"):
         directory = tmp_path / name / "src"
         directory.mkdir(parents=True)
@@ -335,10 +333,7 @@ def test_precompilation_discovers_grammars_and_uses_their_runtime_loader(tmp_pat
     (tmp_path / "unbuilt").mkdir()
     with (
         patch.object(_native, "__file__", str(tmp_path / "_native.py")),
-        patch.object(_native.importlib, "import_module") as imported,
         patch.object(_native, "bundled_language") as shared,
     ):
         _native.precompile_all()
-    imported.assert_called_once_with("trailmark.tree_sitter_custom.legacy")
-    imported.return_value.language.assert_called_once_with()
-    shared.assert_called_once_with("shared")
+    assert [call.args for call in shared.call_args_list] == [("legacy",), ("shared",)]

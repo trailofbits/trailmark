@@ -92,8 +92,8 @@ class NativeGrammar:
         return entrypoint()
 
 
-def bundled_language(name: str) -> object:
-    """Load a generated grammar through one binding and its complete input set."""
+def bundled_grammar(name: str) -> NativeGrammar:
+    """Describe a generated grammar and every input to its shared binding."""
     if not name.isidentifier():
         raise ValueError(f"Invalid bundled grammar name: {name}")
     directory = Path(__file__).parent / name
@@ -106,7 +106,12 @@ def bundled_language(name: str) -> object:
         raise ImportError(f"Bundled grammar {name} is not generated; run npm ci and uv sync")
     return NativeGrammar(
         directory, ("../binding.c", "../nested_comment.h", *sources), f"tree_sitter_{name}"
-    ).language()
+    )
+
+
+def bundled_language(name: str) -> object:
+    """Load a generated grammar through the shared native binding."""
+    return bundled_grammar(name).language()
 
 
 def precompile_all() -> None:
@@ -114,8 +119,4 @@ def precompile_all() -> None:
     for directory in sorted(Path(__file__).parent.iterdir()):
         if not (directory / "src/parser.c").is_file():
             continue
-        if (directory / "__init__.py").is_file():
-            module = importlib.import_module(f"trailmark.tree_sitter_custom.{directory.name}")
-            module.language()
-        else:
-            bundled_language(directory.name)
+        bundled_language(directory.name)

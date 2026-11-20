@@ -1,6 +1,5 @@
 """Share symbol identity within an unambiguous inspected include theory."""
 
-import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -66,22 +65,24 @@ def _theory(graph: CodeGraph, component: set[str], root: str) -> None:
     for index, edge in enumerate(graph.edges):
         attrs = dict(edge.attributes)
         if graph.nodes[edge.source_id].location.file_path in paths:
-            tiers = attrs.get("_formal_candidates")
-            if isinstance(tiers, str):
-                names = json.loads(tiers)
-                attrs["_formal_candidates"] = json.dumps(
-                    [
-                        [
+            key = attrs.get("_lookup")
+            pending = graph._parse_state.reference(edge)
+            if pending is not None and pending.lookup is not None:
+                lookup = replace(
+                    pending.lookup,
+                    tiers=tuple(
+                        tuple(
                             replacements.get(name.split(".")[0], name.split(".")[0])
                             + "."
                             + name.split(".", 1)[1]
                             if "." in name
                             else name
                             for name in tier
-                        ]
-                        for tier in names
-                    ]
+                        )
+                        for tier in pending.lookup.tiers
+                    ),
                 )
+                graph._parse_state.references[str(key)] = replace(pending, lookup=lookup)
         graph.edges[index] = replace(
             edge,
             source_id=redirects.get(edge.source_id, edge.source_id),

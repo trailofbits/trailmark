@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Consolidate bundled native bindings and formal/Lean lookup indexes. Carry
+  pending references as typed internal state and let frontends finalize their
+  type edges, preserving parser graph output and scoped type resolution across
+  merges. Avoid repeated declaration scans during formal import linking.
+
 - Refresh Python, npm, Nix and CI tool dependencies. Enable tree-sitter 0.26.1
   while excluding 0.26.0's Point lifetime regression, and update the validated
   mutation runner to pytest-gremlins 1.14.3. Adapt Zig extraction to the updated
