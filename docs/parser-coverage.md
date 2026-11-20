@@ -105,7 +105,10 @@ exclude comments, strings and later statements. SQL dependencies are
 `corresponds_to` edges, not runtime calls; search paths are not evaluated. Replacing
 a routine overload removes its previous body dependencies and containment edge.
 
-Cairo module, trait, impl, struct and enum IDs retain their owners. Impl namespaces
+Cairo module, trait, impl, struct and enum IDs retain their owners. A bundled
+Cairo grammar retains generic impl declarations, including anonymous `+Trait<T>`
+and named `impl Bound: Trait<T>` parameters, with concrete method owners and sites.
+Impl namespaces
 are explicit containment nodes. Concrete methods of contract `abi(embed_v0)`
 implementations are exposed entrypoints; private helpers remain private. The
 pinned Cairo grammar rejects common `assert!(...)` macro statements. They produce

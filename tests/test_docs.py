@@ -889,6 +889,7 @@ def _read_requires_python(pyproject_data: dict[str, object]) -> str:
         "`macro_signature_unresolved`",
         "`syntax_error_context`",
         "`assert!(...)`",
+        "generic impl declarations",
         "`unsupported_syntax`",
         "`package fun`",
         "`file:api.init`",
