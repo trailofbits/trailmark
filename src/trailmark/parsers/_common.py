@@ -138,8 +138,8 @@ def planned_source(file_path: str) -> tuple[str, str] | None:
         return None
     path = _absolute_lexical_path(Path(file_path))
     owner = sources.owners.get(path)
-    module_id = sources.module_ids.get(path)
-    return (module_id, owner) if module_id is not None and owner is not None else None
+    # directory_sources creates both maps from the same selected path keys.
+    return (sources.module_ids[path], owner) if owner is not None else None
 
 
 def _absolute_lexical_path(path: Path) -> Path:
