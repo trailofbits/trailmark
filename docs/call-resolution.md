@@ -106,6 +106,19 @@ not proof that the graph contains every executable path. A large number of
 proxies does not mean calls were dropped; each one is a call that was kept but
 not resolved.
 
+## C++ out-of-line methods
+
+Simple qualified definitions such as `Stream::flush` and `Stream::~Stream`
+attach to an identifiable class or struct. A same-file declaration takes
+precedence; a cross-file owner must be unique. Namespace-qualified free
+functions, template-qualified owners, and ambiguous class owners are not
+reclassified. Existing definition IDs are preserved, while method names and
+containment reflect the class owner.
+
+Bare calls within those methods can navigate to a unique method in that class.
+Overloads and shadowing local values remain uncertain; header prototypes do
+not compete with extracted method definitions.
+
 ## Rust limits
 
 Rust code commonly produces many proxies. Common patterns:
