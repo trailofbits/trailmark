@@ -1059,6 +1059,13 @@ def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
 
 
+def test_csharp_constructor_site_contract() -> None:
+    text = _flat("docs/call-resolution.md")
+    assert "Explicit C# `new Type(...)` expressions retain constructor call sites" in text
+    assert "Static constructors are excluded" in text
+    assert "namespace imports block binding to outer namesakes" in text
+
+
 def test_swift_self_and_cleanup_resolution_contract() -> None:
     text = _flat("docs/call-resolution.md")
     assert "`self.method()` call resolves to a unique method" in text
