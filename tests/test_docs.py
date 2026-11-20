@@ -230,6 +230,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "explicitly computational declaration with non-ghost argument positions",
     ),
     ("docs/languages.md", "including implicit `Tot`"),
+    (
+        "docs/languages.md",
+        "The inherited `effect` string is retained on unannotated implementations",
+    ),
     ("docs/languages.md", "lemma dependencies occurring only in proofs are absent"),
     ("docs/languages.md", "Module signature clauses retain references in the module namespace"),
     ("docs/languages.md", "mean per-file syntax-error line coverage fell from 44% to 15%"),
