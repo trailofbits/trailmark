@@ -298,6 +298,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/cli.md", "--strict"),
     ("docs/augmenting.md", "originalUriBaseIds"),
     ("docs/languages.md", "Thrift IDs use source-file identity"),
+    (
+        "docs/languages.md",
+        "Cairo qualified calls resolve to visible local module and impl declarations",
+    ),
     ("docs/entrypoints.md", "run_ticktock"),
     ("docs/python-api.md", "parameter_types"),
     ("docs/python-api.md", "parameter_defaults"),

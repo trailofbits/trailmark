@@ -408,6 +408,11 @@ incomplete-graph warning even for some valid VB.NET programs.
 
 ## Schema frontends and FunC/Sway declarations
 
+Cairo qualified calls resolve to visible local module and impl declarations,
+including explicit `super` imports and aliases. Unknown imports, ambiguous
+aliases, and generic path heads remain unresolved rather than choosing a
+same-name local implementation. Cross-file crate and trait dispatch are not inferred.
+
 Proto retains nested messages/enums, map fields and oneof members; IDs include
 lexical owners, and public imports retain the actual filename. GraphQL honors
 explicit schema root mappings and SDL extension fields in single-file and
