@@ -7,8 +7,8 @@ from dataclasses import replace
 
 from tree_sitter import Language, Node
 
-from trailmark.models.nodes import Attribute, NodeKind
-from trailmark.parsers._common import node_text
+from trailmark.models.nodes import Attribute, CodeUnit, NodeKind, NodeOrigin
+from trailmark.parsers._common import make_location, node_text
 from trailmark.parsers._formal import FormalParser, Namespace, Scope, Source, walk
 from trailmark.parsers.dafny._scopes import SKIP, ghost_parameters, parameters, scopes
 from trailmark.tree_sitter_custom._native import bundled_language
@@ -259,6 +259,7 @@ class DafnyParser(FormalParser):
             attributes=attrs,
         )
         bindings = scopes(node, self._constructors)
+        callbacks = _callback_bindings(node, owner, env.source, bindings)
         for region in node.named_children:
             if region == name or region.type in SKIP:
                 continue
@@ -267,11 +268,19 @@ class DafnyParser(FormalParser):
                 context = "proof" if ghost else "body"
                 if region.type == "function_body" and "by" in tokens and "method" in tokens:
                     context = "contract"
-            self._references(region, owner, env, bindings=bindings, context=context)
+            self._references(
+                region, owner, env, bindings=bindings, context=context, callbacks=callbacks
+            )
 
     @staticmethod
     def _references(
-        node: Node, owner: str, env: Namespace, *, bindings: tuple[Scope, ...] = (), context: str
+        node: Node,
+        owner: str,
+        env: Namespace,
+        *,
+        bindings: tuple[Scope, ...] = (),
+        context: str,
+        callbacks: dict[int, str] | None = None,
     ) -> None:
         heads = frozenset(
             head.start_byte
@@ -288,6 +297,49 @@ class DafnyParser(FormalParser):
             scopes=bindings,
             skip=SKIP,
             application_heads=heads,
+            bound_applications=callbacks,
             context=context,
             spelling=_spelling,
         )
+
+
+def _callback_bindings(
+    root: Node, owner: str, source: Source, bindings: tuple[Scope, ...]
+) -> dict[int, str]:
+    """Retain arrow-typed parameter applications without choosing an implementation."""
+    formals = next((n for n in root.named_children if n.type == "formals"), None)
+    if formals is None:
+        return {}
+    callbacks = {
+        node_text(name): (formal, name)
+        for formal in formals.named_children
+        if formal.type == "formal" and not any(c.type == "ghost" for c in formal.children)
+        if any(c.type == "arrow_type" for c in formal.named_children)
+        if (name := formal.child_by_field_name("name")) is not None
+    }
+    result = {}
+    for node in walk(root, SKIP):
+        head = node.child_by_field_name("function")
+        name = _spelling(head) if head is not None and head.type in _NAMES else None
+        if head is None or name is None or name not in callbacks:
+            continue
+        formal, declared = callbacks[name]
+        parameter_scope = Scope(frozenset({name}), formal.end_byte, root.end_byte)
+        if any(
+            scope != parameter_scope and scope.blocks(name, head.start_byte) for scope in bindings
+        ):
+            continue
+        ident = f"proxy.unresolved:{owner}.$parameter.{name}"
+        source.graph.nodes.setdefault(
+            ident,
+            CodeUnit(
+                ident,
+                name,
+                NodeKind.PROXY,
+                make_location(declared, source.path),
+                origin=NodeOrigin.PROXY,
+                attributes=(("executable", True), ("bound_callable", "parameter")),
+            ),
+        )
+        result[head.start_byte] = ident
+    return result
