@@ -170,6 +170,33 @@
       "kind": "contains",
       "source": "taxonomy:Bounds",
       "target": "taxonomy:Bounds.Apply"
+    },
+    {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "Clamp"
+      },
+      "confidence": "uncertain",
+      "kind": "references",
+      "location": {
+        "end_col": 71,
+        "end_line": 11,
+        "file_path": "taxonomy.dfy",
+        "start_col": 66,
+        "start_line": 11
+      },
+      "source": "taxonomy:Bounds.Apply",
+      "target": "proxy.unresolved:taxonomy:Bounds.Apply.$parameter.Clamp"
+    },
+    {
+      "attributes": {
+        "reference_context": "body",
+        "spelling": "Clamp"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Bounds.Apply",
+      "target": "proxy.unresolved:taxonomy:Bounds.Apply.$parameter.Clamp"
     }
   ],
   "exception_support": [
@@ -188,6 +215,29 @@
   ],
   "language": "dafny",
   "nodes": {
+    "proxy.unresolved:taxonomy:Bounds.Apply.$parameter.Clamp": {
+      "attributes": {
+        "bound_callable": "parameter",
+        "executable": true
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Bounds.Apply.$parameter.Clamp",
+      "kind": "proxy",
+      "location": {
+        "end_col": 20,
+        "end_line": 11,
+        "file_path": "taxonomy.dfy",
+        "start_col": 15,
+        "start_line": 11
+      },
+      "name": "Clamp",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "attributes": {
         "formal_modules": "[\"Bounds\", \"taxonomy\"]"
@@ -450,7 +500,7 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 1,
+    "call_edges": 2,
     "classes": 0,
     "dependencies": [],
     "entrypoints": 0,
@@ -459,12 +509,12 @@
       "dafny"
     ],
     "parse_diagnostics": [],
-    "proxies": 0,
+    "proxies": 1,
     "source_file_counts": {
       "dafny": 1
     },
     "source_files": 1,
-    "total_nodes": 8
+    "total_nodes": 9
   },
   "trailmark_version": "<trailmark-version>"
 }
