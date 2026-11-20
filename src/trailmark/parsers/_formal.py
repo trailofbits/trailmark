@@ -285,7 +285,11 @@ class Source:
                 continue
             active = index.at(node.start_byte)
             bound_name = node_text(node) if self.language == "tamarin" else name.split(".")[0]
-            if name == "_" or index.bound[bound_name] > 0:
+            bound = index.bound[bound_name] > 0
+            bound_application = (
+                self.language == "fstar" and bound and node.start_byte in application_heads
+            )
+            if name == "_" or (bound and not bound_application):
                 continue
             local_opens = tuple(prefix for scope in active for prefix in scope.opens)
             tiers = lookup_tiers(name, namespace, (*opens, *local_opens), aliases or {})
@@ -311,6 +315,7 @@ class Source:
                         ("spelling", name),
                         ("_formal_candidates", json.dumps(tiers)),
                         ("_formal_application", node.start_byte in application_heads),
+                        ("_formal_bound_application", bound_application),
                         ("_formal_position", node.start_byte),
                         (
                             "_formal_enclosing",

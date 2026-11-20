@@ -279,6 +279,7 @@ class FStarParser(FormalParser):
                 head := part.child_by_field_name("function") or part.child_by_field_name("operator")
             )
             is not None
+            and head.type in _NAMES
         )
         env.source.references(
             owner,

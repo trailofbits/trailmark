@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from trailmark.models.edges import EdgeKind
+from trailmark.models.nodes import NodeOrigin
 from trailmark.parse import parse_directory, parse_file
 from trailmark.query.api import QueryEngine
 
@@ -46,7 +47,9 @@ def test_signature_effects_and_privacy_propagate(tmp_path: Path) -> None:
     }
     assert calls == {("run", "f")}
     assert not any(
-        e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "leaked"
+        e.kind == EdgeKind.REFERENCES
+        and graph.nodes[e.source_id].name == "leaked"
+        and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
         for e in graph.edges
     )
     proof = next(
@@ -90,13 +93,19 @@ def test_roles_references_calls_and_shadowing() -> None:
     assert ("proof", "positive", EdgeKind.REFERENCES) in edges
     assert ("proof", "identity", EdgeKind.REFERENCES) in edges
     assert not any(a in {"proof", "apply"} and kind == EdgeKind.CALLS for a, _, kind in edges)
-    assert not any(a == "apply" and b == "identity" for a, b, _ in edges)
+    assert not any(
+        graph.nodes[e.source_id].name == "apply"
+        and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+    )
     trusted = next(n for n in graph.nodes.values() if n.name == "trusted")
     assert dict(trusted.attributes)["assumed"] is True
     engine = QueryEngine.from_graph(graph)
     assert {n["name"] for n in engine.reachable_from("proof", edge_kinds=("references",))} == {
         "positive",
         "identity",
+        "op_Greater_Equals",
     }
     assert engine.reachable_from("proof") == []
 
@@ -126,7 +135,11 @@ def test_local_binders_and_local_opens(tmp_path: Path) -> None:
         "let c (x:int) = (fun f -> f x) (fun y -> y)\n"
     )
     graph = parse_directory(str(tmp_path), "fstar", strict=True)
-    refs = [e for e in graph.edges if e.kind == EdgeKind.REFERENCES]
+    refs = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
+    ]
     assert [(graph.nodes[e.source_id].name, graph.nodes[e.target_id].name) for e in refs] == [
         ("b", "f")
     ]
@@ -199,6 +212,7 @@ def test_binding_scope_boundaries(tmp_path: Path, expression: str, expected: int
                 if e.kind == EdgeKind.REFERENCES
                 and graph.nodes[e.source_id].name == "run"
                 and graph.nodes[e.target_id].name == "x"
+                and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
             ]
         )
         == expected
@@ -234,7 +248,7 @@ def test_private_declarations_stay_in_their_module(tmp_path: Path) -> None:
     assert {
         (graph.nodes[e.source_id].name, graph.nodes[e.target_id].name)
         for e in graph.edges
-        if e.kind == EdgeKind.REFERENCES
+        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
     } == {("public", "hidden")}
 
 
@@ -264,7 +278,9 @@ def test_reexports_retain_constants_and_reusable_predicates(
     assert {
         graph.nodes[e.target_id].name
         for e in graph.edges
-        if e.kind == EdgeKind.REFERENCES and graph.nodes[e.source_id].name == "run"
+        if e.kind == EdgeKind.REFERENCES
+        and graph.nodes[e.source_id].name == "run"
+        and graph.nodes[e.target_id].origin == NodeOrigin.SOURCE
     } == expected
 
 

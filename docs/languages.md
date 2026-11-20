@@ -451,8 +451,11 @@ implementations inherit effect, lemma and visibility metadata from matching `val
 Proof and type uses remain references. Ghost effect abbreviations and erased results do not
 produce calls. Inspected interfaces bound exports, and later opens take precedence. Lexical binders, including local patterns
 and dependent arrows, block unrelated global targets. Private declarations stay local;
-parameter types and refinements retain dependencies. Ordinary option directives are
-accepted without evaluating their settings. Includes re-export inspected module members;
+parameter types and refinements retain dependencies. Bound callback applications and unavailable
+application heads in bodies or proofs retain uncertain references to non-executable,
+owner-scoped proxies, including each source site; these proxies never establish calls.
+Ordinary option directives are accepted without evaluating their settings.
+Includes re-export inspected module members;
 plain opens do not. Restricted imports and renamings produce diagnostics and are not
 treated as unrestricted opens. Pulse bodies, quotations and
 splices produce unsupported-syntax diagnostics. Elaboration, tactics, effect aliases and

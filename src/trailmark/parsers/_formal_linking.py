@@ -285,13 +285,36 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
     attrs = dict(edge.attributes)
     raw = attrs.pop("_formal_candidates", None)
     application = attrs.pop("_formal_application", False)
+    bound_application = attrs.pop("_formal_bound_application", False)
     position = attrs.pop("_formal_position", None)
     enclosing = attrs.pop("_formal_enclosing", None)
     if not isinstance(raw, str):
         return _Linked(edge)
-    target = symbols.resolve(edge, json.loads(raw))
+    target = None if bound_application else symbols.resolve(edge, json.loads(raw))
     if target is None:
-        return None
+        if not (
+            symbols.graph.language == "fstar"
+            and application
+            and attrs.get("reference_context") in {"body", "argument", "proof", "definition"}
+        ):
+            return None
+        name = str(attrs["spelling"])
+        role = "bound" if bound_application else "unresolved"
+        target = f"proxy.{role}:{edge.source_id}.$application.{name}"
+        attrs["unresolved_application"] = True
+        if bound_application:
+            attrs["binding_blocked"] = True
+        symbols.graph.nodes.setdefault(
+            target,
+            CodeUnit(
+                target,
+                name,
+                NodeKind.PROXY,
+                edge.location or symbols.graph.nodes[edge.source_id].location,
+                origin=NodeOrigin.PROXY,
+                attributes=(("executable", False), ("unresolved_application", True)),
+            ),
+        )
     if (
         symbols.graph.language == "proverif"
         and symbols.graph.nodes[target].location.file_path.endswith(".pvl")
@@ -302,7 +325,9 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
         edge,
         target_id=target,
         attributes=tuple(attrs.items()),
-        confidence=EdgeConfidence.INFERRED,
+        confidence=EdgeConfidence.UNCERTAIN
+        if attrs.get("unresolved_application")
+        else EdgeConfidence.INFERRED,
     )
     return _Linked(
         linked,

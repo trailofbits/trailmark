@@ -100,6 +100,11 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "Private declarations stay local"),
     (
         "docs/languages.md",
+        "Bound callback applications and unavailable application heads in bodies or proofs "
+        "retain uncertain references",
+    ),
+    (
+        "docs/languages.md",
         "Pulse bodies, quotations and splices produce unsupported-syntax diagnostics",
     ),
     ("docs/languages.md", "Export propagates short-name openings"),
