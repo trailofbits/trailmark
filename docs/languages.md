@@ -343,6 +343,9 @@ functions, and procedures, plus `corresponds_to` edges from routines and views
 to the objects they reference. It is not a SQL dialect validator and does not
 analyze query semantics. The SQL grammar ships as the `tree-sitter-sql` wheel
 dependency, so it does not use the shared grammar cache.
+Routine recovery respects top-level statement boundaries, including quoted bodies,
+so adjacent functions keep separate spans and parameters. Recovered functions and
+procedures retain inferred relation dependencies; syntax diagnostics remain visible.
 
 ## PowerShell
 
