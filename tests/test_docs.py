@@ -1050,6 +1050,13 @@ def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
 
 
+def test_zig_typed_local_navigation_contract() -> None:
+    text = _flat("docs/languages.md")
+    assert "unique local variable with an explicit named-container type" in text
+    assert "direct `.init()` initializer" in text
+    assert "parameters and captures block this inference" in text
+
+
 def test_dart_constructor_resolution_contract() -> None:
     text = _flat("docs/call-resolution.md")
     assert "Dart constructor calls resolve to a unique constructor declaration" in text

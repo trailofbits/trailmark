@@ -198,9 +198,13 @@ and literal `@import` dependencies. IDs include the container, for example
 is an untrusted API entrypoint. `pub fn` alone is not an external entrypoint.
 
 Bare calls and explicit calls through named local containers resolve within the
-file. Calls through parameters, local variables, instance receivers, imported
-modules, function pointers, and builtins remain uncertain. Local bindings and
-captures conservatively shadow declarations throughout the enclosing function.
+file. A unique local variable with an explicit named-container type can bind
+member calls within its lexical block after its declaration. The direct `.init()`
+initializer of that typed local can bind to the same container; these bindings
+have `inferred` confidence. Simple pointer annotations are supported. Duplicate
+bindings, parameters and captures block this inference throughout the function.
+Other value receivers, imported modules, function pointers, and builtins remain
+uncertain. Local bindings and captures conservatively shadow declarations.
 Comptime execution, generated/anonymous types, test blocks, and container methods
 declared inside function bodies are not analyzed. Zig syntax errors produce a
 warning; the resulting graph may be incomplete.
