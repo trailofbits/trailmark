@@ -14,7 +14,7 @@ from trailmark.models.nodes import (
     NodeKind,
     Parameter,
 )
-from trailmark.parsers._binding_index import binding_scope
+from trailmark.parsers._binding_index import binding_scope, record_unit
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -30,6 +30,7 @@ from trailmark.parsers._ecmascript import (
     class_member_callable,
     declared_name,
     discover_callables,
+    link_ecmascript_calls,
 )
 from trailmark.parsers._exceptions import collect_exception_events
 
@@ -91,6 +92,7 @@ class JavaScriptParser:
             "javascript",
             dir_path,
             _EXTENSIONS,
+            link_calls=link_ecmascript_calls,
         )
 
 
@@ -285,6 +287,7 @@ def _extract_class(
         docstring=_extract_jsdoc(node),
     )
     graph.nodes[class_id] = class_unit
+    record_unit(class_unit)
     add_contains_edge(graph, module_id, class_id)
 
     _extract_heritage(node, class_id, module_id, graph)
@@ -452,6 +455,9 @@ def _function_unit(
         branches=tuple(branches),
         exception_types=tuple(exception_types),
         docstring=_extract_jsdoc(node),
+        attributes=(("ecmascript_static", True),)
+        if func_name == "constructor" and any(c.type == "static" for c in node.children)
+        else (),
     )
     return unit, calls
 

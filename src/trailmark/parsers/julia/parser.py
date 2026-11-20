@@ -171,12 +171,79 @@ def _definition(node: Node) -> _Function | None:
     return _Function(node_text(callee), params, body, defaults, return_type, bindings)
 
 
-def _transparent(node: Node) -> bool:
+def _inbounds_sites(root: Node) -> frozenset[int]:
+    """Admit standard wrappers only without inspected macro-binding barriers."""
+    sites: dict[int, list[int]] = defaultdict(list)
+    blocked = set()
+    pending = [(root, root.id, 0)]
+    while pending:
+        node, scope, depth = pending.pop()
+        if node.type in {"quote_expression", "quote_statement"}:
+            depth += 1
+        elif node.type == "interpolation_expression" and depth:
+            depth -= 1
+        if depth:
+            pending.extend((child, scope, depth) for child in node.named_children)
+            continue
+        if node.type == "module_definition":
+            scope = node.id
+            if node.children and node.children[0].type == "baremodule":
+                blocked.add(scope)
+        if node.type == "ERROR" or node.is_missing:
+            blocked.add(scope)
+        if node.type == "assignment" and node.named_children:
+            names = [node.named_children[0]]
+            while names:
+                name = names.pop()
+                if name.type == "prefixed_string_literal" and node_text(name).startswith('var"'):
+                    blocked.add(scope)
+                names.extend(name.named_children)
+        if node.type == "macro_definition":
+            signature = first_child_type(node, {"signature"})
+            if signature is not None and signature.named_children:
+                call = signature.named_children[0]
+                if call.named_children and node_text(call.named_children[0]) == "inbounds":
+                    blocked.add(scope)
+            continue
+        if node.type in {"using_statement", "import_statement"}:
+            for imported in node.named_children:
+                if imported.type == "selected_import":
+                    if any("@inbounds" in node_text(c) for c in imported.named_children[1:]):
+                        blocked.add(scope)
+                elif node.type == "using_statement" and node_text(imported) != "Base":
+                    blocked.add(scope)
+        if (
+            node.type == "call_expression"
+            and node.named_children
+            and node_text(node.named_children[0])
+            in {
+                "include",
+                "Base.include",
+                "include_string",
+                "eval",
+                "Base.eval",
+                "Core.eval",
+            }
+        ):
+            blocked.add(scope)
+        if node.type == "macrocall_expression":
+            macro = first_child_type(node, {"macro_identifier"})
+            if macro is not None and node_text(macro) == "@inbounds":
+                sites[scope].append(node.id)
+        pending.extend((child, scope, depth) for child in node.named_children)
+    return frozenset(
+        site for scope, values in sites.items() if scope not in blocked for site in values
+    )
+
+
+def _transparent(node: Node, inbounds: frozenset[int]) -> bool:
     macro = first_child_type(node, {"macro_identifier"})
-    return macro is not None and node_text(macro) in {"@inline", "@noinline"}
+    return macro is not None and (
+        node_text(macro) in {"@inline", "@noinline"} or node.id in inbounds
+    )
 
 
-def _owned(roots: list[Node]) -> Iterator[Node]:
+def _owned(roots: list[Node], inbounds: frozenset[int]) -> Iterator[Node]:
     stack = list(reversed(roots))
     while stack:
         node = stack.pop()
@@ -190,7 +257,7 @@ def _owned(roots: list[Node]) -> Iterator[Node]:
                 elif quoted.type == "interpolation_expression":
                     depth -= 1
                     if depth == 0:
-                        yield from _owned(quoted.named_children)
+                        yield from _owned(quoted.named_children, inbounds)
                         continue
                 pending.extend((child, depth) for child in reversed(quoted.named_children))
             continue
@@ -201,17 +268,17 @@ def _owned(roots: list[Node]) -> Iterator[Node]:
             or _definition(node) is not None
         ):
             continue
-        if node.type == "macrocall_expression" and not _transparent(node):
+        if node.type == "macrocall_expression" and not _transparent(node, inbounds):
             continue
         stack.extend(reversed(node.named_children))
 
 
-def _definite(node: Node, roots: list[Node]) -> bool:
+def _definite(node: Node, roots: list[Node], inbounds: frozenset[int]) -> bool:
     """Only unconditional definitions can establish a unique local binding."""
     parent = node.parent
     while parent is not None and parent not in roots:
         if parent.type not in {"block", "source_file", "macro_argument_list"} and not (
-            parent.type == "macrocall_expression" and _transparent(parent)
+            parent.type == "macrocall_expression" and _transparent(parent, inbounds)
         ):
             return False
         parent = parent.parent
@@ -243,6 +310,7 @@ class JuliaParser:
 
     def parse_file(self, file_path: str) -> CodeGraph:
         root = self._parser.parse(Path(file_path).read_bytes()).root_node
+        inbounds = _inbounds_sites(root)
         if root.has_error:
             _LOG.warning("Julia syntax errors in %s; graph may be incomplete", file_path)
         module = module_id_from_path(file_path)
@@ -270,7 +338,7 @@ class JuliaParser:
 
         def scope(roots: list[Node], owner: str, caller: str | None) -> None:
             nonlocal mutated
-            nodes = list(_owned(roots))
+            nodes = list(_owned(roots, inbounds))
             definitions = [
                 (node, definition)
                 for node in nodes
@@ -342,7 +410,7 @@ class JuliaParser:
                 definition_ends[ident] = node.end_byte
                 if definition.receiver is None and not definition.name.startswith("<lambda>"):
                     bindings[owner, definition.name].append(ident)
-                    if not _definite(node, roots):
+                    if not _definite(node, roots, inbounds):
                         bindings[owner, definition.name].append(None)
                 for bound_name in definition.binding_names:
                     bindings[ident, bound_name].append(None)
@@ -358,7 +426,7 @@ class JuliaParser:
                     or node.type == "macro_definition"
                 ):
                     continue
-                if node.type == "macrocall_expression" and not _transparent(node):
+                if node.type == "macrocall_expression" and not _transparent(node, inbounds):
                     mutated = True
                     graph.parse_diagnostics.append(
                         ParseDiagnostic(
