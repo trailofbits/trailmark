@@ -1026,3 +1026,10 @@ def test_csharp_qualified_static_call_contract() -> None:
     assert "An explicit `Type.Method(...)` call can navigate to a unique declared static" in guide
     assert "Matching partial class\ndeclarations are considered together" in guide
     assert "later declarations can retract a per-file candidate" in guide
+
+
+def test_csharp_optional_default_tie_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "a unique declaration with every parameter\nsupplied wins" in guide
+    assert "families spread across declaration contexts remain uncertain" in guide
+    assert "can retract an earlier per-file selection" in guide

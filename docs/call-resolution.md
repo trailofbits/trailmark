@@ -168,3 +168,12 @@ definitions are not expanded. Generated methods, implicit constructors, compiler
 entrypoints, and operator desugaring are not invented. A missing edge is not proof
 of dead code. `main` follows the generic entrypoint rule; script execution needs
 an entrypoint override. Syntax errors warn that the graph may be incomplete.
+
+C# bare calls have one bounded overload tie-breaker: when all declared candidates
+have identical provided parameter types, a unique declaration with every parameter
+supplied wins over declarations that need optional defaults. This inferred binding
+requires ordinary positional arguments, one nongeneric class/struct declaration
+context, and no uninspected base-class family. Named arguments, generic methods,
+`params`, reference parameters, virtual methods, differing provided types, and
+families spread across declaration contexts remain uncertain. Directory merging
+rechecks the family and can retract an earlier per-file selection.
