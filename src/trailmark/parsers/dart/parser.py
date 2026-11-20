@@ -105,6 +105,7 @@ class DartParser:
         _visit_module(tree.root_node, file_path, module_id, graph)
         bind_lexical_calls(graph)
         _bind_constructors(graph)
+        _bind_this_methods(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -449,6 +450,16 @@ def _resolve_dart_callee(children: list[Node], selector_idx: int) -> str:
             parts.append(node_text(prev))
             i -= 1
             continue
+        if (
+            prev.type == "unconditional_assignable_selector"
+            and i > 0
+            and children[i - 1].type == "super"
+        ):
+            inner = _selector_identifier(prev)
+            if inner:
+                parts.append(inner)
+                i -= 1
+                continue
         if prev.type == "selector" and not _selector_has_arguments(prev):
             # e.g. `.method` — extract the identifier inside.
             inner = _selector_identifier(prev)
@@ -601,6 +612,31 @@ def _bind_constructors(graph: CodeGraph) -> None:
         if edge.kind != EdgeKind.CALLS or dict(edge.attributes).get("binding_blocked"):
             continue
         candidates = constructors.get(edge.target_id, [])
+        if len(candidates) == 1:
+            graph.edges[index] = replace(
+                edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED
+            )
+
+
+def _bind_this_methods(graph: CodeGraph) -> None:
+    """Bind explicit this calls to unique methods in the nearest lexical class."""
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    methods: dict[tuple[str, str], list[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind == NodeKind.METHOD:
+            methods.setdefault((owners.get(unit.id, ""), unit.name), []).append(unit.id)
+    for index, edge in enumerate(graph.edges):
+        if (
+            edge.kind != EdgeKind.CALLS
+            or not edge.target_id.startswith("this.")
+            or edge.target_id.count(".") != 1
+            or dict(edge.attributes).get("binding_blocked")
+        ):
+            continue
+        owner = owners.get(edge.source_id, "")
+        while owner in graph.nodes and graph.nodes[owner].kind != NodeKind.CLASS:
+            owner = owners.get(owner, "")
+        candidates = methods.get((owner, edge.target_id.removeprefix("this.")), [])
         if len(candidates) == 1:
             graph.edges[index] = replace(
                 edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED
