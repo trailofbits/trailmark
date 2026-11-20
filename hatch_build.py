@@ -18,6 +18,7 @@ GRAMMARS = {
     "circom": "14",
     "move": "14",
     "rust": "14",
+    "vb": "14",
     "verus": "15",
     "dafny": "14",
     "fstar": "15",
