@@ -14,9 +14,11 @@ from typing import Any
 GENERATOR_VERSION = "0.27.2"
 GRAMMAR_ROOT = Path("src/trailmark/tree_sitter_custom")
 GRAMMARS = {
+    "cairo": "14",
     "circom": "14",
     "move": "14",
     "rust": "14",
+    "vb": "14",
     "verus": "15",
     "dafny": "14",
     "fstar": "15",
