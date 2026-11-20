@@ -30,6 +30,7 @@ from trailmark.parsers._common import (
 )
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting, nesting_diagnostic
+from trailmark.parsers.ruby._aliases import alias_index, record_aliases
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -271,6 +272,7 @@ def _visit_class_body(
         elif _self_singleton(child):
             _visit_class_body(child, file_path, module_id, class_id, graph, singleton=True)
     _apply_named_visibility(graph, class_id, named_visibility)
+    record_aliases(body, class_id, singleton, file_path, graph)
 
 
 def _extract_function(
@@ -579,7 +581,10 @@ def _bind_ruby_methods(graph: CodeGraph) -> None:
             bases.setdefault(edge.source_id, []).append(edge.target_id)
     for unit in graph.nodes.values():
         _index_ruby_method(unit, owners, methods)
-    graph.edges[:] = [_ruby_method_edge(e, graph, owners, bases, methods) for e in graph.edges]
+    aliases = alias_index(graph)
+    graph.edges[:] = [
+        _ruby_method_edge(e, graph, owners, bases, methods, aliases) for e in graph.edges
+    ]
 
 
 def _index_ruby_method(
@@ -598,6 +603,7 @@ def _ruby_method_edge(
     owners: dict[str, str],
     bases: dict[str, list[str]],
     methods: dict[tuple[str, str, str], list[str]],
+    aliases: dict[tuple[str, str, str], str | None],
 ) -> CodeEdge:
     attributes = dict(edge.attributes)
     name = attributes.get("ruby_bare_name")
@@ -606,14 +612,21 @@ def _ruby_method_edge(
         return edge
     owner = owners.get(source.id, "")
     receiver = str(dict(source.attributes).get("ruby_receiver", "instance"))
-    candidates = _ruby_candidates(owner, name, receiver, bases, methods)
+    candidates = _ruby_candidates(owner, name, receiver, bases, methods, aliases)
+    if candidates is None:
+        return replace(
+            edge,
+            target_id=f"{owner}.{name}@alias-unresolved",
+            confidence=EdgeConfidence.UNCERTAIN,
+            attributes=(*edge.attributes, ("binding_blocked", True)),
+        )
     if len(candidates) == 1:
         target = candidates[0]
         return replace(
             edge,
             target_id=target,
             confidence=EdgeConfidence.CERTAIN
-            if owners.get(target) == owner
+            if owners.get(target) == owner and graph.nodes[target].name == name
             else EdgeConfidence.INFERRED,
         )
     if candidates:
@@ -629,14 +642,23 @@ def _ruby_candidates(
     receiver: str,
     bases: dict[str, list[str]],
     methods: dict[tuple[str, str, str], list[str]],
-) -> list[str]:
+    aliases: dict[tuple[str, str, str], str | None],
+) -> list[str] | None:
     pending, seen, result = [owner], set(), []
     while pending:
         current = pending.pop()
         if current in seen:
             continue
         seen.add(current)
-        local = methods.get((current, name, receiver), [])
+        key = current, name, receiver
+        local = methods.get(key, [])
+        if key in aliases:
+            if current != owner:
+                return None
+            target = aliases[key]
+            if target is None or local:
+                return None
+            local = [target]
         if local:
             result.extend(local)
         else:
