@@ -447,6 +447,8 @@ TypeScript arrows inherit lexical `this`; regular function expressions do not.
 JavaScript and TypeScript `new` expressions retain located call edges with
 `constructor_call` metadata, including default parameters and dynamic callee
 expressions. Explicit local class constructors bind to their method nodes;
+selected named imports also reach explicit constructor bodies after graph merging.
+A static method named `constructor` is not a construction target;
 unknown constructor targets remain uncertain proxies. Constructor arguments
 and nested callee expressions retain their separate execution sites.
 Abstract TypeScript classes own their methods. Anonymous classes have positioned

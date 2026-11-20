@@ -30,6 +30,7 @@ from trailmark.parsers._ecmascript import (
     class_member_callable,
     declared_name,
     discover_callables,
+    link_ecmascript_calls,
 )
 from trailmark.parsers._exceptions import collect_exception_events
 
@@ -91,6 +92,7 @@ class JavaScriptParser:
             "javascript",
             dir_path,
             _EXTENSIONS,
+            link_calls=link_ecmascript_calls,
         )
 
 
@@ -453,6 +455,9 @@ def _function_unit(
         branches=tuple(branches),
         exception_types=tuple(exception_types),
         docstring=_extract_jsdoc(node),
+        attributes=(("ecmascript_static", True),)
+        if func_name == "constructor" and any(c.type == "static" for c in node.children)
+        else (),
     )
     return unit, calls
 

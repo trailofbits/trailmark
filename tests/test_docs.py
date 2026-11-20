@@ -93,6 +93,9 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/parser-coverage.md", "Explicit ECMAScript named imports"),
+    ("docs/parser-coverage.md", "`constructor_call` metadata"),
+    ("docs/parser-coverage.md", "selected named imports also reach explicit constructor bodies"),
     ("docs/parser-coverage.md", "Rego bracket indices accept compound references"),
     ("docs/installation.md", "Rego uses a bundled grammar"),
     ("docs/parser-coverage.md", "Module-local tables"),

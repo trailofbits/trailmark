@@ -9,7 +9,14 @@ from tree_sitter import Node
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import BranchInfo, CodeUnit, NodeKind, SourceLocation, TypeRef
+from trailmark.models.nodes import (
+    BranchInfo,
+    CodeUnit,
+    NodeKind,
+    NodeOrigin,
+    SourceLocation,
+    TypeRef,
+)
 from trailmark.parsers._binding_index import record_unit, syntax_nodes
 from trailmark.parsers._bindings import _guard_named_call, guard_call, namespace_receiver_matches
 from trailmark.parsers._callable_syntax import callable_parent, unwrap_callable
@@ -18,6 +25,7 @@ from trailmark.parsers._common import (
     _extract_condition_text,
     add_contains_edge,
     extract_call_name,
+    link_cross_file_calls,
     make_location,
     node_text,
 )
@@ -29,6 +37,49 @@ from trailmark.parsers._walk import owned_syntax
 CLASSES = frozenset({"class_declaration", "abstract_class_declaration", "class"})
 NAMESPACES = frozenset({"internal_module", "module"})
 CALL_SITES = frozenset({"call_expression", "new_expression"})
+
+
+def link_ecmascript_calls(graph: CodeGraph) -> None:
+    """Resolve exact imported classes after their source declarations are merged."""
+    link_cross_file_calls(graph)
+    bind_imported_constructors(graph)
+
+
+def bind_imported_constructors(graph: CodeGraph) -> None:
+    """Point a proven named-import construction at its inspected constructor body."""
+    for index, edge in enumerate(graph.edges):
+        attributes = dict(edge.attributes)
+        if (
+            edge.kind != EdgeKind.CALLS
+            or not attributes.get("import_binding")
+            or not attributes.get("constructor_call")
+            or attributes.get("binding_blocked")
+        ):
+            continue
+        target = graph.nodes.get(edge.target_id)
+        if target is None or target.kind != NodeKind.CLASS or target.origin != NodeOrigin.SOURCE:
+            continue
+        constructor = _class_constructor(target, graph)
+        if constructor is not None:
+            graph.edges[index] = replace(edge, target_id=constructor.id)
+
+
+def _class_constructor(target: CodeUnit, graph: CodeGraph) -> CodeUnit | None:
+    constructors = []
+    for edge in graph.edges:
+        if edge.kind != EdgeKind.CONTAINS or edge.source_id != target.id:
+            continue
+        unit = graph.nodes[edge.target_id]
+        attributes = dict(unit.attributes)
+        if (
+            unit.kind == NodeKind.METHOD
+            and unit.name == "constructor"
+            and not attributes.get("ecmascript_static")
+            and not attributes.get("declaration_only")
+        ):
+            constructors.append(unit)
+    return constructors[0] if len(constructors) == 1 else None
+
 
 CALLABLES = frozenset(
     {
@@ -306,12 +357,10 @@ def _construction_edge(edge: CodeEdge, occurrence: Node, graph: CodeGraph) -> Co
     attributes["constructor_call"] = True
     target = graph.nodes.get(edge.target_id)
     if target is not None and target.kind == NodeKind.CLASS:
-        constructor = graph.nodes.get(target.id + ".constructor")
+        constructor = _class_constructor(target, graph)
         return replace(
             edge,
-            target_id=constructor.id
-            if constructor is not None and constructor.kind == NodeKind.METHOD
-            else target.id,
+            target_id=constructor.id if constructor is not None else target.id,
             confidence=EdgeConfidence.INFERRED,
             attributes=tuple(attributes.items()),
         )
