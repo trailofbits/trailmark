@@ -41,6 +41,7 @@ from trailmark.parsers._declarations import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.cpp._export_markers import mark_recovered_classes, recover_export_markers
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -85,11 +86,16 @@ class CppParser:
         tree = self._parser.parse(source)
         graph = CodeGraph(language="cpp", root_path=file_path)
         module_id = module_id_from_path(file_path)
+        recovered, markers = recover_export_markers(self._parser, source, tree)
+        if markers:
+            # Keep diagnostics from the unmodified parse, including unrelated errors.
+            add_module_node(tree.root_node, file_path, module_id, graph)
         with callable_scope(graph):
-            _visit_module(tree.root_node, file_path, module_id, graph)
+            _visit_module(recovered.root_node, file_path, module_id, graph)
+        mark_recovered_classes(graph, markers)
         resolve_local_method_calls(graph)
         bind_lexical_calls(graph)
-        collect_exception_events(tree.root_node, file_path, graph)
+        collect_exception_events(recovered.root_node, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

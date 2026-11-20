@@ -1019,3 +1019,10 @@ def test_release_followup_graph_contracts() -> None:
 )
 def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
+
+
+def test_cpp_export_marker_recovery_contract() -> None:
+    guide = _flat("docs/parser-coverage.md")
+    assert "verifies the class name and complete declaration span" in guide
+    assert "Recovered classes retain `cpp_export_marker` and marker byte offsets" in guide
+    assert "syntax diagnostics remain available, including unrelated errors" in guide

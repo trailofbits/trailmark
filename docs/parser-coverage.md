@@ -463,3 +463,12 @@ call syntax such as `_1()` remains a method call. Move `Self::name()` resolves
 within the current module; a missing member stays uncertain.
 Haskell operator proxies consistently use `$operator.<name>`, including composition
 and application, without marking ordinary operators as blocked lexical values.
+
+C++ can recover `class API Name { public: ... }` when the grammar mistakes it for
+an unparameterized function definition: one uppercase marker, one class name,
+and a direct `public`, `private`, or `protected` access label must be present.
+The parser reparses original bytes through included ranges that omit only the
+marker token, then verifies the class name and complete declaration span.
+Recovered classes retain `cpp_export_marker` and marker byte offsets. Original
+syntax diagnostics remain available, including unrelated errors. This bounded
+recovery does not expand macros; unrecognized or ambiguous shapes stay unchanged.
