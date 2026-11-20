@@ -41,6 +41,10 @@ scope; methods in module-level and function-local classes do not shadow module
 functions or leak their names into an enclosing function. Java variables and parameters
 occupy a separate namespace and do not block method calls.
 
+Python assignment-expression (`:=`) targets also block unrelated function names,
+including calls before the assignment and captures in nested functions. Defaults
+bind these targets in the enclosing scope, rather than the function being defined.
+
 Rust and Verus preserve repeated same-name impl methods with source-offset
 suffixes instead of combining their bodies. Ambiguous trait and concrete generic
 impl dispatch remains unresolved. Declaration-owned `unsafe(no_mangle)` and

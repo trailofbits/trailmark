@@ -68,6 +68,7 @@ _SCOPE_POLICIES = {
 _DECLARATIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "python": (
         ("assignment", "left"),
+        ("named_expression", "name"),
         ("for_statement", "left"),
         ("function_definition", "name"),
         ("class_definition", "name"),
