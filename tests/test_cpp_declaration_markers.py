@@ -1,6 +1,8 @@
 """Literal namespace/class ownership survives bounded declaration annotations."""
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -190,5 +192,50 @@ def test_standalone_template_prefix_preserves_method_owner(tmp_path: Path) -> No
     assert graph.nodes["sample:View.data"].kind == NodeKind.METHOD
     assert "sample:data" not in graph.nodes
     assert "sample:outside" in graph.nodes
+    markers = json.loads(str(dict(graph.nodes["sample"].attributes)["cpp_declaration_markers"]))
+    assert [m["role"] for m in markers] == ["template_prefix"]
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        "int compute() { return 0; }\n",
+        "/* unterminated template<class T> class View {};",
+        "// template<class T> class View {};",
+    ],
+)
+def test_repeated_comments_without_template_do_not_stall(tmp_path: Path, suffix: str) -> None:
+    path = tmp_path / "sample.cpp"
+    path.write_text("#define API\nAPI\n" + "/**/" * 40 + "\n" + suffix)
+    # Keep the adversarial input isolated so an exponential-time regression
+    # fails promptly rather than hanging the entire parser suite.
+    subprocess.run(  # noqa: S603 -- Fixed interpreter and code; only a test path varies.
+        [
+            sys.executable,
+            "-c",
+            "import sys; from trailmark.parse import parse_file; "
+            "graph = parse_file(sys.argv[1], 'cpp'); "
+            "assert 'cpp_declaration_markers' not in dict(graph.nodes['sample'].attributes); "
+            "assert 'sample:View' not in graph.nodes",
+            str(path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+
+def test_template_prefix_skips_mixed_comments_and_whitespace(tmp_path: Path) -> None:
+    path = tmp_path / "sample.cpp"
+    path.write_text(
+        "#define API\nAPI\n"
+        "/* first */\t// template<class T> class Decoy {};\r\n"
+        "/* second */\v\f template<class T> class View { void work() {} };\n"
+    )
+    graph = parse_file(str(path), "cpp")
+    assert graph.nodes["sample:View"].kind == NodeKind.CLASS
+    assert graph.nodes["sample:View.work"].kind == NodeKind.METHOD
+    assert "sample:Decoy" not in graph.nodes
     markers = json.loads(str(dict(graph.nodes["sample"].attributes)["cpp_declaration_markers"]))
     assert [m["role"] for m in markers] == ["template_prefix"]

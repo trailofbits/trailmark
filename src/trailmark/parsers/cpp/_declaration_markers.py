@@ -119,14 +119,27 @@ def _namespace(node: Node, source: bytes) -> bool:
 
 
 def _template(node: Node, source: bytes) -> bool:
-    return (
-        _standalone_prefix(node, source)
-        and re.match(
-            rb"(?:\s|/\*[\s\S]*?\*/|//[^\n]*(?:\n|\Z))*template\s*<",
-            source[node.end_byte :],
-        )
-        is not None
-    )
+    if not _standalone_prefix(node, source):
+        return False
+    offset = node.end_byte
+    # Consume each comment once. A repeated comment regex can backtrack over
+    # exponentially many partitions when no template declaration follows.
+    while offset < len(source):
+        if source[offset] in b" \t\n\r\v\f":
+            offset += 1
+        elif source.startswith(b"/*", offset):
+            end = source.find(b"*/", offset + 2)
+            if end < 0:
+                return False
+            offset = end + 2
+        elif source.startswith(b"//", offset):
+            end = source.find(b"\n", offset + 2)
+            if end < 0:
+                return False
+            offset = end + 1
+        else:
+            break
+    return re.match(rb"template\s*<", source[offset:]) is not None
 
 
 def _constructor(node: Node, source: bytes, known: set[bytes]) -> bool:
