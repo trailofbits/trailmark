@@ -52,6 +52,12 @@ from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c.parser import visit_c_declaration
+from trailmark.parsers.objc._receivers import (
+    bind_ivar_messages,
+    link_calls,
+    message_receiver,
+    record_class,
+)
 
 _EXTENSIONS = (".m", ".mm", ".h")
 
@@ -89,6 +95,7 @@ class ObjCParser:
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
         _bind_self_messages(graph)
+        bind_ivar_messages(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -99,6 +106,7 @@ class ObjCParser:
             "objc",
             dir_path,
             _EXTENSIONS,
+            link_calls=link_calls,
         )
 
 
@@ -216,6 +224,7 @@ def _extract_class_interface(
     for child in node.children:
         if child.type == "method_declaration":
             _extract_method_signature(child, file_path, class_id, graph)
+    record_class(node, class_id, graph)
 
 
 def _extract_class_implementation(
@@ -244,6 +253,7 @@ def _extract_class_implementation(
         for method in impl_def.children:
             if method.type == "method_definition":
                 _extract_method_definition(method, file_path, class_id, graph)
+    record_class(node, class_id, graph)
 
 
 def _extract_method_signature(
@@ -269,6 +279,7 @@ def _extract_method_signature(
         parameters=tuple(params),
         return_type=return_type,
         cyclomatic_complexity=1,
+        attributes=(("objc_method_definition", False),),
     )
     add_contains_edge(graph, class_id, method_id)
 
@@ -293,6 +304,9 @@ def _extract_method_definition(
     complexity = compute_complexity(branches)
 
     # Replace any prior interface-only entry so the definition with a body wins.
+    previous = graph.nodes.get(method_id)
+    count = dict(previous.attributes).get("objc_definition_count") if previous else None
+    definition_count = count if isinstance(count, int) else 0
     unit = CodeUnit(
         id=method_id,
         name=selector,
@@ -303,6 +317,10 @@ def _extract_method_definition(
         exception_types=tuple(exception_types),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
+        attributes=(
+            ("objc_method_definition", True),
+            ("objc_definition_count", definition_count + 1),
+        ),
     )
     if method_id not in graph.nodes:
         add_contains_edge(graph, class_id, method_id)
@@ -476,21 +494,28 @@ def _add_call_edges(
         )
         module_id = source_id.split(":", 1)[0]
         target_id = f"{module_id}:{call_name}" if call_name.isidentifier() else call_name
+        attributes = (
+            (
+                ("binding_blocked", True),
+                ("objc_selector", call_name.rsplit(" ", 1)[-1].removesuffix("]")),
+            )
+            if message
+            else ()
+        )
+        edge = CodeEdge(
+            source_id=source_id,
+            target_id=target_id,
+            kind=EdgeKind.CALLS,
+            confidence=confidence,
+            location=make_location(call_node, file_path),
+            attributes=attributes,
+        )
+        receiver = message_receiver(edge, call_node, graph) if message else None
+        if receiver is not None:
+            edge = replace(edge, attributes=(*edge.attributes, ("objc_bare_receiver", receiver)))
         graph.edges.append(
             guard_call(
-                CodeEdge(
-                    source_id=source_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CALLS,
-                    confidence=confidence,
-                    location=make_location(call_node, file_path),
-                    attributes=(
-                        ("binding_blocked", True),
-                        ("objc_selector", call_name.rsplit(" ", 1)[-1].removesuffix("]")),
-                    )
-                    if message
-                    else (),
-                ),
+                edge,
                 call_node,
                 graph=graph,
             )
