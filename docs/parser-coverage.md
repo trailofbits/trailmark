@@ -256,7 +256,13 @@ conditional-access calls are retained.
 
 Java lambdas and local/anonymous classes own deferred bodies. Explicit construction
 and constructor chaining have located edges; unknown or overloaded constructors
-remain proxies. Servlet entrypoints require servlet ancestry, an instance method,
+remain proxies. Anonymous Java subclasses record source-located base type relationships
+and resolve bare helper calls through an inspected class chain with inferred confidence.
+Nearest overrides retain their signature; multiple inherited overloads, private methods,
+unknown bases and cycles remain uncertain. Anonymous interface bases use `implements`;
+uninspected bases retain `type_uses` rather than guessing a class or interface kind.
+Enclosing-method fallback remains uncertain when inherited lookup finds no supported target.
+Servlet entrypoints require servlet ancestry, an instance method,
 a void return and request/response parameters. Unrecognized framework
 intermediates such as `FrameworkServlet` do not establish servlet ancestry.
 
