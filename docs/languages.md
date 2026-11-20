@@ -362,10 +362,13 @@ rule. Syntax errors warn that the graph may be incomplete.
 
 ## C, C++, and Objective-C headers
 
-C and Objective-C both claim `.h`. When both are selected, headers are parsed
-once with the Objective-C grammar, which also retains C declarations. The C++
-parser handles `.hpp`, `.hh`, and `.hxx` but not `.h`. See
-[Directory parsing](graph-model.md#directory-parsing) for extension matching
+C, C++, and Objective-C directory scopes accept `.h` headers when the frontend
+is selected. A header is inspected once: Objective-C takes precedence when
+selected, then C++, then C, independent of language-list order. The C++ parser
+also handles `.hpp`, `.hh`, and `.hxx`. A tree containing only `.h` headers
+requires an explicit language; `.h` alone does not trigger automatic detection.
+When C++ is detected from another source extension, its `.h` headers are included.
+See [Directory parsing](graph-model.md#directory-parsing) for extension matching
 rules.
 
 The C parser also recovers definitions inside optional C++ namespace wrappers

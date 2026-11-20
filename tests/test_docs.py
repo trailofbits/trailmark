@@ -1019,3 +1019,10 @@ def test_release_followup_graph_contracts() -> None:
 )
 def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
+
+
+def test_cpp_h_directory_discovery_contract() -> None:
+    text = _flat("docs/languages.md")
+    assert "C, C++, and Objective-C directory scopes accept `.h` headers" in text
+    assert "Objective-C takes precedence when selected, then C++, then C" in text
+    assert "`.h` alone does not trigger automatic detection" in text
