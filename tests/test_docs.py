@@ -1066,6 +1066,13 @@ def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
 
 
+def test_csharp_qualified_static_call_contract() -> None:
+    guide = (DOCS / "call-resolution.md").read_text()
+    assert "An explicit `Type.Method(...)` call can navigate to a unique declared static" in guide
+    assert "Matching partial class\ndeclarations are considered together" in guide
+    assert "later declarations can retract a per-file candidate" in guide
+
+
 def test_dart_declared_factory_result_contract() -> None:
     guide = (DOCS / "call-resolution.md").read_text()
     assert "A direct `final value = factory(...)` initializer can provide a receiver type" in guide

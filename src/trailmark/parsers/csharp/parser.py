@@ -38,6 +38,13 @@ from trailmark.parsers._declarations import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import owned_syntax
+from trailmark.parsers.csharp._static_calls import (
+    bind_static_calls,
+    call_attributes,
+    class_attributes,
+    link_static_calls,
+    record_global_usings,
+)
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -90,8 +97,10 @@ class CSharpParser:
         module_id = module_id_from_path(file_path)
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
+        record_global_usings(tree.root_node, module_id, graph)
         bind_lexical_calls(graph)
         _bind_constructors(graph)
+        bind_static_calls(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -102,6 +111,7 @@ class CSharpParser:
             "csharp",
             dir_path,
             _EXTENSIONS,
+            link_calls=link_static_calls,
         )
 
 
@@ -236,6 +246,7 @@ def _extract_class(
         location=location,
         type_parameters=extract_type_parameters(node),
         docstring=_extract_docstring(node),
+        attributes=class_attributes(node),
     )
     add_type(graph, class_unit)
     parent = container_id if container_id else module_id
@@ -359,10 +370,22 @@ def _extract_function(
         cyclomatic_complexity=compute_complexity(branches),
         branches=tuple(branches),
         docstring=_extract_docstring(node),
-        attributes=(("csharp_constructor", True),)
-        if node.type == "constructor_declaration"
-        and not any(c.type == "modifier" and node_text(c) == "static" for c in node.children)
-        else (),
+        attributes=(
+            *(
+                (("csharp_constructor", True),)
+                if node.type == "constructor_declaration"
+                and not any(
+                    c.type == "modifier" and node_text(c) == "static" for c in node.children
+                )
+                else ()
+            ),
+            *(
+                (("csharp_static", True),)
+                if node.type == "method_declaration"
+                and any(c.type == "modifier" and node_text(c) == "static" for c in node.children)
+                else ()
+            ),
+        ),
     )
     func_id = add_callable(graph, unit)
     add_contains_edge(graph, container_id, func_id)
@@ -532,24 +555,24 @@ def _add_call_edges(
         )
         conditional = "?" in call_name or call_name.startswith(".")
         confidence = EdgeConfidence.UNCERTAIN if conditional else _call_confidence(call_name)
-        graph.edges.append(
-            guard_call(
-                CodeEdge(
-                    source_id=func_id,
-                    target_id=target_id,
-                    kind=EdgeKind.CALLS,
-                    confidence=confidence,
-                    location=make_location(call_node, file_path),
-                    attributes=(("binding_blocked", True),)
-                    if conditional
-                    else (("bare_name", call_name),)
-                    if "." not in call_name
-                    else (),
-                ),
-                call_node,
-                graph=graph,
-            )
+        edge = guard_call(
+            CodeEdge(
+                source_id=func_id,
+                target_id=target_id,
+                kind=EdgeKind.CALLS,
+                confidence=confidence,
+                location=make_location(call_node, file_path),
+                attributes=(("binding_blocked", True),)
+                if conditional
+                else (("bare_name", call_name),)
+                if "." not in call_name
+                else (),
+            ),
+            call_node,
+            graph=graph,
         )
+        metadata = call_attributes(edge, call_node, graph)
+        graph.edges.append(replace(edge, attributes=(*edge.attributes, *metadata)))
 
 
 def _call_confidence(call_name: str) -> EdgeConfidence:
