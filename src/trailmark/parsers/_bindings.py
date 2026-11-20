@@ -76,12 +76,14 @@ _DECLARATIONS: dict[str, tuple[tuple[str, str], ...]] = {
         ("formal_parameters", ""),
         ("variable_declarator", "name"),
         ("function_declaration", "name"),
+        ("generator_function_declaration", "name"),
         ("assignment_expression", "left"),
     ),
     "typescript": (
         ("formal_parameters", ""),
         ("variable_declarator", "name"),
         ("function_declaration", "name"),
+        ("generator_function_declaration", "name"),
         ("assignment_expression", "left"),
     ),
     "c": (("init_declarator", "declarator"), ("declaration", "declarator")),
@@ -368,6 +370,7 @@ def _local_callable(
         not in {
             "function_definition",
             "function_declaration",
+            "generator_function_declaration",
             "local_function_statement",
             "local_function_declaration",
             "arrow_function",

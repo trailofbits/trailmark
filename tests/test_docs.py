@@ -196,6 +196,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/parser-coverage.md", "the last definition keeps its plain ID"),
     ("docs/parser-coverage.md", "Java constructor binding also runs after the directory merge"),
     ("docs/parser-coverage.md", "arrows inherit lexical `this`"),
+    (
+        "docs/parser-coverage.md",
+        "Named generator declarations, including `async function*`, resolve direct calls",
+    ),
     ("docs/parser-coverage.md", "`{owner}.{name}@ambiguous`"),
     ("docs/skills-compatibility.md", "current query facade has no confidence"),
     ("docs/skills-compatibility.md", "SARIF description-only bases"),
