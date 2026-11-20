@@ -78,6 +78,10 @@ site's `location` (or `None` if unavailable). A proxy node's own location is
 only its first occurrence; use each row's `location` when a call repeats. A
 name that matches no function returns `[]`.
 
+Solidity receiver calls inside comparisons retain the callee text and each call's
+own span, excluding preceding comparison operands. Repeated calls to the same
+unresolved receiver member share a proxy while retaining separate call-site rows.
+
 The report and `unresolved_calls()` work for every supported language.
 
 ## What unresolved calls mean for results

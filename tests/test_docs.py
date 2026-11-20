@@ -240,6 +240,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "premise, action and conclusion"),
     ("docs/languages.md", "library_resolution=directory"),
     ("docs/graph-model.md", "unresolved reference spellings are omitted"),
+    (
+        "docs/call-resolution.md",
+        "Solidity receiver calls inside comparisons retain the callee text",
+    ),
     ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
