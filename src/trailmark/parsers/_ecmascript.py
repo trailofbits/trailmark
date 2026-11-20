@@ -326,7 +326,6 @@ def _guard_context_call(
                 ("binding_blocked", imported.type_only),
             ),
         )
-
     if aliases and "." in name:
         qualified = edge.source_id.split(":", 1)[0] + ":" + name
         target = _runtime_target(qualified, aliases, maximum=maximum)

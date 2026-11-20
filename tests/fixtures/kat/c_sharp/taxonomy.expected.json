@@ -44,12 +44,30 @@
     },
     {
       "attributes": {
+        "csharp_static_global": false,
+        "csharp_static_imports": true,
+        "csharp_static_method": "Parse",
+        "csharp_static_original": "int.Parse",
+        "csharp_static_type": "int",
         "raw_target": "int.Parse"
       },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:Taxonomy.Math.Branchy",
       "target": "proxy.unresolved:int.Parse"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "constructor_binding_blocked": false,
+        "constructor_imports": true,
+        "constructor_type": "InvalidOperationException",
+        "raw_target": "taxonomy:Taxonomy.Math.Branchy.$constructor.InvalidOperationException"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.Math.Branchy",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.Math.Branchy.$constructor.InvalidOperationException"
     },
     {
       "confidence": "certain",
@@ -59,6 +77,11 @@
     },
     {
       "attributes": {
+        "csharp_static_global": false,
+        "csharp_static_imports": true,
+        "csharp_static_method": "Yield",
+        "csharp_static_original": "Task.Yield",
+        "csharp_static_type": "Task",
         "raw_target": "Task.Yield"
       },
       "confidence": "inferred",
@@ -113,6 +136,19 @@
       "kind": "contains",
       "source": "taxonomy:Taxonomy.Dog",
       "target": "taxonomy:Taxonomy.Dog.Bark"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "constructor_binding_blocked": false,
+        "constructor_imports": true,
+        "constructor_type": "InvalidOperationException",
+        "raw_target": "taxonomy:Taxonomy.Dog.Bark.$constructor.InvalidOperationException"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Taxonomy.Dog.Bark",
+      "target": "proxy.unresolved:taxonomy:Taxonomy.Dog.Bark.$constructor.InvalidOperationException"
     },
     {
       "confidence": "certain",
@@ -183,6 +219,52 @@
       "parameters": [],
       "return_type": null
     },
+    "proxy.unresolved:taxonomy:Taxonomy.Dog.Bark.$constructor.InvalidOperationException": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Taxonomy.Dog.Bark.$constructor.InvalidOperationException"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.Dog.Bark.$constructor.InvalidOperationException",
+      "kind": "proxy",
+      "location": {
+        "end_col": 63,
+        "end_line": 98,
+        "file_path": "taxonomy.cs",
+        "start_col": 22,
+        "start_line": 98
+      },
+      "name": "taxonomy:Taxonomy.Dog.Bark.$constructor.InvalidOperationException",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Taxonomy.Math.Branchy.$constructor.InvalidOperationException": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Taxonomy.Math.Branchy.$constructor.InvalidOperationException"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Taxonomy.Math.Branchy.$constructor.InvalidOperationException",
+      "kind": "proxy",
+      "location": {
+        "end_col": 63,
+        "end_line": 57,
+        "file_path": "taxonomy.cs",
+        "start_col": 22,
+        "start_line": 57
+      },
+      "name": "taxonomy:Taxonomy.Math.Branchy.$constructor.InvalidOperationException",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy": {
       "branches": [],
       "cyclomatic_complexity": null,
@@ -220,6 +302,10 @@
       "return_type": null
     },
     "taxonomy:Taxonomy.Animal": {
+      "attributes": {
+        "csharp_value_member:Name": true,
+        "csharp_value_member:Species": true
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -238,6 +324,9 @@
       "return_type": null
     },
     "taxonomy:Taxonomy.Animal.Animal": {
+      "attributes": {
+        "csharp_constructor": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -288,6 +377,10 @@
       }
     },
     "taxonomy:Taxonomy.Dog": {
+      "attributes": {
+        "csharp_bases": "[\"Animal\", \"IGreeter\"]",
+        "csharp_value_member:Breed": true
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -379,6 +472,9 @@
       }
     },
     "taxonomy:Taxonomy.Dog.Dog": {
+      "attributes": {
+        "csharp_constructor": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -498,6 +594,9 @@
       }
     },
     "taxonomy:Taxonomy.Math": {
+      "attributes": {
+        "csharp_value_member:Constant": true
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -516,6 +615,9 @@
       "return_type": null
     },
     "taxonomy:Taxonomy.Math.Add": {
+      "attributes": {
+        "csharp_static": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -557,6 +659,9 @@
       }
     },
     "taxonomy:Taxonomy.Math.Branchy": {
+      "attributes": {
+        "csharp_static": true
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -721,6 +826,9 @@
       }
     },
     "taxonomy:Taxonomy.Math.FetchAsync": {
+      "attributes": {
+        "csharp_static": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -781,7 +889,7 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 2,
+    "call_edges": 4,
     "classes": 3,
     "dependencies": [
       "System"
@@ -792,12 +900,12 @@
       "c_sharp"
     ],
     "parse_diagnostics": [],
-    "proxies": 2,
+    "proxies": 4,
     "source_file_counts": {
       "c_sharp": 1
     },
     "source_files": 1,
-    "total_nodes": 18
+    "total_nodes": 20
   },
   "trailmark_version": "<trailmark-version>"
 }

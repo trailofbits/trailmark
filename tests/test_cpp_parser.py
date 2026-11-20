@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
 from trailmark.parsers.cpp.parser import CppParser
+from trailmark.query.api import QueryEngine
 
 SAMPLE_CODE = """\
 #include <iostream>
@@ -334,3 +336,131 @@ class TestCppParseDirectory:
                 f.write("not source code")
             graph = parser.parse_directory(tmpdir)
         assert len(graph.nodes) == 0
+
+
+def test_out_of_line_methods_bind_same_class_calls(tmp_path: Path) -> None:
+    source = tmp_path / "stream.cpp"
+    source.write_text(
+        "class Stream { public: void flush(); ~Stream(); };\n"
+        "void Stream::flush() {}\n"
+        "Stream::~Stream() { flush(); }\n"
+    )
+    graph = CppParser().parse_file(str(source))
+    destructor = graph.nodes["stream:Stream::~Stream"]
+    engine = QueryEngine.from_graph(graph)
+    assert {n["id"] for n in engine.callers_of("stream:Stream::flush")} == {destructor.id}
+    assert destructor.name == "~Stream" and destructor.kind == NodeKind.METHOD
+    assert any(
+        e.kind == EdgeKind.CONTAINS
+        and e.source_id == "stream:Stream"
+        and e.target_id == destructor.id
+        for e in graph.edges
+    )
+    assert any(
+        e.kind == EdgeKind.CALLS
+        and e.source_id == destructor.id
+        and e.target_id == "stream:Stream::flush"
+        for e in graph.edges
+    )
+
+
+def test_cross_file_out_of_line_method_owner_is_unique(tmp_path: Path) -> None:
+    (tmp_path / "stream.hpp").write_text(
+        "namespace io { class Stream { public: void flush() {} void run(); }; }\n"
+    )
+    (tmp_path / "stream.cpp").write_text("void io::Stream::run() { flush(); }\n")
+    graph = CppParser().parse_directory(str(tmp_path))
+    assert graph.nodes["stream\\.cpp:io::Stream::run"].kind == NodeKind.METHOD
+    assert any(
+        e.kind == EdgeKind.CALLS and e.target_id == "stream\\.hpp:io.Stream.flush"
+        for e in graph.edges
+    )
+
+
+def test_qualified_namespace_function_does_not_become_method(tmp_path: Path) -> None:
+    source = tmp_path / "app.cpp"
+    source.write_text("namespace io { void run(); }\nvoid io::run() {}\n")
+    graph = CppParser().parse_file(str(source))
+    assert graph.nodes["app:io::run"].kind == NodeKind.FUNCTION
+
+
+def test_ambiguous_cross_file_class_owner_remains_unbound(tmp_path: Path) -> None:
+    (tmp_path / "first.hpp").write_text("class Stream { public: void flush() {} };\n")
+    (tmp_path / "second.hpp").write_text("class Stream { public: void flush() {} };\n")
+    (tmp_path / "impl.cpp").write_text("void Stream::run() { flush(); }\n")
+    graph = CppParser().parse_directory(str(tmp_path))
+    assert graph.nodes["impl:Stream::run"].kind == NodeKind.FUNCTION
+    assert not any(
+        e.kind == EdgeKind.CONTAINS
+        and e.source_id.endswith(":Stream")
+        and e.target_id == "impl:Stream::run"
+        for e in graph.edges
+    )
+
+
+def test_out_of_line_method_keeps_nested_namespace_and_value_barriers(tmp_path: Path) -> None:
+    source = tmp_path / "app.cpp"
+    source.write_text(
+        "namespace io { class Stream { public: void flush() {} void run(); };\n"
+        "void Stream::run() { auto flush = [] {}; flush(); } }\n"
+    )
+    graph = CppParser().parse_file(str(source))
+    assert graph.nodes["app:io.Stream::run"].kind == NodeKind.METHOD
+    assert not any(
+        e.kind == EdgeKind.CALLS
+        and e.source_id == "app:io.Stream::run"
+        and e.target_id == "app:io.Stream.flush"
+        for e in graph.edges
+    )
+
+
+def test_out_of_line_method_overloads_remain_uncertain(tmp_path: Path) -> None:
+    source = tmp_path / "app.cpp"
+    source.write_text(
+        "class Stream { public: void flush(int); void flush(double); void run(); };\n"
+        "void Stream::flush(int x) {}\n"
+        "void Stream::flush(double x) {}\n"
+        "void Stream::run() { flush(1); }\n"
+    )
+    graph = CppParser().parse_directory(str(tmp_path))
+    targets = {
+        n.id for n in graph.nodes.values() if n.kind == NodeKind.METHOD and n.name == "flush"
+    }
+    calls = [
+        e for e in graph.edges if e.source_id == "app:Stream::run" and e.kind == EdgeKind.CALLS
+    ]
+    assert len(targets) == 2 and len(calls) == 1
+    assert calls[0].target_id not in targets
+    assert calls[0].confidence == EdgeConfidence.UNCERTAIN
+
+
+def test_out_of_line_method_callback_parameter_stays_blocked(tmp_path: Path) -> None:
+    source = tmp_path / "app.cpp"
+    source.write_text(
+        "class Stream { public: void flush() {} void run(void (*flush)()); };\n"
+        "void Stream::run(void (*flush)()) { flush(); }\n"
+    )
+    graph = CppParser().parse_file(str(source))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert dict(calls[0].attributes)["binding_blocked"]
+    assert calls[0].target_id != "app:Stream.flush"
+
+
+def test_class_namespace_owner_collision_stays_unattached(tmp_path: Path) -> None:
+    (tmp_path / "type.hpp").write_text("class Stream { public: void flush() {} };\n")
+    (tmp_path / "namespace.hpp").write_text("namespace Stream { void flush() {} }\n")
+    (tmp_path / "impl.cpp").write_text("void Stream::run() { flush(); }\n")
+    graph = CppParser().parse_directory(str(tmp_path))
+    assert graph.nodes["impl:Stream::run"].kind == NodeKind.FUNCTION
+
+
+def test_header_prototypes_do_not_compete_with_out_of_line_definitions(tmp_path: Path) -> None:
+    (tmp_path / "type.hpp").write_text("class Stream { public: void flush(); void run(); };\n")
+    (tmp_path / "impl.cpp").write_text("void Stream::flush() {}\nvoid Stream::run() { flush(); }\n")
+    graph = CppParser().parse_directory(str(tmp_path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert calls[0].source_id == "impl:Stream::run"
+    assert calls[0].target_id == "impl:Stream::flush"
+    assert calls[0].location is not None and calls[0].location.start_line == 2
