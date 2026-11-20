@@ -1052,6 +1052,14 @@ def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
 
 
+def test_swift_self_and_cleanup_resolution_contract() -> None:
+    text = _flat("docs/call-resolution.md")
+    assert "`self.method()` call resolves to a unique method" in text
+    assert "Capture rebinding, syntax recovery" in text
+    assert "A Swift `defer` body belongs to its enclosing function or method" in text
+    assert "Actual closures nested inside cleanup code keep their own nodes and calls" in text
+
+
 def test_zig_typed_local_navigation_contract() -> None:
     text = _flat("docs/languages.md")
     assert "unique local variable with an explicit named-container type" in text

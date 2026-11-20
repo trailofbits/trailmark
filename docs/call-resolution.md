@@ -159,6 +159,19 @@ entrypoints, and operator desugaring are not invented. A missing edge is not pro
 of dead code. `main` follows the generic entrypoint rule; script execution needs
 an entrypoint override. Syntax errors warn that the graph may be incomplete.
 
+## Swift self and cleanup
+
+An explicit `self.method()` call resolves to a unique method on its nearest
+lexical type, including merged extensions. Capture rebinding, syntax recovery,
+and lexical binding barriers block this inference. Overloads and other value receivers
+remain unresolved; Trailmark does not perform Swift type checking or infer
+inherited implementations. These local method bindings have `inferred`
+confidence.
+
+A Swift `defer` body belongs to its enclosing function or method. Its calls and
+branches retain that owner; `defer` does not create a function call or a closure
+node. Actual closures nested inside cleanup code keep their own nodes and calls.
+
 ## Dart constructors
 
 Dart constructor calls resolve to a unique constructor declaration in the same
