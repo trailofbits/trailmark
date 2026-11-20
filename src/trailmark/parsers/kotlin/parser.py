@@ -53,6 +53,11 @@ from trailmark.parsers._declarations import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.kotlin._overloads import (
+    argument_count,
+    positional_arity,
+    resolve_positional_overloads,
+)
 
 _EXTENSIONS = (".kt", ".kts")
 
@@ -103,6 +108,7 @@ class KotlinParser:
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
         bind_lexical_calls(graph)
+        resolve_positional_overloads(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -164,6 +170,18 @@ def _extract_class_like(
         kind=kind,
         location=make_location(node, file_path),
         type_parameters=extract_type_parameters(node),
+        attributes=(
+            (
+                "incomplete_overload_scope",
+                any(child.type == "delegation_specifier" for child in node.named_children)
+                or any(
+                    node_text(modifier) == "data"
+                    for modifiers in node.named_children
+                    if modifiers.type == "modifiers"
+                    for modifier in modifiers.named_children
+                ),
+            ),
+        ),
     )
     add_type(graph, unit)
     add_contains_edge(graph, container_id or module_id, class_id)
@@ -270,6 +288,7 @@ def _function_unit(
         type_parameters=extract_type_parameters(node),
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
+        attributes=(("positional_arity", positional_arity(node)),),
     )
     return unit, calls, body
 
@@ -382,6 +401,10 @@ def _add_call_edges(
 ) -> None:
     for call_name, call_node in calls:
         confidence = EdgeConfidence.CERTAIN if "." not in call_name else EdgeConfidence.INFERRED
+        attributes = (("bare_name", call_name),) if call_name.isidentifier() else ()
+        count = argument_count(call_node)
+        if count is not None:
+            attributes += (("argument_count", count),)
         graph.edges.append(
             guard_call(
                 CodeEdge(
@@ -390,7 +413,7 @@ def _add_call_edges(
                     kind=EdgeKind.CALLS,
                     confidence=confidence,
                     location=make_location(call_node, file_path),
-                    attributes=(("bare_name", call_name),) if call_name.isidentifier() else (),
+                    attributes=attributes,
                 ),
                 call_node,
                 graph=graph,

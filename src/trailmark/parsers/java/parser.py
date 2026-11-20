@@ -113,6 +113,14 @@ def _visit_module(
 ) -> None:
     """Walk the top-level of a module, extracting nodes and edges."""
     add_module_node(root, file_path, module_id, graph)
+    package = next((c for c in root.named_children if c.type == "package_declaration"), None)
+    if package is not None:
+        graph.nodes[module_id] = replace(
+            graph.nodes[module_id],
+            attributes=(
+                ("java_package", node_text(package).removeprefix("package").strip(" ;\r\n")),
+            ),
+        )
     for child in root.children:
         _visit_top_level(child, file_path, module_id, graph)
 
@@ -213,6 +221,22 @@ def _extract_inheritance(
     graph: CodeGraph,
 ) -> None:
     """Extract INHERITS edge from superclass field."""
+    if node.type == "object_creation_expression":
+        base = node.child_by_field_name("type")
+        if base is not None:
+            while base.type == "generic_type" and base.named_children:
+                base = base.named_children[0]
+            graph.edges.append(
+                CodeEdge(
+                    class_id,
+                    f"{module_id}:{node_text(base)}",
+                    EdgeKind.INHERITS,
+                    EdgeConfidence.INFERRED,
+                    make_location(base, graph.nodes[class_id].location.file_path),
+                    (("java_anonymous_base", True), ("java_anonymous_type", node_text(base))),
+                )
+            )
+        return
     superclass = node.child_by_field_name("superclass")
     if superclass is None:
         return
@@ -615,6 +639,8 @@ def _servlet_base(node: Node) -> bool:
 
 
 def _bind_constructors(graph: CodeGraph) -> None:
+    _bind_anonymous_bases(graph)
+    _bind_anonymous_calls(graph)
     owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
     bases = {e.source_id: e.target_id for e in graph.edges if e.kind == EdgeKind.INHERITS}
     types: dict[str, list[str]] = {}
@@ -624,6 +650,135 @@ def _bind_constructors(graph: CodeGraph) -> None:
             types.setdefault(unit.name, []).append(unit.id)
         _index_constructor(unit, graph, owners, constructors)
     graph.edges[:] = [_constructor_edge(e, owners, bases, types, constructors) for e in graph.edges]
+
+
+def _bind_anonymous_bases(graph: CodeGraph) -> None:
+    """Revisit anonymous base types after a directory merge supplies declarations."""
+    types: dict[str, list[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind in {NodeKind.CLASS, NodeKind.INTERFACE}:
+            qualified = unit.id.split(":", 1)[-1]
+            package = _package_of(graph, unit.id)
+            types.setdefault(f"{package}.{qualified}".lstrip("."), []).append(unit.id)
+    edges = []
+    for edge in graph.edges:
+        raw = dict(edge.attributes).get("java_anonymous_type")
+        if isinstance(raw, str):
+            module = edge.source_id.split(":", 1)[0]
+            scope = edge.source_id.split(":", 1)[-1].split(".")[:-1]
+            candidates = []
+            for depth in range(len(scope), -1, -1):
+                candidate = f"{module}:{'.'.join([*scope[:depth], raw])}"
+                unit = graph.nodes.get(candidate)
+                if unit is not None and unit.kind in {NodeKind.CLASS, NodeKind.INTERFACE}:
+                    candidates = [candidate]
+                    break
+            if not candidates:
+                package = _package_of(graph, edge.source_id)
+                qualified = f"{package}.{raw}".lstrip(".") if "." not in raw else raw
+                candidates = types.get(qualified, [])
+            target_id = candidates[0] if len(candidates) == 1 else f"{module}:{raw}"
+            target = graph.nodes.get(target_id)
+            kind = (
+                EdgeKind.IMPLEMENTS
+                if target is not None and target.kind == NodeKind.INTERFACE
+                else EdgeKind.INHERITS
+                if target is not None and target.kind == NodeKind.CLASS
+                else EdgeKind.TYPE_USES
+            )
+            edge = replace(edge, kind=kind, target_id=target_id)
+        edges.append(edge)
+    graph.edges[:] = edges
+
+
+def _bind_anonymous_calls(graph: CodeGraph) -> None:
+    """Prefer an anonymous subclass's inherited methods over enclosing methods.
+
+    Only a unique declaration along an inspected class chain can bind. Unknown
+    bases, overloads, interface dispatch and cycles retain an uncertain target.
+    """
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    bases = {
+        e.source_id: e.target_id
+        for e in graph.edges
+        if e.kind in {EdgeKind.INHERITS, EdgeKind.IMPLEMENTS, EdgeKind.TYPE_USES}
+        and (e.kind == EdgeKind.INHERITS or dict(e.attributes).get("java_anonymous_base"))
+    }
+    anonymous = {e.source_id for e in graph.edges if dict(e.attributes).get("java_anonymous_base")}
+    methods: dict[tuple[str, str], list[CodeUnit]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind == NodeKind.METHOD:
+            methods.setdefault((owners.get(unit.id, ""), unit.name), []).append(unit)
+    edges = []
+    for edge in graph.edges:
+        name = dict(edge.attributes).get("bare_name")
+        owner = edge.source_id
+        while owner in owners and graph.nodes[owner].kind not in {
+            NodeKind.CLASS,
+            NodeKind.INTERFACE,
+        }:
+            owner = owners[owner]
+        if edge.kind != EdgeKind.CALLS or not isinstance(name, str) or owner not in anonymous:
+            edges.append(edge)
+            continue
+        if methods.get((owner, name)):
+            # Keep the existing local declaration/overload binder's decision.
+            edges.append(edge)
+            continue
+        current = owner
+        seen = set()
+        signatures: dict[tuple[TypeRef | None, ...], list[str]] = {}
+        uncertain = False
+        while current not in seen:
+            seen.add(current)
+            unit = graph.nodes.get(current)
+            if unit is None or unit.kind != NodeKind.CLASS:
+                uncertain = True
+                break
+            declarations = methods.get((current, name), [])
+            level: dict[tuple[TypeRef | None, ...], list[str]] = {}
+            for method in declarations:
+                attributes = dict(method.attributes)
+                same_package = _package_of(graph, method.id) == _package_of(graph, owner)
+                if not attributes.get("java_private") and (
+                    same_package or not attributes.get("java_package_private")
+                ):
+                    signature = tuple(p.type_ref for p in method.parameters)
+                    level.setdefault(signature, []).append(method.id)
+            for signature, targets in level.items():
+                signatures.setdefault(signature, targets)
+            if current not in bases:
+                break
+            current = bases[current]
+        else:
+            uncertain = True
+        candidates = [target for targets in signatures.values() for target in targets]
+        if len(candidates) == 1 and not uncertain:
+            edge = replace(edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED)
+        else:
+            edge = replace(
+                edge, target_id=f"{owner}.{name}@inherited", confidence=EdgeConfidence.UNCERTAIN
+            )
+        edges.append(edge)
+    graph.edges[:] = edges
+
+
+def _package_of(graph: CodeGraph, ident: str) -> str:
+    module = graph.nodes.get(ident.split(":", 1)[0])
+    return str(dict(module.attributes).get("java_package", "")) if module is not None else ""
+
+
+def _package_private(node: Node) -> bool:
+    flags = {
+        flag
+        for child in node.named_children
+        if child.type == "modifiers"
+        for flag in node_text(child).split()
+    }
+    owner = node.parent.parent if node.parent is not None else None
+    return not flags & {"public", "protected", "private"} and (
+        owner is None or owner.type not in {"interface_declaration", "annotation_type_declaration"}
+    )
 
 
 def _index_constructor(
@@ -754,6 +909,7 @@ def _function_unit(
                     for c in node.named_children
                 ),
             ),
-        ),
+        )
+        + ((("java_package_private", True),) if _package_private(node) else ()),
     )
     return unit, calls

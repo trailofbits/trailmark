@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -371,3 +372,97 @@ class TestCSharpParseDirectory:
                 f.write("not source code")
             graph = parser.parse_directory(tmpdir)
         assert len(graph.nodes) == 0
+
+
+def test_explicit_constructions_keep_sites_and_constructor_targets(tmp_path: Path) -> None:
+    from trailmark.query.api import QueryEngine
+
+    source = tmp_path / "construct.cs"
+    source.write_text(
+        "namespace Demo {\n"
+        " class Packet { public Packet() {} }\n"
+        " class Builder {\n"
+        "  Packet Make() { return new Packet(); }\n"
+        "  void Fail() { throw new System.InvalidOperationException(); }\n"
+        " }\n"
+        "}\n"
+    )
+    graph = CSharpParser().parse_directory(str(tmp_path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 2
+    make = next(e for e in calls if e.source_id.endswith("Builder.Make"))
+    assert make.target_id == "construct:Demo.Packet.Packet"
+    assert make.confidence == EdgeConfidence.INFERRED
+    assert make.location and make.location.start_line == 4
+    fail = next(e for e in calls if e.source_id.endswith("Builder.Fail"))
+    assert graph.nodes[fail.target_id].kind == NodeKind.PROXY
+    assert fail.confidence == EdgeConfidence.UNCERTAIN
+    assert fail.location and fail.location.start_line == 5
+    engine = QueryEngine.from_graph(graph)
+    assert {n["id"] for n in engine.callers_of(make.target_id)} == {make.source_id}
+
+
+def test_static_implicit_and_overloaded_constructors_are_not_conflated(tmp_path: Path) -> None:
+    source = tmp_path / "construct.cs"
+    source.write_text(
+        "class StaticOnly { static StaticOnly() {} }\n"
+        "class Both { static Both() {} public Both() {} }\n"
+        "class Overloaded { public Overloaded() {} public Overloaded(int x) {} }\n"
+        "class Builder { void Run() {\n"
+        " new StaticOnly(); new Both(); new Overloaded(); new External();\n"
+        "} }\n"
+    )
+    graph = CSharpParser().parse_directory(str(tmp_path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 4
+    resolved = [e for e in calls if graph.nodes[e.target_id].kind != NodeKind.PROXY]
+    assert len(resolved) == 1
+    assert resolved[0].target_id.startswith("construct:Both.Both@")
+    assert all(e.confidence == EdgeConfidence.UNCERTAIN for e in calls if e not in resolved)
+
+
+def test_constructor_alias_and_namespace_imports_block_outer_namesakes(tmp_path: Path) -> None:
+    source = tmp_path / "construct.cs"
+    source.write_text(
+        "class Packet { public Packet() {} }\n"
+        "namespace Aliased { using Packet = External.Packet;\n"
+        " class Builder { object Make() => new Packet(); } }\n"
+        "namespace Imported { using External;\n"
+        " class Builder { object Make() => new Packet();\n"
+        " object Known() => new global::Packet(); } }\n"
+    )
+    graph = CSharpParser().parse_directory(str(tmp_path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 3
+    for call in calls:
+        if call.source_id.endswith(".Known"):
+            assert call.target_id == "construct:Packet.Packet"
+        else:
+            assert graph.nodes[call.target_id].kind == NodeKind.PROXY
+
+
+def test_generic_type_parameters_do_not_bind_outer_constructor(tmp_path: Path) -> None:
+    source = tmp_path / "construct.cs"
+    source.write_text(
+        "class Packet { public Packet() {} }\n"
+        "class Builder<Packet> where Packet : new() { Packet Make() => new Packet(); }\n"
+        "class Methods { Packet Make<Packet>() where Packet : new() => new Packet(); }\n"
+    )
+    graph = CSharpParser().parse_directory(str(tmp_path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 2
+    assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
+
+
+def test_file_scoped_namespace_constructor_alias_is_a_barrier(tmp_path: Path) -> None:
+    source = tmp_path / "construct.cs"
+    source.write_text(
+        "namespace Consumer;\nusing Alias = External.Packet;\n"
+        "class Packet { public Packet() {} }\n"
+        "class Builder { object Make() => new Alias(); }\n"
+    )
+    graph = CSharpParser().parse_directory(str(tmp_path))
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert graph.nodes[calls[0].target_id].kind == NodeKind.PROXY
+    assert dict(calls[0].attributes)["constructor_binding_blocked"] is True
