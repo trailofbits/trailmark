@@ -369,6 +369,11 @@ public instance-method metadata; private and singleton helpers are excluded.
 Inline visibility modifiers (`private def`, `protected def`, and `public def`)
 retain their method declarations, bodies, and visibility without changing the
 default visibility of following methods.
+Literal Ruby `alias_method` and `alias` declarations retain source-anchored
+`references` edges and bind calls to a unique prior method body in the same
+inspected class/module body and receiver. Conditional or dynamic aliases, writers,
+redefinitions, inherited alias-method overrides, and stale reopened bodies keep
+uncertain proxies. Later dynamic aliases can therefore block a literal alias.
 Runtime metaprogramming, reopened class inheritance, and lambda-body coverage remain
 limited.
 

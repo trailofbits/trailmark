@@ -106,6 +106,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "Recovered Rocq and WhyML declarations and references"),
     ("docs/languages.md", "Proof expressions keep their computational continuations"),
     ("docs/parser-coverage.md", "Inline visibility modifiers"),
+    ("docs/parser-coverage.md", "Literal Ruby `alias_method` and `alias` declarations"),
     ("docs/languages.md", "Routine recovery respects top-level statement boundaries"),
     ("docs/languages.md", "File includes resolve by their exact path"),
     ("docs/languages.md", "Dafny uses Dafny 4 function syntax"),
