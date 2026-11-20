@@ -279,6 +279,14 @@ preserving physical source locations, and records `objc_nullability_regions` on
 the module. Redefined, unmatched, nested or cross-branch annotations stay in the
 ordinary recovery path; unrelated syntax diagnostics remain visible.
 
+Objective-C recovers complete translation-unit `NS_ENUM` and `NS_OPTIONS`
+typedefs as enum declarations without losing subsequent interfaces or bodies.
+The enum body must parse as C enum syntax. Recovery excludes only the original
+typedef byte range from the syntactic view, preserves physical source locations
+and retains the original syntax diagnostics. Recovery handles at most 64 typedefs
+per file; additional typedefs retain ordinary syntax diagnostics. Inspected macro overrides,
+incomplete declarations and function-local typedefs stay in ordinary recovery.
+
 Dart constructors use `module:Class.Class` and `module:Class.Class.named` IDs.
 Constructor initializers and arrow bodies retain calls, and deferred local bodies
 have separate owners. These syntax edges do not imply runtime dispatch inference.
