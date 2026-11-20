@@ -130,6 +130,11 @@ blocks and `pub proc` declarations are entrypoints. The bundled grammar does not
 cover all recent Miden syntax, including some visibility and branch forms.
 
 Bash command effects use statically decoded words without shell evaluation.
+An unconditional nested function definition can bind later calls in the same
+body; it does not establish a script-wide binding. Alias changes after an
+enclosing function was parsed do not rewrite its command sites. Earlier alias
+barriers, conditional definitions, duplicate names and runtime mutations remain
+conservative.
 Quoted/escaped mutation builtins invalidate inference. Reserved `time` preserves
 the timed call. Named `coproc` compound bodies retain enclosing function spans
 and command ownership. Bash 5.3 `${ command; }` and `${| command; }` substitutions
