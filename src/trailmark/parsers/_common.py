@@ -131,6 +131,17 @@ def module_id_from_path(file_path: str) -> str:
     return path.stem if path.stem != "__init__" else path.parent.name
 
 
+def planned_source(file_path: str) -> tuple[str, str] | None:
+    """Return a directory-selected source's module and language, without fallback."""
+    sources = _DIRECTORY_SOURCES.get()
+    if sources is None:
+        return None
+    path = _absolute_lexical_path(Path(file_path))
+    owner = sources.owners.get(path)
+    module_id = sources.module_ids.get(path)
+    return (module_id, owner) if module_id is not None and owner is not None else None
+
+
 def _absolute_lexical_path(path: Path) -> Path:
     """Return an absolute path without resolving symlink targets."""
     return Path(os.path.abspath(path))
