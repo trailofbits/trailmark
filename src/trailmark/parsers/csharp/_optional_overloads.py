@@ -30,7 +30,7 @@ def signature_attributes(node: Node) -> tuple[Attribute, ...]:
         node.type != "method_declaration"
         or node.has_error
         or node.child_by_field_name("type_parameters")
-        or any(c.type == "explicit_interface_specifier" for c in node.children)
+        or any(c.type in {"explicit_interface_specifier", "attribute_list"} for c in node.children)
     ):
         return ()
     if any(

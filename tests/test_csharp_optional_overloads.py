@@ -160,3 +160,11 @@ def test_explicit_interface_implementation_is_not_a_bare_name_candidate(tmp_path
     graph = parse_directory(str(tmp_path), "c_sharp", strict=True)
     call = next(e for e in graph.edges if e.kind == EdgeKind.CALLS)
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
+
+
+def test_overload_priority_attribute_blocks_the_optional_default_tie(tmp_path: Path) -> None:
+    graph, call = _parse(
+        tmp_path,
+        "void Add(string x) {} [OverloadResolutionPriority(1)] void Add(string x, int n = 0) {}",
+    )
+    assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
