@@ -24,6 +24,7 @@ GRAMMARS = {
     "whyml": "15",
     "tamarin": "14",
     "proverif": "15",
+    "rego": "14",
 }
 GENERATED_FILES = {
     name: ("src/parser.c", "src/tree_sitter/parser.h")
