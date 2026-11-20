@@ -247,12 +247,14 @@ class _Extractor:
                         if n.type == "identifier"
                     )
             recovery = body.has_error
+            local_types = _local_types(body, self.graph.nodes[ident].parameters)
             for node in _body_nodes(body):
                 if node.type != "arguments" or node.parent is None:
                     continue
                 parent = node.parent
                 raw = node_text(parent)[: node.start_byte - parent.start_byte].strip()
-                target, bound = self.resolve(raw, owner, shadows)
+                typed = _typed_callee(parent, local_types)
+                target, bound = self.resolve(typed or raw, owner, shadows)
                 if recovery:
                     target, bound = None, True
                 # Dotted identities prevent the directory heuristic from binding
@@ -267,7 +269,11 @@ class _Extractor:
                         ident,
                         target or unresolved,
                         EdgeKind.CALLS,
-                        confidence=EdgeConfidence.CERTAIN if target else EdgeConfidence.UNCERTAIN,
+                        confidence=EdgeConfidence.INFERRED
+                        if target and typed
+                        else EdgeConfidence.CERTAIN
+                        if target
+                        else EdgeConfidence.UNCERTAIN,
                         location=make_location(node, self.path),
                         attributes=(
                             ("binding_blocked", bound and target is None),
@@ -311,3 +317,60 @@ def _path_parts(raw: str) -> list[str]:
     if not tokens or any(part != "." for part in tokens[1::2]):
         return []
     return [_identifier(token) for token in tokens[::2]]
+
+
+def _local_types(body: Node, parameters: tuple[Parameter, ...]) -> dict[str, tuple[str, Node]]:
+    """Use only one explicitly typed local binding; captures and duplicates block it."""
+    bindings: dict[str, list[tuple[str, Node] | None]] = {p.name: [None] for p in parameters}
+    for node in _body_nodes(body):
+        if node.type == "payload":
+            for name in descendants(node):
+                if name.type == "identifier":
+                    bindings.setdefault(_identifier(node_text(name)), []).append(None)
+        elif node.type == "variable_declaration":
+            name = first_child_type(node, {"identifier"})
+            if name is None:
+                continue
+            annotation = node.child_by_field_name("type")
+            raw = node_text(annotation) if annotation is not None else ""
+            raw = re.sub(r"^\*\s*(?:const\s+)?", "", raw).strip()
+            parts = _path_parts(raw)
+            binding = (
+                (".".join(parts), node)
+                if parts and node.parent is not None and node.parent.type == "block"
+                else None
+            )
+            bindings.setdefault(_identifier(node_text(name)), []).append(binding)
+    return {name: items[0] for name, items in bindings.items() if len(items) == 1 and items[0]}
+
+
+def _typed_callee(call: Node, local_types: dict[str, tuple[str, Node]]) -> str | None:
+    function = call.child_by_field_name("function")
+    if function is None or function.type != "field_expression":
+        return None
+    receiver = function.child_by_field_name("object")
+    member = function.child_by_field_name("member")
+    if member is None:
+        return None
+    if receiver is None:
+        declaration = call.parent
+        if declaration is None or declaration.type != "variable_declaration":
+            return None
+        name = first_child_type(declaration, {"identifier"})
+        if name is None or declaration.named_children[-1] != call:
+            return None
+    elif receiver.type == "identifier":
+        name = receiver
+    else:
+        return None
+    binding = local_types.get(_identifier(node_text(name)))
+    if binding is None:
+        return None
+    type_name, declaration = binding
+    scope = declaration.parent
+    if scope is None or not (
+        declaration.start_byte < call.start_byte < scope.end_byte
+        and scope.start_byte <= call.start_byte
+    ):
+        return None
+    return f"{type_name}.{_identifier(node_text(member))}"
