@@ -1022,6 +1022,7 @@ def test_round5_binding_contracts(marker: str) -> None:
         "default parameter expressions",
         "Getter and setter bodies",
         "Descendants of C# overloads",
+        "default property backing ivars",
         "different fixed positional arities",
         "indexed once per body",
         "`$returned@line_column_endbyte`",

@@ -309,8 +309,14 @@ expressions can still raise `RecursionError` through `parse_file`; the declarati
 limit does not cover every expression form.
 
 Objective-C message sends retain complete selectors. A unique `self` selector in
-the same implementation can link with inferred confidence; other sends stay
-uncertain. Class
+the same implementation can link with inferred confidence. Bare instance-variable
+receivers can also use inspected object-pointer declarations or default property
+backing ivars, including across header/implementation files. Unique method bodies
+are preferred over interface signatures. Shadowed receivers, custom or dynamic
+property implementations, ambiguous class definitions and unknown types remain
+uncertain. Inherited property declarations and unavailable ancestors suppress
+default backing-ivar inference; the standard `NSObject` property surface is known.
+Receiver inheritance, custom synthesis and runtime dispatch are not inferred. Class
 methods use `module:Class.+selector` IDs; instance methods retain
 `module:Class.selector`. Blocks have separate source-position owners.
 Dart constructors use `module:Class.Class` and `module:Class.Class.named` IDs.
