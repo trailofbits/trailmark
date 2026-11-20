@@ -17,7 +17,7 @@ from pathlib import Path
 from tree_sitter import Language, Node, Parser, Range
 
 from trailmark.models.diagnostics import ParseDiagnostic
-from trailmark.models.edges import CodeEdge, EdgeKind
+from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import Attribute, CodeUnit, NodeKind, NodeOrigin, Parameter
 from trailmark.parsers._common import (
@@ -259,6 +259,7 @@ class Source:
         scopes: tuple[Scope, ...] = (),
         skip: frozenset[str] = frozenset(),
         application_heads: frozenset[int] = frozenset(),
+        bound_applications: dict[int, str] | None = None,
         context: str = "body",
         spelling: Callable[[Node], str | None] | None = None,
     ) -> None:
@@ -285,7 +286,8 @@ class Source:
                 continue
             active = index.at(node.start_byte)
             bound_name = node_text(node) if self.language == "tamarin" else name.split(".")[0]
-            if name == "_" or index.bound[bound_name] > 0:
+            bound_target = (bound_applications or {}).get(node.start_byte)
+            if name == "_" or (index.bound[bound_name] > 0 and bound_target is None):
                 continue
             local_opens = tuple(prefix for scope in active for prefix in scope.opens)
             tiers = lookup_tiers(name, namespace, (*opens, *local_opens), aliases or {})
@@ -303,13 +305,14 @@ class Source:
             self.graph.edges.append(
                 CodeEdge(
                     owner,
-                    "@pending",
+                    bound_target or "@pending",
                     EdgeKind.REFERENCES,
+                    confidence=EdgeConfidence.UNCERTAIN if bound_target else EdgeConfidence.CERTAIN,
                     location=make_location(node, self.path),
                     attributes=(
                         ("reference_context", reference_context),
                         ("spelling", name),
-                        ("_formal_candidates", json.dumps(tiers)),
+                        ("_formal_candidates", None if bound_target else json.dumps(tiers)),
                         ("_formal_application", node.start_byte in application_heads),
                         ("_formal_position", node.start_byte),
                         (

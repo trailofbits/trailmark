@@ -287,9 +287,7 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
     application = attrs.pop("_formal_application", False)
     position = attrs.pop("_formal_position", None)
     enclosing = attrs.pop("_formal_enclosing", None)
-    if not isinstance(raw, str):
-        return _Linked(edge)
-    target = symbols.resolve(edge, json.loads(raw))
+    target = symbols.resolve(edge, json.loads(raw)) if isinstance(raw, str) else edge.target_id
     if target is None:
         return None
     if (
@@ -302,7 +300,7 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
         edge,
         target_id=target,
         attributes=tuple(attrs.items()),
-        confidence=EdgeConfidence.INFERRED,
+        confidence=EdgeConfidence.INFERRED if isinstance(raw, str) else edge.confidence,
     )
     return _Linked(
         linked,

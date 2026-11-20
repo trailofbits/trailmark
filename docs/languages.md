@@ -433,7 +433,10 @@ Dafny uses Dafny 4 function syntax. Modules, classes, traits, datatypes, fields,
 functions, methods and lemmas retain declaration roles. Contracts and proof statements
 produce references; ghost declarations and lemma uses do not create computational calls.
 Input parameters retain source order and types; constructors and iterators retain
-their own roles. Nested calls require computational enclosing callees and non-ghost
+their own roles. Arrow-typed parameter applications retain uncertain callback sites
+without binding to same-name global functions. Contracts and proof uses remain
+references; ghost parameters and inner shadowing binders do not become runtime callbacks.
+Nested calls require computational enclosing callees and non-ghost
 argument positions. Named ghost constructor fields retain `ghost` metadata. Aliases and opened modules
 resolve against inspected imports, including sibling modules. Datatype destructors have
 type-level aliases, and newtype members retain their own declarations. File includes resolve by their exact path relative to

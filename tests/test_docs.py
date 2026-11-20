@@ -96,6 +96,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "File includes resolve by their exact path"),
     ("docs/languages.md", "Dafny uses Dafny 4 function syntax"),
     ("docs/languages.md", "Input parameters retain source order and types"),
+    ("docs/languages.md", "Arrow-typed parameter applications retain uncertain callback sites"),
     ("docs/languages.md", "Includes re-export inspected module members"),
     ("docs/languages.md", "Private declarations stay local"),
     (
