@@ -1037,3 +1037,10 @@ def test_release_followup_graph_contracts() -> None:
 )
 def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
+
+
+def test_dart_constructor_resolution_contract() -> None:
+    text = _flat("docs/call-resolution.md")
+    assert "Dart constructor calls resolve to a unique constructor declaration" in text
+    assert "`Context._internal()`" in text
+    assert "imported class aliases and receiver type inference are not modeled" in text

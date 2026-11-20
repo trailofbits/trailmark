@@ -158,3 +158,12 @@ definitions are not expanded. Generated methods, implicit constructors, compiler
 entrypoints, and operator desugaring are not invented. A missing edge is not proof
 of dead code. `main` follows the generic entrypoint rule; script execution needs
 an entrypoint override. Syntax errors warn that the graph may be incomplete.
+
+## Dart constructors
+
+Dart constructor calls resolve to a unique constructor declaration in the same
+file when the class name is unshadowed. This includes named constructors such
+as `Context._internal()` and calls made inside factory constructors. The
+`calls` edge targets the constructor method, preserving its source site for
+caller and callee queries. Constructor binding has `inferred` confidence;
+imported class aliases and receiver type inference are not modeled.
