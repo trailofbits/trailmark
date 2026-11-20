@@ -94,9 +94,12 @@ def pyproject_data() -> dict[str, object]:
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/parser-coverage.md", "Inline visibility modifiers"),
+    ("docs/languages.md", "Routine recovery respects top-level statement boundaries"),
     ("docs/languages.md", "File includes resolve by their exact path"),
     ("docs/languages.md", "Dafny uses Dafny 4 function syntax"),
+    ("docs/languages.md", "Template names do not supply runtime function or type bindings"),
     ("docs/languages.md", "Input parameters retain source order and types"),
+    ("docs/languages.md", "Arrow-typed parameter applications retain uncertain callback sites"),
     ("docs/languages.md", "Includes re-export inspected module members"),
     ("docs/languages.md", "Private declarations stay local"),
     (
@@ -196,7 +199,12 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/parser-coverage.md", "Calls keep their normal confidence"),
     ("docs/parser-coverage.md", "the last definition keeps its plain ID"),
     ("docs/parser-coverage.md", "Java constructor binding also runs after the directory merge"),
+    ("docs/parser-coverage.md", "Anonymous Java subclasses record source-located base type"),
     ("docs/parser-coverage.md", "arrows inherit lexical `this`"),
+    (
+        "docs/parser-coverage.md",
+        "Named generator declarations, including `async function*`, resolve direct calls",
+    ),
     ("docs/parser-coverage.md", "`{owner}.{name}@ambiguous`"),
     ("docs/skills-compatibility.md", "current query facade has no confidence"),
     ("docs/skills-compatibility.md", "SARIF description-only bases"),
@@ -231,12 +239,20 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "explicitly computational declaration with non-ghost argument positions",
     ),
     ("docs/languages.md", "including implicit `Tot`"),
+    (
+        "docs/languages.md",
+        "The inherited `effect` string is retained on unannotated implementations",
+    ),
     ("docs/languages.md", "lemma dependencies occurring only in proofs are absent"),
     ("docs/languages.md", "Module signature clauses retain references in the module namespace"),
     ("docs/languages.md", "mean per-file syntax-error line coverage fell from 44% to 15%"),
     ("docs/languages.md", "premise, action and conclusion"),
     ("docs/languages.md", "library_resolution=directory"),
     ("docs/graph-model.md", "unresolved reference spellings are omitted"),
+    (
+        "docs/call-resolution.md",
+        "Solidity receiver calls inside comparisons retain the callee text",
+    ),
     ("docs/graph-model.md", "256 individual errors per file plus a summary"),
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
@@ -255,6 +271,10 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/installation.md", "parses Rust with the language-pack grammar instead"),
     ("docs/exceptions.md", "Only a callable's own signature declares exceptions"),
     ("docs/exceptions.md", "Python bare raises infer unshadowed builtin exception names"),
+    (
+        "docs/parser-coverage.md",
+        "Python assignment-expression (`:=`) targets also block unrelated function names",
+    ),
     ("docs/exceptions.md", "they do not make it a raising function"),
     ("docs/exceptions.md", "A bare Ruby `raise` or `fail` is an uncertain `rethrow`"),
     ("docs/exceptions.md", "record the callee name as their expression"),
@@ -299,6 +319,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/cli.md", "--strict"),
     ("docs/augmenting.md", "originalUriBaseIds"),
     ("docs/languages.md", "Thrift IDs use source-file identity"),
+    ("docs/languages.md", "Thrift service `extends` clauses retain `inherits` edges"),
     ("docs/entrypoints.md", "run_ticktock"),
     ("docs/python-api.md", "parameter_types"),
     ("docs/python-api.md", "parameter_defaults"),
@@ -890,6 +911,7 @@ def _read_requires_python(pyproject_data: dict[str, object]) -> str:
         "`macro_signature_unresolved`",
         "`syntax_error_context`",
         "`assert!(...)`",
+        "generic impl declarations",
         "`unsupported_syntax`",
         "`package fun`",
         "`file:api.init`",
@@ -982,6 +1004,7 @@ def test_round5_binding_contracts(marker: str) -> None:
         "default parameter expressions",
         "Getter and setter bodies",
         "Descendants of C# overloads",
+        "different fixed positional arities",
         "indexed once per body",
         "`$returned@line_column_endbyte`",
         "numbered block/lambda parameters",
@@ -1020,3 +1043,10 @@ def test_release_followup_graph_contracts() -> None:
 )
 def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
+
+
+def test_dart_constructor_resolution_contract() -> None:
+    text = _flat("docs/call-resolution.md")
+    assert "Dart constructor calls resolve to a unique constructor declaration" in text
+    assert "`Context._internal()`" in text
+    assert "imported class aliases and receiver type inference are not modeled" in text

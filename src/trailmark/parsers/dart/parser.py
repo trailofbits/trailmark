@@ -22,6 +22,7 @@ Throw and rethrow expressions retain source evidence and constructor type hints.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -38,7 +39,7 @@ from trailmark.models.nodes import (
     TypeRef,
 )
 from trailmark.parsers._binding_index import binding_scope
-from trailmark.parsers._bindings import guard_call
+from trailmark.parsers._bindings import guard_call, namespace_receiver_matches
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -103,6 +104,7 @@ class DartParser:
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
         bind_lexical_calls(graph)
+        _bind_constructors(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -480,6 +482,10 @@ def _add_call_edges(
 ) -> None:
     for call_name, call_node in calls:
         confidence = EdgeConfidence.CERTAIN if "." not in call_name else EdgeConfidence.INFERRED
+        receiver = call_name.split(".", 1)[0]
+        receiver_shadowed = "." in call_name and not namespace_receiver_matches(
+            CodeEdge(source_id, receiver, EdgeKind.CALLS), call_node, graph, receiver
+        )
         graph.edges.append(
             guard_call(
                 CodeEdge(
@@ -488,7 +494,8 @@ def _add_call_edges(
                     kind=EdgeKind.CALLS,
                     confidence=confidence,
                     location=make_location(call_node, file_path),
-                    attributes=(("bare_name", call_name),) if call_name.isidentifier() else (),
+                    attributes=((("bare_name", call_name),) if call_name.isidentifier() else ())
+                    + ((("binding_blocked", True),) if receiver_shadowed else ()),
                 ),
                 call_node,
                 graph=graph,
@@ -582,3 +589,19 @@ def _extract_nested_functions(
                         container_id=func_id,
                         name_override=name,
                     )
+
+
+def _bind_constructors(graph: CodeGraph) -> None:
+    """Bind constructor spellings to unique declarations in this source file."""
+    constructors: dict[str, list[str]] = {}
+    for unit in graph.nodes.values():
+        if dict(unit.attributes).get("dart_constructor"):
+            constructors.setdefault(unit.name, []).append(unit.id)
+    for index, edge in enumerate(graph.edges):
+        if edge.kind != EdgeKind.CALLS or dict(edge.attributes).get("binding_blocked"):
+            continue
+        candidates = constructors.get(edge.target_id, [])
+        if len(candidates) == 1:
+            graph.edges[index] = replace(
+                edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED
+            )
