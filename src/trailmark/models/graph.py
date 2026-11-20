@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field
 
+from trailmark.models._parsing import ParseState
 from trailmark.models.annotations import Annotation, AnnotationKind, EntrypointTag
 from trailmark.models.binary import BinaryArtifact, BinaryRange, BinarySourceMapping
 from trailmark.models.diagnostics import ParseDiagnostic
@@ -38,6 +39,7 @@ class CodeGraph:
     binary_artifacts: dict[str, BinaryArtifact] = field(default_factory=dict)
     binary_ranges: dict[str, BinaryRange] = field(default_factory=dict)
     binary_source_mappings: dict[str, BinarySourceMapping] = field(default_factory=dict)
+    _parse_state: ParseState = field(default_factory=ParseState, repr=False, compare=False)
 
     def add_entrypoint_evidence(self, evidence: EntrypointEvidence) -> None:
         """Retain distinct source occurrences and make repeated discovery idempotent."""
@@ -133,6 +135,7 @@ class CodeGraph:
                 else deepcopy(other.source_policy)
             )
         self.nodes.update(other.nodes)
+        self._parse_state.merge(other._parse_state)
         self.edges.extend(other.edges)
         self.parse_diagnostics.extend(other.parse_diagnostics)
         for node_id, anns in other.annotations.items():

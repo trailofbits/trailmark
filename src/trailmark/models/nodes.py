@@ -37,6 +37,22 @@ class NodeKind(Enum):
     BINARY_REGION = "binary_region"
 
 
+TYPE_KINDS = frozenset(
+    {
+        NodeKind.CLASS,
+        NodeKind.STRUCT,
+        NodeKind.INTERFACE,
+        NodeKind.TRAIT,
+        NodeKind.ENUM,
+        NodeKind.CONTRACT,
+        NodeKind.LIBRARY,
+        NodeKind.TEMPLATE,
+        NodeKind.TABLE,
+        NodeKind.VIEW,
+    }
+)
+
+
 class NodeOrigin(Enum):
     """Where a node came from."""
 

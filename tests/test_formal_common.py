@@ -272,8 +272,12 @@ def test_nested_calls_require_computational_enclosing_callees(executable: bool |
     assert calls == ({"outer", "inner", "leaf"} if executable else set())
     assert len([e for e in src.graph.edges if e.kind == EdgeKind.REFERENCES]) == 3
     assert all(
-        not key.startswith("_formal_") for edge in src.graph.edges for key, _ in edge.attributes
+        key != "_lookup" and not key.startswith("_formal_")
+        for edge in src.graph.edges
+        for key, _ in edge.attributes
     )
+    assert not src.graph._parse_state.references
+    assert not src.graph._parse_state.arguments
     before = src.graph.edges.copy()
     link_symbols(src.graph)
     assert src.graph.edges == before

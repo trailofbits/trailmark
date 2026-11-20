@@ -7,24 +7,23 @@ import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from trailmark.models._parsing import ArgumentScope, PendingReference
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin
+from trailmark.models.nodes import TYPE_KINDS, CodeUnit, NodeKind, NodeOrigin
+from trailmark.parsers._resolution import SymbolIndex, module_visibility
 
 
 class _Symbols:
     def __init__(self, graph: CodeGraph, qualified_prefixes: tuple[str, ...] = ()) -> None:
         self.graph = graph
         self.qualified_prefixes = qualified_prefixes
-        self.files = {
-            n.location.file_path: n.id
-            for n in graph.nodes.values()
-            if n.kind == NodeKind.MODULE and n.origin == NodeOrigin.SOURCE
-        }
+        self.index = SymbolIndex(graph, "qualified_name", module_origin=NodeOrigin.SOURCE)
+        self.files = self.index.files
         self.paths = {os.path.abspath(path): module for path, module in self.files.items()}
         self.modules: dict[str, set[str]] = {}
-        self.names: dict[str, list[CodeUnit]] = {}
+        self.names = self.index.names
         self.exports: dict[str, set[str]] = {}
         self.open_exports: dict[str, set[str]] = {}
         self.ordered = {
@@ -40,22 +39,17 @@ class _Symbols:
                 self.exports.setdefault(name, set()).update(imports)
             for name, imports in json.loads(str(attrs.get("formal_open_exports", "{}"))).items():
                 self.open_exports.setdefault(name, set()).update(imports)
-            qualified = attrs.get("qualified_name")
-            if isinstance(qualified, str):
-                self.names.setdefault(qualified, []).append(unit)
             for alias in json.loads(str(attrs.get("qualified_aliases", "[]"))):
                 self.names.setdefault(alias, []).append(unit)
         self.interfaces = {
             str(Path(path).with_suffix("")): {
-                dict(n.attributes).get("qualified_name")
-                for n in graph.nodes.values()
-                if n.location.file_path == path
+                dict(n.attributes).get("qualified_name") for n in self.index.by_file[path]
             }
             for path in self.files
             if path.endswith(".fsti")
         }
         self.imports = self.link_imports()
-        self.visible = {module: self.reachable(module) for module in self.files.values()}
+        self.visible = module_visibility(self.imports)
 
     def link_imports(self) -> dict[str, set[str]]:
         imports: dict[str, set[str]] = {module: set() for module in self.files.values()}
@@ -83,9 +77,8 @@ class _Symbols:
         path = self.graph.nodes[target].location.file_path
         candidates = {
             unit.id
-            for unit in self.graph.nodes.values()
+            for unit in self.index.by_file[path]
             if unit.kind == NodeKind.NAMESPACE
-            and unit.location.file_path == path
             and isinstance(qualified := dict(unit.attributes).get("qualified_name"), str)
             and (
                 qualified == name
@@ -133,14 +126,6 @@ class _Symbols:
         }
         return candidates if len(identities) == 1 else set()
 
-    def reachable(self, module: str) -> set[str]:
-        reached, pending = {module}, [module]
-        while pending:
-            for target in self.imports.get(pending.pop(), set()) - reached:
-                reached.add(target)
-                pending.append(target)
-        return reached
-
     def resolve(self, edge: CodeEdge, tiers: list[list[str]]) -> str | None:
         source = self.graph.nodes[edge.source_id]
         source_file = source.location.file_path
@@ -153,11 +138,11 @@ class _Symbols:
         }
         if qualified:
             tiers = [*tiers, sorted(qualified)]
-        for tier in tiers:
+
+        def select(units: list[tuple[str, CodeUnit]]) -> list[CodeUnit]:
             found = [
                 unit
-                for name in self.expanded(tier, spelling)
-                for unit in self.names.get(name, [])
+                for name, unit in units
                 if (self.files[unit.location.file_path] in visible or name in qualified)
                 and not (
                     self.graph.language == "rocq"
@@ -172,15 +157,16 @@ class _Symbols:
             ]
             local = [unit for unit in found if unit.location.file_path == source_file]
             if local:
-                found = local
-                definitions = [n for n in found if not dict(n.attributes).get("signature")]
-                found = definitions or found
-            else:
-                signatures = [n for n in found if dict(n.attributes).get("signature")]
-                found = signatures or found
-            targets = {unit.id for unit in found}
-            if targets:
-                return next(iter(targets)) if len(targets) == 1 else None
+                definitions = [unit for unit in local if not dict(unit.attributes).get("signature")]
+                return definitions or local
+            signatures = [unit for unit in found if dict(unit.attributes).get("signature")]
+            return signatures or found
+
+        matched, target = self.index.resolve(
+            (self.expanded(tier, spelling) for tier in tiers), select
+        )
+        if matched:
+            return target
         if self.graph.language == "proverif" and source_file.endswith(".pv"):
             libraries = {
                 unit.id
@@ -283,14 +269,18 @@ class _Linked:
 
 def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
     attrs = dict(edge.attributes)
-    raw = attrs.pop("_formal_candidates", None)
-    application = attrs.pop("_formal_application", False)
-    bound_application = attrs.pop("_formal_bound_application", False)
-    position = attrs.pop("_formal_position", None)
-    enclosing = attrs.pop("_formal_enclosing", None)
+    key = attrs.pop("_lookup", None)
+    pending = symbols.graph._parse_state.references.get(str(key), PendingReference())
+    lookup = pending.lookup
+    application = pending.application
+    bound_application = pending.bound_application
     target = (
-        (None if bound_application else symbols.resolve(edge, json.loads(raw)))
-        if isinstance(raw, str)
+        (
+            None
+            if bound_application
+            else symbols.resolve(edge, [list(tier) for tier in lookup.tiers])
+        )
+        if lookup is not None
         else edge.target_id
     )
     if target is None:
@@ -346,14 +336,14 @@ def _link(edge: CodeEdge, symbols: _Symbols) -> _Linked | None:
             and dict(unit.attributes).get("unresolved_application")
         )
         else EdgeConfidence.INFERRED
-        if isinstance(raw, str)
+        if lookup is not None
         else edge.confidence,
     )
     return _Linked(
         linked,
         application is True,
-        position if isinstance(position, int) else None,
-        enclosing if isinstance(enclosing, str) else None,
+        pending.position,
+        pending.enclosing,
     )
 
 
@@ -378,7 +368,7 @@ def _argument_evaluated(unit: CodeUnit | None, argument: int | str | None) -> bo
 def _runtime(
     reference: _Linked,
     evaluated: dict[tuple[str, int | None, int | str | None], bool | None],
-    parents: dict[str, dict[str, list]],
+    parents: dict[str, dict[str, ArgumentScope]],
     cache: dict[tuple[str, str], bool | None],
 ) -> bool | None:
     context = dict(reference.edge.attributes).get("reference_context")
@@ -390,13 +380,13 @@ def _runtime(
     key = reference.enclosing
     pending = []
     while key is not None and (owner, key) not in cache:
-        _, _, parent = parents[owner][key]
+        parent = parents[owner][key].parent
         pending.append(key)
         key = parent
     value = cache.get((owner, key), True) if key is not None else True
     for key in reversed(pending):
-        position, argument, _ = parents[owner][key]
-        local = evaluated.get((owner, position, argument))
+        scope = parents[owner][key]
+        local = evaluated.get((owner, scope.callee, scope.argument))
         value = (
             False
             if local is False or value is False
@@ -414,21 +404,15 @@ def link_symbols(graph: CodeGraph, *, qualified_prefixes: tuple[str, ...] = ()) 
         for reference in references
         if reference.application
     }
-    parents = {
-        ident: json.loads(str(dict(unit.attributes).get("_formal_argument_scopes", "{}")))
-        for ident, unit in graph.nodes.items()
-    }
+    parents = graph._parse_state.arguments
     evaluated = {
-        (owner, position, argument): _argument_evaluated(callees.get((owner, position)), argument)
+        (owner, scope.callee, scope.argument): _argument_evaluated(
+            callees.get((owner, scope.callee)), scope.argument
+        )
         for owner, scopes in parents.items()
-        for position, argument, _ in scopes.values()
+        for scope in scopes.values()
     }
     cache: dict[tuple[str, str], bool | None] = {}
-    for ident, unit in tuple(graph.nodes.items()):
-        graph.nodes[ident] = replace(
-            unit,
-            attributes=tuple((k, v) for k, v in unit.attributes if k != "_formal_argument_scopes"),
-        )
     result = []
     for reference in references:
         edge = reference.edge
@@ -448,6 +432,27 @@ def link_symbols(graph: CodeGraph, *, qualified_prefixes: tuple[str, ...] = ()) 
                 )
             )
     graph.edges = list(dict.fromkeys([*result, *symbols.correspondence()]))
+    type_uses = {
+        (edge.source_id, edge.target_id) for edge in graph.edges if edge.kind == EdgeKind.TYPE_USES
+    }
+    for reference in references:
+        edge = reference.edge
+        key = (edge.source_id, edge.target_id)
+        if (
+            edge.kind == EdgeKind.REFERENCES
+            and dict(edge.attributes).get("reference_context") == "type"
+            and graph.nodes[edge.target_id].kind in TYPE_KINDS
+            and key not in type_uses
+        ):
+            type_uses.add(key)
+            graph.edges.append(
+                CodeEdge(
+                    *key,
+                    EdgeKind.TYPE_USES,
+                    attributes=(("type_name", dict(edge.attributes).get("spelling")),),
+                )
+            )
+    graph._parse_state.clear_references()
     targets = {e.target_id for e in graph.edges}
     for ident in list(graph.nodes):
         if ident.startswith("@import:") and ident not in targets:

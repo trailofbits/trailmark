@@ -18,6 +18,7 @@ from trailmark.parse import parse_file
 from trailmark.parsers.rust import parser as rust_module
 from trailmark.parsers.rust.parser import RustParser, _extract_parameters, parse_syntax_roots
 from trailmark.tree_sitter_custom import verus as verus_mod
+from trailmark.tree_sitter_custom._native import NativeGrammar
 
 SAMPLE_CODE = """\
 use std::collections::HashMap;
@@ -515,9 +516,7 @@ class TestRustParseDirectory:
         (tmp_path / "c.rs").write_text("fn plain() {}")
         parser = RustParser()
         with (
-            patch.object(
-                type(verus_mod._GRAMMAR), "binding_path", return_value=tmp_path / "unbuilt.so"
-            ),
+            patch.object(NativeGrammar, "binding_path", return_value=tmp_path / "unbuilt.so"),
             patch.object(subprocess, "run", side_effect=error) as compiler,
         ):
             graph = parser.parse_directory(str(tmp_path))

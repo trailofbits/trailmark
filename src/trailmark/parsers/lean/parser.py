@@ -57,6 +57,7 @@ class LeanParser:
         # Directory parsing retains pending lookups until inspected imports merge.
         root = self._parser.parse(Path(file_path).read_bytes()).root_node
         graph = CodeGraph(language="lean", root_path=file_path)
+        graph._parse_state.resolved_type_files.add(file_path)
         module = module_id_from_path(file_path)
         add_module_node(root, file_path, module, graph)
         _Extractor(graph, module, file_path).declarations(root)

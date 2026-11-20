@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from tree_sitter import Node
 
 from trailmark.parsers._common import node_text
-from trailmark.parsers._formal import Scope, walk
+from trailmark.parsers._formal import Scope, argument_scopes, walk
 
 OPAQUE = frozenset(
     {
@@ -163,17 +163,7 @@ def _arguments(node: Node) -> list[Scope]:
     head = application_head(node)
     # Unknown returned callees must not borrow a nested factory's start position.
     # Preserve their argument scopes so those references cannot fall back to body.
-    return [
-        Scope(
-            frozenset(),
-            arg.start_byte,
-            arg.end_byte,
-            context="argument",
-            callee=head.start_byte if head is not None else None,
-            argument=index,
-        )
-        for index, arg in enumerate(node.children_by_field_name("argument"))
-    ]
+    return argument_scopes(head, node.children_by_field_name("argument"))
 
 
 def _open(node: Node) -> list[Scope]:

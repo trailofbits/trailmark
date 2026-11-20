@@ -54,17 +54,14 @@ def _metadata(node: Node, path: str, group: int | None) -> tuple[str, tuple[Attr
 def _runtime_scopes(node: Node, env: Namespace) -> tuple[Scope, ...]:
     bindings = scopes(node)
     spelling = WhyMLParser._spelling(node, env)
-    ghost_fields = {
-        str(dict(n.attributes).get("qualified_name"))
-        for n in env.source.graph.nodes.values()
-        if n.kind == NodeKind.STATE_VARIABLE and dict(n.attributes).get("ghost")
-    }
     for expression in walk(node, SKIP):
         if expression.type != "binary_expression" or len(expression.named_children) < 2:
             continue
         left, right = expression.named_children[0], expression.named_children[-1]
         tokens_ = {c.type for c in expression.children}
-        if tokens_ & {"by", "so"} or ("<-" in tokens_ and spelling(left) in ghost_fields):
+        if tokens_ & {"by", "so"} or (
+            "<-" in tokens_ and spelling(left) in env.source.ghost_fields
+        ):
             bindings += (Scope(frozenset(), right.start_byte, right.end_byte, context="proof"),)
     return bindings
 

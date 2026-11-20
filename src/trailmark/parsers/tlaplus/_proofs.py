@@ -152,7 +152,7 @@ def link_proofs(graph: CodeGraph) -> None:
     for edge in pending:
         if _key(edge) in retained:
             continue
-        attrs = {k: v for k, v in edge.attributes if not k.startswith("_formal_")}
+        attrs = {k: v for k, v in edge.attributes if k != "_lookup"}
         graph.edges.append(
             replace(
                 edge,
@@ -170,7 +170,7 @@ def _materialize_proxies(graph: CodeGraph) -> None:
             edge.target_id not in graph.nodes
             and edge.location is not None
             and dict(edge.attributes).get("reference_context") == "proof"
-            and "_formal_candidates" not in dict(edge.attributes)
+            and graph._parse_state.reference(edge) is None
         ):
             spelling = str(dict(edge.attributes)["spelling"])
             graph.nodes[edge.target_id] = CodeUnit(

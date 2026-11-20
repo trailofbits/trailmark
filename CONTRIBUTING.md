@@ -168,6 +168,17 @@ Trailmark has a parse layer followed by a three-layer analysis stack:
 3. **QueryEngine** (`src/trailmark/query/api.py`) -- high-level facade
    that resolves names, delegates to GraphStore, and returns plain dicts.
 
+Formal and Lean adapters share declaration indexes, import-visibility traversal,
+and tiered unique lookup. Each adapter keeps its language's binding, visibility,
+and execution rules. Pending references use private typed parse state on
+`CodeGraph`; directory merges preserve that state until the frontend finalizes
+its edges. The state is excluded from graph JSON. Frontends that resolve types
+record their source files there so later merges cannot rebind raw type names.
+
+Bundled grammars use one native C binding and discover their scanner/header
+inputs through `bundled_grammar()`. Keep language provenance in each grammar's
+notice or wrapper, and include every compiled input in the cache identity.
+
 ### Conventions
 
 - **Missing-node queries return empty values** where practical. Factories and
