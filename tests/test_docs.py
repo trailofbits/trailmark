@@ -1071,6 +1071,13 @@ def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
 
 
+def test_cpp_export_marker_recovery_contract() -> None:
+    guide = _flat("docs/parser-coverage.md")
+    assert "verifies the class name and complete declaration span" in guide
+    assert "Recovered classes retain `cpp_export_marker` and marker byte offsets" in guide
+    assert "syntax diagnostics remain available, including unrelated errors" in guide
+
+
 def test_csharp_qualified_static_call_contract() -> None:
     guide = (DOCS / "call-resolution.md").read_text()
     assert "An explicit `Type.Method(...)` call can navigate to a unique declared static" in guide
