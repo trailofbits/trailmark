@@ -421,6 +421,10 @@ incomplete-graph warning even for some valid VB.NET programs.
 
 ## Schema frontends and FunC/Sway declarations
 
+Tact traits retain their method and receiver declarations as owned nodes.
+Contract and trait `with` clauses produce `inherits` edges. Imported trait bodies
+and virtual dispatch are not expanded; unresolved inherited calls remain explicit.
+
 Proto retains nested messages/enums, map fields and oneof members; IDs include
 lexical owners, and public imports retain the actual filename. GraphQL honors
 explicit schema root mappings and SDL extension fields in single-file and

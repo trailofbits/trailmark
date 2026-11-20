@@ -34,6 +34,39 @@ def test_tact_repeated_receivers_get_distinct_nodes(tmp_path: Path) -> None:
     assert "wallet:Wallet.receive_2" in graph.nodes
 
 
+def test_tact_traits_retain_methods_and_inclusion_relationships(tmp_path: Path) -> None:
+    source = tmp_path / "wallet.tact"
+    source.write_text(
+        "trait Base { fun check() {} }\n"
+        "trait Trackable with Base {\n"
+        "  fun track() { self.filter(); }\n"
+        "  virtual fun filter(): Bool { return true; }\n"
+        '  receive("track") { self.track(); }\n'
+        "}\n"
+        'contract Wallet with Trackable { receive("ping") { self.track(); } }\n'
+    )
+
+    graph = parse_file(str(source), language="tact", strict=True)
+
+    assert graph.nodes["wallet:Trackable"].kind.value == "trait"
+    assert graph.nodes["wallet:Trackable.track"].kind.value == "method"
+    assert {
+        (edge.source_id, edge.target_id) for edge in graph.edges if edge.kind == EdgeKind.INHERITS
+    } == {("wallet:Trackable", "wallet:Base"), ("wallet:Wallet", "wallet:Trackable")}
+    assert any(
+        edge.source_id == "wallet:Trackable.track"
+        and edge.target_id == "wallet:Trackable.filter"
+        and edge.kind == EdgeKind.CALLS
+        for edge in graph.edges
+    )
+    assert any(
+        edge.source_id == "wallet:Trackable.receive"
+        and edge.target_id == "wallet:Trackable.track"
+        and edge.kind == EdgeKind.CALLS
+        for edge in graph.edges
+    )
+
+
 def test_schema_languages_do_not_emit_runtime_call_edges(tmp_path: Path) -> None:
     samples = [
         (
