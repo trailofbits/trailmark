@@ -1026,3 +1026,11 @@ def test_cpp_out_of_line_method_contract() -> None:
     assert "Simple qualified definitions such as `Stream::flush` and `Stream::~Stream`" in guide
     assert "Existing definition IDs are preserved" in guide
     assert "Overloads and shadowing local values remain uncertain" in guide
+
+
+def test_cpp_cast_declared_member_navigation_contract() -> None:
+    guide = _flat("docs/call-resolution.md")
+    assert "prototypes count toward overload ambiguity" in guide
+    assert "any source base clause makes the concrete declared target uncertain" in guide
+    assert "`cpp_cast_dispatch_uncertain=True`" in guide
+    assert "does not claim an exhaustive set of runtime dispatch targets" in guide

@@ -167,3 +167,15 @@ definitions are not expanded. Generated methods, implicit constructors, compiler
 entrypoints, and operator desugaring are not invented. A missing edge is not proof
 of dead code. `main` follows the generic entrypoint rule; script execution needs
 an entrypoint override. Syntax errors warn that the graph may be incomplete.
+
+C++ retains declared-member navigation for
+`static_cast<EnclosingClass&>(value).method()` inside that class's member
+functions, including identifiable out-of-line definitions. The injected class
+name and a unique declared method must remain unshadowed; prototypes count toward
+overload ambiguity. Local type aliases, generic classes, member using-declarations,
+and incomplete or duplicate method families keep their proxies.
+A plain nonvirtual method in a class without bases receives inferred confidence.
+An explicit virtual method or any source base clause makes the concrete declared
+target uncertain and adds `cpp_cast_dispatch_uncertain=True`, even when the base
+is unavailable. This is source navigation to the declared member; it does not
+claim an exhaustive set of runtime dispatch targets.
