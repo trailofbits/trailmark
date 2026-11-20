@@ -71,7 +71,9 @@ def _deferred_callables(graph: CodeGraph) -> list[tuple[str, CodeUnit]]:
         (owner, unit)
         for unit in graph.nodes.values()
         if unit.kind in callable_kinds
+        and dict(unit.attributes).get("executable") is not False
         and (owner := _callable_owner(unit.id, graph, owners, callable_kinds)) is not None
+        and dict(graph.nodes[owner].attributes).get("executable") is not False
     ]
 
 

@@ -502,8 +502,11 @@ measure syntax recovery, not declaration or dependency accuracy.
 ## TLA+
 
 TLA+ edges describe specification dependencies. Operators, functions, constants,
-variables, assumptions and theorem statements are retained. EXTENDS controls cross-file
-visibility transitively, including enclosing modules. Separators and RECURSIVE forward
+variables, assumptions and theorem statements are retained.
+LET definitions retain separate lexical nodes, their own body references and recursive
+dependencies. Their names stay within the enclosing LET; specification references do
+not produce deferred call edges.
+EXTENDS controls cross-file visibility transitively, including enclosing modules. Separators and RECURSIVE forward
 declarations are accepted; parameters, LAMBDA, quantifier and LET binders shadow globals. LOCAL definitions retain private visibility. Named INSTANCE nodes retain substitution
 references, and single-component `I!Op` uses can reference inspected template members.
 WITH substitutions are diagnosed because the template is not instantiated. Proof steps,

@@ -19,6 +19,44 @@ def _unit(node_id: str, name: str, kind: NodeKind = NodeKind.FUNCTION) -> CodeUn
     return CodeUnit(node_id, name, kind, _LOCATION)
 
 
+@pytest.mark.parametrize(
+    ("outer", "inner", "expected"),
+    [
+        (False, True, False),
+        (True, False, False),
+        (False, False, False),
+        (True, True, True),
+        (None, None, True),
+    ],
+)
+def test_deferred_calls_respect_explicit_non_executable_declarations(
+    outer: bool | None, inner: bool | None, expected: bool
+) -> None:
+    parent = CodeUnit(
+        "app:outer",
+        "outer",
+        NodeKind.FUNCTION,
+        _LOCATION,
+        attributes=() if outer is None else (("executable", outer),),
+    )
+    child = CodeUnit(
+        "app:outer.inner",
+        "inner",
+        NodeKind.FUNCTION,
+        _LOCATION,
+        attributes=() if inner is None else (("executable", inner),),
+    )
+    graph = CodeGraph(
+        nodes={parent.id: parent, child.id: child},
+        edges=[CodeEdge(parent.id, child.id, EdgeKind.CONTAINS)],
+    )
+    ensure_proxy_nodes(graph)
+    ensure_proxy_nodes(graph)
+    calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
+    assert len(calls) == int(expected)
+    assert all(dict(edge.attributes).get("deferred") is True for edge in calls)
+
+
 def test_unresolved_proxy_cannot_alias_concrete_source_namespace(tmp_path: Path) -> None:
     (tmp_path / "proxy").mkdir()
     (tmp_path / "proxy" / "unresolved.py").write_text(

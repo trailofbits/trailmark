@@ -93,6 +93,7 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/languages.md", "LET definitions retain separate lexical nodes"),
     ("docs/languages.md", "File includes resolve by their exact path"),
     ("docs/languages.md", "Dafny uses Dafny 4 function syntax"),
     ("docs/languages.md", "Input parameters retain source order and types"),
