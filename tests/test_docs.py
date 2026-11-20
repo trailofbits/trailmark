@@ -1019,3 +1019,10 @@ def test_release_followup_graph_contracts() -> None:
 )
 def test_final_parser_followup_contracts(path: str, marker: str) -> None:
     assert marker in _flat(path)
+
+
+def test_objc_conditional_implementation_contract() -> None:
+    guide = (DOCS / "languages.md").read_text()
+    assert "Objective-C parser retains recognized method definitions inside conditional" in guide
+    assert "without evaluating the" in guide
+    assert "preprocessor conditions" in guide
