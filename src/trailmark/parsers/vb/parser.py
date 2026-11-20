@@ -7,8 +7,7 @@ from collections import Counter, defaultdict
 from dataclasses import replace
 from pathlib import Path
 
-from tree_sitter import Node, Parser
-from tree_sitter_language_pack import get_language
+from tree_sitter import Language, Node, Parser
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -24,6 +23,7 @@ from trailmark.parsers._common import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._simple import first_child_type
 from trailmark.parsers._walk import walk_owned
+from trailmark.tree_sitter_custom._native import bundled_language
 
 _LOG = logging.getLogger(__name__)
 _TYPES = {
@@ -90,10 +90,12 @@ class VisualBasicParser:
         return "vb"
 
     def __init__(self) -> None:
-        self._parser = Parser(get_language("vb"))
+        self._parser = Parser(Language(bundled_language("vb")))
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
-        return parse_directory(self.parse_file, "vb", dir_path, (".vb",))
+        return parse_directory(
+            self.parse_file, "vb", dir_path, (".vb",), link_calls=_bind_constructions
+        )
 
     def parse_file(self, file_path: str) -> CodeGraph:
         root = self._parser.parse(Path(file_path).read_bytes()).root_node
@@ -107,6 +109,8 @@ class VisualBasicParser:
         methods: dict[tuple[str, str], list[str]] = defaultdict(list)
         containers: dict[str, set[str]] = defaultdict(set)
         calls: list[tuple[str, str, Node, Node, set[str], bool]] = []
+        constructions: list[tuple[str, Node, Node]] = []
+        import_aliases: set[str] = set()
 
         def child_id(owner: str, name: str) -> str:
             return f"{owner}:{name}" if owner == module else f"{owner}.{name}"
@@ -128,6 +132,21 @@ class VisualBasicParser:
                     attributes=(("vb_module", node.type == "module_block"),),
                 )
                 add_contains_edge(graph, owner, ident)
+                for clause in node.named_children:
+                    if clause.type in {"inherits_clause", "implements_clause"}:
+                        for base in clause.named_children:
+                            if base.type == "type":
+                                graph.edges.append(
+                                    CodeEdge(
+                                        ident,
+                                        f"{module}:{node_text(base)}",
+                                        EdgeKind.INHERITS
+                                        if clause.type == "inherits_clause"
+                                        else EdgeKind.IMPLEMENTS,
+                                        EdgeConfidence.INFERRED,
+                                        make_location(base, file_path),
+                                    )
+                                )
                 if node.type != "namespace_block":
                     containers[name.casefold()].add(ident)
                     containers[ident.split(":", 1)[-1].casefold()].add(ident)
@@ -160,6 +179,9 @@ class VisualBasicParser:
                             )
                 return
             if node.type == "imports_statement":
+                import_aliases.update(
+                    _name(n).casefold() for n in node.children_by_field_name("alias")
+                )
                 namespace = node.child_by_field_name("namespace")
                 if namespace is not None:
                     dependency = node_text(namespace)
@@ -262,6 +284,10 @@ class VisualBasicParser:
                         is_static,
                     )
                     return
+                if current.type == "new_expression":
+                    annotation = current.child_by_field_name("type")
+                    if annotation is not None:
+                        constructions.append((ident, current, annotation))
                 if current.type in {"dim_statement", "for_statement", "for_each_statement"}:
                     name_node = current.child_by_field_name("name")
                     if name_node is not None:
@@ -366,4 +392,80 @@ class VisualBasicParser:
                 )
             )
         collect_exception_events(root, file_path, graph)
+        for caller, site, annotation in constructions:
+            raw = node_text(annotation)
+            # Generic arguments identify instantiation, not a different type body.
+            namespace = first_child_type(annotation, {"namespace_name", "primitive_type"})
+            if namespace is not None:
+                raw = node_text(namespace)
+            blocked = raw.split(".", 1)[0].casefold() in import_aliases
+            enclosing = site.parent
+            while enclosing is not None:
+                parameters = first_child_type(enclosing, {"type_parameters"})
+                if parameters is not None:
+                    blocked = blocked or any(
+                        parameter.type == "type_parameter"
+                        and (name := parameter.child_by_field_name("name")) is not None
+                        and _name(name).casefold() == raw.casefold()
+                        for parameter in parameters.named_children
+                    )
+                enclosing = enclosing.parent
+            graph.edges.append(
+                CodeEdge(
+                    caller,
+                    f"{caller}.<constructor>.{raw}",
+                    EdgeKind.CALLS,
+                    EdgeConfidence.UNCERTAIN,
+                    make_location(site, file_path),
+                    (
+                        ("constructor_type", raw),
+                        ("binding_blocked", True),
+                        ("constructor_shadowed", blocked),
+                    ),
+                )
+            )
+        _bind_constructions(graph)
         return graph
+
+
+def _bind_constructions(graph: CodeGraph) -> None:
+    """Link a retained construction site only to one inspected type/constructor."""
+    owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
+    types: dict[str, list[str]] = defaultdict(list)
+    constructors: dict[str, list[str]] = defaultdict(list)
+    recovery_files = {diagnostic.location.file_path for diagnostic in graph.parse_diagnostics}
+    for unit in graph.nodes.values():
+        if unit.kind in {NodeKind.CLASS, NodeKind.STRUCT}:
+            types[unit.id.split(":", 1)[-1].casefold()].append(unit.id)
+        elif unit.kind == NodeKind.METHOD and unit.name.casefold() == "new":
+            constructors[owners.get(unit.id, "")].append(unit.id)
+    edges = []
+    for edge in graph.edges:
+        attributes = dict(edge.attributes)
+        raw = attributes.get("constructor_type")
+        if (
+            isinstance(raw, str)
+            and not attributes.get("constructor_shadowed")
+            and graph.nodes[edge.source_id].location.file_path not in recovery_files
+        ):
+            scope = owners.get(edge.source_id, "")
+            candidates = []
+            while scope:
+                prefix = scope.split(":", 1)[-1] if ":" in scope else ""
+                candidates = types.get(f"{prefix}.{raw}".lstrip(".").casefold(), [])
+                if candidates:
+                    break
+                scope = owners.get(scope, "")
+            if len(candidates) == 1:
+                targets = constructors.get(candidates[0], [])
+                if len(targets) <= 1:
+                    edge = replace(
+                        edge,
+                        target_id=targets[0] if targets else candidates[0],
+                        confidence=EdgeConfidence.INFERRED,
+                        attributes=tuple(
+                            (k, v) for k, v in edge.attributes if k != "binding_blocked"
+                        ),
+                    )
+        edges.append(edge)
+    graph.edges[:] = edges

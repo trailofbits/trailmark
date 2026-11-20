@@ -31,6 +31,17 @@
       "target": "proxy.unresolved:taxonomy:parseInt"
     },
     {
+      "attributes": {
+        "binding_blocked": true,
+        "constructor_call": true,
+        "raw_target": "taxonomy:Error"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:branchy",
+      "target": "proxy.unresolved:taxonomy:Error"
+    },
+    {
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy",
@@ -83,6 +94,17 @@
       "kind": "contains",
       "source": "taxonomy:Dog",
       "target": "taxonomy:Dog.bark"
+    },
+    {
+      "attributes": {
+        "binding_blocked": true,
+        "constructor_call": true,
+        "raw_target": "taxonomy:Error"
+      },
+      "confidence": "uncertain",
+      "kind": "calls",
+      "source": "taxonomy:Dog.bark",
+      "target": "proxy.unresolved:taxonomy:Error"
     },
     {
       "confidence": "certain",
@@ -158,6 +180,29 @@
         "start_line": 72
       },
       "name": "d.bark",
+      "origin": "proxy",
+      "parameters": [],
+      "return_type": null
+    },
+    "proxy.unresolved:taxonomy:Error": {
+      "attributes": {
+        "proxy_kind": "unresolved",
+        "raw_symbol": "taxonomy:Error"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "proxy.unresolved:taxonomy:Error",
+      "kind": "proxy",
+      "location": {
+        "end_col": 35,
+        "end_line": 35,
+        "file_path": "taxonomy.js",
+        "start_col": 14,
+        "start_line": 35
+      },
+      "name": "taxonomy:Error",
       "origin": "proxy",
       "parameters": [],
       "return_type": null
@@ -627,7 +672,7 @@
   "schema_version": 1,
   "subgraphs": {},
   "summary": {
-    "call_edges": 3,
+    "call_edges": 5,
     "classes": 2,
     "dependencies": [
       "fs"
@@ -638,12 +683,12 @@
       "javascript"
     ],
     "parse_diagnostics": [],
-    "proxies": 3,
+    "proxies": 4,
     "source_file_counts": {
       "javascript": 1
     },
     "source_files": 1,
-    "total_nodes": 15
+    "total_nodes": 16
   },
   "trailmark_version": "<trailmark-version>"
 }

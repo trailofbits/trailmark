@@ -43,7 +43,9 @@
     {
       "attributes": {
         "binding_blocked": true,
+        "objc_bare_receiver": "NSString",
         "objc_selector": "stringWithFormat:",
+        "objc_untyped_target": "[NSString stringWithFormat:]",
         "raw_target": "[NSString stringWithFormat:]"
       },
       "confidence": "uncertain",
@@ -94,7 +96,9 @@
     {
       "attributes": {
         "binding_blocked": true,
+        "objc_bare_receiver": "NSError",
         "objc_selector": "errorWithDomain:code:userInfo:",
+        "objc_untyped_target": "[NSError errorWithDomain:code:userInfo:]",
         "raw_target": "[NSError errorWithDomain:code:userInfo:]"
       },
       "confidence": "uncertain",
@@ -105,7 +109,9 @@
     {
       "attributes": {
         "binding_blocked": true,
+        "objc_bare_receiver": "NSString",
         "objc_selector": "stringWithFormat:",
+        "objc_untyped_target": "[NSString stringWithFormat:]",
         "raw_target": "[NSString stringWithFormat:]"
       },
       "confidence": "uncertain",
@@ -122,7 +128,9 @@
     {
       "attributes": {
         "binding_blocked": true,
+        "objc_bare_receiver": "NSString",
         "objc_selector": "stringWithFormat:",
+        "objc_untyped_target": "[NSString stringWithFormat:]",
         "raw_target": "[NSString stringWithFormat:]"
       },
       "confidence": "uncertain",
@@ -215,6 +223,15 @@
       "return_type": null
     },
     "Taxonomy:Animal": {
+      "attributes": {
+        "objc_class": true,
+        "objc_declared_property:name": true,
+        "objc_declared_property:species": true,
+        "objc_implementation_count": 1,
+        "objc_property:name": "NSString",
+        "objc_property:species": "NSString",
+        "objc_superclass": "NSObject"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -233,6 +250,10 @@
       "return_type": null
     },
     "Taxonomy:Animal.describe": {
+      "attributes": {
+        "objc_definition_count": 1,
+        "objc_method_definition": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -255,6 +276,10 @@
       }
     },
     "Taxonomy:Animal.initWithName:": {
+      "attributes": {
+        "objc_definition_count": 1,
+        "objc_method_definition": true
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -299,6 +324,13 @@
       }
     },
     "Taxonomy:Dog": {
+      "attributes": {
+        "objc_class": true,
+        "objc_declared_property:breed": true,
+        "objc_implementation_count": 1,
+        "objc_property:breed": "NSString",
+        "objc_superclass": "Animal"
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -317,6 +349,10 @@
       "return_type": null
     },
     "Taxonomy:Dog.bark:error:": {
+      "attributes": {
+        "objc_definition_count": 1,
+        "objc_method_definition": true
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -381,6 +417,10 @@
       }
     },
     "Taxonomy:Dog.greet:": {
+      "attributes": {
+        "objc_definition_count": 1,
+        "objc_method_definition": true
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -413,6 +453,10 @@
       }
     },
     "Taxonomy:Dog.initWithName:breed:": {
+      "attributes": {
+        "objc_definition_count": 1,
+        "objc_method_definition": true
+      },
       "branches": [
         {
           "complexity_contribution": 1,
