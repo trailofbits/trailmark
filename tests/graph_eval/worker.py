@@ -17,6 +17,10 @@ from typing import Any
 from tests.graph_eval.schema import validate_schema
 
 CLI_VERSION = "0.170.0"
+# This pinned CLI's app-server rejects inputs above 1,048,576 characters. A UTF-8
+# byte budget is deliberately conservative for non-ASCII prompts; it is not the
+# provider's token/context limit. Prompts exactly at the byte budget are allowed.
+MAX_PROMPT_UTF8_BYTES = 1_048_576
 DEFAULT_IMAGE = f"trailmark-graph-eval-worker:{CLI_VERSION}"
 DEFAULT_CONTEXT = "colima"
 BLOCKED_COMPONENTS = frozenset({".git", ".codex", ".agents", "AGENTS.md", "AGENTS.override.md"})
@@ -352,12 +356,41 @@ def run_agent(
     context: str = DEFAULT_CONTEXT,
     image: str = DEFAULT_IMAGE,
 ) -> dict[str, Any]:
-    """Run at most two fresh attempts, retrying transport/shape failures only."""
+    """Reject oversized prompts, then retry transport/shape failures at most once.
+
+    The pinned CLI's character limit is bounded conservatively by UTF-8 bytes.
+    Rejected inputs are retained without truncation, splitting or submission.
+    """
     source_root, output_dir = source_root.resolve(), output_dir.resolve()
     validate_source_view(source_root, output_dir)
     if timeout <= 0:
         raise ValueError("Worker timeout must be positive")
     output_dir.mkdir(parents=True, exist_ok=True)
+    prompt_bytes = prompt.encode("utf-8")
+    if len(prompt_bytes) > MAX_PROMPT_UTF8_BYTES:
+        inputs = output_dir / "rejected-input"
+        inputs.mkdir()
+        prompt_path, schema_path = inputs / "prompt.txt", inputs / "schema.json"
+        schema_bytes = json.dumps(schema).encode("utf-8")
+        prompt_path.write_bytes(prompt_bytes)
+        schema_path.write_bytes(schema_bytes)
+        result = {
+            "status": "input_limit_exceeded",
+            "role": role,
+            "cli_version": CLI_VERSION,
+            "attempts": [],
+            "response_path": None,
+            "prompt_utf8_bytes": len(prompt_bytes),
+            "prompt_characters": len(prompt),
+            "max_prompt_utf8_bytes": MAX_PROMPT_UTF8_BYTES,
+            "prompt_path": str(prompt_path),
+            "schema_path": str(schema_path),
+            "prompt_sha256": hashlib.sha256(prompt_bytes).hexdigest(),
+            "schema_sha256": hashlib.sha256(schema_bytes).hexdigest(),
+            "error": "Prompt exceeds the conservative UTF-8 byte budget for the pinned Codex CLI",
+        }
+        _atomic_json(output_dir / "worker.json", result)
+        return result
     try:
         image_id = _docker(
             context, "image", "inspect", image, "--format", "{{.Id}}", timeout=30

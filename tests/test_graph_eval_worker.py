@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import shutil
@@ -354,6 +355,123 @@ def test_prelaunch_image_failure_is_terminal_without_provider_attempt(
     assert len(calls) == 1
     assert calls[0][:2] == ("image", "inspect")
     assert not list(output.glob("attempt-*"))
+
+
+@pytest.mark.parametrize("character", ["a", "λ"])
+def test_oversized_prompt_retains_inputs_without_credentials_or_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, character: str
+) -> None:
+    from tests.graph_eval import worker
+
+    source = tmp_path / "source"
+    source.mkdir()
+    output = tmp_path / "output"
+    prompt = character * (worker.MAX_PROMPT_UTF8_BYTES // len(character.encode("utf-8")) + 1)
+    schema = {"type": "object", "description": "Preserve λ and its schema exactly"}
+
+    def forbidden(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("Oversized input must not access credentials, Docker or providers")
+
+    monkeypatch.setattr(worker, "_auth_payload", forbidden)
+    monkeypatch.setattr(worker, "_docker", forbidden)
+    monkeypatch.setattr(worker, "_docker_executable", forbidden)
+    monkeypatch.setattr(worker.subprocess, "run", forbidden)
+    result = worker.run_agent(source, prompt, schema, output, role="judge")
+    assert result["status"] == "input_limit_exceeded"
+    assert result["role"] == "judge"
+    assert result["cli_version"] == worker.CLI_VERSION
+    assert result["attempts"] == []
+    assert result["response_path"] is None
+    assert result["prompt_utf8_bytes"] == len(prompt.encode("utf-8"))
+    assert result["prompt_characters"] == len(prompt)
+    assert result["max_prompt_utf8_bytes"] == worker.MAX_PROMPT_UTF8_BYTES
+    if character == "λ":
+        assert result["prompt_characters"] < worker.MAX_PROMPT_UTF8_BYTES
+    prompt_path, schema_path = Path(result["prompt_path"]), Path(result["schema_path"])
+    assert prompt_path.parent == schema_path.parent == output / "rejected-input"
+    assert prompt_path.read_bytes() == prompt.encode("utf-8")
+    assert json.loads(schema_path.read_bytes()) == schema
+    assert result["prompt_sha256"] == hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+    assert result["schema_sha256"] == hashlib.sha256(schema_path.read_bytes()).hexdigest()
+    assert json.loads((output / "worker.json").read_text()) == result
+    assert {path.name for path in output.iterdir()} == {"worker.json", "rejected-input"}
+    assert {path.name for path in prompt_path.parent.iterdir()} == {"prompt.txt", "schema.json"}
+
+
+@pytest.mark.parametrize("character", ["a", "λ", "🧭"])
+def test_prompt_exactly_at_utf8_byte_budget_reaches_image_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, character: str
+) -> None:
+    from tests.graph_eval import worker
+
+    source = tmp_path / "source"
+    source.mkdir()
+    output = tmp_path / "output"
+    prompt = character * (worker.MAX_PROMPT_UTF8_BYTES // len(character.encode("utf-8")))
+    assert len(prompt.encode("utf-8")) == worker.MAX_PROMPT_UTF8_BYTES
+    calls = []
+
+    def docker(_context: str, *arguments: str, **_kwargs: Any) -> None:
+        calls.append(arguments)
+        raise OSError("Boundary input was admitted; stop before launching")
+
+    def auth() -> dict[str, Any]:
+        raise AssertionError("An image inspection failure must not access credentials")
+
+    monkeypatch.setattr(worker, "_docker", docker)
+    monkeypatch.setattr(worker, "_auth_payload", auth)
+    result = worker.run_agent(source, prompt, {}, output)
+    assert result["status"] == "isolation_error"
+    assert len(calls) == 1
+    assert calls[0][:2] == ("image", "inspect")
+    assert not (output / "rejected-input").exists()
+
+
+def test_orchestrator_caches_input_rejection_and_reports_terminal_judge_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.graph_eval import campaign, worker
+    from tests.graph_eval.report import generate_report
+
+    source = tmp_path / "source-views" / "case"
+    source.mkdir(parents=True)
+    (source / "module.py").write_text("pass\n")
+    manifest = {
+        "worker_image": "sha256:unused",
+        "worker_fingerprint": "frozen",
+        "model": "gpt-6.1-sol",
+        "reasoning": "xhigh",
+        "docker_context": "isolated",
+        "source_views": {"case": campaign._view_hash(source)},
+        "limits": {"judge_timeout": 900},
+    }
+    case = {
+        "id": "case",
+        "input_hash": "frozen-input",
+        "project": "project",
+        "language": "python",
+        "stratum": "stress",
+    }
+    prompt = "x" * (worker.MAX_PROMPT_UTF8_BYTES + 1)
+
+    def forbidden(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("Input rejection must not access credentials, Docker or providers")
+
+    monkeypatch.setattr(worker, "_auth_payload", forbidden)
+    monkeypatch.setattr(worker, "_docker", forbidden)
+    monkeypatch.setattr(worker.subprocess, "run", forbidden)
+    monkeypatch.setattr(campaign, "run_agent", worker.run_agent)
+    result = campaign._agent_job(tmp_path, manifest, case, "judge", prompt, {})
+    assert result["status"] == "input_limit_exceeded"
+    assert result["worker"]["attempts"] == []
+    assert "finished_at" in result
+    assert campaign._agent_job(tmp_path, manifest, case, "judge", prompt, {}) == result
+    row = campaign.case_result(tmp_path, case)
+    assert row["status"] == "judge_input_limit_exceeded"
+    assert row["adjudication"] is None
+    report = generate_report({"cases": [case]}, [row])
+    assert "judge_input_limit_exceeded" in report
+    assert "| case | python | judge_input_limit_exceeded |" in report
 
 
 def test_builds_keep_unique_names_and_digest_retention_tags(
