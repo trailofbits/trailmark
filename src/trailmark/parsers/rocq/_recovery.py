@@ -5,10 +5,9 @@ from tree_sitter import Node, Parser
 from trailmark.parsers._formal import parse_regions
 
 
-def sentences(root: Node, parser: Parser) -> list[Node]:
+def sentences(root: Node, parser: Parser, text: bytes) -> list[Node]:
     if not root.has_error:
         return list(root.named_children)
-    text = root.text or b""
     regions = []
     start = index = depth = 0
     quoted = False

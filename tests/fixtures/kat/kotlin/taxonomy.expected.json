@@ -32,6 +32,7 @@
     },
     {
       "attributes": {
+        "argument_count": 0,
         "raw_target": "mode.toInt"
       },
       "confidence": "inferred",
@@ -41,6 +42,7 @@
     },
     {
       "attributes": {
+        "argument_count": 1,
         "bare_name": "RuntimeException",
         "raw_target": "RuntimeException"
       },
@@ -81,6 +83,7 @@
     },
     {
       "attributes": {
+        "argument_count": 1,
         "bare_name": "RuntimeException",
         "raw_target": "RuntimeException"
       },
@@ -103,6 +106,7 @@
     },
     {
       "attributes": {
+        "argument_count": 1,
         "raw_target": "d.bark"
       },
       "confidence": "inferred",
@@ -224,6 +228,9 @@
       "return_type": null
     },
     "taxonomy:Animal": {
+      "attributes": {
+        "incomplete_overload_scope": false
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -242,6 +249,9 @@
       "return_type": null
     },
     "taxonomy:Animal.describe": {
+      "attributes": {
+        "positional_arity": 0
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -264,6 +274,9 @@
       }
     },
     "taxonomy:Dog": {
+      "attributes": {
+        "incomplete_overload_scope": true
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -282,6 +295,9 @@
       "return_type": null
     },
     "taxonomy:Dog.bark": {
+      "attributes": {
+        "positional_arity": null
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -355,6 +371,9 @@
       }
     },
     "taxonomy:Dog.greet": {
+      "attributes": {
+        "positional_arity": 1
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -387,6 +406,9 @@
       }
     },
     "taxonomy:Greeter": {
+      "attributes": {
+        "incomplete_overload_scope": false
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -405,6 +427,9 @@
       "return_type": null
     },
     "taxonomy:Greeter.greet": {
+      "attributes": {
+        "positional_arity": 1
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -437,6 +462,9 @@
       }
     },
     "taxonomy:Status": {
+      "attributes": {
+        "incomplete_overload_scope": false
+      },
       "branches": [],
       "cyclomatic_complexity": null,
       "docstring": null,
@@ -455,6 +483,9 @@
       "return_type": null
     },
     "taxonomy:add": {
+      "attributes": {
+        "positional_arity": 2
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -496,6 +527,9 @@
       }
     },
     "taxonomy:branchy": {
+      "attributes": {
+        "positional_arity": 2
+      },
       "branches": [
         {
           "complexity_contribution": 1,
@@ -660,6 +694,9 @@
       }
     },
     "taxonomy:fetchAsync": {
+      "attributes": {
+        "positional_arity": 1
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
@@ -692,6 +729,9 @@
       }
     },
     "taxonomy:useAnimal": {
+      "attributes": {
+        "positional_arity": 1
+      },
       "branches": [],
       "cyclomatic_complexity": 1,
       "docstring": null,
