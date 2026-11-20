@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+from collections.abc import Iterable
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -148,6 +150,24 @@ ADJUDICATION_SCHEMA = _object(
         "notes": _array(_STRING),
     }
 )
+
+
+def adjudication_schema(claim_ids: Iterable[str]) -> dict[str, Any]:
+    """Constrain version-1 decisions to this job's exact required claim set.
+
+    Semantic validation still rejects repeated IDs that substitute for missing
+    claims. An empty claim set requires an empty array without an invalid empty enum.
+    """
+    schema = copy.deepcopy(ADJUDICATION_SCHEMA)
+    allowed = sorted(set(claim_ids))
+    decisions = schema["properties"]["decisions"]
+    decisions.update(minItems=len(allowed), maxItems=len(allowed))
+    if allowed:
+        # The base schema shares _STRING with other properties. Replace this
+        # property rather than adding the enum to its shared dictionary.
+        properties = decisions["items"]["properties"]
+        properties["claim_id"] = {**properties["claim_id"], "enum": allowed}
+    return schema
 
 
 def validate_schema(value: Any, schema: dict[str, Any], path: str = "$") -> None:
