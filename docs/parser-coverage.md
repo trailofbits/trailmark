@@ -148,6 +148,13 @@ Arbitrary aliases and session state still require runtime information.
 VB.NET accessor units retain property index parameters, getter types and Shared
 context. Fields and property parameters shadow type/method names case-insensitively.
 Array ranks on parameter names are retained, including `Main(args() As String)`.
+VB.NET uses a bundled grammar with source-preserving corrections for class heritage,
+generic argument parentheses, local array bounds, static primitive-type receivers,
+`Using ... As New`, interpolated apostrophes and identifiers beginning with `Rem`.
+Construction sites retain their complete spans and resolve only to a unique inspected
+type and constructor; overloaded or unknown targets remain proxies. Heritage clauses
+retain located `inherits` or `implements` relationships. Compiler binding and overload
+selection remain outside this frontend.
 
 Julia destructured arguments bind their lexical leaf names without flattening the
 signature. Quoted syntax is data; only interpolation at the current quote level
