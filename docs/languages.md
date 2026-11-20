@@ -408,6 +408,13 @@ incomplete-graph warning even for some valid VB.NET programs.
 
 ## Schema frontends and FunC/Sway declarations
 
+Rego retains same-file bare, negated, and indexed rule dependencies as
+`references` from the owning clause to the rule aggregate. These policy
+dependencies can be traversed with clause dispatch edges; they do not claim
+runtime function calls. Parameters, `some` bindings, and local assignments block
+same-name rule binding. Recovery files retain diagnostics without guessing these
+bindings. Cross-file policy data resolution and OPA evaluation are not performed.
+
 Proto retains nested messages/enums, map fields and oneof members; IDs include
 lexical owners, and public imports retain the actual filename. GraphQL honors
 explicit schema root mappings and SDL extension fields in single-file and
