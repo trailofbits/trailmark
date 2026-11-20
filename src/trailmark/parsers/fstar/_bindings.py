@@ -138,8 +138,18 @@ def _arrow(node: Node) -> list[Scope]:
     return [Scope(frozenset(bindings(left)), right.start_byte, right.end_byte)]
 
 
+def application_head(node: Node) -> Node | None:
+    """Unwrap only parentheses; other computed function expressions stay opaque."""
+    head = node.child_by_field_name("function") or node.child_by_field_name("operator")
+    while head is not None and head.type == "parenthesized_expression":
+        if head.has_error:
+            return None
+        head = head.child_by_field_name("body")
+    return head
+
+
 def _arguments(node: Node) -> list[Scope]:
-    head = node.child_by_field_name("function")
+    head = application_head(node)
     if head is None:
         return []
     return [

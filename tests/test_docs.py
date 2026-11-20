@@ -98,6 +98,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/languages.md", "Input parameters retain source order and types"),
     ("docs/languages.md", "Includes re-export inspected module members"),
     ("docs/languages.md", "Private declarations stay local"),
+    ("docs/languages.md", "Grouping parentheses around literal identifier"),
     (
         "docs/languages.md",
         "Bound callback applications and unavailable application heads in bodies or proofs "

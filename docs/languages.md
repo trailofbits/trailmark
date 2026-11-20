@@ -454,6 +454,8 @@ and dependent arrows, block unrelated global targets. Private declarations stay 
 parameter types and refinements retain dependencies. Bound callback applications and unavailable
 application heads in bodies or proofs retain uncertain references to non-executable,
 owner-scoped proxies, including each source site; these proxies never establish calls.
+Grouping parentheses around literal identifier, qualified-name and operator heads preserve
+application sites and argument contexts; computed heads are not resolved by guessing a branch.
 Ordinary option directives are accepted without evaluating their settings.
 Includes re-export inspected module members;
 plain opens do not. Restricted imports and renamings produce diagnostics and are not

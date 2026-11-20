@@ -9,7 +9,15 @@ from tree_sitter import Language, Node
 from trailmark.models.nodes import Attribute, NodeKind, Parameter, TypeRef
 from trailmark.parsers._common import node_text
 from trailmark.parsers._formal import FormalParser, Namespace, Scope, Source, walk
-from trailmark.parsers.fstar._bindings import OPAQUE, SKIP, Binding, bindings, groups, scopes
+from trailmark.parsers.fstar._bindings import (
+    OPAQUE,
+    SKIP,
+    Binding,
+    application_head,
+    bindings,
+    groups,
+    scopes,
+)
 from trailmark.parsers.fstar._semantics import link_fstar, operator_name
 from trailmark.tree_sitter_custom._native import bundled_language
 
@@ -275,11 +283,7 @@ class FStarParser(FormalParser):
         heads = frozenset(
             head.start_byte
             for part in walk(node, SKIP)
-            if (
-                head := part.child_by_field_name("function") or part.child_by_field_name("operator")
-            )
-            is not None
-            and head.type in _NAMES
+            if (head := application_head(part)) is not None and head.type in _NAMES
         )
         env.source.references(
             owner,
