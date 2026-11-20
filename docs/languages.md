@@ -157,6 +157,16 @@ single-file parsing. Bash syntax errors warn that the graph may be incomplete.
 These rules apply to ordinary Rust as well as Verus blocks. For the patterns
 that typically stay unresolved, see [Rust limits](call-resolution.md#rust-limits).
 
+### Macro template source
+
+Literal `macro_rules!` declaration arms retain separate `template` nodes for their
+source declarations, with `macro_template` metadata and uncertain `references`
+dependencies. Each arm keeps its own identities and physical source spans.
+Template names do not supply runtime function or type bindings. Metavariable
+callees retain proxy dependencies; repetition and arms that cannot be parsed as
+literal Rust declarations remain opaque with diagnostics. No macro expansion or
+generated runtime dispatch is inferred.
+
 ### Verus
 
 The Rust parser extracts ordinary, `spec`, and `proof` functions with bodies

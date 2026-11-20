@@ -53,6 +53,8 @@ Rust and Verus preserve repeated same-name impl methods with source-offset
 suffixes instead of combining their bodies. Ambiguous trait and concrete generic
 impl dispatch remains unresolved. Declaration-owned `unsafe(no_mangle)` and
 `unsafe(export_name = "symbol")` attributes expose Rust 2024 entrypoints.
+Literal macro declaration templates retain source dependencies as uncertain
+references, separate from runtime calls; their names do not enter runtime type lookup.
 
 Go retains grouped, variadic, function-typed and unnamed parameters. Unnamed
 slots use `$argN`; variadic types retain `...`. Explicit single-type generic

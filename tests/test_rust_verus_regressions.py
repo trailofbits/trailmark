@@ -147,8 +147,10 @@ fn ordinary() { let s = "verus! { fn text() {} }"; }
 verus! { fn visible() {} }
 """)
     graph = RustParser().parse_file(str(path))
-    assert set(graph.nodes) == {"opaque", "opaque:ordinary", "opaque:visible"}
-    assert len(graph.edges) == 2
+    runtime = {n.id for n in graph.nodes.values() if not dict(n.attributes).get("macro_template")}
+    assert runtime == {"opaque", "opaque:ordinary", "opaque:visible"}
+    assert sum(e.source_id in runtime and e.target_id in runtime for e in graph.edges) == 2
+    assert not any(n.name == "never_emitted" for n in graph.nodes.values())
     assert len(caplog.records) == 1
     assert "inside an opaque macro" in caplog.records[0].message
 
