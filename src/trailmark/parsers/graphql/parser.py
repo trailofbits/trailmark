@@ -8,6 +8,7 @@ from pathlib import Path
 from tree_sitter import Node, Parser
 from tree_sitter_language_pack import get_language
 
+from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, Parameter, TypeRef
 from trailmark.parsers._common import (
@@ -94,6 +95,18 @@ def _extract_object(
     if object_id not in graph.nodes or not node.type.endswith("extension"):
         graph.nodes[object_id] = unit
     add_contains_edge(graph, module_id, object_id)
+    interfaces = first_child_type(node, frozenset({"implements_interfaces"}))
+    if interfaces is not None:
+        for interface in descendants(interfaces):
+            if interface.type == "named_type":
+                graph.edges.append(
+                    CodeEdge(
+                        object_id,
+                        f"{module_id}:{node_text(interface)}",
+                        EdgeKind.IMPLEMENTS,
+                        location=make_location(interface, file_path),
+                    )
+                )
     fields = first_child_type(node, frozenset({"fields_definition", "input_fields_definition"}))
     if fields is None:
         return
