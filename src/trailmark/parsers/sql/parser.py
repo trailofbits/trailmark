@@ -65,18 +65,21 @@ class SQLParser:
         graph = CodeGraph(language="sql", root_path=file_path)
         module_id = module_id_from_path(file_path)
         add_module_node(tree.root_node, file_path, module_id, graph)
+        declarations = _walk(tree.root_node)
         with callable_scope(graph):
-            for node in _walk(tree.root_node):
+            for node in declarations:
                 kind = _DECLARATIONS.get(node.type)
-                if kind is not None:
+                if kind is not None and kind not in {NodeKind.FUNCTION, NodeKind.PROCEDURE}:
                     _extract_declaration(node, kind, file_path, module_id, graph)
-            _extract_procedures(
+            _extract_routines(
                 source,
                 file_path,
                 module_id,
                 graph,
-                native_starts={
-                    n.start_byte for n in _walk(tree.root_node) if n.type == "create_procedure"
+                native_nodes={
+                    node.start_byte: node
+                    for node in declarations
+                    if node.type in {"create_function", "create_procedure"}
                 },
             )
         _link_cross_file_sql_dependencies(graph)
@@ -261,35 +264,46 @@ def _sql_reference_id(graph: CodeGraph, module_id: str, schema: str | None, name
 _Token = tuple[str, int, int]
 
 
-def _extract_procedures(
-    source: bytes, file_path: str, module_id: str, graph: CodeGraph, *, native_starts: set[int]
+def _extract_routines(
+    source: bytes,
+    file_path: str,
+    module_id: str,
+    graph: CodeGraph,
+    *,
+    native_nodes: dict[int, Node],
 ) -> None:
-    """Recover procedures from actual top-level statements, never quoted text."""
+    """Keep native or recovered routines within their top-level statement."""
     text = source.decode("utf-8", errors="replace")
     for tokens in _statements(text):
-        header = _procedure_header(tokens)
+        header = _routine_header(tokens)
         if header is None:
             continue
-        schema, name, cursor = header
+        kind, schema, name, cursor = header
         end_params = _parameter_end(tokens, cursor)
+        if end_params == cursor:
+            continue
         start, end = tokens[0][1], tokens[-1][2]
+        byte_start = len(text[:start].encode("utf-8"))
+        declaration_end = tokens[-2][2] if tokens[-1][0] == ";" else end
+        native = native_nodes.get(byte_start)
+        # Error recovery may absorb following declarations or stop inside a
+        # quoted body. Only trust a native routine with the same lexical bounds.
+        if native is not None and native.end_byte == len(text[:declaration_end].encode("utf-8")):
+            _extract_declaration(native, kind, file_path, module_id, graph)
+            continue
         location = SourceLocation(
             file_path,
             text.count("\n", 0, start) + 1,
             text.count("\n", 0, end) + 1,
-            start - text.rfind("\n", 0, start) - 1,
-            end - text.rfind("\n", 0, end) - 1,
+            len(text[text.rfind("\n", 0, start) + 1 : start].encode("utf-8")),
+            len(text[text.rfind("\n", 0, end) + 1 : end].encode("utf-8")),
         )
-        # A native CREATE OR REPLACE can replace an earlier node. Keep all
-        # native statement offsets so fallback cannot restore that earlier body.
-        if len(text[:start].encode("utf-8")) in native_starts:
-            continue
         unit_id = _add_routine(
             graph,
             CodeUnit(
                 id=_sql_id(module_id, schema, name),
                 name=name,
-                kind=NodeKind.PROCEDURE,
+                kind=kind,
                 location=location,
                 parameters=_recovered_parameters(tokens[cursor + 1 : end_params]),
                 attributes=(("sql_schema", schema or ""),),
@@ -297,20 +311,21 @@ def _extract_procedures(
         )
         container = f"{module_id}:{schema}" if schema else module_id
         add_contains_edge(graph, container if container in graph.nodes else module_id, unit_id)
-        _procedure_dependencies(
-            _procedure_body(tokens[end_params + 1 :]), unit_id, module_id, graph
-        )
+        _routine_dependencies(_routine_body(tokens[end_params + 1 :]), unit_id, module_id, graph)
 
 
-def _procedure_header(tokens: list[_Token]) -> tuple[str | None, str, int] | None:
+def _routine_header(tokens: list[_Token]) -> tuple[NodeKind, str | None, str, int] | None:
     words = [token[0].upper() for token in tokens[:5]]
     offset = 3 if words[:3] == ["CREATE", "OR", "REPLACE"] else 1
-    if not words or words[0] != "CREATE" or len(tokens) <= offset or words[offset] != "PROCEDURE":
+    if not words or words[0] != "CREATE" or len(tokens) <= offset:
         return None
-    return _procedure_name(tokens, offset + 1)
+    kinds = {"FUNCTION": NodeKind.FUNCTION, "PROCEDURE": NodeKind.PROCEDURE}
+    kind = kinds.get(words[offset])
+    qualified = _routine_name(tokens, offset + 1)
+    return (kind, *qualified) if kind is not None and qualified is not None else None
 
 
-def _procedure_name(tokens: list[_Token], cursor: int) -> tuple[str | None, str, int] | None:
+def _routine_name(tokens: list[_Token], cursor: int) -> tuple[str | None, str, int] | None:
     if cursor >= len(tokens):
         return None
     name, schema = tokens[cursor][0], None
@@ -333,7 +348,7 @@ def _parameter_end(tokens: list[_Token], cursor: int) -> int:
     return cursor
 
 
-def _procedure_body(body: list[_Token]) -> list[_Token]:
+def _routine_body(body: list[_Token]) -> list[_Token]:
     # Dollar/single quoted AS bodies are SQL at one deeper lexical level.
     for index, token in enumerate(body[:-1]):
         if token[0].upper() != "AS":
@@ -348,7 +363,7 @@ def _procedure_body(body: list[_Token]) -> list[_Token]:
     return body
 
 
-def _procedure_dependencies(
+def _routine_dependencies(
     body: list[_Token], unit_id: str, module_id: str, graph: CodeGraph
 ) -> None:
     seen: set[str] = set()
@@ -359,8 +374,12 @@ def _procedure_dependencies(
         if re.fullmatch(_IDENTIFIER, target_name) is None:
             continue
         target_schema = None
+        after_name = index + 2
         if index + 3 < len(body) and body[index + 2][0] == ".":
             target_schema, target_name = target_name, body[index + 3][0]
+            after_name = index + 4
+        if after_name < len(body) and body[after_name][0] == "(":
+            continue
         target = _sql_reference_id(graph, module_id, target_schema, target_name)
         if target not in seen:
             seen.add(target)
@@ -546,7 +565,7 @@ def _statements(text: str) -> Iterator[list[tuple[str, int, int]]]:
             parentheses += 1
         elif value == ")":
             parentheses -= 1
-        elif value == "ATOMIC" and previous == "BEGIN":
+        elif (value == "ATOMIC" and previous == "BEGIN") or (value == "CASE" and atomic):
             atomic += 1
         elif value == "END" and atomic:
             atomic -= 1

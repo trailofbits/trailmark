@@ -15,7 +15,7 @@ from trailmark.models.nodes import (
     Parameter,
     TypeRef,
 )
-from trailmark.parsers._binding_index import binding_scope, initialize_bindings
+from trailmark.parsers._binding_index import binding_scope, initialize_bindings, record_unit
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -307,6 +307,7 @@ def _extract_class(
         docstring=_extract_jsdoc(node),
     )
     graph.nodes[class_id] = class_unit
+    record_unit(class_unit)
     add_contains_edge(graph, module_id, class_id)
 
     _extract_heritage(node, class_id, module_id, graph)

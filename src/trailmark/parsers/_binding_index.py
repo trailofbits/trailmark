@@ -172,6 +172,8 @@ class ScopeIndex:
         scopes: frozenset[str],
         fields: dict[str, str],
     ) -> int | None:
+        if self._python and node.type == "named_expression":
+            owner = self._named_expression_scope(node)
         # Function names belong outside; catch/loop targets belong inside their scope.
         inner_binding = node.type in {"catch_clause", "for_in_statement"} and node.type in scopes
         if node.type in fields and owner is not None and not inner_binding:
@@ -184,6 +186,17 @@ class ScopeIndex:
         if self._python:
             self._directives(node, owner)
         return owner
+
+    def _named_expression_scope(self, node: Node) -> int | None:
+        """Defaults execute outside the function whose signature contains them."""
+        parent = node.parent
+        while parent is not None:
+            if parent.id in self.scopes:
+                body = parent.child_by_field_name("body")
+                if body is not None and body.start_byte <= node.start_byte < body.end_byte:
+                    return parent.id
+            parent = parent.parent
+        return None
 
     def _new_scope(self, node: Node, owner: int | None) -> int:
         if self._python and node.type in {"function_definition", "lambda"}:
