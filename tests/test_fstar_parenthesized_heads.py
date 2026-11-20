@@ -140,3 +140,24 @@ def test_returned_callee_cannot_borrow_factory_execution_metadata(
     ]
     assert len(refs) == 1
     assert dict(refs[0].attributes)["reference_context"] == "argument"
+
+
+def test_dereferenced_callee_cannot_borrow_operator_execution_metadata(tmp_path: Path) -> None:
+    path = tmp_path / "Dereference.fst"
+    path.write_text(
+        "module Dereference\nlet proof (x:int) : Lemma True = ()\n"
+        "let ( ! ) (x:int) : Tot (int -> Lemma True) = proof\n"
+        "let known (x:int) : Tot int = x\n"
+        "let run (f:int) (x:int) = !f (known x)\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert [(graph.nodes[e.source_id].name, graph.nodes[e.target_id].name) for e in calls] == [
+        ("run", "op_Bang")
+    ]
+    assert any(
+        e.kind == EdgeKind.REFERENCES
+        and graph.nodes[e.target_id].name == "known"
+        and dict(e.attributes)["reference_context"] == "argument"
+        for e in graph.edges
+    )
