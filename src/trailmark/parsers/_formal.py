@@ -146,8 +146,9 @@ def lookup_tiers(
 class Source:
     """Build a file graph from explicit declarations and adapter-selected regions."""
 
-    def __init__(self, root: Node, path: str, language: str) -> None:
+    def __init__(self, root: Node, path: str, language: str, *, data: bytes = b"") -> None:
         self.path, self.language = path, language
+        self.data = data
         self.module = module_id_from_path(path)
         self.graph = CodeGraph(language=language, root_path=path)
         add_module_node(root, path, self.module, self.graph)
@@ -363,8 +364,9 @@ class FormalParser:
         raise NotImplementedError
 
     def _parse_file(self, path: str) -> CodeGraph:
-        root = self._parser.parse(Path(path).read_bytes()).root_node
-        source = Source(root, path, self.language)
+        data = Path(path).read_bytes()
+        root = self._parser.parse(data).root_node
+        source = Source(root, path, self.language, data=data)
         pending = [(root, 0)]
         containers = {"module", "module_definition", "module_declaration", "scope_declaration"}
         while pending:

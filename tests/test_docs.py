@@ -93,6 +93,7 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("docs/languages.md", "Recovered Rocq and WhyML declarations and references"),
     ("docs/languages.md", "Proof expressions keep their computational continuations"),
     ("docs/parser-coverage.md", "Inline visibility modifiers"),
     ("docs/languages.md", "Routine recovery respects top-level statement boundaries"),
