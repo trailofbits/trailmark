@@ -53,6 +53,7 @@ from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c.parser import visit_c_declaration
+from trailmark.parsers.objc._nullability import parse_nullability_regions
 from trailmark.parsers.objc._receivers import (
     bind_ivar_messages,
     link_calls,
@@ -91,10 +92,17 @@ class ObjCParser:
         """Parse a single .m / .mm / .h file into a CodeGraph."""
         source = Path(file_path).read_bytes()
         tree = self._parser.parse(source)
+        tree, nullability_regions = parse_nullability_regions(self._parser, source, tree)
         graph = CodeGraph(language="objc", root_path=file_path)
         module_id = module_id_from_path(file_path)
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
+        if nullability_regions:
+            unit = graph.nodes[module_id]
+            graph.nodes[module_id] = replace(
+                unit,
+                attributes=(*unit.attributes, ("objc_nullability_regions", nullability_regions)),
+            )
         _bind_self_messages(graph)
         bind_ivar_messages(graph)
         collect_exception_events(tree.root_node, file_path, graph)
