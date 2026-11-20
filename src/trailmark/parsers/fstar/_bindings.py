@@ -28,6 +28,15 @@ SKIP = OPAQUE | frozenset(
         "variable_pattern",
     }
 )
+APPLICATION_HEAD_TYPES = frozenset(
+    {
+        "identifier",
+        "qualified_identifier",
+        "constructor_identifier",
+        "operator",
+        "operator_identifier",
+    }
+)
 
 
 def bindings(root: Node) -> tuple[str, ...]:
@@ -145,20 +154,22 @@ def application_head(node: Node) -> Node | None:
         if head.has_error:
             return None
         head = head.child_by_field_name("body")
-    return head
+    return head if head is not None and head.type in APPLICATION_HEAD_TYPES else None
 
 
 def _arguments(node: Node) -> list[Scope]:
-    head = application_head(node)
-    if head is None:
+    if node.child_by_field_name("function") is None:
         return []
+    head = application_head(node)
+    # Unknown returned callees must not borrow a nested factory's start position.
+    # Preserve their argument scopes so those references cannot fall back to body.
     return [
         Scope(
             frozenset(),
             arg.start_byte,
             arg.end_byte,
             context="argument",
-            callee=head.start_byte,
+            callee=head.start_byte if head is not None else None,
             argument=index,
         )
         for index, arg in enumerate(node.children_by_field_name("argument"))

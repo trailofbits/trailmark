@@ -111,3 +111,32 @@ def test_grouped_operator_and_implicit_tot_heads_keep_calls(tmp_path: Path) -> N
         ("run", "op_Plus_Hat"),
         ("run", "identity"),
     }
+
+
+@pytest.mark.parametrize(
+    "head", ["(factory x)", "(((factory x)))", "(factory x <: int -> Lemma True)"]
+)
+def test_returned_callee_cannot_borrow_factory_execution_metadata(
+    tmp_path: Path, head: str
+) -> None:
+    path = tmp_path / "Returned.fst"
+    path.write_text(
+        "module Returned\nlet proof (x:int) : Lemma True = ()\n"
+        "let factory (x:int) : Tot (int -> Lemma True) = proof\n"
+        "let known (x:int) : Tot int = x\n"
+        f"let run (x:int) = {head} (known x)\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert [(graph.nodes[e.source_id].name, graph.nodes[e.target_id].name) for e in calls] == [
+        ("run", "factory")
+    ]
+    refs = [
+        e
+        for e in graph.edges
+        if e.kind == EdgeKind.REFERENCES
+        and graph.nodes[e.source_id].name == "run"
+        and graph.nodes[e.target_id].name == "known"
+    ]
+    assert len(refs) == 1
+    assert dict(refs[0].attributes)["reference_context"] == "argument"

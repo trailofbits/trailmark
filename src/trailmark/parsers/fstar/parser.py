@@ -10,6 +10,7 @@ from trailmark.models.nodes import Attribute, NodeKind, Parameter, TypeRef
 from trailmark.parsers._common import node_text
 from trailmark.parsers._formal import FormalParser, Namespace, Scope, Source, walk
 from trailmark.parsers.fstar._bindings import (
+    APPLICATION_HEAD_TYPES,
     OPAQUE,
     SKIP,
     Binding,
@@ -21,15 +22,7 @@ from trailmark.parsers.fstar._bindings import (
 from trailmark.parsers.fstar._semantics import link_fstar, operator_name
 from trailmark.tree_sitter_custom._native import bundled_language
 
-_NAMES = frozenset(
-    {
-        "identifier",
-        "qualified_identifier",
-        "constructor_identifier",
-        "operator",
-        "operator_identifier",
-    }
-)
+_NAMES = APPLICATION_HEAD_TYPES
 
 
 def _spelling(node: Node) -> str | None:

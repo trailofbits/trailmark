@@ -456,6 +456,7 @@ application heads in bodies or proofs retain uncertain references to non-executa
 owner-scoped proxies, including each source site; these proxies never establish calls.
 Grouping parentheses around literal identifier, qualified-name and operator heads preserve
 application sites and argument contexts; computed heads are not resolved by guessing a branch.
+Arguments of an unknown returned callee retain references.
 Ordinary option directives are accepted without evaluating their settings.
 Includes re-export inspected module members;
 plain opens do not. Restricted imports and renamings produce diagnostics and are not
