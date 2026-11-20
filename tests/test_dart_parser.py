@@ -96,6 +96,54 @@ class TestCallEdges:
         assert "app:a" in sources
 
 
+def test_named_and_factory_constructor_navigation(tmp_path: Path) -> None:
+    from trailmark.models.edges import EdgeKind
+    from trailmark.query.api import QueryEngine
+
+    graph = _parse(
+        tmp_path,
+        "class Context {\n"
+        "  Context._internal();\n"
+        "  factory Context() { return Context._internal(); }\n"
+        "}\n"
+        "Context make() => Context._internal();\n",
+    )
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert {(e.source_id, e.target_id) for e in calls} == {
+        ("app:Context.Context", "app:Context.Context._internal"),
+        ("app:make", "app:Context.Context._internal"),
+    }
+    assert {e.location.start_line for e in calls if e.location} == {3, 5}
+    engine = QueryEngine.from_graph(graph)
+    assert {n["id"] for n in engine.callers_of("app:Context.Context._internal")} == {
+        "app:Context.Context",
+        "app:make",
+    }
+
+
+def test_constructor_name_shadow_stays_unresolved(tmp_path: Path) -> None:
+    from trailmark.models.edges import EdgeKind
+
+    graph = _parse(
+        tmp_path,
+        "class Context { Context.named(); }\n"
+        "void invoke(dynamic Context) { Context.named(); }\n"
+        "void external() { Missing.named(); }\n",
+    )
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 2
+    assert all(e.target_id.startswith("proxy.") for e in calls)
+
+
+def test_unnamed_constructor_navigation(tmp_path: Path) -> None:
+    from trailmark.models.edges import EdgeKind
+
+    graph = _parse(tmp_path, "class Context { Context(); }\nContext make() => Context();\n")
+    calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
+    assert len(calls) == 1
+    assert (calls[0].source_id, calls[0].target_id) == ("app:make", "app:Context.Context")
+
+
 def test_explicit_this_calls_use_nearest_class_even_with_local_shadow(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,

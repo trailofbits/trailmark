@@ -37,6 +37,7 @@ from trailmark.parsers._common import (
 )
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers.rust._scopes import resolve_calls
+from trailmark.parsers.rust._templates import extract_templates, finalize_templates
 from trailmark.tree_sitter_custom.rust import language as rust_language
 
 _LOGGER = logging.getLogger(__name__)
@@ -114,21 +115,40 @@ class RustParser:
         self._declarations = {}
         add_module_node(tree.root_node, file_path, module_id, graph)
         self._visit_scope(tree.root_node, source, file_path, module_id, graph)
+        templates = extract_templates(
+            tree.root_node,
+            source,
+            file_path,
+            module_id,
+            graph,
+            self._parser,
+            lambda root, owner, namespace: self._visit_scope(
+                root, source, file_path, namespace, graph, owner=owner
+            ),
+        )
         resolve_calls(graph, self._uses, module_id, self._declarations)
+        finalize_templates(graph, templates)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
     def _visit_scope(
-        self, root: Node, source: bytes, file_path: str, module_id: str, graph: CodeGraph
+        self,
+        root: Node,
+        source: bytes,
+        file_path: str,
+        module_id: str,
+        graph: CodeGraph,
+        *,
+        owner: str | None = None,
     ) -> None:
         """Visit declarations while retaining their module and method owners."""
         stack: list[tuple[Node, str, str | None]] = [
-            (child, module_id, None) for child in reversed(_declarations_in(root))
+            (child, module_id, owner) for child in reversed(_declarations_in(root))
         ]
         has_verus = b"verus" in source
         while stack:
             child, module_id, container_id = stack.pop()
-            if child.type == "macro_invocation" and has_verus:
+            if child.type == "macro_invocation" and has_verus and owner is None:
                 tree = self._parse_macro(source, child, file_path, graph)
                 declarations = _declarations_in(tree.root_node) if tree is not None else []
             else:
