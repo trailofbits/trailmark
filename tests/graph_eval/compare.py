@@ -82,7 +82,18 @@ def _declarations(
     for edge in graph.get("edges", []):
         if edge.get("kind") == "contains":
             parents[_target(edge)].add(_source(edge))
-    mapping = {key: values[0] for key, values in _file_nodes(nodes).items() if len(values) == 1}
+    referenced_keys = {item["key"] for item in reference["declarations"]} | {
+        item["owner"] for item in reference["declarations"]
+    }
+    for assertion in reference["assertions"]:
+        referenced_keys.update((assertion["subject"], assertion["target_key"]))
+    for question in reference["questions"]:
+        referenced_keys.update((question["subject"], question["target"], *question["expected"]))
+    mapping = {
+        key: values[0]
+        for key, values in _file_nodes(nodes).items()
+        if key in referenced_keys and len(values) == 1
+    }
     records: list[dict[str, Any]] = []
     pending = list(reference["declarations"])
     while pending:

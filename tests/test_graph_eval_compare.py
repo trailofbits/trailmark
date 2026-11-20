@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from tests.graph_eval.compare import compare_reference, validate_adjudication_claims
+from tests.graph_eval.navigation import plan_queries
 from tests.graph_eval.prompts import reference_prompt
 from tests.graph_eval.report import append_adjudication, generate_report, read_adjudications
 from tests.graph_eval.schema import (
@@ -496,6 +497,69 @@ def test_graph_order_and_irrelevant_namesake_addition_do_not_change_results() ->
     assert changed["mapping"] == baseline["mapping"]
     assert changed["metrics"] == baseline["metrics"]
     assert changed["discrepancies"] == baseline["discrepancies"]
+
+
+def test_unreferenced_modules_do_not_expand_navigation_or_change_scoped_negatives() -> None:
+    measurement, reference = _measurement(), _reference()
+    reference["questions"][0].update(subject="h", expected=[])
+    reference["questions"][1].update(subject="f", expected=[])
+    reference["questions"][2].update(subject="h", target="f", expected=[])
+    baseline = _compare(measurement, reference)
+    assert all(question["status"] == "agree" for question in baseline["questions"])
+    for index in range(32):
+        measurement["graph"]["nodes"][f"unrelated{index}"] = _node(
+            f"unrelated{index}", 1, f"other/unrelated{index}.py", "module"
+        )
+    detour = [_edge("lib:helper", "unrelated0", 1), _edge("unrelated0", "main:run", 1)]
+    detour[0]["location"] = _site(1, "lib.py")
+    detour[1]["location"] = _site(1, "other/unrelated0.py")
+    measurement["graph"]["edges"].extend(detour)
+    changed = _compare(measurement, reference)
+    assert changed["mapping"] == baseline["mapping"]
+    assert changed["questions"] == baseline["questions"]
+    assert changed["discrepancies"] == baseline["discrepancies"]
+    assert plan_queries(reference, changed, prefix="reader:", profile="runtime") == plan_queries(
+        reference, baseline, prefix="reader:", profile="runtime"
+    )
+
+
+@pytest.mark.parametrize(
+    "position",
+    [
+        "owner",
+        "assertion_subject",
+        "assertion_target",
+        "question_subject",
+        "question_target",
+        "question_expected",
+    ],
+)
+def test_only_explicitly_referenced_file_aliases_enter_the_scoped_mapping(position: str) -> None:
+    measurement, reference = _measurement(), _reference()
+    alias = "file:pkg/scoped.py"
+    measurement["graph"]["nodes"]["pkg.scoped"] = _node("scoped", 1, "pkg/scoped.py", "module")
+    measurement["graph"]["nodes"]["other.scoped"] = _node("scoped", 1, "other/scoped.py", "module")
+    expected_aliases = {"file:main.py", "file:lib.py", alias}
+    if position == "owner":
+        reference["declarations"][0]["owner"] = alias
+        expected_aliases.remove("file:main.py")
+    elif position == "assertion_subject":
+        reference["assertions"][0]["subject"] = alias
+    elif position == "assertion_target":
+        reference["assertions"][0]["target_key"] = alias
+    elif position == "question_subject":
+        reference["questions"][0]["subject"] = alias
+    elif position == "question_target":
+        reference["questions"][2]["target"] = alias
+    else:
+        reference["questions"][0]["expected"] = [alias]
+    result = _compare(measurement, reference)
+    assert result["mapping"][alias] == "pkg.scoped"
+    assert {key for key in result["mapping"] if key.startswith("file:")} == expected_aliases
+    assert result["mapping"]["f"] == "main:run"
+    assert result["mapping"]["h"] == "lib:helper"
+    if position == "owner":
+        assert "wrong_owner" in result["declarations"][0]["issues"]
 
 
 def test_source_path_relocation_preserves_results_without_basename_matching() -> None:
