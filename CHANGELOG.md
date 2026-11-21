@@ -1,90 +1,98 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 (2026-11-21)
 
-- Preserve enclosing Java helper calls from anonymous classes when inherited
-  lookup finds no target. Share ECMAScript export discovery per directory parse
-  and index imported constructors once. Accept long Dafny generic type identifiers.
-  Clarify F* interface traversal and the Cairo/VB.NET/Rego grammar build requirements
-  introduced since v0.8.0; name the grammar and build requirements when a missing
-  compiler or read-only installation prevents compilation.
+This release adds eight language frontends for verification and specification
+analysis, extends reference traversal, and improves call binding and source ownership
+across existing frontends.
 
-- Consolidate bundled native bindings and formal/Lean lookup indexes. Carry
-  pending references as typed internal state and let frontends finalize their
-  type edges, preserving parser graph output and scoped type resolution across
-  merges. Avoid repeated declaration scans during formal import linking.
+### Added
 
-- Refresh Python, npm, Nix and CI tool dependencies. Enable tree-sitter 0.26.1
-  while excluding 0.26.0's Point lifetime regression, and update the validated
-  mutation runner to pytest-gremlins 1.14.3. Adapt Zig extraction to the updated
-  grammar and preserve SQL procedure replacements during fallback recovery.
+- **Lean 4:** declarations, namespaces, structures, classes, inductive types,
+  inspected imports, conservative calls, and located references in signatures,
+  bodies, typed projections, and immutable record updates.
+- **Dafny:** modules, classes, datatypes, functions, methods, lemmas, contracts,
+  scoped computational calls, ghost/proof references, and callback invocation sites.
+- **F*:** declarations, interface/implementation correspondence, refinements,
+  scoped imports and exports, computation effects, and conservative applications.
+- **Rocq/Coq:** Gallina declarations, modules, sections, assumptions, theorem
+  statements, project load paths, and explicit source references.
+- **WhyML:** programs and modules, arrays, records, ghost code, contracts,
+  inspected imports, and explicit references, with diagnostics for syntax gaps.
+- **TLA+:** modules, state variables, operators, lexical LET definitions,
+  EXTENDS/INSTANCE dependencies, and proof-step source references.
+- **Tamarin:** rules, function/fact symbols, roles, persistence, macros,
+  predicates, includes, conditionals, and specification references.
+- **ProVerif:** typed pi-calculus declarations, processes, events, queries,
+  destructor equations, macros, tables, and inspected library dependencies.
+- Opt-in `edge_kinds` filters for `reachable_from`, `ancestors_of`, and
+  `paths_between`. Graph JSON can include locations for `references` edges
+  within schema version 1; traversal defaults remain calls only.
 
-- Repair Dafny postfix/additive precedence, pattern and type-parameter scopes,
-  specification contexts, ghost assignments and by-method bodies.
+### Changed
 
-- Recognize implicit F* Tot and inherit val computation/privacy metadata.
-  Resolve operators and qualified names; preserve dependent and monadic binders
-  and separate proof/type contexts from executable applications.
+- Separate computational applications from proof, type, ghost, and erased uses
+  in verification-language graphs. Preserve lexical binders, declaration order,
+  visibility, source locations, and uncertain application evidence where supported.
+  These graphs describe source syntax rather than verifier results or runtime dispatch.
+- Resolve literal JavaScript/TypeScript named imports only through selected source
+  exports, and bind imported constructions to inspected constructor bodies. Retain
+  every construction site, including uncertain proxies for unresolved constructors;
+  these sites can change resolution counts and graph diffs.
+  Reuse export discovery and constructor indexes during directory analysis to
+  avoid repeated parsing and whole-graph scans. Share formal import lookup indexes.
+- Retain Rust `macro_rules!` arms as template nodes with non-call references for
+  source navigation, without treating templates as runtime execution.
+- Include `.h` files in C++ directory analysis. In mixed C/C++ trees, C++ owns
+  shared headers unless Objective-C is selected; headers are inspected once.
 
-- Recover Rocq sentences after syntax errors; retain records, match bodies,
-  section assumptions and module signature references. Separate term/module
-  namespaces and resolve partial logical module paths.
+### Fixed
 
-- Expand WhyML syntax coverage for implicit modules, arrays, records, labels,
-  raises and mutual recursion. Recover later modules and preserve constructor
-  argument evaluation, unit parameters, ghost fields and return types.
+- Preserve Python assignment-expression bindings and nested generator ownership;
+  retain Swift defer/self calls, dominated Bash helpers, Lua local-table methods,
+  Ruby inline visibility and literal aliases, and Julia inbounds-wrapped calls.
+- Preserve C++ class, namespace, constructor, and out-of-line method ownership
+  through supported export markers, templates, casts, and block macros. Bound
+  template-marker recovery to avoid exponential backtracking.
+- Retain Objective-C declarations inside conditional implementations, nullability
+  regions, and standard enum typedefs; link messages through inspected ivar types.
+- Resolve inspected Java anonymous-class helpers and retain enclosing-method
+  fallback with conservative confidence. Preserve C# construction sites and
+  cross-file static calls; keep attributed overloads conservative and handle
+  equivalent optional defaults.
+- Bind supported Kotlin fixed-arity overloads and Dart named/factory constructors,
+  explicit `this` methods, and final locals with declared factory return types.
+- Preserve Cairo generic impls and supported qualified/self calls, VB.NET
+  inheritance declarations, Rego compound indices and clause dependencies,
+  Solidity member/modifier calls, Zig typed-local calls, and SQL routine recovery.
+- Retain Thrift service inheritance, GraphQL interface implementations, and Tact
+  trait relationships. Preserve complete Dafny generic type identifiers and
+  source offsets during bounded formal syntax recovery.
+- Name the grammar, original error, and build requirements when a missing compiler
+  or read-only installation prevents native grammar compilation.
 
-- Retain TLA+ LOCAL definitions and named INSTANCE references. Keep record
-  labels and projection/update fields out of state-variable lookup, and omit
-  punctuation from parameter lists.
+### Upgrade notes
 
-- Retain Tamarin let/macro operator terms and fact roles/persistence. Accept
-  all-traces and common attributes; share symbol and fact identity across
-  unambiguous include trees.
-
-- Retain ProVerif destructor equations, declaration macros, table binders and
-  parallel continuations. Infer unique same-directory libraries and diagnose
-  ambiguous library matches.
-
-- Correct shared formal type references, import visibility and argument scopes.
-  Bound syntax diagnostics and declaration nesting.
-
-- Add Dafny source graphs with typed input parameters, declaration roles, lexical
-  and ghost scopes, explicit computational calls and bounded native scanning.
-
-- Add F* source graphs with interface correspondence, private visibility, iterative
-  pattern binding, refinement dependencies and conservative computational calls.
-
-- Add Rocq/Coq Gallina graphs with lexical modules and sections, explicit imports,
-  project load paths and binder scopes. Require explicit `rocq` selection for `.v`.
-
-- Add WhyML source graphs with program/specification contexts, scope imports,
-  ordered typed parameters and diagnosed grammar boundaries.
-
-- Add TLA+ specification graphs with transitive EXTENDS, recursive forward
-  declarations, lexical binders and explicit proof/PlusCal coverage diagnostics.
-
-- Add Tamarin symbolic graphs with distinct declaration namespaces, syntactic fact
-  arity, builtin signatures, bare constants, macros, predicates, file includes,
-  structural conditionals and diagnosed proof boundaries.
-
-- Add ProVerif symbolic graphs with branch-specific binders, security directive
-  references, destructor equations, table binders, declaration macros and inferred
-  same-directory library dependencies; diagnose opaque clauses and CryptoVerif syntax.
-
-- Preserve nested computational calls when all enclosing argument callees are
-  resolved and executable, while retaining proof and unknown argument uses as
-  references. Index lexical scope intervals and retain explicit re-export and
-  declaration aliases for verification-language adapters.
-- Add Lean 4 parsing (`--language lean`, `.lean` autodetection), including
-  definitions, theorems, namespaces, structures, classes, inductive types,
-  lexical callable ownership, conservative calls through inspected imports,
-  and source-located references in signatures, bodies, typed projections, and
-  immutable record updates.
-  Document the limits of syntax-only proof, macro, and exception analysis.
-- Add opt-in `edge_kinds` filters to `reachable_from`, `ancestors_of`, and
-  `paths_between`, preserving call-only defaults. Export optional locations for
-  `references` edges within graph schema version 1.
+- Auto mode now detects `.lean`, `.dfy`, `.fst`/`.fsti`, `.mlw`/`.why`, `.tla`,
+  `.spthy`, and `.pv`/`.pvl` files that v0.8.0 ignored. To preserve an existing
+  language selection, pass an explicit list such as `--language python,javascript`.
+- Cairo, VB.NET, and Rego now use bundled grammars, as do the new Dafny, F*,
+  Rocq, WhyML, Tamarin, and ProVerif frontends. First use requires a C compiler
+  (`cc`), Python development headers, and write access to the installed grammar
+  directories. A required grammar failure stops the analysis, including auto mode.
+  Precompile bindings before making an installation read-only. See
+  [installation requirements](docs/installation.md#bundled-grammars).
+- Require `tree-sitter-language-pack` 1.25.2 or newer. Support tree-sitter 0.25.2
+  or newer below 0.27, excluding 0.26.0 because of its native Point lifetime
+  regression. Require `tree-sitter-sql` 0.3.13 or newer below 0.4.
+  Python 3.12 remains the minimum; CI tests Python 3.12 through 3.15.
+- Select `--language rocq` explicitly for `.v` files. For F* paths that cross an
+  interface into its implementation, use `edge_kinds=("calls", "corresponds_to")`.
+  Proof/specification dependencies require the appropriate reference edge filters;
+  default call-only traversal does not establish proof dependencies.
+- Rebuild source graphs to pick up corrected bindings and ownership. Graph schema
+  version 1 and the existing call-only query defaults remain supported. Per-language
+  syntax and inference limits are documented in [language notes](docs/languages.md).
 
 ## 0.8.0 (2026-11-11)
 

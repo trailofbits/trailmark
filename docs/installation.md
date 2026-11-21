@@ -61,9 +61,15 @@ uses the bundled Rust grammar; `verus!` blocks additionally load the Verus gramm
 VB.NET also uses a bundled grammar to preserve valid declarations and call sites
 that the upstream language-pack grammar misparses.
 Compared with v0.8.0, Cairo, VB.NET and Rego now require these build dependencies
-on first use. A required grammar's build or load failure stops the analysis,
+on first use. The new Dafny, F*, Rocq, WhyML, Tamarin and ProVerif frontends also
+use bundled grammars with the same requirements. Auto mode now detects `.lean`,
+`.dfy`, `.fst`/`.fsti`, `.mlw`/`.why`, `.tla`, `.spthy` and `.pv`/`.pvl` files
+that v0.8.0 ignored; Rocq `.v` files still require explicit language selection.
+Lean and TLA+ use downloaded language-pack grammars.
+A required grammar's build or load failure stops the analysis,
 including an `--language auto` run that also selected other languages. Install the
-build requirements, or explicitly select languages whose grammars are available.
+build requirements, or explicitly select languages whose grammars are available
+(for example, `--language python,javascript`).
 For a read-only deployment, compile the required bindings before removing write
 access, using the same Python ABI and platform as the runtime.
 Both scanners preserve Unicode code points in block comments. The Rust grammar
