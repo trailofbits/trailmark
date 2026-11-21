@@ -290,7 +290,11 @@ and resolve bare helper calls through an inspected class chain with inferred con
 Nearest overrides retain their signature; multiple inherited overloads, private methods,
 unknown bases and cycles remain uncertain. Anonymous interface bases use `implements`;
 uninspected bases retain `type_uses` rather than guessing a class or interface kind.
-Enclosing-method fallback remains uncertain when inherited lookup finds no supported target.
+When inherited lookup finds no supported target, calls retain a resolved enclosing
+method. That fallback is inferred for a complete inspected class chain without
+interfaces and uncertain for unknown bases or interface dispatch. Known interface
+declarations, inaccessible declarations and cycles block the fallback. Ambiguous
+inherited overloads remain proxies. Interface default-method dispatch is not resolved.
 Servlet entrypoints require servlet ancestry, an instance method,
 a void return and request/response parameters. Unrecognized framework
 intermediates such as `FrameworkServlet` do not establish servlet ancestry.

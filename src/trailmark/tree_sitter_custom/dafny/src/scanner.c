@@ -39,15 +39,10 @@ static void skip_ws(TSLexer *lexer) {
   }
 }
 
-static int read_ident(TSLexer *lexer, char *buf, int max_len) {
-  int len = 0;
-  if (!is_ident_start(lexer->lookahead)) return 0;
-  while (is_ident_char(lexer->lookahead) && len < max_len - 1) {
-    buf[len++] = (char)lexer->lookahead;
+static void skip_ident(TSLexer *lexer) {
+  while (is_ident_char(lexer->lookahead)) {
     lexer->advance(lexer, false);
   }
-  buf[len] = '\0';
-  return len;
 }
 
 static bool is_type_keyword(const char *w) {
@@ -91,12 +86,11 @@ static bool scan_type(TSLexer *lexer, unsigned depth) {
     return lexer->lookahead == ')' ? (lexer->advance(lexer, false), true) : false;
   }
   if (is_ident_start(lexer->lookahead)) {
-    char buf[64];
-    read_ident(lexer, buf, sizeof(buf));
+    skip_ident(lexer);
     skip_ws(lexer);
     while (lexer->lookahead == '.') {
       lexer->advance(lexer, false); skip_ws(lexer);
-      if (is_ident_start(lexer->lookahead)) { read_ident(lexer, buf, sizeof(buf)); skip_ws(lexer); }
+      if (is_ident_start(lexer->lookahead)) { skip_ident(lexer); skip_ws(lexer); }
       else break;
     }
     if (lexer->lookahead == '<') {

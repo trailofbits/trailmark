@@ -13,6 +13,31 @@ from trailmark.parse import parse_directory, parse_file
 FIXTURE = Path(__file__).parent / "fixtures/kat/dafny/taxonomy.dfy"
 
 
+@pytest.mark.parametrize("length", [63, 64, 70, 256])
+@pytest.mark.parametrize("qualified", [False, True])
+def test_generic_calls_accept_long_type_identifiers(
+    tmp_path: Path, length: int, qualified: bool
+) -> None:
+    name = "A" * length
+    declaration = f"class {name} {{}}\n"
+    if qualified:
+        declaration = f"module Types {{ {declaration} }}\n"
+        name = f"Types.{name}"
+    path = tmp_path / "Long.dfy"
+    path.write_text(
+        declaration
+        + "function Id<T>(x: int): int { x }\n"
+        + f"method Run() returns (r: int) {{ r := Id<{name}>(1); }}\n"
+    )
+    graph = parse_file(str(path), strict=True)
+    assert any(
+        e.kind == EdgeKind.CALLS
+        and graph.nodes[e.source_id].name == "Run"
+        and graph.nodes[e.target_id].name == "Id"
+        for e in graph.edges
+    )
+
+
 def test_computational_and_specification_contexts() -> None:
     graph = parse_file(str(FIXTURE), strict=True)
     names = {n.id: n.name for n in graph.nodes.values()}

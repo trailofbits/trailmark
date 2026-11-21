@@ -60,6 +60,12 @@ C compiler (`cc`), Python development headers, and write access to the installed
 uses the bundled Rust grammar; `verus!` blocks additionally load the Verus grammar.
 VB.NET also uses a bundled grammar to preserve valid declarations and call sites
 that the upstream language-pack grammar misparses.
+Compared with v0.8.0, Cairo, VB.NET and Rego now require these build dependencies
+on first use. A required grammar's build or load failure stops the analysis,
+including an `--language auto` run that also selected other languages. Install the
+build requirements, or explicitly select languages whose grammars are available.
+For a read-only deployment, compile the required bindings before removing write
+access, using the same Python ABI and platform as the runtime.
 Both scanners preserve Unicode code points in block comments. The Rust grammar
 matches the revision pinned by language-pack 1.22.1; its provenance and the local
 scanner correction are recorded in `NOTICE`.

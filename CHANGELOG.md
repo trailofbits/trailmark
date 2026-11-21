@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Preserve enclosing Java helper calls from anonymous classes when inherited
+  lookup finds no target. Share ECMAScript export discovery per directory parse
+  and index imported constructors once. Accept long Dafny generic type identifiers.
+  Clarify F* interface traversal and the Cairo/VB.NET/Rego grammar build requirements
+  introduced since v0.8.0; name the grammar and build requirements when a missing
+  compiler or read-only installation prevents compilation.
+
 - Consolidate bundled native bindings and formal/Lean lookup indexes. Carry
   pending references as typed internal state and let frontends finalize their
   type edges, preserving parser graph output and scoped type resolution across
