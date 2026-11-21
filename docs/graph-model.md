@@ -158,7 +158,7 @@ stay unverified. JSON exports retain these profiles alongside nonempty events.
 | `imports` | Module &rarr; imported module, when the frontend emits [import edges](#import-edges) |
 | `type_uses` | Function &rarr; type declaration named in its parameters, return type, exceptions, or generic bounds |
 | `references` | A callable or declarative source &rarr; a referenced symbol or file; does not imply execution |
-| `corresponds_to` | Source node &rarr; matching binary function/region, or SQL routine/view &rarr; object it depends on |
+| `corresponds_to` | Source node &rarr; matching binary function/region, SQL routine/view &rarr; dependency, or formal signature &rarr; implementation |
 | `resolves_to` | Reserved; no built-in pass emits it, but `.trailmark/links.toml` may declare it |
 | `specializes` | Reserved; no built-in pass emits it, but `.trailmark/links.toml` may declare it |
 

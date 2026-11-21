@@ -179,6 +179,25 @@ def test_interfaces_keep_both_locations_and_resolve_imported_signatures(tmp_path
     assert dict(graph.nodes[references[0].target_id].attributes)["signature"] is True
 
 
+def test_call_traversal_can_follow_interface_correspondence(tmp_path: Path) -> None:
+    (tmp_path / "A.fsti").write_text("module A\nval pub : nat -> nat\n")
+    (tmp_path / "A.fst").write_text(
+        "module A\nlet hidden (x:nat) : nat = x + 1\nlet pub x = hidden x\n"
+    )
+    (tmp_path / "B.fst").write_text("module B\nopen A\nlet run (x:nat) : nat = pub x\n")
+    graph = parse_directory(str(tmp_path), "fstar", strict=True)
+    engine = QueryEngine.from_graph(graph)
+    assert {n["name"] for n in engine.reachable_from("B:B.run")} == {"pub"}
+    assert {
+        n["name"] for n in engine.reachable_from("B:B.run", edge_kinds=("calls", "corresponds_to"))
+    } == {"pub", "hidden"}
+    implementation = next(n.id for n in graph.nodes.values() if n.name == "hidden")
+    assert "run" in {
+        n["name"]
+        for n in engine.ancestors_of(implementation, edge_kinds=("calls", "corresponds_to"))
+    }
+
+
 def test_local_binders_and_local_opens(tmp_path: Path) -> None:
     (tmp_path / "Base.fst").write_text("module Base\nlet f (x:int) : Tot int = x\n")
     path = tmp_path / "Use.fst"

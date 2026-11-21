@@ -142,6 +142,37 @@ def test_read_only_directory_does_not_invoke_compiler(tmp_path: Path) -> None:
     compiler.assert_not_called()
 
 
+def test_missing_compiler_names_grammar_and_build_requirements(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PATH", str(tmp_path))
+    with (
+        patch.object(NativeGrammar, "binding_path", return_value=tmp_path / "binding.so"),
+        pytest.raises(ImportError, match="bundled grammar 'rego'") as caught,
+    ):
+        _native.bundled_language("rego")
+    assert isinstance(caught.value.__cause__, FileNotFoundError)
+    assert "cc" in str(caught.value)
+    assert "Python development headers" in str(caught.value)
+    assert "write access" in str(caught.value)
+    assert "docs/installation.md#bundled-grammars" in str(caught.value)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_read_only_install_names_grammar_and_retains_cause(tmp_path: Path) -> None:
+    with (
+        patch.object(NativeGrammar, "binding_path", return_value=tmp_path / "binding.so"),
+        patch.object(
+            _native.tempfile, "NamedTemporaryFile", side_effect=PermissionError("read-only")
+        ),
+        pytest.raises(ImportError, match="bundled grammar 'cairo'") as caught,
+    ):
+        _native.bundled_language("cairo")
+    assert isinstance(caught.value.__cause__, PermissionError)
+    assert "read-only" in str(caught.value)
+    assert "write access" in str(caught.value)
+
+
 @pytest.fixture
 def grammar_sources(tmp_path: Path) -> NativeGrammar:
     # Use independent contents, not generated megabyte-sized C files, for cache tests.

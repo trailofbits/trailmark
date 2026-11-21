@@ -32,6 +32,7 @@ from trailmark.parsers._ecmascript import (
     discover_callables,
     link_ecmascript_calls,
 )
+from trailmark.parsers._ecmascript_imports import import_scope
 from trailmark.parsers._exceptions import collect_exception_events
 
 _BRANCH_NODE_TYPES = frozenset(
@@ -85,6 +86,7 @@ class JavaScriptParser:
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
+    @import_scope()
     def parse_directory(self, dir_path: str) -> CodeGraph:
         """Parse all supported JavaScript files under ``dir_path``."""
         return parse_directory(

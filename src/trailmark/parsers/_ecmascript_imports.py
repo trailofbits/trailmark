@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import Generator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,6 +13,20 @@ from tree_sitter import Node, Parser
 from tree_sitter_language_pack import get_language
 
 from trailmark.parsers._common import node_text, planned_source
+
+_EXPORTS: ContextVar[dict[tuple[Path, str], dict[str, str]] | None] = ContextVar(
+    "_ECMASCRIPT_EXPORTS", default=None
+)
+
+
+@contextmanager
+def import_scope() -> Generator[None]:
+    """Share export discovery within one directory parse, including on failure."""
+    token = _EXPORTS.set({})
+    try:
+        yield
+    finally:
+        _EXPORTS.reset(token)
 
 
 @dataclass(frozen=True)
@@ -20,7 +38,9 @@ class ImportBinding:
 def import_bindings(root: Node, file_path: str, language: str) -> dict[str, ImportBinding]:
     """Index imports once per file; resolve only explicit local named exports."""
     bindings: dict[str, ImportBinding] = {}
-    exports: dict[Path, dict[str, str]] = {}
+    exports = _EXPORTS.get()
+    if exports is None:
+        exports = {}
     for statement in root.named_children:
         if statement.type != "import_statement":
             continue
@@ -40,9 +60,10 @@ def import_bindings(root: Node, file_path: str, language: str) -> dict[str, Impo
                 and selected[1] in {"javascript", "typescript"}
                 and not (type_only or member_type_only)
             ):
-                if path not in exports:
-                    exports[path] = _local_exports(path, selected[1])
-                name = exports[path].get(exported)
+                key = (Path(os.path.abspath(path)), selected[1])
+                if key not in exports:
+                    exports[key] = _local_exports(path, selected[1])
+                name = exports[key].get(exported)
                 if name is not None:
                     target = f"{selected[0]}:{name}"
             binding = ImportBinding(target, type_only or member_type_only)

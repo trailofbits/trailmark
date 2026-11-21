@@ -76,9 +76,19 @@ class NativeGrammar:
 
     def language(self) -> object:
         """Return a tree-sitter Language capsule, compiling changed inputs on demand."""
-        binding_path = self.binding_path()
-        if not binding_path.exists():
-            self.build(binding_path)
+        try:
+            binding_path = self.binding_path()
+            if not binding_path.exists():
+                self.build(binding_path)
+        except OSError as exc:
+            msg = (
+                f"Cannot build bundled grammar {self.directory.name!r}: {exc}. "
+                "First use requires a C compiler (cc), Python development headers, "
+                "and write access to the installed grammar directory. See "
+                "https://github.com/trailofbits/trailmark/blob/main/"
+                "docs/installation.md#bundled-grammars"
+            )
+            raise ImportError(msg) from exc
         spec = importlib.util.spec_from_file_location("_binding", str(binding_path))
         if spec is None or spec.loader is None:
             raise ImportError(f"Failed to load compiled grammar from {binding_path}")

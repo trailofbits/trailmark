@@ -483,6 +483,8 @@ ownership, conservative binding, schema identity changes and pinned grammar limi
 Dafny uses Dafny 4 function syntax. Modules, classes, traits, datatypes, fields,
 functions, methods and lemmas retain declaration roles. Contracts and proof statements
 produce references; ghost declarations and lemma uses do not create computational calls.
+Generic-call lookahead consumes complete type identifiers, including qualified names
+longer than 63 characters, while bounding recursive type nesting.
 Proof expressions keep their computational continuations outside the proof context,
 including assertions, assumptions and calculations nested in branches.
 Input parameters retain source order and types; constructors and iterators retain
@@ -507,6 +509,11 @@ implementations inherit effect, lemma and visibility metadata from matching `val
 The inherited `effect` string is retained on unannotated implementations, including
 matches in a companion interface. Explicit implementation effects are preserved;
 ambiguous signatures do not supply an effect.
+Cross-module calls target the inspected `.fsti` signature when one exists. To follow
+that signature into its unique implementation, pass
+`edge_kinds=("calls", "corresponds_to")` to `reachable_from`, `ancestors_of`, or
+`paths_between`. Default call-only traversal stops at the interface; correspondence
+records source evidence rather than another runtime call.
 Proof and type uses remain references. Ghost effect abbreviations and erased results do not
 produce calls. Inspected interfaces bound exports, and later opens take precedence. Lexical binders, including local patterns
 and dependent arrows, block unrelated global targets. Private declarations stay local;

@@ -14,6 +14,7 @@ from trailmark.models.nodes import (
     BranchInfo,
     CodeUnit,
     NodeKind,
+    NodeOrigin,
     Parameter,
     TypeRef,
 )
@@ -705,6 +706,10 @@ def _bind_anonymous_calls(graph: CodeGraph) -> None:
         and (e.kind == EdgeKind.INHERITS or dict(e.attributes).get("java_anonymous_base"))
     }
     anonymous = {e.source_id for e in graph.edges if dict(e.attributes).get("java_anonymous_base")}
+    interfaces: dict[str, list[str]] = {}
+    for edge in graph.edges:
+        if edge.kind == EdgeKind.IMPLEMENTS:
+            interfaces.setdefault(edge.source_id, []).append(edge.target_id)
     methods: dict[tuple[str, str], list[CodeUnit]] = {}
     for unit in graph.nodes.values():
         if unit.kind == NodeKind.METHOD:
@@ -729,13 +734,21 @@ def _bind_anonymous_calls(graph: CodeGraph) -> None:
         seen = set()
         signatures: dict[tuple[TypeRef | None, ...], list[str]] = {}
         uncertain = False
+        fallback_uncertain = False
+        blocks_fallback = False
         while current not in seen:
             seen.add(current)
             unit = graph.nodes.get(current)
+            declarations = methods.get((current, name), [])
+            blocks_fallback |= bool(declarations)
+            if interfaces.get(current):
+                fallback_uncertain = True
+                blocks_fallback |= any(
+                    methods.get((interface, name)) for interface in interfaces[current]
+                )
             if unit is None or unit.kind != NodeKind.CLASS:
                 uncertain = True
                 break
-            declarations = methods.get((current, name), [])
             level: dict[tuple[TypeRef | None, ...], list[str]] = {}
             for method in declarations:
                 attributes = dict(method.attributes)
@@ -752,13 +765,35 @@ def _bind_anonymous_calls(graph: CodeGraph) -> None:
             current = bases[current]
         else:
             uncertain = True
+            blocks_fallback = True
         candidates = [target for targets in signatures.values() for target in targets]
         if len(candidates) == 1 and not uncertain:
             edge = replace(edge, target_id=candidates[0], confidence=EdgeConfidence.INFERRED)
         else:
-            edge = replace(
-                edge, target_id=f"{owner}.{name}@inherited", confidence=EdgeConfidence.UNCERTAIN
-            )
+            target = graph.nodes.get(edge.target_id)
+            enclosing = owners.get(owner)
+            while enclosing is not None and enclosing != owners.get(edge.target_id):
+                enclosing = owners.get(enclosing)
+            if (
+                not candidates
+                and not blocks_fallback
+                and enclosing is not None
+                and target is not None
+                and target.kind == NodeKind.METHOD
+                and target.origin == NodeOrigin.SOURCE
+            ):
+                edge = replace(
+                    edge,
+                    confidence=(
+                        EdgeConfidence.UNCERTAIN
+                        if uncertain or fallback_uncertain
+                        else EdgeConfidence.INFERRED
+                    ),
+                )
+            else:
+                edge = replace(
+                    edge, target_id=f"{owner}.{name}@inherited", confidence=EdgeConfidence.UNCERTAIN
+                )
         edges.append(edge)
     graph.edges[:] = edges
 

@@ -47,6 +47,12 @@ def link_ecmascript_calls(graph: CodeGraph) -> None:
 
 def bind_imported_constructors(graph: CodeGraph) -> None:
     """Point a proven named-import construction at its inspected constructor body."""
+    constructors: dict[str, CodeUnit | None] = {}
+    for edge in graph.edges:
+        if edge.kind == EdgeKind.CONTAINS:
+            unit = graph.nodes[edge.target_id]
+            if _is_constructor(unit):
+                constructors[edge.source_id] = None if edge.source_id in constructors else unit
     for index, edge in enumerate(graph.edges):
         attributes = dict(edge.attributes)
         if (
@@ -59,7 +65,7 @@ def bind_imported_constructors(graph: CodeGraph) -> None:
         target = graph.nodes.get(edge.target_id)
         if target is None or target.kind != NodeKind.CLASS or target.origin != NodeOrigin.SOURCE:
             continue
-        constructor = _class_constructor(target, graph)
+        constructor = constructors.get(target.id)
         if constructor is not None:
             graph.edges[index] = replace(edge, target_id=constructor.id)
 
@@ -70,15 +76,19 @@ def _class_constructor(target: CodeUnit, graph: CodeGraph) -> CodeUnit | None:
         if edge.kind != EdgeKind.CONTAINS or edge.source_id != target.id:
             continue
         unit = graph.nodes[edge.target_id]
-        attributes = dict(unit.attributes)
-        if (
-            unit.kind == NodeKind.METHOD
-            and unit.name == "constructor"
-            and not attributes.get("ecmascript_static")
-            and not attributes.get("declaration_only")
-        ):
+        if _is_constructor(unit):
             constructors.append(unit)
     return constructors[0] if len(constructors) == 1 else None
+
+
+def _is_constructor(unit: CodeUnit) -> bool:
+    attributes = dict(unit.attributes)
+    return (
+        unit.kind == NodeKind.METHOD
+        and unit.name == "constructor"
+        and not attributes.get("ecmascript_static")
+        and not attributes.get("declaration_only")
+    )
 
 
 CALLABLES = frozenset(
