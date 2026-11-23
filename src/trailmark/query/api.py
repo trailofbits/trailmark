@@ -94,6 +94,34 @@ class QueryEngine:
         store = GraphStore(ensure_proxy_nodes(graph))
         return cls(store)
 
+    @classmethod
+    def from_snapshot(
+        cls,
+        snapshot: str | dict[str, object],
+        *,
+        verify_sources: bool = False,
+    ) -> QueryEngine:
+        """Restore a complete analysis snapshot without importing or reparsing source."""
+        if isinstance(snapshot, str):
+            try:
+                snapshot = json.loads(snapshot)
+            except (ValueError, RecursionError) as error:
+                raise ValueError("Invalid analysis snapshot JSON") from error
+        return cls(GraphStore.from_snapshot(snapshot, verify_sources=verify_sources))
+
+    def to_snapshot(
+        self,
+        *,
+        source_revision: str | None = None,
+        tool_revision: str | None = None,
+        indent: int | None = 2,
+    ) -> str:
+        """Serialize complete analysis state with version and source provenance."""
+        return json.dumps(
+            self._store.to_snapshot(source_revision=source_revision, tool_revision=tool_revision),
+            indent=indent,
+        )
+
     def diff_against(self, other: QueryEngine) -> dict[str, Any]:
         """Return a structured diff of ``self`` relative to ``other``.
 

@@ -35,11 +35,33 @@ class CodeGraph:
     source_file_counts: dict[str, int] = field(default_factory=dict)
     parse_diagnostics: list[ParseDiagnostic] = field(default_factory=list)
     source_policy: dict[str, object] = field(default_factory=dict)
+    source_digests: dict[str, str] = field(default_factory=dict)
     entrypoint_evidence: dict[str, EntrypointEvidence] = field(default_factory=dict)
     binary_artifacts: dict[str, BinaryArtifact] = field(default_factory=dict)
     binary_ranges: dict[str, BinaryRange] = field(default_factory=dict)
     binary_source_mappings: dict[str, BinarySourceMapping] = field(default_factory=dict)
     _parse_state: ParseState = field(default_factory=ParseState, repr=False, compare=False)
+    _snapshot_provenance: dict[str, object] = field(default_factory=dict, repr=False, compare=False)
+
+    def to_snapshot(
+        self,
+        *,
+        source_revision: str | None = None,
+        tool_revision: str | None = None,
+    ) -> dict[str, object]:
+        """Export a complete, versioned analysis snapshot, including source fingerprints."""
+        from trailmark.models.snapshot import dump_snapshot
+
+        return dump_snapshot(self, source_revision=source_revision, tool_revision=tool_revision)
+
+    @classmethod
+    def from_snapshot(
+        cls, snapshot: dict[str, object], *, verify_sources: bool = False
+    ) -> CodeGraph:
+        """Validate and restore analysis state without reparsing source."""
+        from trailmark.models.snapshot import load_snapshot
+
+        return load_snapshot(snapshot, verify_sources=verify_sources)
 
     def add_entrypoint_evidence(self, evidence: EntrypointEvidence) -> None:
         """Retain distinct source occurrences and make repeated discovery idempotent."""
@@ -106,6 +128,9 @@ class CodeGraph:
 
     def merge(self, other: CodeGraph) -> None:
         """Merge another graph into this one."""
+        for path, digest in other.source_digests.items():
+            if path in self.source_digests and self.source_digests[path] != digest:
+                raise ValueError(f"Conflicting source digest: {path}")
         for key, artifact in other.binary_artifacts.items():
             previous = self.binary_artifacts.get(key)
             identity_fields = (
@@ -143,6 +168,7 @@ class CodeGraph:
                 else deepcopy(other.source_policy)
             )
         self.nodes.update(other.nodes)
+        self.source_digests.update(other.source_digests)
         self._parse_state.merge(other._parse_state)
         self.edges.extend(other.edges)
         self.parse_diagnostics.extend(other.parse_diagnostics)

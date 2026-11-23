@@ -49,6 +49,22 @@ class GraphStore:
         """Return inspected source-file counts by selected parser language."""
         return dict(self._graph.source_file_counts)
 
+    def to_snapshot(
+        self,
+        *,
+        source_revision: str | None = None,
+        tool_revision: str | None = None,
+    ) -> dict[str, object]:
+        """Preserve the complete graph behind this index."""
+        return self._graph.to_snapshot(source_revision=source_revision, tool_revision=tool_revision)
+
+    @classmethod
+    def from_snapshot(
+        cls, snapshot: dict[str, object], *, verify_sources: bool = False
+    ) -> GraphStore:
+        """Validate snapshot state before constructing any indexes."""
+        return cls(CodeGraph.from_snapshot(snapshot, verify_sources=verify_sources))
+
     def exception_events(self, node_id: str) -> tuple[ExceptionEvent, ...]:
         """Return owned exception syntax; missing nodes have no recorded evidence."""
         return self._graph.exception_events(node_id)

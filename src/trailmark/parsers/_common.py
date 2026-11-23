@@ -6,7 +6,7 @@ import dataclasses
 import os
 import re
 from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from operator import attrgetter
 from pathlib import Path
@@ -412,6 +412,14 @@ def add_module_node(
     grammar: str | None = None,
 ) -> None:
     """Create a MODULE node and add it to the graph."""
+    if file_path not in graph.source_digests:
+        from hashlib import sha256
+
+        # In-memory parser clients can supply a synthetic source path.
+        with suppress(OSError):
+            source = root.text if root.start_byte == 0 else Path(file_path).read_bytes()
+            if source is not None:
+                graph.source_digests[file_path] = sha256(source).hexdigest()
     initialize_bindings(root)
     module_loc = make_location(root, file_path)
     module_unit = CodeUnit(
