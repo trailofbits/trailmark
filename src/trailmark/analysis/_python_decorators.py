@@ -19,6 +19,7 @@ Otherwise the receiver is ``ambiguous``. Writes from other files are not seen.
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from functools import cached_property, lru_cache
 from pathlib import Path
@@ -161,7 +162,7 @@ def imported_callees(root: Node, path: str, calls: list[Node]) -> dict[Node, str
         return {}
     analyzer = _Analyzer(path, root)
     result = {}
-    for call in calls:
+    for call, scope in analyzer._call_scopes(calls):
         callee = call.child_by_field_name("function")
         if callee is None:
             continue
@@ -182,7 +183,7 @@ def imported_callees(root: Node, path: str, calls: list[Node]) -> dict[Node, str
             receiver = inner
         if receiver.type != "identifier":
             continue
-        value = analyzer._evaluate(callee, analyzer._owner(call), call.start_byte, 0)
+        value = analyzer._evaluate(callee, scope, call.start_byte, 0)
         if value.binding in _IMPORTS and value.path is not None:
             result[call] = value.path
     return result
@@ -231,6 +232,24 @@ class _Analyzer:
         while parent is not None and parent.id not in self._scopes:
             parent = parent.parent
         return self._module if parent is None else self._scopes[parent.id]
+
+    def _call_scopes(self, calls: list[Node]) -> Iterator[tuple[Node, _Scope]]:
+        """Assign call scopes by source range without climbing long receiver chains."""
+        nested = (scope for scope in self._scopes.values() if scope is not self._module)
+        scopes = iter(
+            sorted(nested, key=lambda scope: (scope.body.start_byte, -scope.body.end_byte))
+        )
+        upcoming = next(scopes, None)
+        active = [self._module]
+        for call in sorted(calls, key=lambda node: node.start_byte):
+            while upcoming is not None and upcoming.body.start_byte <= call.start_byte:
+                while len(active) > 1 and active[-1].body.end_byte <= upcoming.body.start_byte:
+                    active.pop()
+                active.append(upcoming)
+                upcoming = next(scopes, None)
+            while len(active) > 1 and active[-1].body.end_byte <= call.start_byte:
+                active.pop()
+            yield call, active[-1]
 
     def _fact(
         self, decorator: Node, expression: Node, handler: Node, scope: _Scope, position: int | None
