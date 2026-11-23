@@ -1003,7 +1003,14 @@ def test_parser_coverage_contracts(marker: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "marker", ["`import_binding`", "`indirect_call`", "Repeated callables** in Python"]
+    "marker",
+    [
+        "`import_binding`",
+        "`indirect_call`",
+        "Repeated callables** in Python",
+        "definite Python lexical import binding",
+        "including inspected parent packages initialized by a dotted import",
+    ],
 )
 def test_round3_graph_model_contracts(marker: str) -> None:
     assert marker in _flat("docs/graph-model.md")

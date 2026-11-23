@@ -177,12 +177,16 @@ export change within schema version 1.
 
 These frontends emit `imports` edges: Aiken (`aiken`), Bash (`bash`), Func (`func`),
 Julia (`julia`), Lean (`lean`), Lua (`lua`), Move (`move`), Perl (`perl`), PowerShell (`powershell`),
-Protocol Buffers (`proto`), R (`r`), Rego (`rego`), Sway (`sway`), Tact (`tact`),
+Protocol Buffers (`proto`), Python (`python`), R (`r`), Rego (`rego`), Sway (`sway`), Tact (`tact`),
 Thrift (`thrift`), VB.NET (`vb`), and Zig (`zig`).
 
 Other frontends may record imported names only in the graph's `dependencies`
 list. Module-dependency diagrams render `imports` edges; they do not infer edges
 from that list.
+
+Python directory parsing records imports from module and callable scopes to
+inspected modules, including inspected parent packages initialized by a dotted
+import. These edges describe static import sites, including conditional imports.
 
 ## Edge confidence
 
@@ -204,9 +208,12 @@ matching. Lean resolves explicit types with its own namespace, import, visibilit
 and declaration-order rules and marks those `type_uses` edges `inferred`.
 
 Call edge attributes can preserve binding provenance. `import_binding` marks a
-JavaScript/TypeScript literal `require` named-export binding and prevents unrelated
-free-function fallback. `indirect_call` records pointer, field-call or returned-call syntax; it
-remains present if callback-table inference later gives the edge an inferred target.
+definite Python lexical import binding or a JavaScript/TypeScript literal
+`require` named-export binding and prevents unrelated free-function fallback.
+Python directory parsing resolves such calls when a single inspected declaration
+matches the imported path. `indirect_call` records pointer, field-call or
+returned-call syntax and remains present if callback-table inference later gives
+the edge an inferred target.
 The confidence describes target resolution, while this attribute describes syntax.
 Lean uses `binding_blocked` on unresolved calls to prevent generic fallback;
 `binding_reason` distinguishes `lexical_callable` from `lean_unresolved`. A raw

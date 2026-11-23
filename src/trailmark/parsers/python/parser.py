@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
 from tree_sitter_language_pack import get_language
 
+from trailmark.analysis._python_decorators import imported_callees
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
@@ -65,6 +67,7 @@ _OVERLOAD_NAMES: ContextVar[frozenset[str]] = ContextVar(
     default=frozenset({"overload", "typing.overload", "typing_extensions.overload"}),
 )
 _CALLABLE_BOUNDARIES = frozenset({"function_definition", "class_definition"})
+_IMPORT_STATEMENTS = frozenset({"import_statement", "import_from_statement"})
 
 
 class PythonParser:
@@ -86,7 +89,8 @@ class PythonParser:
         module_id = module_id_from_path(file_path)
         with callable_scope(graph), _call_sites() as calls, _overload_scope(tree.root_node):
             _visit_module(tree.root_node, file_path, module_id, graph)
-            _bind_complete_calls(calls, graph)
+            _bind_complete_calls(calls, graph, tree.root_node, module_id, file_path)
+            _record_imports(tree.root_node, graph, module_id, module_id, file_path)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -97,6 +101,7 @@ class PythonParser:
             "python",
             dir_path,
             _EXTENSIONS,
+            link_calls=_link_python_imports,
         )
 
 
@@ -256,6 +261,8 @@ def _extract_function(
     _nested_functions(body, file_path, module_id, func_id, graph, class_id=class_id)
 
     _add_call_edges(calls, func_id, module_id, class_id, file_path=file_path, graph=graph)
+    if body is not None:
+        _record_imports(body, graph, func_id, module_id, file_path)
 
 
 def _nested_functions(
@@ -551,15 +558,106 @@ def _python_body_info(
     return branches, exceptions, calls
 
 
-def _bind_complete_calls(calls: dict[SourceLocation, Node], graph: CodeGraph) -> None:
+def _absolute_import(name: str, module_id: str, file_path: str) -> str:
+    if not name.startswith("."):
+        return name
+    suffix = name.lstrip(".")
+    level = len(name) - len(suffix)
+    parts = module_id.split(".")
+    package = parts if Path(file_path).stem == "__init__" else parts[:-1]
+    if not package or level > len(package):
+        return ""
+    prefix = package[: len(package) + 1 - level]
+    return ".".join((*prefix, suffix)) if suffix else ".".join(prefix)
+
+
+def _record_imports(
+    root: Node,
+    graph: CodeGraph,
+    scope: str,
+    module_id: str,
+    file_path: str,
+) -> None:
+    for node in owned_syntax(root, _IMPORT_STATEMENTS, boundaries=_CALLABLE_BOUNDARIES):
+        module = node.child_by_field_name("module_name")
+        if node.type == "import_from_statement" and module is None:
+            continue
+        prefix = _absolute_import(node_text(module), module_id, file_path) if module else ""
+        if module is not None and not prefix:
+            continue
+        names = [
+            node_text(name.child_by_field_name("name") or name)
+            for name in node.children_by_field_name("name")
+        ]
+        for name in ([prefix] if prefix else []) + [
+            f"{prefix}.{name}" if prefix else name for name in names
+        ]:
+            graph.edges.append(
+                CodeEdge(
+                    scope,
+                    name,
+                    EdgeKind.IMPORTS,
+                    EdgeConfidence.INFERRED,
+                    location=make_location(node, file_path),
+                    attributes=(("python_import", True),),
+                )
+            )
+
+
+def _link_python_imports(graph: CodeGraph) -> None:
+    """Resolve only imported paths with a unique Python source candidate."""
+    from trailmark.parsers._common import link_cross_file_calls
+
+    linked = []
+    for edge in graph.edges:
+        attributes = dict(edge.attributes)
+        if attributes.get("import_binding"):
+            parts = edge.target_id.split(".")
+            candidates = [
+                f"{'.'.join(parts[:i])}:{'.'.join(parts[i:])}" for i in range(1, len(parts))
+            ]
+            targets = [target for target in candidates if target in graph.nodes]
+            if len(targets) == 1:
+                edge = replace(edge, target_id=targets[0])
+        elif attributes.get("python_import"):
+            parts = edge.target_id.split(".")
+            for i in range(1, len(parts) + 1):
+                target = ".".join(parts[:i])
+                unit = graph.nodes.get(target)
+                if unit is not None and unit.kind == NodeKind.MODULE and target != edge.source_id:
+                    linked.append(replace(edge, target_id=target))
+            continue
+        linked.append(edge)
+    graph.edges[:] = list(dict.fromkeys(linked))
+    link_cross_file_calls(graph)
+
+
+def _bind_complete_calls(
+    calls: dict[SourceLocation, Node],
+    graph: CodeGraph,
+    root: Node,
+    module_id: str,
+    file_path: str,
+) -> None:
     """Bind each call once after all file-local definitions are extracted."""
     prepare_call_bindings(graph)
-    graph.edges[:] = [
-        guard_call(edge, calls[edge.location], graph=graph)
-        if edge.kind == EdgeKind.CALLS and edge.location is not None and edge.location in calls
-        else edge
-        for edge in graph.edges
-    ]
+    imported = imported_callees(root, file_path, list(calls.values()))
+    bound = []
+    for edge in graph.edges:
+        call = calls.get(edge.location) if edge.kind == EdgeKind.CALLS else None
+        if call is not None:
+            target = _absolute_import(imported.get(call, ""), module_id, file_path)
+            if target:
+                edge = replace(
+                    edge,
+                    target_id=target,
+                    confidence=EdgeConfidence.INFERRED,
+                    attributes=(*edge.attributes, ("import_binding", True)),
+                )
+            else:
+                edge = guard_call(edge, call, graph=graph)
+        bound.append(edge)
+    graph.edges[:] = bound
 
 
 @contextmanager
