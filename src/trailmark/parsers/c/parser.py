@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,7 +36,7 @@ from trailmark.parsers._declarations import add_callable, add_type, callable_sco
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c._callbacks import resolve_constant_callbacks
-from trailmark.parsers.c._calls import syntax_error_context
+from trailmark.parsers.c._calls import syntax_error_context, typedef_cast
 from trailmark.parsers.c._headers import HeaderSources
 from trailmark.parsers.c._macros import DeclarationMacros, MacroSignature
 from trailmark.parsers.c._recovery import recover_bodies
@@ -52,6 +53,8 @@ _BRANCH_NODE_TYPES = frozenset(
 )
 
 _EXTENSIONS = (".c", ".h")
+_PREPROCESSOR_DIRECTIVE = re.compile(rb"(?m)^[ \t\f\v]*#[^\n]*|%:|\?\?=")
+_DIAGNOSTIC_PRAGMA = re.compile(rb"^\s*#\s*pragma\s+GCC\s+diagnostic\b")
 
 _C_TYPE_NODES = frozenset(
     {
@@ -86,12 +89,19 @@ class CParser:
         macros = DeclarationMacros(original, file_path, headers)
         graph = CodeGraph(language="c", root_path=file_path)
         module_id = module_id_from_path(file_path)
+        resolve_casts = _has_resolved_preprocessing(source, original, headers, Path(file_path))
         with callable_scope(graph):
             add_module_node(original, file_path, module_id, graph)
             initialize_bindings(tree.root_node)
             for child in tree.root_node.children:
                 visit_c_declaration(
-                    child, file_path, module_id, graph, macros=macros, recovered=recovered
+                    child,
+                    file_path,
+                    module_id,
+                    graph,
+                    macros=macros,
+                    recovered=recovered,
+                    resolve_casts=resolve_casts,
                 )
         resolve_constant_callbacks(tree.root_node, module_id, graph)
         collect_exception_events(tree.root_node, file_path, graph)
@@ -109,6 +119,19 @@ class CParser:
                 graph, included_files=headers.included_files
             ),
         )
+
+
+def _has_resolved_preprocessing(
+    source: bytes, root: Node, headers: HeaderSources, path: Path
+) -> bool:
+    """Allow GCC warning controls left in preprocessed files."""
+    directives = _PREPROCESSOR_DIRECTIVE.finditer(source)
+    if any(not _DIAGNOSTIC_PRAGMA.match(match[0]) for match in directives):
+        return False
+    return all(
+        node.type == "preproc_call" and _DIAGNOSTIC_PRAGMA.match(node.text or b"")
+        for node in headers.directives(root, path)
+    )
 
 
 _PREPROC_CONTAINER_TYPES = frozenset(
@@ -130,6 +153,7 @@ def visit_c_declaration(
     *,
     macros: DeclarationMacros | None = None,
     recovered: frozenset[int] = frozenset(),
+    resolve_casts: bool = False,
 ) -> None:
     """Dispatch a single top-level C node."""
     if child.type == "function_definition":
@@ -140,6 +164,7 @@ def visit_c_declaration(
             graph,
             macros=macros,
             recovered=child.start_byte in recovered,
+            resolve_casts=resolve_casts,
         )
     elif child.type == "preproc_include":
         _extract_include(child, graph)
@@ -152,7 +177,13 @@ def visit_c_declaration(
     elif child.type in _PREPROC_CONTAINER_TYPES:
         for nested in child.children:
             visit_c_declaration(
-                nested, file_path, module_id, graph, macros=macros, recovered=recovered
+                nested,
+                file_path,
+                module_id,
+                graph,
+                macros=macros,
+                recovered=recovered,
+                resolve_casts=resolve_casts,
             )
 
 
@@ -279,20 +310,29 @@ def _extract_function(
     *,
     macros: DeclarationMacros | None = None,
     recovered: bool = False,
+    resolve_casts: bool = False,
 ) -> None:
     """Extract one declaration and its own call occurrences."""
     declaration = _function_declaration(node, macros)
     if not declaration.name:
         return
-    branches, exceptions, calls = _body_info(node.child_by_field_name("body"), file_path)
+    parameters = (
+        () if declaration.unresolved else tuple(_extract_parameters(declaration.node, macros))
+    )
+    cast_shadows = (
+        frozenset(parameter.name for parameter in parameters)
+        if resolve_casts and not recovered and not declaration.unresolved
+        else None
+    )
+    branches, exceptions, calls = _body_info(
+        node.child_by_field_name("body"), file_path, cast_shadows=cast_shadows
+    )
     unit = CodeUnit(
         id=f"{module_id}:{declaration.name}",
         name=declaration.name,
         kind=NodeKind.FUNCTION,
         location=make_location(node, file_path),
-        parameters=()
-        if declaration.unresolved
-        else tuple(_extract_parameters(declaration.node, macros)),
+        parameters=parameters,
         return_type=None if declaration.unresolved else _extract_return_type(declaration.node),
         exception_types=tuple(exceptions),
         cyclomatic_complexity=compute_complexity(branches),
@@ -317,7 +357,7 @@ def _extract_function(
 
 
 def _body_info(
-    body: Node | None, file_path: str
+    body: Node | None, file_path: str, *, cast_shadows: frozenset[str] | None = None
 ) -> tuple[list[BranchInfo], list[TypeRef], list[tuple[str, Node]]]:
     branches: list[BranchInfo] = []
     exceptions: list[TypeRef] = []
@@ -335,7 +375,9 @@ def _body_info(
             function = (
                 site.child_by_field_name("function") if site.type == "call_expression" else None
             )
-            if function is not None:
+            if function is not None and not (
+                cast_shadows is not None and typedef_cast(function, site, cast_shadows)
+            ):
                 calls.append((node_text(function), site))
         calls.sort(key=lambda call: call[1].start_byte)
     return branches, exceptions, calls
