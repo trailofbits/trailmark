@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Detect Python functions and methods decorated with `pyramid.view.view_config`
+  as external API entrypoints, including through resolved import aliases.
+- Emit Python `imports` edges from module and callable scopes to inspected
+  modules during directory parsing, including parent packages initialized by
+  dotted imports. Retain conditional imports as static import sites.
+
+### Fixed
+
+- Resolve Python calls through definite lexical import bindings, including
+  aliases and relative imports, while respecting shadowed names. Bind imported
+  paths only when one inspected declaration matches, and prevent fallback to
+  unrelated functions.
+- Assign Python call scopes without walking long receiver chains. Keep calls
+  through dynamically produced receivers out of import resolution.
+- Record Python calls in top-level statements and explicit top-level decorator
+  calls on module nodes. Preserve callable ownership for function and method
+  body calls.
+- Distinguish parenthesized C typedef casts from indirect calls when input has
+  no unresolved preprocessing directives, including files that retain GCC
+  diagnostic pragmas. Preserve calls inside cast operands and callback calls
+  through parameters or local variables that shadow typedef names.
+
 ## 0.9.0 (2026-11-21)
 
 This release adds eight language frontends for verification and specification
