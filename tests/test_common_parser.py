@@ -16,6 +16,7 @@ from trailmark.parsers._common import (
     _split_top_level,
     collect_body_info,
     extract_call_name,
+    link_cross_file_calls,
     module_id_from_path,
     parse_directory,
 )
@@ -361,6 +362,50 @@ def _cross_file_parse(file_path: str) -> CodeGraph:
         )
 
     return CodeGraph(nodes=nodes, edges=edges, language="test", root_path=file_path)
+
+
+@pytest.mark.parametrize("kind", list(EdgeKind))
+@pytest.mark.parametrize("literal_callable", [None, False, True])
+def test_cross_file_linking_only_rebinds_calls_and_literal_callable_references(
+    tmp_path: Path, kind: EdgeKind, literal_callable: bool | None
+) -> None:
+    """Other source relationships retain their own resolution policy."""
+    caller = CodeUnit(
+        "caller:install",
+        "install",
+        NodeKind.FUNCTION,
+        SourceLocation(str(tmp_path / "caller.c"), 1, 1),
+    )
+    target = CodeUnit(
+        "library:helper",
+        "helper",
+        NodeKind.FUNCTION,
+        SourceLocation(str(tmp_path / "library.c"), 1, 1),
+    )
+    attributes = () if literal_callable is None else (("literal_callable", literal_callable),)
+    edge = CodeEdge(caller.id, "helper", kind, location=caller.location, attributes=attributes)
+    graph = CodeGraph(
+        nodes={caller.id: caller, target.id: target},
+        edges=[edge],
+        language="c",
+        root_path=str(tmp_path),
+    )
+
+    link_cross_file_calls(graph)
+
+    should_link = kind == EdgeKind.CALLS or (
+        kind == EdgeKind.REFERENCES and literal_callable is True
+    )
+    assert len(graph.edges) == 1
+    actual = graph.edges[0]
+    assert actual.target_id == (target.id if should_link else edge.target_id)
+    assert actual.confidence == (EdgeConfidence.INFERRED if should_link else edge.confidence)
+    assert (actual.source_id, actual.kind, actual.location, actual.attributes) == (
+        edge.source_id,
+        edge.kind,
+        edge.location,
+        edge.attributes,
+    )
 
 
 def test_cross_file_linker_resolves_unique_target(tmp_path: Path) -> None:
