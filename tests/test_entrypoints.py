@@ -51,6 +51,28 @@ def test_framework_dispatch_normalizes_only_the_extension(
     assert [ep["description"] for ep in engine.attack_surface()] == [description]
 
 
+def test_pyramid_view_detector_requires_pyramid_binding(tmp_path: Path) -> None:
+    (tmp_path / "views.py").write_text(
+        "from pyramid.view import view_config as view\n"
+        "import pyramid.view as pv\n"
+        "from unrelated import view_config\n"
+        "@view(route_name='home')\n"
+        "def home(request): pass\n"
+        "class Pages:\n"
+        "    @pv.view_config(request_method='GET')\n"
+        "    def about(self, request): pass\n"
+        "@view_config(route_name='other')\n"
+        "def other(request): pass\n"
+    )
+
+    engine = QueryEngine.from_directory(str(tmp_path))
+
+    assert {row["node_id"] for row in engine.attack_surface()} == {
+        "views:home",
+        "views:Pages.about",
+    }
+
+
 class TestSelfAnalysis:
     """Running Trailmark on its own source must produce entrypoints.
 

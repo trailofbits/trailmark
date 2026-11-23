@@ -104,7 +104,7 @@ one wins.
 
 | Language | Detected |
 | --- | --- |
-| Python | Flask, FastAPI, aiohttp, Click, Typer, Celery |
+| Python | Flask, FastAPI, aiohttp, Pyramid, Click, Typer, Celery |
 | JavaScript / TypeScript | NestJS, Elysia HTTP registrations, exported HTTP-method/file-route conventions, AWS Lambda |
 | Java | Spring MVC / WebFlux, JAX-RS, Kafka listeners, servlets |
 | Kotlin | Spring MVC / WebFlux annotations, Android component lifecycle methods (`onCreate`, `onReceive`, `onBind`, ...) |
@@ -137,6 +137,10 @@ one wins.
 | Rego | `allow`, `deny`, and `violation` rules |
 
 SQL has no entrypoint detection.
+
+Python functions and methods decorated with `pyramid.view.view_config` are
+tagged `api`, `untrusted_external`, and `high` when the decorator resolves to
+that import, including through aliases.
 
 Decorator and attribute detectors use the source syntax tree to associate
 markers with their declarations. Attributes on neighbouring functions,

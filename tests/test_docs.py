@@ -228,6 +228,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/entrypoint-patterns.md", "### Elysia"),
     ("README.md", "Elysia HTTP registrations"),
     ("docs/entrypoints.md", "contract apply to every supported frontend"),
+    ("docs/entrypoints.md", "decorated with `pyramid.view.view_config`"),
     ("docs/parser-coverage.md", "runtime include-path search stay unresolved"),
     ("docs/python-api.md", "`SourcePolicy` applies the same selection contract"),
     ("docs/python-api.md", "a canonical file belongs to the first root that selects it"),
