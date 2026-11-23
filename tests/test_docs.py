@@ -294,6 +294,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     # Installation and bundled grammars
     ("README.md", "CI tests Python 3.12 through 3.15."),
     ("README.md", "bounded C declaration wrappers can be expanded"),
+    ("docs/languages.md", "disambiguate a parenthesized cast from an indirect call"),
     ("CONTRIBUTING.md", "tests/release_preflight.py --tag vX.Y.Z --dist dist/release"),
     ("CONTRIBUTING.md", "CI tests Python 3.12 through 3.15."),
     ("docs/installation.md", "CI tests Python 3.12 through 3.15."),

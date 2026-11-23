@@ -527,6 +527,19 @@ def declaration_names(node: Node, field_name: str) -> set[str]:
             for child in node.named_children
             if child.type in {"simple_identifier", "identifier"}
         ][:1]
+    if node.type == "type_definition" and field_name == "declarator":
+        names = set()
+        for declarator in patterns:
+            while declarator.type not in {"identifier", "type_identifier"}:
+                nested = declarator.child_by_field_name("declarator")
+                if nested is None and declarator.type == "parenthesized_declarator":
+                    nested = next(iter(declarator.named_children), None)
+                if nested is None:
+                    break
+                declarator = nested
+            if declarator.type in {"identifier", "type_identifier"}:
+                names.add(_text(declarator))
+        return names
     return set().union(*(pattern_names(pattern) | _leaf_name(pattern) for pattern in patterns))
 
 

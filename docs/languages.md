@@ -382,6 +382,13 @@ evaluated, and manifests (`.psd1`) are not auto-detected. Script execution and h
 callbacks need entrypoint overrides; exact lowercase `main` uses the generic
 rule. Syntax errors warn that the graph may be incomplete.
 
+## C call extraction
+
+In C input with no unresolved preprocessing directives, a visible typedef can
+disambiguate a parenthesized cast from an indirect call. GCC diagnostic pragmas
+can remain in a preprocessed translation unit. Calls inside the cast operand
+remain in the graph.
+
 ## C, C++, and Objective-C headers
 
 C, C++, and Objective-C directory scopes accept `.h` headers when the frontend
