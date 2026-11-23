@@ -155,6 +155,39 @@ def python_decorators(path: str) -> list[DecoratorFact]:
     return _Analyzer(path, root).facts(sorted(decorated, key=lambda node: node.start_byte))
 
 
+def imported_callees(root: Node, path: str, calls: list[Node]) -> dict[Node, str]:
+    """Find call targets that have a definite lexical import binding."""
+    if not calls:
+        return {}
+    analyzer = _Analyzer(path, root)
+    result = {}
+    for call in calls:
+        callee = call.child_by_field_name("function")
+        if callee is None:
+            continue
+        # A receiver produced by another call is a dynamic value. Skip it
+        # before walking parents to find the lexical scope.
+        receiver = callee
+        for _ in range(_MAX_DEPTH):
+            if receiver.type == "identifier":
+                break
+            if receiver.type == "attribute":
+                inner = receiver.child_by_field_name("object")
+            elif receiver.type == "parenthesized_expression" and receiver.named_child_count == 1:
+                inner = receiver.named_children[0]
+            else:
+                inner = None
+            if inner is None:
+                break
+            receiver = inner
+        if receiver.type != "identifier":
+            continue
+        value = analyzer._evaluate(callee, analyzer._owner(call), call.start_byte, 0)
+        if value.binding in _IMPORTS and value.path is not None:
+            result[call] = value.path
+    return result
+
+
 @lru_cache(maxsize=1)
 def _decorator_query() -> Query:
     # Select functions before building lexical scopes: class decorators alone

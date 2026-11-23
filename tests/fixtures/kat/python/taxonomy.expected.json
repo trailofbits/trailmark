@@ -137,12 +137,58 @@
     },
     {
       "attributes": {
+        "import_binding": true,
         "raw_target": "json.dumps"
       },
       "confidence": "inferred",
       "kind": "calls",
       "source": "taxonomy:use_animal",
       "target": "proxy.unresolved:json.dumps"
+    },
+    {
+      "attributes": {
+        "python_import": true
+      },
+      "confidence": "inferred",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "json"
+    },
+    {
+      "attributes": {
+        "python_import": true
+      },
+      "confidence": "inferred",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "collections.abc"
+    },
+    {
+      "attributes": {
+        "python_import": true
+      },
+      "confidence": "inferred",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "collections.abc.Iterator"
+    },
+    {
+      "attributes": {
+        "python_import": true
+      },
+      "confidence": "inferred",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "typing"
+    },
+    {
+      "attributes": {
+        "python_import": true
+      },
+      "confidence": "inferred",
+      "kind": "imports",
+      "source": "taxonomy",
+      "target": "typing.Optional"
     },
     {
       "attributes": {
