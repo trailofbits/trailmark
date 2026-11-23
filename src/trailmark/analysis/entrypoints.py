@@ -465,10 +465,19 @@ def _detect_python(
     path: str,
 ) -> EntrypointTag | None:
     for fact in cache.python_decorators(path):
+        if fact.handler_line != unit.location.start_line or (
+            unit.location.start_col is not None and fact.handler_col != unit.location.start_col
+        ):
+            continue
+        if fact.consumer_path == "pyramid.view.view_config":
+            return EntrypointTag(
+                kind=EntrypointKind.API,
+                trust_level=TrustLevel.UNTRUSTED_EXTERNAL,
+                description="Pyramid view configuration decorator",
+                asset_value=AssetValue.HIGH,
+            )
         if (
-            fact.handler_line == unit.location.start_line
-            and (unit.location.start_col is None or fact.handler_col == unit.location.start_col)
-            and fact.member_access
+            fact.member_access
             and fact.method in _PY_HTTP_METHODS
             and fact.disposition != "non_path_decorator"
         ):
