@@ -80,6 +80,10 @@ class GraphStore:
         """Return source analysis diagnostics as immutable model objects."""
         return list(self._graph.parse_diagnostics)
 
+    def unresolved_relationships(self) -> list[CodeEdge]:
+        """Expose relationships excluded from the topology index, preserving raw edges."""
+        return self._graph.unresolved_relationships()
+
     def rebuild_index(self) -> None:
         """Rebuild all rustworkx indexes after graph nodes or edges change."""
         self._digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()

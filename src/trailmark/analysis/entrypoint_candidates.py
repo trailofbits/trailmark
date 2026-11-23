@@ -27,6 +27,7 @@ _QUALIFIED = re.compile(r"[\\]?[A-Za-z_$][\w$]*(?:(?:\.|::?|\\)[A-Za-z_$][\w$]*)
 def discover_entrypoint_candidates(graph: CodeGraph) -> None:
     """Collect references and file bodies; candidates do not become entrypoint tags."""
     from trailmark.analysis._callable_references import discover_callable_references
+    from trailmark.analysis._pyramid_includes import discover_pyramid_includes
     from trailmark.analysis._reference_literals import scan_reference_literals
 
     for unit in list(graph.nodes.values()):
@@ -41,6 +42,7 @@ def discover_entrypoint_candidates(graph: CodeGraph) -> None:
                 )
             )
     discover_callable_references(graph)
+    discover_pyramid_includes(graph)
     index = _ReferenceIndex(graph)
     edges = set(graph.edges)
     owners: dict[str, list[CodeUnit]] = {}

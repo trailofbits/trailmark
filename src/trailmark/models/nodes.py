@@ -22,6 +22,7 @@ class NodeKind(Enum):
     MODULE = "module"
     STRUCT = "struct"
     INTERFACE = "interface"
+    TYPE = "type"
     TRAIT = "trait"
     ENUM = "enum"
     NAMESPACE = "namespace"
@@ -42,6 +43,7 @@ TYPE_KINDS = frozenset(
         NodeKind.CLASS,
         NodeKind.STRUCT,
         NodeKind.INTERFACE,
+        NodeKind.TYPE,
         NodeKind.TRAIT,
         NodeKind.ENUM,
         NodeKind.CONTRACT,

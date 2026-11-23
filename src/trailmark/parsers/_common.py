@@ -680,6 +680,10 @@ def link_cross_file_calls(
             )
         elif candidates:
             edge = dataclasses.replace(edge, confidence=EdgeConfidence.UNCERTAIN)
+        elif dict(edge.attributes).get("literal_callable") and not dict(edge.attributes).get(
+            "literal_callable_declared"
+        ):
+            continue
         new_edges.append(edge)
     graph.edges[:] = new_edges
 
@@ -728,7 +732,13 @@ def _needs_cross_file_target(
 ) -> bool:
     target = edge.target_id
     return (
-        edge.kind == EdgeKind.CALLS
+        (
+            edge.kind == EdgeKind.CALLS
+            or (
+                edge.kind == EdgeKind.REFERENCES
+                and bool(dict(edge.attributes).get("literal_callable"))
+            )
+        )
         and target not in graph.nodes
         and edge.source_id in graph.nodes
         and _allows_cross_file_lookup(edge, graph.language)

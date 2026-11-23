@@ -69,6 +69,14 @@ class CodeGraph:
                 result.append(edge)
         return result
 
+    def unresolved_relationships(self) -> list[CodeEdge]:
+        """Return raw relationships that cannot enter the index due to absent endpoints."""
+        return [
+            edge
+            for edge in self.edges
+            if edge.source_id not in self.nodes or edge.target_id not in self.nodes
+        ]
+
     def add_annotation(
         self,
         node_id: str,

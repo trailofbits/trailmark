@@ -25,6 +25,7 @@ from trailmark.parsers._common import (
     collect_body_info,
     compute_complexity,
     extract_type_parameters,
+    link_cross_file_calls,
     make_location,
     module_id_from_path,
     node_text,
@@ -93,6 +94,7 @@ class GoParser:
             graph.nodes[ident] = replace(
                 unit, attributes=(*unit.attributes, ("go_package", package))
             )
+        _link_receiver_owners(graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -103,7 +105,52 @@ class GoParser:
             "go",
             dir_path,
             _EXTENSIONS,
+            link_calls=_link_go_calls,
         )
+
+
+def _link_receiver_owners(graph: CodeGraph) -> None:
+    owners: dict[tuple[str, object, str], list[str]] = {}
+    for unit in graph.nodes.values():
+        if unit.kind in {NodeKind.STRUCT, NodeKind.INTERFACE, NodeKind.TYPE}:
+            key = (
+                str(Path(unit.location.file_path).parent),
+                dict(unit.attributes).get("go_package"),
+                unit.name,
+            )
+            owners.setdefault(key, []).append(unit.id)
+    for index, edge in enumerate(graph.edges):
+        method = graph.nodes.get(edge.target_id)
+        receiver = dict(method.attributes).get("go_receiver") if method else None
+        if edge.kind != EdgeKind.CONTAINS or method is None or not isinstance(receiver, str):
+            continue
+        key = (
+            str(Path(method.location.file_path).parent),
+            dict(method.attributes).get("go_package"),
+            receiver,
+        )
+        candidates = owners.get(key, [])
+        attributes = tuple((k, v) for k, v in edge.attributes if k != "unresolved_reason")
+        if len(candidates) == 1:
+            graph.edges[index] = replace(
+                edge,
+                source_id=candidates[0],
+                confidence=EdgeConfidence.CERTAIN,
+                attributes=attributes,
+            )
+        else:
+            reason = "ambiguous_go_receiver" if candidates else "missing_go_receiver"
+            graph.edges[index] = replace(
+                edge,
+                source_id=f"unresolved.go.receiver:{method.id}" if candidates else edge.source_id,
+                confidence=EdgeConfidence.UNCERTAIN,
+                attributes=(*attributes, ("unresolved_reason", reason)),
+            )
+
+
+def _link_go_calls(graph: CodeGraph) -> None:
+    _link_receiver_owners(graph)
+    link_cross_file_calls(graph)
 
 
 def _visit_module(
@@ -169,8 +216,6 @@ def _extract_type_spec(
     type_name = node_text(name_node)
     type_id = f"{module_id}:{type_name}"
     kind = _kind_from_type_node(type_node)
-    if kind is None:
-        return
 
     docstring = _extract_docstring(decl)
     unit = CodeUnit(
@@ -185,13 +230,13 @@ def _extract_type_spec(
     add_contains_edge(graph, module_id, type_id)
 
 
-def _kind_from_type_node(type_node: Node) -> NodeKind | None:
+def _kind_from_type_node(type_node: Node) -> NodeKind:
     """Map a Go type node to a NodeKind."""
     if type_node.type == "struct_type":
         return NodeKind.STRUCT
     if type_node.type == "interface_type":
         return NodeKind.INTERFACE
-    return None
+    return NodeKind.TYPE
 
 
 def _extract_function(
@@ -283,6 +328,7 @@ def _extract_method(
         cyclomatic_complexity=complexity,
         branches=tuple(branches),
         docstring=docstring,
+        attributes=(("go_receiver", receiver_type),),
     )
     graph.nodes[method_id] = unit
     add_contains_edge(graph, type_id, method_id)

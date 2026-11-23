@@ -10,6 +10,12 @@
       "confidence": "certain",
       "kind": "contains",
       "source": "taxonomy",
+      "target": "taxonomy:Status"
+    },
+    {
+      "confidence": "certain",
+      "kind": "contains",
+      "source": "taxonomy",
       "target": "taxonomy:Add"
     },
     {
@@ -332,7 +338,8 @@
     },
     "taxonomy:Animal.Describe": {
       "attributes": {
-        "go_package": "taxonomy"
+        "go_package": "taxonomy",
+        "go_receiver": "Animal"
       },
       "branches": [],
       "cyclomatic_complexity": 1,
@@ -489,7 +496,8 @@
     },
     "taxonomy:Dog.Bark": {
       "attributes": {
-        "go_package": "taxonomy"
+        "go_package": "taxonomy",
+        "go_receiver": "Dog"
       },
       "branches": [
         {
@@ -536,7 +544,8 @@
     },
     "taxonomy:Dog.Greet": {
       "attributes": {
-        "go_package": "taxonomy"
+        "go_package": "taxonomy",
+        "go_receiver": "Dog"
       },
       "branches": [],
       "cyclomatic_complexity": 1,
@@ -669,6 +678,27 @@
         "name": "*Dog"
       }
     },
+    "taxonomy:Status": {
+      "attributes": {
+        "go_package": "taxonomy"
+      },
+      "branches": [],
+      "cyclomatic_complexity": null,
+      "docstring": null,
+      "exception_types": [],
+      "id": "taxonomy:Status",
+      "kind": "type",
+      "location": {
+        "end_col": 15,
+        "end_line": 18,
+        "file_path": "taxonomy.go",
+        "start_col": 5,
+        "start_line": 18
+      },
+      "name": "Status",
+      "parameters": [],
+      "return_type": null
+    },
     "taxonomy:UseAnimal": {
       "attributes": {
         "go_package": "taxonomy"
@@ -727,7 +757,7 @@
       "go": 1
     },
     "source_files": 1,
-    "total_nodes": 16
+    "total_nodes": 17
   },
   "trailmark_version": "<trailmark-version>"
 }

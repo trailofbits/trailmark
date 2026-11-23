@@ -166,6 +166,7 @@ count (default 20) and must be positive; zero or a negative value raises
 | `exception_support()` | Capability limits for the inspected frontend languages, including unsupported propagation and implicit execution |
 | `summary()` | Total nodes; function, class, and proxy counts; call-edge count; dependencies; entrypoint count; selected languages and inspected source-file counts |
 | `parse_diagnostics()` | Grammar errors and explicitly unsupported constructs, with language, grammar, source span, kind and message |
+| `unresolved_relationships()` | Raw edges excluded from the index, with missing-endpoint flags, source locations, and reasons |
 | `source_policy()` | Effective source roots, globs, and inspected/skipped/unparsed file decisions; empty for graphs without source-selection metadata |
 | `entrypoint_evidence(name=None)` | Source observations for reported entrypoints and candidates, including binding status and unresolved facts |
 | `entrypoint_candidates(name=None)` | Evidence whose target is outside the reported attack surface, including unresolved targets |
@@ -333,6 +334,12 @@ rebuild both snapshots with one tested version before interpreting a diff.
 These fields identify the exporter, not the source revision or all settings
 used to construct a graph. Trailmark does not import graph exports or
 automatically validate their compatibility.
+
+When raw relationships have absent endpoints, exports also include
+`unresolved_relationships`. These relationships remain in `edges`; indexed
+traversal cannot follow them until both endpoints exist. External imports and
+bases can legitimately be unresolved. Inspect the inventory instead of treating
+the indexed topology as a complete account of the raw evidence.
 
 Graph exports include `exception_support` for identified frontend languages and
 nonempty node `exception_events`. The [exception audit](exceptions.md) describes

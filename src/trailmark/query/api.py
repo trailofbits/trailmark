@@ -413,6 +413,20 @@ class QueryEngine:
         """
         return [asdict(item) for item in self._store.parse_diagnostics()]
 
+    def unresolved_relationships(self) -> list[dict[str, Any]]:
+        """Report raw relationships with absent endpoints and the exclusion reason."""
+        graph = self._store._graph  # noqa: SLF001
+        return [
+            {
+                **_edge_to_dict(edge),
+                "missing_source": edge.source_id not in graph.nodes,
+                "missing_target": edge.target_id not in graph.nodes,
+                "reason": dict(edge.attributes).get("unresolved_reason", "endpoint_not_in_graph"),
+                "location": asdict(edge.location) if edge.location is not None else None,
+            }
+            for edge in self._store.unresolved_relationships()
+        ]
+
     def unresolved_calls(self, name: str | None = None) -> list[dict[str, Any]]:
         """Report unresolved call sites, including raw targets and source spans.
 
@@ -654,6 +668,8 @@ class QueryEngine:
         }
         if graph.source_policy:
             data["source_policy"] = self.source_policy()
+        if unresolved := self.unresolved_relationships():
+            data["unresolved_relationships"] = unresolved
         if support := self.exception_support():
             data["exception_support"] = support
         if graph.entrypoint_evidence:
