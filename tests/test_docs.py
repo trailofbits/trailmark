@@ -313,6 +313,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/installation.md", "parses Rust with the language-pack grammar instead"),
     ("docs/exceptions.md", "Only a callable's own signature declares exceptions"),
     ("docs/exceptions.md", "Python bare raises infer unshadowed builtin exception names"),
+    ("docs/parser-coverage.md", "Python module nodes own calls in top-level statements"),
     ("docs/exceptions.md", "they do not make it a raising function"),
     ("docs/exceptions.md", "A bare Ruby `raise` or `fail` is an uncertain `rethrow`"),
     ("docs/exceptions.md", "record the callee name as their expression"),

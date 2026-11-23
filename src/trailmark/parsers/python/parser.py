@@ -115,6 +115,8 @@ def _visit_module(
     add_module_node(root, file_path, module_id, graph)
     for child in root.children:
         _visit_top_level_node(child, file_path, module_id, graph)
+    _, _, calls = _python_body_info(root, file_path)
+    _add_call_edges(calls, module_id, module_id, None, file_path=file_path, graph=graph)
 
 
 def _visit_top_level_node(

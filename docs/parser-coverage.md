@@ -20,6 +20,9 @@ with the enclosing function. Local classes retain separate method owners. Variad
 parameters retain names and annotations; `self` and `cls` are omitted only as
 actual method receivers, and retained in free functions and static methods.
 
+Python module nodes own calls in top-level statements and explicit top-level
+decorator calls. Calls in function and method bodies keep their callable owner.
+
 JavaScript and TypeScript retain nested functions, arrows, anonymous callbacks,
 class-field arrows, object methods, CommonJS handler assignments, and anonymous
 default exports. Anonymous IDs contain source positions. Moving a declaration
