@@ -24,3 +24,26 @@ def test_package_import_edges_and_lexical_aliases(tmp_path: Path) -> None:
     assert (EdgeKind.IMPORTS, "pkg.app", "pkg") in edges
     assert (EdgeKind.IMPORTS, "pkg.app", "pkg.service") in edges
     assert (EdgeKind.CALLS, "pkg.app:shadow", "pkg.service:start") not in edges
+
+
+def test_cross_file_fallback_only_matches_module_level_callables(tmp_path: Path) -> None:
+    (tmp_path / "library.py").write_text(
+        "def public(): pass\n"
+        "def factory():\n"
+        "    def hidden(): pass\n"
+        "class Handler:\n"
+        "    def method(self): pass\n"
+    )
+    (tmp_path / "app.py").write_text("def run():\n    public()\n    hidden()\n    method()\n")
+
+    graph = parse_directory(str(tmp_path))
+    targets = {
+        edge.target_id
+        for edge in graph.edges
+        if edge.kind == EdgeKind.CALLS and edge.source_id == "app:run"
+    }
+    assert targets == {
+        "library:public",
+        "proxy.unresolved:app:hidden",
+        "proxy.unresolved:app:method",
+    }
