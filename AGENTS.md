@@ -111,9 +111,9 @@ as fallback. Use it rather than invoking the pinned plugin directly. Omit
 `--reviewed` for a full repository campaign; CI runs that after merges
 and on manual dispatch. `--workers` already enables parallel execution.
 CI first validates distinct test orders across eight baseline jobs, then splits
-mutants across sixteen concurrent jobs that reuse matching baseline receipts.
+mutants across 32 concurrent jobs that reuse matching baseline receipts.
 Local runs validate their own baselines by default. To reproduce a partition,
-pass the same `--shard=1/16` (one-based index/total) to both commands.
+pass the same `--shard=1/32` (one-based index/total) to both commands.
 Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
 
 ## Adding Features

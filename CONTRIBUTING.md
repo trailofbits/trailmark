@@ -87,7 +87,7 @@ Confirmed execution outcomes are streamed to `coverage/gremlins/progress.jsonl`
 for investigation during long campaigns. This journal can be incomplete; only
 the completed reports and `run.json` establish results for the gate.
 
-CI runs sixteen mutation shards concurrently, each with four workers. Mutation
+CI runs 32 mutation shards concurrently, each with four workers. Mutation
 jobs install the `binary` extra and GNU and LLVM tools, and set
 `TRAILMARK_REQUIRE_BINARY_TOOLS=1` so missing native-image dependencies fail
 instead of silently skipping their tests. Each file's mutants are dealt
@@ -99,15 +99,15 @@ repository inputs, Python packages, native tool binaries, relevant environment
 settings, test collection, and runner configuration match. Missing, stale, or
 incomplete receipts fail the run.
 Every mutation shard gates its exact share of the source inventory. The final
-`Mutation Testing` check requires all baseline jobs and all sixteen shards to pass;
+`Mutation Testing` check requires all baseline jobs and all 32 shards to pass;
 reports are uploaded separately per shard.
 
 To reproduce one CI shard locally, pass the same one-based `--shard=INDEX/TOTAL`
 to both commands (omit `--reviewed` for a full repository shard):
 
 ```bash
-uv run python -m tests.run_mutations --reviewed --workers=4 --shard=1/16
-uv run python -m tests.mutation_gate --shard=1/16
+uv run python -m tests.run_mutations --reviewed --workers=4 --shard=1/32
+uv run python -m tests.mutation_gate --shard=1/32
 ```
 
 Omitting `--shard` runs and gates the complete campaign as before.
