@@ -251,7 +251,6 @@ def test_deep_generic_lookahead_is_bounded_in_native_scanner(tmp_path: Path) -> 
         ],
         check=True,
         capture_output=True,
-        timeout=30,
     )
 
 

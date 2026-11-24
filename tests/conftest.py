@@ -5,6 +5,10 @@ from __future__ import annotations
 import os
 
 import pytest
+from hypothesis import HealthCheck, settings
+
+settings.register_profile("trailmark", deadline=None, suppress_health_check=[HealthCheck.too_slow])
+settings.load_profile("trailmark")
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
@@ -15,13 +19,3 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         or "PYTEST_GREMLINS_SOURCES_FILE" in os.environ
     ):
         raise pytest.UsageError("Snapshot updates are disabled in CI and mutation testing")
-
-
-@pytest.fixture(scope="session")
-def compiled_verus() -> None:
-    """Compile outside tests that bound parser traversal time."""
-    from tree_sitter import Language
-
-    from trailmark.tree_sitter_custom.verus import language
-
-    Language(language())

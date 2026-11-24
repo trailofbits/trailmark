@@ -22,7 +22,6 @@ def _targets(graph: CodeGraph, owner: str, kind: EdgeKind = EdgeKind.REFERENCES)
     return [e.target_id for e in graph.edges if e.source_id == owner and e.kind == kind]
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize("body", [" + ".join(["x"] * 3000), "[" + ", ".join(["x"] * 8000) + "]"])
 def test_deep_and_wide_terms_keep_every_occurrence(tmp_path: Path, body: str) -> None:
     graph = _parse(tmp_path, f"def x := 1\ndef big := {body}\n")

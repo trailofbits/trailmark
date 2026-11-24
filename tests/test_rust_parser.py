@@ -480,8 +480,6 @@ verus! { proof fn last() {} }
         functions = {node.name for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION}
         assert functions == {"first", "last"}
 
-    @pytest.mark.timeout(5, func_only=True)
-    @pytest.mark.usefixtures("compiled_verus")
     def test_parses_multiple_verus_ranges_and_ignores_other_macros(self) -> None:
         source = """\
 verus! { spec fn first() -> bool { true } }

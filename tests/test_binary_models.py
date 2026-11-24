@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-import sys
-import time
 from dataclasses import FrozenInstanceError, replace
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from trailmark.analysis.native_binary import _restore_functions
+from trailmark.analysis.native_binary import _restore_functions, tools
 from trailmark.analysis.native_binary.decoder import _tail_calls
 from trailmark.analysis.native_binary.formats import Function, Image, Span, Target
 from trailmark.analysis.native_binary.mapping import SourceResolver
@@ -428,27 +428,79 @@ def test_import_options_reject_mutable_or_unsupported_configuration() -> None:
         BinaryImportOptions(limits=None)  # ty: ignore[invalid-argument-type]
 
 
-def test_host_tool_output_budget_counts_both_pipes() -> None:
+def _host_process(monkeypatch: pytest.MonkeyPatch) -> tuple[Mock, MagicMock]:
+    """Model ready pipes and process cleanup without waiting for a real child."""
+    process = Mock(stdout=Mock(), stderr=Mock(), returncode=None)
+    process.poll.side_effect = lambda: process.returncode
+
+    def wait(timeout: float | None = None) -> int:
+        process.returncode = -9
+        return -9
+
+    process.wait.side_effect = wait
+    selector = MagicMock()
+    selector.__enter__.return_value = selector
+    selector.get_map.return_value = True
+    monkeypatch.setattr(tools.subprocess, "Popen", Mock(return_value=process))
+    monkeypatch.setattr(tools.selectors, "DefaultSelector", lambda: selector)
+    monkeypatch.setattr(tools, "time", SimpleNamespace(monotonic=lambda: 0.0))
+    return process, selector
+
+
+def test_host_tool_output_budget_counts_both_pipes(monkeypatch: pytest.MonkeyPatch) -> None:
+    process, selector = _host_process(monkeypatch)
+    keys = [
+        SimpleNamespace(fd=1, fileobj=process.stdout, data="stdout"),
+        SimpleNamespace(fd=2, fileobj=process.stderr, data="stderr"),
+    ]
+    selector.select.side_effect = [[(key, 1) for key in keys]]
+    output = {1: b"a" * 100, 2: b"b" * 100}
+
+    def read(fd: int, size: int) -> bytes:
+        chunk, output[fd] = output[fd][:size], output[fd][size:]
+        return chunk
+
+    monkeypatch.setattr(tools.os, "read", read)
     limits = BinaryLimits(max_output_bytes=128)
-    result = run_tool(
-        [sys.executable, "-c", "import os; os.write(1,b'a'*100); os.write(2,b'b'*100)"],
-        limits,
-        time.monotonic() + 5,
-    )
+    result = run_tool(["tool"], limits, 5.0)
     assert result.diagnostic is not None
     assert result.diagnostic.code == "output_limit"
-    assert len(result.stdout) + len(result.stderr) == 128
+    assert (result.stdout, result.stderr) == (b"a" * 100, b"b" * 28)
+    process.kill.assert_called_once()
 
 
-def test_host_tool_timeout_terminates_the_process() -> None:
-    result = run_tool(
-        [sys.executable, "-c", "import time; time.sleep(20)"],
-        BinaryLimits(tool_timeout=0.05),
-        time.monotonic() + 5,
-    )
+@pytest.mark.parametrize("stage", ["pipes", "wait"])
+def test_host_tool_timeout_terminates_the_process(
+    monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+    process, selector = _host_process(monkeypatch)
+    if stage == "pipes":
+        clock = iter((0.0, 0.0, 1.0, 1.0))
+        monkeypatch.setattr(tools, "time", SimpleNamespace(monotonic=lambda: next(clock)))
+    else:
+        selector.get_map.side_effect = [True, False]
+        selector.select.return_value = [
+            (SimpleNamespace(fd=1, fileobj=process.stdout, data="stdout"), 1),
+            (SimpleNamespace(fd=2, fileobj=process.stderr, data="stderr"), 1),
+        ]
+        monkeypatch.setattr(tools.os, "read", lambda *_: b"")
+
+        def timed_wait(timeout: float | None = None) -> int:
+            if timeout is not None:
+                raise tools.subprocess.TimeoutExpired("tool", timeout)
+            process.returncode = -9
+            return -9
+
+        process.wait.side_effect = timed_wait
+    result = run_tool(["tool"], BinaryLimits(tool_timeout=0.05), 5.0)
     assert result.diagnostic is not None
     assert result.diagnostic.code == "timeout"
-    assert result.returncode != 0
+    assert result.returncode == -9
+    process.kill.assert_called_once()
+    assert process.wait.call_count == (1 if stage == "pipes" else 2)
+    process.stdout.close.assert_called_once()
+    process.stderr.close.assert_called_once()
+    assert selector.select.call_count == (0 if stage == "pipes" else 1)
 
 
 @pytest.mark.parametrize(
@@ -524,8 +576,6 @@ def test_empty_store_queries_need_no_native_dependency() -> None:
 def test_automatic_tools_prefer_compatible_llvm_even_named_objdump(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from trailmark.analysis.native_binary import tools
-
     tools_by_name = {
         "llvm-objdump": tools.Tool("/llvm", "llvm", "LLVM", "    x86 - 32-bit X86\n"),
         "objdump": tools.Tool("/apple", "llvm", "Apple LLVM", "    systemz - SystemZ\n"),
@@ -536,7 +586,7 @@ def test_automatic_tools_prefer_compatible_llvm_even_named_objdump(
     monkeypatch.setattr(
         tools, "run_tool", lambda *_: tools.ToolResult(b"elf64-s390\n  s390:64-bit\n", b"", 0)
     )
-    deadline = time.monotonic() + 10
+    deadline = 100.0
     assert tools.select_objdump(BinaryImportOptions(), deadline, "s390x", "ELF").path == "/apple"
     assert (
         tools.select_objdump(BinaryImportOptions(backend="gnu"), deadline, "s390x", "ELF").path
@@ -573,4 +623,4 @@ def test_fifo_input_is_rejected_without_waiting(tmp_path: Path) -> None:
     fifo = tmp_path / "fifo"
     os.mkfifo(fifo)
     with pytest.raises(ValueError, match="regular file"):
-        snapshot(fifo, tmp_path / "copy", time.monotonic() + 1)
+        snapshot(fifo, tmp_path / "copy", float("inf"))

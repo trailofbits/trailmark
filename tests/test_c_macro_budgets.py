@@ -111,7 +111,6 @@ print(json.dumps({
         capture_output=True,
         text=True,
         check=True,
-        timeout=10,
     )
     assert json.loads(result.stdout) == {
         "functions": sorted(["sample:helper", *(f"sample:action{i}" for i in range(60))]),

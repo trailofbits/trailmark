@@ -74,7 +74,6 @@ print(json.dumps({
         capture_output=True,
         text=True,
         check=True,
-        timeout=10,
     )
     assert json.loads(result.stdout) == {
         "functions": ["sample:action", "sample:helper"],

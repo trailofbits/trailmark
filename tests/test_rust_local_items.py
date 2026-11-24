@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.parse_work import parse_work
 from trailmark.models.edges import EdgeKind
 from trailmark.models.nodes import NodeKind
 from trailmark.parsers.rust.parser import RustParser
@@ -384,14 +385,17 @@ fn run() { S::helper(); E::helper(); S.helper(); helper(); }
     ]
 
 
-@pytest.mark.timeout(5, func_only=True)
 def test_large_rust_file_resolves_calls_without_scanning_every_declaration(tmp_path: Path) -> None:
     path = tmp_path / "large.rs"
-    count = 8000
-    path.write_text("\n".join(f"fn f{i}() {{ f{(i + 1) % count}(); }}" for i in range(count)))
-    graph = RustParser().parse_file(str(path))
-    calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
-    assert len(calls) == count
-    assert {(edge.source_id, edge.target_id) for edge in calls} == {
-        (f"large:f{i}", f"large:f{(i + 1) % count}") for i in range(count)
-    }
+    work = []
+    for count in (2000, 8000):
+        path.write_text("\n".join(f"fn f{i}() {{ f{(i + 1) % count}(); }}" for i in range(count)))
+        graph, visits = parse_work(path)
+        assert visits > 0
+        work.append(visits)
+        calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
+        assert len(calls) == count
+        assert {(edge.source_id, edge.target_id) for edge in calls} == {
+            (f"large:f{i}", f"large:f{(i + 1) % count}") for i in range(count)
+        }
+    assert work[1] <= 5 * work[0], work

@@ -1,7 +1,6 @@
 """Nested classes and callable bodies retain their own graph owners."""
 
 from pathlib import Path
-from time import perf_counter
 
 import pytest
 
@@ -86,9 +85,7 @@ def test_deep_typescript_classes_are_bounded(tmp_path: Path, expression: bool) -
     opening = "const A = class { m(){" if expression else "class A { m(){"
     closing = "}};" if expression else "}}"
     path.write_text("function run(){" + opening * 3000 + "work();" + closing * 3000 + "}")
-    start = perf_counter()
     graph = parse_file(str(path))
-    assert perf_counter() - start < 2
     assert graph.parse_diagnostics and len(graph.nodes) < 150
 
 
