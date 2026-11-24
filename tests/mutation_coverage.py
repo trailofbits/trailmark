@@ -15,10 +15,9 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import coverage
 import pytest
 from _pytest.fixtures import FixtureDef
-
-import coverage
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
