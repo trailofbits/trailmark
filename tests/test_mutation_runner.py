@@ -186,8 +186,8 @@ def test_weak(tmp_path, value):
     )
 
 
-@pytest.mark.parametrize("shard", ["1/1", "99/99"])
-def test_runner_rejects_order_dependent_baseline(tmp_path: Path, shard: str) -> None:
+@pytest.mark.parametrize("partition", ["--shard=1/1", "--shard=99/99", "--baseline-shard=1/1"])
+def test_runner_rejects_order_dependent_baseline(tmp_path: Path, partition: str) -> None:
     (tmp_path / "target.py").write_text("def checked(value):\n    return value > 0\n")
     (tmp_path / "state.py").write_text("ready = False\n")
     (tmp_path / "test_a_setup.py").write_text(
@@ -202,7 +202,7 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path, shard: str) -> 
     progress.write_text("stale previous campaign\n")
     runner = Path(__file__).with_name("run_mutations.py")
     result = subprocess.run(  # noqa: S603
-        [sys.executable, str(runner), "--targets=target.py", f"--shard={shard}", "."],
+        [sys.executable, str(runner), "--targets=target.py", partition, "."],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -213,6 +213,71 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path, shard: str) -> 
     assert not (tmp_path / "coverage/gremlins/run.json").exists()
     progress = tmp_path / "coverage/gremlins/progress.jsonl"
     assert not progress.exists() or not progress.read_text()
+    assert not list((tmp_path / "coverage/gremlins").glob("baseline-*.json"))
+
+
+def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(tmp_path: Path) -> None:
+    for name in ("first", "second"):
+        (tmp_path / f"{name}.py").write_text("def checked(value):\n    return value > 0\n")
+        (tmp_path / f"test_{name}.py").write_text(
+            f"from {name} import checked\n"
+            "def test_boundary():\n    assert not checked(0)\n    assert checked(1)\n"
+        )
+    runner = Path(__file__).with_name("run_mutations.py")
+    reports = tmp_path / "coverage/gremlins"
+    shared = reports / "baselines"
+    shared.mkdir(parents=True)
+
+    def run(*options: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(  # noqa: S603
+            [
+                sys.executable,
+                str(runner),
+                "--targets=first.py,second.py",
+                "--workers=2",
+                *options,
+                "test_first.py",
+                "test_second.py",
+            ],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    checked = []
+    for index in (1, 2):
+        result = run(f"--baseline-shard={index}/2")
+        assert result.returncode == 0, result.stdout + result.stderr
+        receipt = reports / f"baseline-{index}-of-2.json"
+        checked.extend(json.loads(receipt.read_text())["checked"])
+        receipt.rename(shared / receipt.name)
+        assert not (reports / "run.json").exists()
+        assert not (reports / "progress.jsonl").exists()
+    assert len(checked) == len(set(checked)) == 2
+
+    combined = {}
+    for index in (1, 2):
+        result = run(f"--shard={index}/2", f"--baselines={shared}")
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Reusing validated instrumented baseline orders: 2" in result.stdout
+        assert "Checking instrumented baseline order" not in result.stdout
+        report = json.loads((reports / "gremlins.json").read_text())
+        combined.update({row["gremlin_id"]: row["status"] for row in report["results"]})
+        assert json.loads((reports / "run.json").read_text())["baseline_validation"] == "shared"
+    result = run()
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = json.loads((reports / "gremlins.json").read_text())
+    assert combined == {row["gremlin_id"]: row["status"] for row in report["results"]}
+    assert set(combined.values()) == {"zapped"}
+
+    with (tmp_path / "test_second.py").open("a") as test:
+        test.write("\n# Edited after the baselines were validated.\n")
+    result = run("--shard=1/2", f"--baselines={shared}")
+    assert result.returncode != 0
+    assert "Invalid shared mutation baselines" in result.stdout + result.stderr
+    assert not (reports / "run.json").exists()
+    assert not (reports / "progress.jsonl").exists()
 
 
 def test_runner_instruments_spawned_children(tmp_path: Path) -> None:

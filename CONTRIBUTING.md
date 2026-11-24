@@ -87,24 +87,37 @@ Confirmed execution outcomes are streamed to `coverage/gremlins/progress.jsonl`
 for investigation during long campaigns. This journal can be incomplete; only
 the completed reports and `run.json` establish results for the gate.
 
-CI runs eight mutation shards concurrently, each with four workers. Mutation
+CI runs sixteen mutation shards concurrently, each with four workers. Mutation
 jobs install the `binary` extra and GNU and LLVM tools, and set
 `TRAILMARK_REQUIRE_BINARY_TOOLS=1` so missing native-image dependencies fail
-instead of silently skipping their tests. Each file's
-mutants are dealt round-robin across the shards, retaining the full selected test
-suite for every mutant. Every shard checks the clean and instrumented baselines
-and gates its exact share of the source inventory. The final `Mutation Testing`
-check requires all eight shards to pass; reports are uploaded separately per shard.
+instead of silently skipping their tests. Each file's mutants are dealt
+round-robin across the shards, retaining the full selected test
+suite for every mutant. Eight baseline jobs first check the clean suite and divide
+the distinct instrumented test orders among them. Each order runs once across
+those jobs. Mutation jobs reuse the complete set of baseline receipts only when
+repository inputs, Python packages, native tool binaries, relevant environment
+settings, test collection, and runner configuration match. Missing, stale, or
+incomplete receipts fail the run.
+Every mutation shard gates its exact share of the source inventory. The final
+`Mutation Testing` check requires all baseline jobs and all sixteen shards to pass;
+reports are uploaded separately per shard.
 
 To reproduce one CI shard locally, pass the same one-based `--shard=INDEX/TOTAL`
 to both commands (omit `--reviewed` for a full repository shard):
 
 ```bash
-uv run python -m tests.run_mutations --reviewed --workers=4 --shard=1/8
-uv run python -m tests.mutation_gate --shard=1/8
+uv run python -m tests.run_mutations --reviewed --workers=4 --shard=1/16
+uv run python -m tests.mutation_gate --shard=1/16
 ```
 
 Omitting `--shard` runs and gates the complete campaign as before.
+Local campaigns validate their own baselines by default. To reproduce shared
+validation, run `--baseline-shard=INDEX/TOTAL` for every baseline partition with
+the same targets, tests, and test-order setting. Collect their
+`coverage/gremlins/baseline-*.json` files in one directory and pass
+`--baselines=PATH` to mutation runs. Baseline partitions validate tests without
+executing mutants or creating a gate report; their receipts are written only
+after successful validation. Keep receipts within the same trusted campaign.
 
 **Scope and gate.** Pull requests mutate the reviewed files named in
 `tests/mutation_baseline.json`. Full
@@ -116,6 +129,8 @@ requires a reason and a fingerprint of the function and mutation; changing
 that function requires reviewing its exceptions again.
 Source hashes and mutation fingerprints use a canonical AST representation so
 reviews remain valid across supported Python versions.
+PRs that change the mutation runner, its controls, the mutation workflow, or
+Python dependency configuration run the full campaign before merging.
 
 **How the runner works.** The runner pins pytest-gremlins 1.14.3 and uses its
 pytest subprocesses and import handling, including fixtures, parametrized tests,

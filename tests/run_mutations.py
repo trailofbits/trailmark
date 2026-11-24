@@ -29,10 +29,11 @@ from pytest_gremlins.node_id_file import command_with_node_ids_file
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.mutation_controls import baseline_receipt, input_fingerprint, validate_baselines
 from tests.mutation_order import prioritize_tests, relative_node_ids
 
 VERSION = "1.14.3"
-RUNNER = "trailmark-full-pytest-v4"
+RUNNER = "trailmark-full-pytest-v5"
 
 
 def parse_shard(value: str) -> tuple[int, int]:
@@ -66,6 +67,17 @@ def _arguments() -> argparse.Namespace:
         "--shard", type=parse_shard, default=(1, 1), help="Run partition INDEX/TOTAL (one-based)"
     )
     parser.add_argument("--test-order", choices=["component", "collection"], default="component")
+    controls = parser.add_mutually_exclusive_group()
+    controls.add_argument(
+        "--baseline-shard",
+        type=parse_shard,
+        help="Validate only partition INDEX/TOTAL of the instrumented test orders",
+    )
+    controls.add_argument(
+        "--baselines",
+        type=Path,
+        help="Reuse a complete set of matching shared baseline receipts",
+    )
     parser.add_argument("tests", nargs="*", default=["tests"])
     args = parser.parse_args()
     if version("pytest-gremlins") != VERSION:
@@ -74,6 +86,8 @@ def _arguments() -> argparse.Namespace:
         )
     if os.environ.get("TRAILMARK_UPDATE_SNAPSHOTS") == "1":
         parser.error("Snapshot updates are disabled in mutation testing")
+    if args.baseline_shard and args.shard != (1, 1):
+        parser.error("--baseline-shard cannot be combined with --shard")
     if args.reviewed:
         baseline_path = Path(__file__).with_name("mutation_baseline.json")
         args.targets = ",".join(json.loads(baseline_path.read_text())["scope"])
@@ -91,8 +105,11 @@ def _source_hashes(targets: str) -> dict[str, str]:
 
 
 def _check_instrumented_orders(
-    directory: Path, instrumented_asts: dict[str, ast.Module], test_order: str
-) -> None:
+    directory: Path,
+    instrumented_asts: dict[str, ast.Module],
+    args: argparse.Namespace,
+    fingerprint: str,
+) -> dict[str, object]:
     env = os.environ.copy()
     env.pop("ACTIVE_GREMLIN", None)
     env["PYTEST_GREMLINS_SOURCES_FILE"] = str(directory / "sources.json")
@@ -107,14 +124,33 @@ def _check_instrumented_orders(
         directory, session.preserved_addopts, xdist_loaded=session.xdist_loaded
     )
     tests = list(session.test_node_ids)
-    orders = {
-        tuple(prioritize_tests(path, tests) if test_order == "component" else tests)
-        for path in instrumented_asts
+    orders = sorted(
+        {
+            tuple(prioritize_tests(path, tests) if args.test_order == "component" else tests)
+            for path in instrumented_asts
+        }
+    )
+    context = {
+        "inputs": fingerprint,
+        "pytest_gremlins": VERSION,
+        "runner": RUNNER,
+        "targets": args.targets,
+        "tests": args.tests,
+        "test_order": args.test_order,
+        "addopts": session.preserved_addopts,
     }
-    for index, order in enumerate(sorted(orders), 1):
-        print(f"Checking instrumented baseline order {index}/{len(orders)}", flush=True)
+    if args.baselines is not None:
+        try:
+            validate_baselines(args.baselines, context, orders)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise pytest.UsageError(f"Invalid shared mutation baselines: {exc}") from exc
+        print(f"Reusing validated instrumented baseline orders: {len(orders)}", flush=True)
+        return {}
+    shard = args.baseline_shard or (1, 1)
+    for index in range(shard[0] - 1, len(orders), shard[1]):
+        print(f"Checking instrumented baseline order {index + 1}/{len(orders)}", flush=True)
         control = subprocess.run(  # noqa: S603
-            command_with_node_ids_file(command, order, directory),
+            command_with_node_ids_file(command, orders[index], directory),
             env=env,
             check=False,
             timeout=180,
@@ -123,10 +159,13 @@ def _check_instrumented_orders(
             raise pytest.UsageError(
                 "Instrumented baseline failed; mutation results would be invalid"
             )
+    return baseline_receipt(context, orders, shard)
 
 
 def _instrumented_writer(
-    test_order: str,
+    args: argparse.Namespace,
+    fingerprint: str,
+    receipts: list[dict[str, object]],
 ) -> Callable[
     [dict[str, ast.Module], Path, dict[str, list[str]] | None, dict[str, str] | None], Path
 ]:
@@ -141,15 +180,15 @@ def _instrumented_writer(
         directory = write_sources(instrumented_asts, rootdir, duplicates, unwritable)
         if unwritable:
             raise pytest.UsageError(f"Mutation instrumentation skipped files: {unwritable}")
-        _check_instrumented_orders(directory, instrumented_asts, test_order)
+        receipts.append(_check_instrumented_orders(directory, instrumented_asts, args, fingerprint))
         return directory
 
     return write_and_check
 
 
 class _RequireCompleteInstrumentation:
-    def __init__(self, shard: tuple[int, int]) -> None:
-        self.shard = shard
+    def __init__(self, args: argparse.Namespace) -> None:
+        self.args = args
         self.empty_shard = False
 
     @pytest.hookimpl(trylast=True)
@@ -161,13 +200,25 @@ class _RequireCompleteInstrumentation:
                 f"Mutation instrumentation skipped files: {session.skipped_files}"
             )
         if session is not None:
-            selected = select_shard(session.gremlins, self.shard)
+            if self.args.baseline_shard:
+                session.enabled = False
+            selected = select_shard(session.gremlins, self.args.shard)
             self.empty_shard = bool(session.gremlins) and not selected
             session.gremlins = selected
 
+    def pytest_runtestloop(self) -> bool | None:
+        if self.args.baseline_shard:
+            return True
+        return None
 
-def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
-    instrumentation = _RequireCompleteInstrumentation(args.shard)
+
+def _run_campaign(
+    args: argparse.Namespace,
+    report_dir: Path,
+    fingerprint: str,
+    receipts: list[dict[str, object]],
+) -> int:
+    instrumentation = _RequireCompleteInstrumentation(args)
     cache_result = plugin._cache_gremlin_result
 
     def record_result(
@@ -204,7 +255,9 @@ def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
 
     with (
         patch.object(
-            plugin, "_write_instrumented_sources", side_effect=_instrumented_writer(args.test_order)
+            plugin,
+            "_write_instrumented_sources",
+            side_effect=_instrumented_writer(args, fingerprint, receipts),
         ),
         patch.object(plugin, "_make_node_ids_relative", side_effect=relative_node_ids),
         patch.object(plugin, "_select_tests_for_gremlin_prioritized", side_effect=select_tests),
@@ -227,7 +280,7 @@ def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
             ],
             plugins=[instrumentation],
         )
-    if result == 0 and instrumentation.empty_shard:
+    if result == 0 and instrumentation.empty_shard and not args.baseline_shard:
         (report_dir / "gremlins.json").write_text(
             json.dumps({"summary": {"total": 0}, "results": []}) + "\n"
         )
@@ -240,14 +293,30 @@ def main() -> int:
     report_dir.mkdir(parents=True, exist_ok=True)
     for name in ("run.json", "gremlins.json", "progress.jsonl"):
         (report_dir / name).unlink(missing_ok=True)
-    baseline = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "pytest", "-q", *args.tests], check=False
-    )
-    if baseline.returncode:
-        return baseline.returncode
+    receipt_path = None
+    if args.baseline_shard:
+        index, count = args.baseline_shard
+        receipt_path = report_dir / f"baseline-{index}-of-{count}.json"
+        receipt_path.unlink(missing_ok=True)
+    fingerprint = input_fingerprint(Path.cwd())
+    if args.baselines is None:
+        baseline = subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "pytest", "-q", *args.tests], check=False
+        )
+        if baseline.returncode:
+            return baseline.returncode
     hashes = _source_hashes(args.targets)
-    result = _run_campaign(args, report_dir)
-    if result == 0:
+    receipts: list[dict[str, object]] = []
+    result = _run_campaign(args, report_dir, fingerprint, receipts)
+    if result == 0 and (not receipts or input_fingerprint(Path.cwd()) != fingerprint):
+        print(
+            "Mutation inputs changed or instrumented baseline validation is missing",
+            file=sys.stderr,
+        )
+        return 1
+    if result == 0 and receipt_path is not None:
+        receipt_path.write_text(json.dumps(receipts[0], indent=2) + "\n")
+    elif result == 0:
         (report_dir / "run.json").write_text(
             json.dumps(
                 {
@@ -258,6 +327,7 @@ def main() -> int:
                     "targets": args.targets,
                     "sources": hashes,
                     "tests": args.tests,
+                    "baseline_validation": "shared" if args.baselines is not None else "local",
                 },
                 indent=2,
             )
