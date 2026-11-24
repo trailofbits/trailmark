@@ -34,6 +34,7 @@ that are reachable from user input.
 - **Entrypoint evidence.** Inspect callable and declarative references, executable
   file bodies, and unresolved candidates with source provenance. References stay
   separate from execution. Select additional source roots with explicit exclusions.
+  Python import bindings can link calls across explicitly selected roots.
 - **Reachability.** Direct callers and callees, transitive slices, and bounded
   call paths from entrypoints to a target.
 - **Reusable analysis.** Save and reload complete, versioned analysis snapshots

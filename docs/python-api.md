@@ -78,9 +78,17 @@ parse. The supplied root's absolute lexical path is preserved in source location
 canonicalization is used only for containment and deduplication.
 Source selection does not prove deployment or
 external reachability.
-Ordinary calls are linked within each selected root. Cross-root execution needs
-explicit linking evidence; qualified declarative references and anchored PHP
-includes can span selected roots without assuming an import search path.
+Ordinary calls are linked within each selected root. With multiple explicit
+roots, Python also links absolute imports and calls with existing lexical import
+bindings to uniquely matching Python definitions in other selected roots. Supply
+the directory that contains the importable modules or packages, such as a
+dependency checkout's `src/` directory. Existing within-root links retain
+precedence. Relative imports stay within their root, and ambiguous matches
+remain unresolved. The analysis uses the selected files as source evidence and
+leaves runtime import precedence and package re-exports unresolved.
+
+Qualified declarative references and anchored PHP includes can also span
+selected roots.
 
 `parse_directory(..., source_policy=policy)` and
 `QueryEngine.from_directory(..., source_policy=policy)` use the policy's roots

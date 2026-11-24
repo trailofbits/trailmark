@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections import defaultdict
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
@@ -63,6 +64,9 @@ _EXTENSIONS = (".py",)
 _CALL_SITES: ContextVar[dict[SourceLocation, Node] | None] = ContextVar(
     "_PYTHON_CALL_SITES", default=None
 )
+_CROSS_ROOT_IMPORTS: ContextVar[bool] = ContextVar("_CROSS_ROOT_IMPORTS", default=False)
+_CROSS_ROOT_IMPORT = "_python_cross_root_import"
+
 _EAGER_SITES: ContextVar[set[int] | None] = ContextVar("_PYTHON_EAGER_SITES", default=None)
 _OVERLOAD_NAMES: ContextVar[frozenset[str]] = ContextVar(
     "_PYTHON_OVERLOAD_NAMES",
@@ -692,13 +696,15 @@ def _record_imports(
         module = node.child_by_field_name("module_name")
         if node.type == "import_from_statement" and module is None:
             continue
-        prefix = _absolute_import(node_text(module), module_id, file_path) if module else ""
+        raw_module = node_text(module) if module is not None else ""
+        prefix = _absolute_import(raw_module, module_id, file_path)
         if module is not None and not prefix:
             continue
         names = [
             node_text(name.child_by_field_name("name") or name)
             for name in node.children_by_field_name("name")
         ]
+        attributes = (("python_import", True), *_cross_root_import_attributes(raw_module))
         for name in ([prefix] if prefix else []) + [
             f"{prefix}.{name}" if prefix else name for name in names
         ]:
@@ -709,9 +715,125 @@ def _record_imports(
                     EdgeKind.IMPORTS,
                     EdgeConfidence.INFERRED,
                     location=make_location(node, file_path),
-                    attributes=(("python_import", True),),
+                    attributes=attributes,
                 )
             )
+
+
+@contextmanager
+def collect_cross_root_imports() -> Generator[None]:
+    """Keep absolute import bindings available until explicit roots are merged."""
+    token = _CROSS_ROOT_IMPORTS.set(True)
+    try:
+        yield
+    finally:
+        _CROSS_ROOT_IMPORTS.reset(token)
+
+
+def _cross_root_import_attributes(import_path: str) -> tuple[tuple[str, bool], ...]:
+    if _CROSS_ROOT_IMPORTS.get() and not import_path.startswith("."):
+        return ((_CROSS_ROOT_IMPORT, True),)
+    return ()
+
+
+def _import_prefixes(path: str) -> Iterator[tuple[str, str]]:
+    parts = path.split(".")
+    for index in range(1, len(parts) + 1):
+        yield ".".join(parts[:index]), ".".join(parts[index:])
+
+
+def _without_pending_import(edge: CodeEdge) -> CodeEdge:
+    return replace(
+        edge, attributes=tuple(item for item in edge.attributes if item[0] != _CROSS_ROOT_IMPORT)
+    )
+
+
+def link_cross_root_imports(graph: CodeGraph) -> None:
+    """Resolve absolute Python import bindings against explicitly selected roots."""
+    modules: dict[str, list[str]] = defaultdict(list)
+    for node_id, unit in graph.nodes.items():
+        root, _, module = node_id.partition("::")
+        if (
+            module
+            and unit.kind == NodeKind.MODULE
+            and Path(unit.location.file_path).suffix == ".py"
+        ):
+            modules[module].append(root)
+
+    linked: list[CodeEdge] = []
+    imports: set[CodeEdge] = set()
+    replaced_proxies: set[str] = set()
+    for edge in graph.edges:
+        attrs = dict(edge.attributes)
+        if not attrs.get(_CROSS_ROOT_IMPORT):
+            linked.append(edge)
+            continue
+        edge = _without_pending_import(edge)
+        root = edge.source_id.partition("::")[0]
+        if edge.kind == EdgeKind.IMPORTS:
+            candidates, _ = _cross_root_modules(modules, edge.target_id)
+            for owner, module, _ in candidates:
+                if owner != root:
+                    imported = replace(edge, target_id=f"{owner}::{module}")
+                    if imported not in imports:
+                        imports.add(imported)
+                        linked.append(imported)
+            continue
+        raw = attrs.get("raw_target")
+        if edge.kind == EdgeKind.CALLS and isinstance(raw, str):
+            target = _cross_root_call_target(graph, modules, root, raw)
+            if target is not None:
+                replaced_proxies.add(edge.target_id)
+                edge = replace(
+                    edge,
+                    target_id=target,
+                    attributes=tuple(item for item in edge.attributes if item[0] != "raw_target"),
+                )
+        linked.append(edge)
+
+    graph.edges[:] = linked
+    if replaced_proxies:
+        used = {node for edge in linked for node in (edge.source_id, edge.target_id)}
+        for proxy in replaced_proxies - used:
+            del graph.nodes[proxy]
+
+
+def _cross_root_modules(
+    modules: dict[str, list[str]], path: str
+) -> tuple[list[tuple[str, str, str]], bool]:
+    """Find module prefixes without assuming precedence or mixing package roots."""
+    candidates: list[tuple[str, str, str]] = []
+    owner: str | None = None
+    for module, member in _import_prefixes(path):
+        owners = modules.get(module)
+        if not owners:
+            continue
+        if len(owners) > 1 or (owner is not None and owners[0] != owner):
+            return candidates, False
+        owner = owners[0]
+        candidates.append((owner, module, member))
+    return candidates, True
+
+
+def _cross_root_call_target(
+    graph: CodeGraph, modules: dict[str, list[str]], root: str, path: str
+) -> str | None:
+    candidates, unambiguous = _cross_root_modules(modules, path)
+    if not unambiguous:
+        return None
+    targets = []
+    for owner, module, member in candidates:
+        if owner == root or not member:
+            continue
+        target_id = f"{owner}::{module}:{member}"
+        target = graph.nodes.get(target_id)
+        if target is not None and target.kind in {
+            NodeKind.FUNCTION,
+            NodeKind.METHOD,
+            NodeKind.CLASS,
+        }:
+            targets.append(target_id)
+    return targets[0] if len(targets) == 1 else None
 
 
 def _link_python_imports(graph: CodeGraph) -> None:
@@ -722,20 +844,22 @@ def _link_python_imports(graph: CodeGraph) -> None:
     for edge in graph.edges:
         attributes = dict(edge.attributes)
         if attributes.get("import_binding"):
-            parts = edge.target_id.split(".")
             candidates = [
-                f"{'.'.join(parts[:i])}:{'.'.join(parts[i:])}" for i in range(1, len(parts))
+                f"{module}:{member}"
+                for module, member in _import_prefixes(edge.target_id)
+                if member
             ]
             targets = [target for target in candidates if target in graph.nodes]
             if len(targets) == 1:
                 edge = replace(edge, target_id=targets[0])
         elif attributes.get("python_import"):
-            parts = edge.target_id.split(".")
-            for i in range(1, len(parts) + 1):
-                target = ".".join(parts[:i])
+            local = _without_pending_import(edge) if attributes.get(_CROSS_ROOT_IMPORT) else edge
+            for target, _ in _import_prefixes(edge.target_id):
                 unit = graph.nodes.get(target)
                 if unit is not None and unit.kind == NodeKind.MODULE and target != edge.source_id:
-                    linked.append(replace(edge, target_id=target))
+                    linked.append(replace(local, target_id=target))
+            if attributes.get(_CROSS_ROOT_IMPORT):
+                linked.append(edge)
             continue
         linked.append(edge)
     graph.edges[:] = list(dict.fromkeys(linked))
@@ -765,13 +889,18 @@ def _bind_complete_calls(
     for edge in graph.edges:
         call = calls.get(edge.location) if edge.kind == EdgeKind.CALLS else None
         if call is not None:
-            target = _absolute_import(imported.get(call, ""), module_id, file_path)
+            imported_path = imported.get(call, "")
+            target = _absolute_import(imported_path, module_id, file_path)
             if target:
                 edge = replace(
                     edge,
                     target_id=target,
                     confidence=EdgeConfidence.INFERRED,
-                    attributes=(*edge.attributes, ("import_binding", True)),
+                    attributes=(
+                        *edge.attributes,
+                        ("import_binding", True),
+                        *_cross_root_import_attributes(imported_path),
+                    ),
                 )
             else:
                 callee = call.child_by_field_name("function")
