@@ -4,11 +4,29 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
 from trailmark.parsers.go.parser import GoParser
+from trailmark.query.api import QueryEngine
+
+
+def test_cross_file_calls_require_both_the_same_directory_and_package(tmp_path: Path) -> None:
+    files = {
+        "caller.go": "package p\nfunc caller() { target() }\n",
+        "provider.go": "package p\nfunc target() {}\n",
+        "other_test.go": "package p_test\nfunc target() {}\n",
+        "sub/provider.go": "package p\nfunc target() {}\n",
+    }
+    for name, source in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(source)
+    engine = QueryEngine.from_directory(str(tmp_path), language="go")
+    assert [node["id"] for node in engine.callees_of("caller:caller")] == ["provider:target"]
+
 
 SAMPLE_CODE = """\
 package main

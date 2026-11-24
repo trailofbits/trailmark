@@ -2,23 +2,36 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from tree_sitter import Range
 from tree_sitter_language_pack import get_parser
 
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import CodeUnit, NodeKind, SourceLocation, TypeRef
+from trailmark.models.nodes import (
+    BranchInfo,
+    CodeUnit,
+    NodeKind,
+    NodeOrigin,
+    SourceLocation,
+    TypeRef,
+)
 from trailmark.parsers._common import (
     _generic_parameter_block,
     _parse_type_parameter,
     _split_top_level,
+    add_module_node,
     collect_body_info,
+    directory_sources,
     extract_call_name,
     link_cross_file_calls,
+    link_type_relationships,
     module_id_from_path,
     parse_directory,
+    walk_source_files,
 )
 
 
@@ -29,12 +42,80 @@ from trailmark.parsers._common import (
         ("<T>(value: T) => value", "T"),
         ("[T](value) => value", "T"),
         ("public <T T run() {}", None),
+        ("class Box<T> {}", "T"),
+        ("fn run<T>(value: T) {}", "T"),
+        ("public T run<T>(T value) {}", "T"),
     ],
 )
 def test_generic_header_scanning_preserves_parameter_text(
     header: str, expected: str | None
 ) -> None:
     assert _generic_parameter_block(header) == expected
+
+
+def test_in_memory_module_fingerprints_do_not_require_a_source_file(tmp_path: Path) -> None:
+    source = b"# comment\n"
+    root = get_parser("powershell").parse(source).root_node
+    path = str(tmp_path / "virtual.ps1")
+    graph = CodeGraph(language="powershell")
+    assert root.has_error
+    add_module_node(root, path, "virtual", graph)
+    assert graph.source_digests == {path: sha256(source).hexdigest()}
+    assert graph.parse_diagnostics == []
+
+
+@pytest.mark.parametrize(
+    "language,body,has_diagnostics",
+    [("powershell", b"# comment\n", False), ("cpp", b"// first\n??? // second\n", True)],
+)
+def test_included_ranges_keep_full_fingerprints_and_relative_comment_offsets(
+    tmp_path: Path, language: str, body: bytes, has_diagnostics: bool
+) -> None:
+    prefix = b"ignored\n"
+    source = prefix + body
+    path = tmp_path / "fragment.source"
+    path.write_bytes(source)
+    parser = get_parser(language)
+    parser.included_ranges = [Range((1, 0), (source.count(b"\n"), 0), len(prefix), len(source))]
+    root = parser.parse(source).root_node
+    assert root.start_byte == len(prefix)
+    assert root.has_error
+    graph = CodeGraph(language=language)
+    add_module_node(root, str(path), "fragment", graph)
+    assert graph.source_digests == {str(path): sha256(source).hexdigest()}
+    assert bool(graph.parse_diagnostics) is has_diagnostics
+
+
+def test_boolean_branch_collection_preserves_the_operator_kind() -> None:
+    root = get_parser("python").parse(b"def choose(a, b):\n    return a and b\n").root_node
+    branches: list[BranchInfo] = []
+    collect_body_info(
+        root, "branch.py", frozenset({"boolean_operator"}), "call", frozenset(), branches, [], []
+    )
+    assert [branch.condition for branch in branches] == ["boolean_operator"]
+    assert branches[0].location.start_line == 2
+
+
+@pytest.mark.parametrize(
+    "language,source,call,expected",
+    [
+        ("c", b"\nvoid run(void) { factory()(); }\n", b"factory()()", "$returned@2_17_29"),
+        ("python", b"\ndef run():\n    table[0]()\n", b"table[0]()", "$indirect@3_4_26"),
+        ("c", b"\nvoid run(void) { (*callback)(); }\n", b"(*callback)()", "$indirect@2_17_31"),
+        ("javascript", b"(function named(){})()", b"(function named(){})()", "named"),
+    ],
+)
+def test_compound_callees_keep_their_own_identity_and_coordinates(
+    language: str, source: bytes, call: bytes, expected: str
+) -> None:
+    pending = [get_parser(language).parse(source).root_node]
+    while pending:
+        node = pending.pop()
+        if node.type in {"call", "call_expression"} and node.text == call:
+            assert extract_call_name(node) == expected
+            return
+        pending.extend(node.named_children)
+    pytest.fail(f"Fixture has no call expression for {call!r}")
 
 
 @pytest.mark.parametrize(
@@ -139,6 +220,30 @@ def test_module_id_from_path_preserves_single_file_stem_behavior(tmp_path: Path)
     assert module_id_from_path(str(file_path)) == "compat"
 
 
+def test_directory_recursion_failure_retains_diagnostics_and_later_files(tmp_path: Path) -> None:
+    deep = tmp_path / "a_deep.py"
+    deep.write_text("deep source")
+    (tmp_path / "b_ok.py").write_text("valid source")
+
+    def parse(path: str) -> CodeGraph:
+        if Path(path) == deep:
+            raise RecursionError("bounded test failure")
+        return _fake_parse_file(path)
+
+    graph = parse_directory(parse, "test", str(tmp_path), (".py",))
+    assert graph.source_file_counts == {"test": 2}
+    assert set(graph.nodes) == {"a_deep", "b_ok", "b_ok:helper"}
+    assert graph.nodes["a_deep"].kind == NodeKind.MODULE
+    (diagnostic,) = graph.parse_diagnostics
+    assert (diagnostic.language, diagnostic.grammar, diagnostic.kind) == (
+        "test",
+        "test",
+        "unsupported_syntax",
+    )
+    assert diagnostic.location == SourceLocation(str(deep), 1, 1)
+    assert "recursion limit" in diagnostic.message
+
+
 def test_parse_directory_uses_root_relative_module_ids(tmp_path: Path) -> None:
     src = tmp_path / "src"
     tests = tmp_path / "tests"
@@ -179,6 +284,42 @@ def test_parse_directory_matches_extensions_case_insensitively(tmp_path: Path) -
     )
 
     assert set(graph.nodes) == {"upper", "upper:helper", "mixed", "mixed:helper"}
+
+
+def test_legacy_directory_walk_skips_hidden_and_dependency_directories(tmp_path: Path) -> None:
+    for name in (".hidden", "node_modules", "vendor", "visible"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "code.py").write_text("")
+    graph = parse_directory(_fake_parse_file, "test", str(tmp_path), (".py",))
+    assert set(graph.nodes) == {"visible.code", "visible.code:helper"}
+    assert graph.source_file_counts == {"test": 1}
+
+
+def test_planned_walk_is_limited_to_its_own_root(tmp_path: Path) -> None:
+    selected = tmp_path / "selected.py"
+    ignored = tmp_path / "ignored.py"
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    local = nested / "local.py"
+    for path in (selected, ignored, local):
+        path.write_text("")
+    with directory_sources(str(tmp_path), {str(selected): "test"}):
+        assert list(walk_source_files(str(tmp_path), (".py",))) == [str(selected)]
+        assert list(walk_source_files(str(nested), (".py",))) == [str(local)]
+
+
+@pytest.mark.parametrize("origin", list(NodeOrigin))
+def test_type_name_inference_only_indexes_source_declarations(origin: NodeOrigin) -> None:
+    location = SourceLocation("types.java", 1, 1)
+    base = CodeUnit("types:Base", "Base", NodeKind.CLASS, location, origin=origin)
+    child = CodeUnit("app:Child", "Child", NodeKind.CLASS, SourceLocation("app.java", 1, 1))
+    edge = CodeEdge(child.id, "Base", EdgeKind.INHERITS)
+    graph = CodeGraph(nodes={base.id: base, child.id: child}, edges=[edge])
+    link_type_relationships(graph)
+    assert graph.edges[0].target_id == (base.id if origin == NodeOrigin.SOURCE else "Base")
+    assert graph.edges[0].confidence == (
+        EdgeConfidence.INFERRED if origin == NodeOrigin.SOURCE else EdgeConfidence.CERTAIN
+    )
 
 
 def test_parse_directory_does_not_traverse_directory_symlinks(tmp_path: Path) -> None:

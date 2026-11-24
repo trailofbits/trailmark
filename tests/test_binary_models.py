@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import time
 from dataclasses import FrozenInstanceError, replace
@@ -21,6 +22,8 @@ from trailmark.analysis.native_binary.tools import (
 )
 from trailmark.models import (
     BinaryArtifact,
+    BinaryDiagnostic,
+    BinaryDisassembly,
     BinaryImportOptions,
     BinaryInstruction,
     BinaryLimits,
@@ -36,6 +39,164 @@ from trailmark.models import (
 from trailmark.query.api import QueryEngine
 from trailmark.storage.binary_index import IntervalIndex
 from trailmark.storage.graph_store import GraphStore
+
+
+@pytest.mark.parametrize("field", ["objdump", "symbolizer", "debug_file", "mapping_file"])
+@pytest.mark.parametrize("value", ["", 0, False, Path("tool")])
+def test_import_options_reject_invalid_tool_paths(field: str, value: object) -> None:
+    with pytest.raises(ValueError, match=field):
+        BinaryImportOptions(**{field: value})  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.parametrize("index", [None, 0, 1])
+def test_import_options_accept_explicit_slice_indices(index: int | None) -> None:
+    assert BinaryImportOptions(slice_index=index).slice_index == index
+
+
+@pytest.mark.parametrize("index", [-1, -2, True, False, 0.0, "0"])
+def test_import_options_reject_invalid_slice_indices(index: object) -> None:
+    with pytest.raises(ValueError, match="slice_index"):
+        BinaryImportOptions(slice_index=index)  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.parametrize(
+    "mappings",
+    [
+        (("old",),),
+        (("old", "new", "extra"),),
+        (["old", "new"],),
+        (("", "new"),),
+        (("old", ""),),
+        ((1, "new"),),
+        (("old", None),),
+    ],
+)
+def test_import_options_reject_malformed_path_mapping_pairs(mappings: object) -> None:
+    with pytest.raises(ValueError, match="path_mappings"):
+        BinaryImportOptions(path_mappings=mappings)  # ty: ignore[invalid-argument-type]
+
+
+def test_import_options_preserve_valid_paths_mappings_and_ranges() -> None:
+    selected = BinarySelection(0, 1)
+    options = BinaryImportOptions(
+        objdump="custom-objdump",
+        symbolizer="custom-symbolizer",
+        debug_file="debug",
+        mapping_file="mapping",
+        path_mappings=(("old", "new"),),
+        ranges=(selected,),
+    )
+    assert (options.objdump, options.symbolizer, options.debug_file, options.mapping_file) == (
+        "custom-objdump",
+        "custom-symbolizer",
+        "debug",
+        "mapping",
+    )
+    assert options.path_mappings == (("old", "new"),)
+    assert options.ranges == (selected,)
+
+
+@pytest.mark.parametrize("ranges", [[], [BinarySelection(0, 1)], (None,), ((0, 1),)])
+def test_import_options_reject_invalid_range_collections(ranges: object) -> None:
+    with pytest.raises(ValueError, match="ranges"):
+        BinaryImportOptions(ranges=ranges)  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "limits",
+        "selection",
+        "options",
+        "diagnostic",
+        "artifact",
+        "mapping",
+        "instruction",
+        "disassembly",
+    ],
+)
+def test_native_value_records_reject_reassignment(model: str) -> None:
+    graph = evidence()
+    values = {
+        "limits": (BinaryLimits(), "tool_timeout"),
+        "selection": (BinarySelection(0, 1), "start"),
+        "options": (BinaryImportOptions(), "backend"),
+        "diagnostic": (BinaryDiagnostic("partial", "missing evidence"), "message"),
+        "artifact": (graph.binary_artifacts["image"], "path"),
+        "mapping": (graph.binary_source_mappings["first"], "line"),
+        "instruction": (BinaryInstruction(0, 1, "90", "nop", "", 0, 0), "mnemonic"),
+        "disassembly": (BinaryDisassembly("image", 0, 1), "start"),
+    }
+    value, field = values[model]
+    with pytest.raises(FrozenInstanceError):
+        setattr(value, field, getattr(value, field))
+
+
+@pytest.mark.parametrize("partial", [False, True])
+def test_binary_artifact_api_preserves_coverage_state(partial: bool) -> None:
+    graph = evidence()
+    if partial:
+        graph.binary_artifacts["image"] = replace(
+            graph.binary_artifacts["image"],
+            complete=False,
+            diagnostics=(BinaryDiagnostic("partial", "unmapped bytes"),),
+        )
+    engine = QueryEngine.from_graph(graph)
+    (artifact,) = engine.binary_artifacts()
+    artifact = json.loads(json.dumps(artifact))
+    assert artifact["id"] == "image"
+    assert artifact["complete"] is (not partial)
+    assert artifact["diagnostics"] == (
+        [{"code": "partial", "message": "unmapped bytes", "start": None, "end": None}]
+        if partial
+        else []
+    )
+
+
+@pytest.mark.parametrize(
+    "truncated,has_diagnostic,complete",
+    [
+        (None, False, True),
+        (None, True, False),
+        (False, False, True),
+        (False, True, False),
+        (True, False, False),
+        (True, True, False),
+    ],
+)
+def test_binary_disassembly_is_complete_only_without_truncation_or_diagnostics(
+    truncated: bool | None, has_diagnostic: bool, complete: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    diagnostics = (BinaryDiagnostic("partial", "unknown bytes"),) if has_diagnostic else ()
+    result = (
+        BinaryDisassembly("image", 0, 1, diagnostics=diagnostics)
+        if truncated is None
+        else BinaryDisassembly("image", 0, 1, truncated=truncated, diagnostics=diagnostics)
+    )
+    monkeypatch.setattr("trailmark.query.api.disassemble_binary", lambda *args, **kwargs: result)
+    response = json.loads(
+        json.dumps(QueryEngine.from_graph(evidence()).disassemble_binary("image", 0, 1))
+    )
+    assert response["complete"] is complete
+    assert response["truncated"] is bool(truncated)
+    assert response["diagnostics"] == (
+        [{"code": "partial", "message": "unknown bytes", "start": None, "end": None}]
+        if has_diagnostic
+        else []
+    )
+
+
+@pytest.mark.parametrize("line", [0, -1, True, False, "1", 1.5])
+def test_binary_source_range_line_filter_requires_a_positive_integer(line: object) -> None:
+    engine = QueryEngine.from_graph(evidence())
+    with pytest.raises(ValueError, match="line must be a positive integer"):
+        engine.binary_ranges("a:helper", line=line)  # ty: ignore[invalid-argument-type]
+
+
+def test_binary_source_range_line_one_and_missing_nodes_are_valid_queries() -> None:
+    engine = QueryEngine.from_graph(evidence())
+    assert engine.binary_ranges("a:helper", line=1) == []
+    assert engine.binary_ranges("missing") == []
 
 
 @pytest.mark.parametrize(

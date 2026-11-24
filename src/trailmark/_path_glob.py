@@ -23,14 +23,7 @@ def compile_path_glob(pattern: str, *, suffix: bool = False) -> re.Pattern[str]:
     while i < n:
         c = pattern[i]
         if c == "*" and i + 1 < n and pattern[i + 1] == "*":
-            # `/**/` expands to `(?:/.*)?/` — zero or more segments.
-            if i > 0 and pattern[i - 1] == "/" and i + 2 < n and pattern[i + 2] == "/":
-                # Rewrite the trailing `/` of the preceding segment as
-                # part of the globstar expansion.
-                out[-1] = "(?:/.*)?/"
-                i += 3
-                continue
-            # Leading `**/` or trailing `/**`.
+            # `**/` consumes zero or more complete path segments.
             if i + 2 < n and pattern[i + 2] == "/":
                 out.append("(?:.*/)?")
                 i += 3
@@ -49,4 +42,4 @@ def compile_path_glob(pattern: str, *, suffix: bool = False) -> re.Pattern[str]:
         else:
             out.append(c)
             i += 1
-    return re.compile((r"(?:^|/)" if suffix else r"\A") + "".join(out) + r"\Z")
+    return re.compile((r"(?:^|/)" if suffix else r"\A") + "".join(out) + r"\Z", re.DOTALL)

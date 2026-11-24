@@ -24,15 +24,28 @@ def prioritize_tests(source: str, node_ids: list[str]) -> list[str]:
             f"test_{language}_verus_regressions.py",
         ]
     elif path.name == "_common.py":
-        preferred = ["test_common_parser.py"]
+        preferred = ["test_common_parser.py", "test_directory_linking.py"]
     elif "models" in parts:
-        preferred = ["test_models.py"]
+        preferred = {
+            "snapshot.py": ["test_snapshots.py", "test_binary_snapshots.py", "test_models.py"],
+            "binary.py": ["test_binary_models.py", "test_models.py"],
+        }.get(path.name, ["test_models.py"])
     elif "storage" in parts:
-        preferred = ["test_storage.py", "test_storage_edge_cases.py"]
+        preferred = (
+            ["test_binary_models.py", "test_binary_commit_validation.py"]
+            if path.name == "binary_index.py"
+            else ["test_storage.py", "test_storage_edge_cases.py"]
+        )
     elif "query" in parts:
         preferred = ["test_query.py", "test_query_edge_cases.py", "test_hidden_apis.py"]
     elif path.name == "_python_decorators.py":
         preferred = ["test_python_decorator_bindings.py", "test_entrypoints.py"]
+    elif path.name == "_callable_references.py":
+        preferred = [
+            "test_callable_references.py",
+            "test_callable_binding_boundaries.py",
+            "test_php_callables.py",
+        ]
     else:
         preferred = [f"test_{path.stem.removeprefix('_')}.py"]
     ranks = {name: rank for rank, name in enumerate(preferred)}

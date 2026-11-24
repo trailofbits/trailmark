@@ -655,22 +655,14 @@ class QueryEngine:
 
     def generic_parameters(self, name: str) -> list[dict[str, Any]]:
         """Return generic type parameters declared by the named node."""
-        node_id = self._store.find_node_id(name)
-        if node_id is None:
-            return []
-        graph = self._store._graph  # noqa: SLF001
-        unit = graph.nodes.get(node_id)
+        unit = self._store.find_node(name)
         if unit is None:
             return []
         return [_type_parameter_to_dict(tp) for tp in unit.type_parameters]
 
     def type_references(self, name: str) -> list[dict[str, Any]]:
         """Return parameter, return, exception, and generic-bound type refs."""
-        node_id = self._store.find_node_id(name)
-        if node_id is None:
-            return []
-        graph = self._store._graph  # noqa: SLF001
-        unit = graph.nodes.get(node_id)
+        unit = self._store.find_node(name)
         if unit is None:
             return []
         refs = unit_type_refs(unit)

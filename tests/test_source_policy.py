@@ -1,6 +1,7 @@
 """Source selection is independent of parser language and directory conventions."""
 
 import json
+import os
 from pathlib import Path
 from typing import cast
 
@@ -109,6 +110,24 @@ def test_single_star_include_cannot_cross_directory_segments(tmp_path: Path) -> 
         file["unit"] == "directory" and file["reason"] == "default_directory"
         for file in cast(list[dict], graph.source_policy["files"])
     )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows filenames cannot contain newlines")
+def test_globstar_include_matches_newlines_in_posix_paths(tmp_path: Path) -> None:
+    _write(tmp_path, "build/line\nbreak/keep.py")
+    _write(tmp_path, "build/line\nbreak/drop.py")
+    graph = parse_roots(
+        SourcePolicy(
+            (SourceRoot(str(tmp_path), "app"),),
+            exclude=("build/**",),
+            include=("**/keep.py",),
+        ),
+        "python",
+    )
+    assert graph.source_file_counts == {"python": 1}
+    assert {node.location.file_path for node in graph.nodes.values()} == {
+        str(tmp_path / "build/line\nbreak/keep.py")
+    }
 
 
 def test_symlinks_cannot_escape_or_duplicate_selected_files(tmp_path: Path) -> None:

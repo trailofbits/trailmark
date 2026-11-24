@@ -41,3 +41,17 @@ def test_references_respect_cross_file_visibility_and_variable_shadowing(tmp_pat
     graph = parse_directory(str(tmp_path), "c")
     references = [e for e in graph.edges if e.kind == EdgeKind.REFERENCES]
     assert [(e.source_id, e.target_id) for e in references] == [("main:install", "target:exported")]
+
+
+def test_declared_external_callback_is_retained_without_its_implementation(tmp_path: Path) -> None:
+    (tmp_path / "main.c").write_text(
+        "void external(void);\nvoid consume(void (*callback)(void));\n"
+        "void install(void) { consume(external); }\n"
+    )
+    graph = parse_directory(str(tmp_path), "c")
+    (reference,) = [edge for edge in graph.edges if edge.kind == EdgeKind.REFERENCES]
+    assert reference.source_id == "main:install"
+    assert reference.target_id == "main:external"
+    assert reference.target_id not in graph.nodes
+    assert dict(reference.attributes)["literal_callable_declared"] is True
+    assert reference in graph.unresolved_relationships()

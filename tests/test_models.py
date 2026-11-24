@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
@@ -23,6 +23,7 @@ from trailmark.models import (
     NodeKind,
     NodeOrigin,
     Parameter,
+    ParseDiagnostic,
     SourceLocation,
     TrustLevel,
     TypeParameter,
@@ -54,6 +55,41 @@ def _make_unit(
         kind=kind,
         location=_make_location(),
     )
+
+
+@pytest.mark.parametrize(
+    "value,field",
+    [
+        (TypeRef("T"), "name"),
+        (TypeParameter("T"), "name"),
+        (Parameter("value"), "name"),
+        (BranchInfo(_make_location(), "value > 0"), "condition"),
+        (_make_unit(), "name"),
+        (Annotation(AnnotationKind.AUDIT_NOTE, "review", "manual"), "description"),
+        (EntrypointTag(EntrypointKind.API), "description"),
+        (EntrypointEvidence("mod:func", "reference", "literal", _make_location()), "rule"),
+        (
+            ParseDiagnostic("python", "python", _make_location(), "syntax_error", "invalid"),
+            "message",
+        ),
+        (CodeGraph(language="python").exception_support()[0], "notes"),
+    ],
+    ids=[
+        "type",
+        "generic",
+        "parameter",
+        "branch",
+        "unit",
+        "annotation",
+        "entrypoint",
+        "evidence",
+        "diagnostic",
+        "exception-support",
+    ],
+)
+def test_public_value_records_reject_reassignment(value: object, field: str) -> None:
+    with pytest.raises(FrozenInstanceError):
+        setattr(value, field, getattr(value, field))
 
 
 class TestSourceLocation:

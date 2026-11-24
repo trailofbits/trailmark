@@ -27,7 +27,7 @@ from typing import (
 from trailmark import __version__
 from trailmark.models.exceptions import ExceptionEvent
 from trailmark.models.graph import CodeGraph
-from trailmark.models.nodes import NodeOrigin, SourceLocation
+from trailmark.models.nodes import CodeUnit, NodeOrigin, SourceLocation
 
 _FORMAT = "trailmark.analysis"
 _VERSION = 1
@@ -61,23 +61,29 @@ def _hints(expected: type) -> dict[str, Any]:
 
 
 @overload
-def _decode[T](value: object, expected: type[T], path: str) -> T: ...
+def _decode[T](
+    value: object, expected: type[T], path: str, *, node_origin: str | None = None
+) -> T: ...
 
 
 @overload
-def _decode(value: object, expected: object, path: str) -> object: ...
+def _decode(
+    value: object, expected: object, path: str, *, node_origin: str | None = None
+) -> object: ...
 
 
-def _decode(value: object, expected: object, path: str) -> object:
+def _decode(
+    value: object, expected: object, path: str, *, node_origin: str | None = None
+) -> object:
     if isinstance(expected, TypeAliasType):
-        return _decode(value, expected.__value__, path)
+        return _decode(value, expected.__value__, path, node_origin=node_origin)
     if expected in {Any, object}:
         return _encode(value)
     origin, arguments = get_origin(expected), get_args(expected)
     if origin in {types.UnionType, Union}:
         for choice in arguments:
             try:
-                return _decode(value, choice, path)
+                return _decode(value, choice, path, node_origin=node_origin)
             except ValueError:
                 pass
         raise ValueError(f"{path}: value does not match {expected}")
@@ -114,22 +120,41 @@ def _decode(value: object, expected: object, path: str) -> object:
             raise ValueError(f"{path}: missing or unknown {expected.__name__} fields")
         hints = _hints(expected)
         result = expected(
-            **{key: _decode(item, hints[key], f"{path}.{key}") for key, item in value.items()}
+            **{
+                key: _decode(
+                    item,
+                    hints[key],
+                    f"{path}.{key}",
+                    node_origin=value["origin"]
+                    if expected is CodeUnit and key == "location"
+                    else None,
+                )
+                for key, item in value.items()
+            }
         )
-        if isinstance(result, SourceLocation) and (
-            result.start_line < 1
-            or result.end_line < result.start_line
-            or any(
-                column is not None and column < 0 for column in (result.start_col, result.end_col)
+        if isinstance(result, SourceLocation):
+            minimum_line = (
+                0
+                if node_origin
+                in {NodeOrigin.BINARY.value, NodeOrigin.PROXY.value, NodeOrigin.SYNTHETIC.value}
+                and result.start_line == result.end_line == 0
+                else 1
             )
-            or (
-                result.start_line == result.end_line
-                and result.start_col is not None
-                and result.end_col is not None
-                and result.end_col < result.start_col
-            )
-        ):
-            raise ValueError(f"{path}: invalid source location")
+            if (
+                result.start_line < minimum_line
+                or result.end_line < result.start_line
+                or any(
+                    column is not None and column < 0
+                    for column in (result.start_col, result.end_col)
+                )
+                or (
+                    result.start_line == result.end_line
+                    and result.start_col is not None
+                    and result.end_col is not None
+                    and result.end_col < result.start_col
+                )
+            ):
+                raise ValueError(f"{path}: invalid source location")
         return result
     if type(value) is expected and (not isinstance(value, float) or math.isfinite(value)):
         return value
@@ -176,21 +201,12 @@ def dump_snapshot(
     source_revision: str | None,
     tool_revision: str | None,
 ) -> dict[str, object]:
-    provenance = deepcopy(graph._snapshot_provenance)  # noqa: SLF001
+    provenance: dict[str, object] = deepcopy(graph._snapshot_provenance)  # noqa: SLF001
     if not provenance:
         root = Path(graph.root_path)
         provenance = {
             "source_revision": source_revision
             or _git_revision(root.parent if root.is_file() else root),
-            "source_sha256": _source_digest(graph),
-            "unfingerprinted_sources": sorted(
-                {
-                    unit.location.file_path
-                    for unit in graph.nodes.values()
-                    if unit.origin == NodeOrigin.SOURCE
-                }
-                - graph.source_digests.keys()
-            ),
             "tool_revision": tool_revision or _git_revision(Path(__file__).resolve().parents[3]),
             "tool_sha256": _tool_digest(),
         }
@@ -298,9 +314,6 @@ def _validate_graph(graph: CodeGraph) -> None:
     for key, unit in graph.nodes.items():
         if key != unit.id:
             raise ValueError("Snapshot node key does not match its ID")
-        location = unit.location
-        if location.start_line < 1 or location.end_line < location.start_line:
-            raise ValueError("Invalid source location")
     for name in ("annotations", "entrypoints"):
         if set(getattr(graph, name)) - graph.nodes.keys():
             raise ValueError(f"Unknown node in {name}")

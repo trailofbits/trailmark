@@ -405,6 +405,128 @@ def test_python_non_callable_values_are_ignored(tmp_path: Path) -> None:
     assert graph.entrypoint_evidence == {}
 
 
+@pytest.mark.parametrize(
+    ("body", "deferred"),
+    [
+        ("def later():\n    consume(h)\n", True),
+        ("later = lambda: consume(h)\n", True),
+        ("later = (consume(h) for _ in (0,))\n", True),
+        ("class Early:\n    consume(h)\n", False),
+        ("result = [consume(h) for _ in (0,)]\n", False),
+        ("result = {consume(h) for _ in (0,)}\n", False),
+        ("result = {0: consume(h) for _ in (0,)}\n", False),
+    ],
+)
+def test_python_redefinition_distinguishes_eager_and_deferred_bodies(
+    tmp_path: Path, body: str, deferred: bool
+) -> None:
+    source = f"def h(): pass\n{body}def h(): pass\n"
+    graph = _discover(tmp_path, {"app.py": source})
+    (fact,) = _evidence(graph, "h")
+    assert fact.binding == "resolved"
+    assert fact.node_id is not None
+    target = graph.nodes[fact.node_id]
+    # Eager bodies observe the binding at their definition. Deferred bodies
+    # use the final module binding, as they can run after the redefinition.
+    assert target.location.start_line == (len(source.splitlines()) if deferred else 1)
+
+
+def test_python_default_reference_belongs_to_the_defining_scope(tmp_path: Path) -> None:
+    graph = _discover(
+        tmp_path,
+        {"app.py": "def h(): pass\ndef setup(value=[h]): pass\ndef h(): pass\n"},
+    )
+    (fact,) = _evidence(graph, "h")
+    assert fact.source_id == "app"
+    assert fact.node_id is not None
+    assert graph.nodes[fact.node_id].location.start_line == 1
+    assert dict(fact.details)["consumer_kind"] == "default_parameter"
+    assert dict(fact.details)["path"] == "[0]"
+
+
+def test_python_dictionary_keys_are_not_callable_values(tmp_path: Path) -> None:
+    graph = _discover(tmp_path, {"app.py": "def h(): pass\nregistry = {h: 1}\n"})
+    assert _references(graph) == set()
+    assert _evidence(graph) == []
+
+
+@pytest.mark.parametrize(
+    ("expression", "kind"),
+    [
+        ("if (registry := [h]): pass", "named_expression"),
+        ("[] + [h]", "binary_operator"),
+    ],
+)
+def test_python_non_call_consumers_retain_their_syntax_kind(
+    tmp_path: Path, expression: str, kind: str
+) -> None:
+    graph = _discover(tmp_path, {"app.py": f"def h(): pass\n{expression}\n"})
+    (fact,) = _evidence(graph, "h")
+    assert dict(fact.details) == {
+        "consumer_kind": kind,
+        "consumer": "",
+        "path": "[0]",
+        "expression": "h",
+        "form": "name",
+    }
+
+
+@pytest.mark.parametrize("pattern", ["[*h]", "{**h}"])
+def test_python_pattern_capture_shadows_module_callable(tmp_path: Path, pattern: str) -> None:
+    graph = _discover(
+        tmp_path,
+        {
+            "app.py": (
+                "def h(): pass\ndef setup(value):\n"
+                f"    match value:\n        case {pattern}:\n            consume(h)\n"
+            )
+        },
+    )
+    assert _references(graph) == set()
+    assert _evidence(graph) == []
+
+
+@pytest.mark.parametrize(
+    "parameter",
+    ["h", "*h", "**h", "h: int", "*h: int", "**h: int", "h=1", "h: int=1", "*, h: int"],
+)
+def test_python_parameter_shadows_module_callable(tmp_path: Path, parameter: str) -> None:
+    graph = _discover(tmp_path, {"app.py": f"def h(): pass\ndef setup({parameter}): consume(h)\n"})
+    assert _references(graph) == set()
+    assert _evidence(graph) == []
+
+
+def test_python_annotation_name_does_not_shadow_a_module_callable(tmp_path: Path) -> None:
+    graph = _discover(tmp_path, {"app.py": "def h(): pass\ndef setup(value: h): consume(h)\n"})
+    assert _references(graph) == {("app:setup", "app:h")}
+
+
+@pytest.mark.parametrize("initializer", [False, True])
+def test_python_imports_survive_polyglot_module_collisions(
+    tmp_path: Path, initializer: bool
+) -> None:
+    root = tmp_path / "pkg"
+    root.mkdir()
+    filename, imported = ("__init__.py", "pkg") if initializer else ("handler.py", "handler")
+    graph = _discover(
+        root,
+        {
+            filename: "def h(): pass\n",
+            f"{imported}.rs": "fn native() {}\n",
+            "app.py": f"from {imported} import h\nconsume(h)\n",
+        },
+        "python,rust",
+    )
+    (target,) = (
+        unit.id
+        for unit in graph.nodes.values()
+        if unit.name == "h" and Path(unit.location.file_path).name == filename
+    )
+    assert _references(graph) == {("app", target)}
+    (fact,) = _evidence(graph, "h")
+    assert (fact.node_id, fact.binding) == (target, "resolved")
+
+
 # --------------------------------------------------------------------------- PHP
 
 _PHP_APP = (
@@ -467,6 +589,33 @@ def test_php_first_class_acquisition_is_not_execution(tmp_path: Path) -> None:
     engine = QueryEngine.from_graph(graph)
     assert "app:App.Type.method" not in {u["id"] for u in engine.callees_of("app:App.setup")}
     assert "app:App.Type.method" not in {u["id"] for u in engine.reachable_from("app:App.setup")}
+
+
+def test_php_missing_first_class_callable_retains_unresolved_evidence(tmp_path: Path) -> None:
+    graph = _php(tmp_path, {"app.php": "<?php\n$callback = missing(...);\n"})
+    assert _references(graph) == set()
+    (fact,) = _evidence(graph, "missing(...)")
+    assert (fact.node_id, fact.binding, fact.source_id) == (None, "unresolved", "app")
+    assert fact.unresolved == _UNRESOLVED
+    assert dict(fact.details)["form"] == "first_class_callable"
+    assert dict(fact.details)["consumer"] == "$callback"
+
+
+def test_php_parent_callable_uses_the_base_class_not_implemented_interfaces(tmp_path: Path) -> None:
+    graph = _php(
+        tmp_path,
+        {
+            "app.php": (
+                "<?php\ninterface I { public static function run(); }\n"
+                "class Base { public static function run() {} }\n"
+                "class Child extends Base implements I {\n"
+                "    public static function setup() { consume(parent::run(...)); }\n}\n"
+            )
+        },
+    )
+    assert _references(graph) == {("app:Child.setup", "app:Base.run")}
+    (fact,) = _evidence(graph, "parent::run(...)")
+    assert (fact.node_id, fact.binding) == ("app:Base.run", "resolved")
 
 
 def test_php_dynamic_receivers_stay_unresolved(tmp_path: Path) -> None:

@@ -501,13 +501,13 @@ def test_explicit_file_offset_mapping_of_stripped_regions(
 def test_incomplete_import_is_atomic_in_strict_mode(options: BinaryImportOptions) -> None:
     engine = source_engine()
     before = engine.to_json()
-    configured = replace(options, strict=True, limits=BinaryLimits(max_instructions=1))
+    configured = replace(options, limits=BinaryLimits(max_instructions=1))
     with pytest.raises(ValueError, match="Incomplete"):
-        engine.augment_binary_file(str(FIXTURES / "elf-x86_64"), options=configured)
+        engine.augment_binary_file(
+            str(FIXTURES / "elf-x86_64"), options=replace(configured, strict=True)
+        )
     assert engine.to_json() == before
-    report = engine.augment_binary_file(
-        str(FIXTURES / "elf-x86_64"), options=replace(configured, strict=False)
-    )
+    report = engine.augment_binary_file(str(FIXTURES / "elf-x86_64"), options=configured)
     assert not report["complete"]
     assert any(item["code"] == "instruction_limit" for item in report["diagnostics"])
 

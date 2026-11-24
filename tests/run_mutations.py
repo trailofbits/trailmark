@@ -15,7 +15,7 @@ import os
 import subprocess
 import sys
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from importlib.metadata import version
 from pathlib import Path
 from unittest.mock import patch
@@ -168,6 +168,31 @@ class _RequireCompleteInstrumentation:
 
 def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
     instrumentation = _RequireCompleteInstrumentation(args.shard)
+    cache_result = plugin._cache_gremlin_result
+
+    def record_result(
+        gremlin: Gremlin,
+        selected_tests: Sequence[str],
+        result: plugin.GremlinResult,
+        session: plugin.GremlinSession,
+    ) -> None:
+        # Upstream calls this only after confirming subprocess outcomes.
+        cache_result(gremlin, selected_tests, result, session)
+        with (report_dir / "progress.jsonl").open("a") as progress:
+            progress.write(
+                json.dumps(
+                    {
+                        "gremlin_id": gremlin.gremlin_id,
+                        "file_path": str(gremlin.file_path),
+                        "line_number": gremlin.line_number,
+                        "operator": gremlin.operator_name,
+                        "status": result.status.value,
+                        "selected_test_count": len(result.selected_tests),
+                        "execution_time_ms": result.execution_time_ms,
+                    }
+                )
+                + "\n"
+            )
 
     def select_tests(gremlin: Gremlin, session: plugin.GremlinSession) -> list[str]:
         tests = list(session.test_node_ids)
@@ -184,6 +209,7 @@ def _run_campaign(args: argparse.Namespace, report_dir: Path) -> int:
         patch.object(plugin, "_make_node_ids_relative", side_effect=relative_node_ids),
         patch.object(plugin, "_select_tests_for_gremlin_prioritized", side_effect=select_tests),
         patch.object(plugin, "_collect_coverage"),
+        patch.object(plugin, "_cache_gremlin_result", side_effect=record_result),
     ):
         result = pytest.main(
             [
@@ -212,7 +238,7 @@ def main() -> int:
     args = _arguments()
     report_dir = Path("coverage/gremlins")
     report_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("run.json", "gremlins.json"):
+    for name in ("run.json", "gremlins.json", "progress.jsonl"):
         (report_dir / name).unlink(missing_ok=True)
     baseline = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "pytest", "-q", *args.tests], check=False

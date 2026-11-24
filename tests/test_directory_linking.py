@@ -259,3 +259,25 @@ def test_java_method_name_does_not_shadow_type_namespace(tmp_path: Path) -> None
     assert edges[0].source_id == "Types:Outer.Inner"
     assert edges[0].target_id == "Types:Base"
     assert graph.nodes[edges[0].target_id].kind == NodeKind.CLASS
+
+
+def test_java_nested_base_type_takes_precedence_over_the_module_type(tmp_path: Path) -> None:
+    (tmp_path / "Types.java").write_text(
+        "class Base {}\nclass Outer { class Base {} class Inner extends Base {} }"
+    )
+    graph = parse_directory(str(tmp_path), "java")
+    (edge,) = [edge for edge in graph.edges if edge.kind == EdgeKind.INHERITS]
+    assert (edge.source_id, edge.target_id) == ("Types:Outer.Inner", "Types:Outer.Base")
+    assert edge.confidence == EdgeConfidence.INFERRED
+
+
+def test_erlang_unimported_call_does_not_bind_another_modules_export(tmp_path: Path) -> None:
+    (tmp_path / "caller.erl").write_text(
+        "-module(caller).\n-export([run/0]).\nrun() -> helper().\n"
+    )
+    (tmp_path / "other.erl").write_text("-module(other).\n-export([helper/0]).\nhelper() -> ok.\n")
+    graph = parse_directory(str(tmp_path), "erlang")
+    (edge,) = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
+    assert edge.source_id == "caller:run/0"
+    assert graph.nodes[edge.target_id].origin == NodeOrigin.PROXY
+    assert dict(edge.attributes)["raw_target"] == "caller:helper/0"

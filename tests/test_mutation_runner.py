@@ -160,6 +160,16 @@ def test_weak(tmp_path, value):
     assert set(run["sources"]) == {"toy/__init__.py"}
     report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
     results = report["results"]
+    progress = [
+        json.loads(line)
+        for line in (tmp_path / "coverage/gremlins/progress.jsonl").read_text().splitlines()
+    ]
+    assert len(progress) == len(results)
+    assert {row["gremlin_id"]: row["status"] for row in progress} == {
+        row["gremlin_id"]: row["status"] for row in results
+    }
+    assert all(row["selected_test_count"] == 5 for row in progress)
+    assert all(Path(row["file_path"]).name == "__init__.py" for row in progress)
     strong = [r for r in results if r["line_number"] == 5]
     weak = [r for r in results if r["line_number"] == 7]
     delegated = [r for r in results if r["line_number"] == 9]
@@ -188,6 +198,9 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path, shard: str) -> 
         "import state\nfrom target import checked\n"
         "def test_checked():\n    assert state.ready\n    assert checked(1)\n"
     )
+    progress = tmp_path / "coverage/gremlins/progress.jsonl"
+    progress.parent.mkdir(parents=True)
+    progress.write_text("stale previous campaign\n")
     runner = Path(__file__).with_name("run_mutations.py")
     result = subprocess.run(  # noqa: S603
         [sys.executable, str(runner), "--targets=target.py", f"--shard={shard}", "."],
@@ -199,6 +212,8 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path, shard: str) -> 
     assert result.returncode != 0
     assert "Instrumented baseline failed" in result.stdout + result.stderr
     assert not (tmp_path / "coverage/gremlins/run.json").exists()
+    progress = tmp_path / "coverage/gremlins/progress.jsonl"
+    assert not progress.exists() or not progress.read_text()
 
 
 def test_runner_instruments_spawned_children(tmp_path: Path) -> None:
