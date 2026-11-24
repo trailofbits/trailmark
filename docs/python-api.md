@@ -236,7 +236,7 @@ counts as a read or write.
 | `source_at_address(artifact, address, *, address_kind="va")` | Source mappings and inline frames at a link-time VA, RVA, or file offset |
 | `disassemble_binary(artifact, start, end, *, address_kind="va", max_instructions=256)` | Bounded instructions, source mappings, truncation, completeness, and diagnostics |
 
-Native methods are unreleased and require the optional `trailmark[binary]`
+Native methods have been available since 0.8.0 and require the optional `trailmark[binary]`
 extra plus host tools for ingestion/disassembly. Frozen `BinaryImportOptions`,
 `BinaryLimits`, and `BinarySelection` configure tool families, exact slices,
 verified local debug companions, path remapping, explicit ranges, and strictness.
@@ -428,6 +428,9 @@ with older releases can check `trailmark.__version__` or probe with `hasattr()`.
 | 0.4.0 | `connect_subgraphs`, `subgraph_edges`, `generic_parameters`, `type_references`, `augment_binary`, proxy nodes |
 | 0.7.0 | `state_read_by`, `state_written_by`, `readers_of`, `writers_of`, `unresolved_calls`, `call_resolution`; `replace_existing` on the finding importers; keyword-only `max_depth` on `paths_between`; directory `allow_empty`, source-file coverage in summaries and diffs, and the expanded structural diff fields above |
 | 0.7.1 | `SourceRoot`, `SourcePolicy`, `parse_roots`, directory `source_policy`; `source_policy()`, `entrypoint_evidence()`, `entrypoint_candidates()`, `add_entrypoint_evidence()`, `EntrypointEvidence`, and `EdgeKind.REFERENCES` |
+| 0.8.0 | `augment_binary_file`, `binary_artifacts`, `binary_ranges`, `source_at_address`, `disassemble_binary`; `BinaryImportOptions`, `BinaryLimits`, and `BinarySelection` |
+| 0.9.0 | `edge_kinds` on `reachable_from`, `ancestors_of`, and `paths_between` |
+| 0.9.1 | Reloadable `to_snapshot()` and `from_snapshot()` on `CodeGraph`, `GraphStore`, and `QueryEngine` |
 
 ## Source analysis diagnostics
 

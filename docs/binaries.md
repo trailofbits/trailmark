@@ -1,9 +1,9 @@
 # Compiled binary evidence
 
 Native ingestion connects source functions and lines to compiled bytes in linked
-ELF executables/shared libraries, Mach-O images, and PE images. This feature is
-unreleased. Install `trailmark[binary]` and host disassembly/symbolization tools;
-the inspected image is never executed.
+ELF executables/shared libraries, Mach-O images, and PE images. This feature has
+been available since 0.8.0. Install `trailmark[binary]` and host
+disassembly/symbolization tools; the inspected image is never executed.
 
 ```bash
 uv tool install 'trailmark[binary]'

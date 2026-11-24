@@ -1,14 +1,31 @@
 # Changelog
 
-## Unreleased
+## 0.9.1 (2026-11-24)
+
+This release adds reloadable analysis snapshots, extends Python import resolution
+across selected source roots, and strengthens mutation testing.
 
 ### Added
 
+- Save and reload complete analysis with `to_snapshot()` and `from_snapshot()`
+  on `CodeGraph`, `GraphStore`, and `QueryEngine`. Snapshots preserve source
+  policy, annotations, entrypoint evidence, diagnostics, subgraphs, and binary
+  evidence. Validate the format and graph references on load, and optionally
+  verify inspected source files against their parse-time SHA-256 digests.
 - Detect Python functions and methods decorated with `pyramid.view.view_config`
   as external API entrypoints, including through resolved import aliases.
 - Emit Python `imports` edges from module and callable scopes to inspected
   modules during directory parsing, including parent packages initialized by
   dotted imports. Retain conditional imports as static import sites.
+
+### Changed
+
+- Resolve Python imports and calls across explicitly selected application and
+  dependency roots, retaining source-policy boundaries and conservative evidence
+  for dynamic, ambiguous, or uninspected targets.
+- Use coverage-driven mutation selection and share validated baseline data across
+  CI shards. Reject inconclusive outcomes throughout each campaign and replace
+  wall-clock timing assertions with deterministic work bounds.
 
 ### Fixed
 
@@ -25,6 +42,14 @@
   no unresolved preprocessing directives, including files that retain GCC
   diagnostic pragmas. Preserve calls inside cast operands and callback calls
   through parameters or local variables that shadow typedef names.
+
+### Upgrade notes
+
+- Rebuild source graphs to pick up corrected Python imports and call ownership.
+  Graph JSON schema version 1 and Python 3.12 or newer remain supported.
+- Reloadable snapshots require matching Trailmark package versions. Rebuild and
+  re-export snapshots after upgrading; lightweight `to_json()` exports remain a
+  separate format.
 
 ## 0.9.0 (2026-11-21)
 

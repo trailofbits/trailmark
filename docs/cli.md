@@ -203,7 +203,7 @@ trailmark binary build/app --source-root . --function verify --disassemble --jso
 ```
 
 Inspect a linked ELF, Mach-O, or PE image, optionally connecting it to a source
-graph from `--source-root`. This command is unreleased and requires
+graph from `--source-root`. This command has been available since 0.8.0 and requires
 `trailmark[binary]`. Its source `--language`/`-l` default is `auto`; other
 source-reading commands keep their existing defaults. `--allow-empty` permits
 an empty source root. `--strict` rejects incomplete source or binary evidence.
