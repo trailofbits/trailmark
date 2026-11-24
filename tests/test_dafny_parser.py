@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,7 @@ import pytest
 from trailmark.models.edges import EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.parse import parse_directory, parse_file
+from trailmark.tree_sitter_custom import _native
 
 FIXTURE = Path(__file__).parent / "fixtures/kat/dafny/taxonomy.dfy"
 
@@ -239,8 +241,29 @@ def test_local_binding_forms(tmp_path: Path, body: str) -> None:
 
 
 def test_deep_generic_lookahead_is_bounded_in_native_scanner(tmp_path: Path) -> None:
+    grammar_root = Path(_native.__file__).parent
+    compiler = shutil.which("cc")
+    assert compiler is not None
+    executable = tmp_path / "scanner"
+    subprocess.run(  # noqa: S603 -- compile the checked-in scanner boundary harness.
+        [
+            compiler,
+            "-std=c11",
+            f"-I{grammar_root}",
+            f"-I{grammar_root / 'dafny/src'}",
+            str(Path(__file__).parent / "fixtures/dafny_type_scanner.c"),
+            "-o",
+            str(executable),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run([str(executable)], check=True, capture_output=True)  # noqa: S603
+
     path = tmp_path / "Deep.dfy"
-    path.write_text("method Run(){var y:=F<" + "A<" * 200_000 + "int" + ">" * 200_000 + ">(0);}")
+    # Still cross the scanner's depth limit through the public parser. The C
+    # harness checks the exact boundary and lookahead work without a huge file.
+    path.write_text("method Run(){var y:=F<" + "A<" * 512 + "int" + ">" * 512 + ">(0);}")
     subprocess.run(  # noqa: S603 -- fixed interpreter and source; only a test path varies.
         [
             sys.executable,

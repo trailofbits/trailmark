@@ -4,14 +4,26 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 from tree_sitter import Node
 
+from tests.parse_work import parse_work
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
 from trailmark.parsers.cairo.parser import CairoParser, _first_path_segment
+
+
+def test_qualified_calls_stop_at_the_enclosing_module(tmp_path: Path) -> None:
+    path = tmp_path / "sample.cairo"
+    path.write_text("mod nested { fn helper() {} }\nfn run() { nested::helper(); }\n")
+    graph, _ = parse_work(path, max_work=100_000)
+    assert [
+        (edge.source_id, edge.target_id) for edge in graph.edges if edge.kind == EdgeKind.CALLS
+    ] == [("sample:run", "sample:nested.helper")]
+
 
 SAMPLE_CODE = """\
 use starknet::ContractAddress;

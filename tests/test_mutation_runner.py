@@ -11,11 +11,94 @@ from pathlib import Path
 
 import pytest
 from pytest_gremlins.instrumentation.transformer import transform_source
+from pytest_gremlins.parallel.exit_codes import COLLECTION_KILLING_TEST
 
+from tests.mutation_bootstrap import record_source_collection_exits
 from tests.mutation_gate import check
 from tests.run_mutations import RUNNER, VERSION, parse_shard, select_shard
 
 pytestmark = pytest.mark.mutation_infrastructure
+
+
+def _run_collection_control(
+    tmp_path: Path, source: str, conftest: str = ""
+) -> subprocess.CompletedProcess[str]:
+    (tmp_path / "target.py").write_text(source)
+    (tmp_path / "test_target.py").write_text(
+        "from target import checked\ndef test_checked():\n    assert checked() is True\n"
+    )
+    if conftest:
+        (tmp_path / "conftest.py").write_text(conftest)
+    return subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            str(Path(__file__).with_name("run_mutations.py")),
+            "--targets=target.py",
+            "--workers=2",
+            "test_target.py",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_application_collection_exit_is_confirmed_as_a_kill(tmp_path: Path) -> None:
+    result = _run_collection_control(
+        tmp_path,
+        "import sys\nif __name__ == '__main__':\n    sys.exit(2)\n"
+        "def checked():\n    return True\n",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
+    assert report["results"]
+    assert {row["status"] for row in report["results"]} == {"zapped"}
+    assert any(row.get("killing_test") == COLLECTION_KILLING_TEST for row in report["results"])
+
+
+@pytest.mark.parametrize(
+    ("hook", "exception"),
+    [
+        ("pytest_collection_modifyitems", "SystemExit(2)"),
+        ("pytest_collection_modifyitems", "RuntimeError('controlled harness failure')"),
+        ("pytest_sessionfinish", "SystemExit(2)"),
+    ],
+)
+def test_harness_failures_remain_errors(tmp_path: Path, hook: str, exception: str) -> None:
+    result = _run_collection_control(
+        tmp_path,
+        "def checked():\n    return True\n",
+        "import os\n"
+        f"def {hook}():\n"
+        "    if os.environ.get('ACTIVE_GREMLIN'):\n"
+        f"        raise {exception}\n",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
+    assert report["results"]
+    assert {row["status"] for row in report["results"]} == {"error"}
+
+
+def test_unmutated_collection_exit_does_not_produce_scores(tmp_path: Path) -> None:
+    result = _run_collection_control(
+        tmp_path,
+        "import os, sys\n"
+        "if os.environ.get('PYTEST_GREMLINS_SOURCES_FILE'):\n    sys.exit(2)\n"
+        "def checked():\n    return True\n",
+    )
+    assert result.returncode != 0
+    assert "Instrumented baseline failed" in result.stdout + result.stderr
+    assert not (tmp_path / "coverage/gremlins/run.json").exists()
+    assert not (tmp_path / "coverage/gremlins/progress.jsonl").exists()
+
+
+def test_bootstrap_adapter_rejects_an_unrecognized_layout(tmp_path: Path) -> None:
+    bootstrap = tmp_path / "gremlin_bootstrap.py"
+    bootstrap.write_text("print('unrecognized bootstrap')\n")
+    with pytest.raises(pytest.UsageError, match="Revalidate"):
+        record_source_collection_exits(tmp_path)
+    assert bootstrap.read_text() == "print('unrecognized bootstrap')\n"
 
 
 @pytest.mark.parametrize("value", ["0/4", "5/4", "1/0", "-1/4", "1", "1/2/3", "one/4"])
@@ -107,12 +190,14 @@ def test_runner_executes_fixtures_parameters_and_package_mutations(tmp_path: Pat
     )
     (tmp_path / "test_toy.py").write_text("""\
 import coverage
+import os
 import pytest
 from toy import checked, ignored, RESOURCE, VALUE
 
 @pytest.mark.parametrize(("value", "answer"), [(0, False), (1, True)], ids=["ZERO", "ONE"])
 def test_strong(tmp_path, value, answer):
-    assert coverage.Coverage.current() is None
+    collecting = bool(os.environ.get("TRAILMARK_MUTATION_COVERAGE"))
+    assert (coverage.Coverage.current() is not None) == collecting
     assert tmp_path.is_dir()
     assert RESOURCE == "known resource" and VALUE == 7
     assert checked(value) is answer
@@ -167,7 +252,7 @@ def test_weak(tmp_path, value):
     assert {row["gremlin_id"]: row["status"] for row in progress} == {
         row["gremlin_id"]: row["status"] for row in results
     }
-    assert all(row["selected_test_count"] == 5 for row in progress)
+    assert all(0 < row["selected_test_count"] < 5 for row in progress)
     assert all(Path(row["file_path"]).name == "__init__.py" for row in progress)
     strong = [r for r in results if r["line_number"] == 5]
     weak = [r for r in results if r["line_number"] == 7]
@@ -177,17 +262,19 @@ def test_weak(tmp_path, value):
     assert {r["status"] for r in strong} == {"zapped"}
     assert {r["status"] for r in delegated} == {"zapped"}
     assert {r["status"] for r in weak} == {"survived"}
-    assert all(len(r["selected_tests"]) == 5 for r in results)
     assert all(
-        "test_toy.py::test_strong[ZERO]" in r["selected_tests"]
-        and "test_toy.py::test_strong[ONE]" in r["selected_tests"]
-        and "test_integration.py::test_integration" in r["selected_tests"]
-        for r in results
+        r["selected_tests"] == ["test_toy.py::test_strong[ZERO]", "test_toy.py::test_strong[ONE]"]
+        for r in strong
+    )
+    assert all(r["selected_tests"] == ["test_integration.py::test_integration"] for r in delegated)
+    assert all(
+        r["selected_tests"] == ["test_toy.py::test_weak[0]", "test_toy.py::test_weak[1]"]
+        for r in weak
     )
 
 
-@pytest.mark.parametrize("shard", ["1/1", "99/99"])
-def test_runner_rejects_order_dependent_baseline(tmp_path: Path, shard: str) -> None:
+@pytest.mark.parametrize("partition", ["--shard=1/1", "--shard=99/99", "--baseline-shard=1/1"])
+def test_runner_rejects_order_dependent_baseline(tmp_path: Path, partition: str) -> None:
     (tmp_path / "target.py").write_text("def checked(value):\n    return value > 0\n")
     (tmp_path / "state.py").write_text("ready = False\n")
     (tmp_path / "test_a_setup.py").write_text(
@@ -202,7 +289,14 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path, shard: str) -> 
     progress.write_text("stale previous campaign\n")
     runner = Path(__file__).with_name("run_mutations.py")
     result = subprocess.run(  # noqa: S603
-        [sys.executable, str(runner), "--targets=target.py", f"--shard={shard}", "."],
+        [
+            sys.executable,
+            str(runner),
+            "--targets=target.py",
+            "--test-selection=full",
+            partition,
+            ".",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -213,6 +307,103 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path, shard: str) -> 
     assert not (tmp_path / "coverage/gremlins/run.json").exists()
     progress = tmp_path / "coverage/gremlins/progress.jsonl"
     assert not progress.exists() or not progress.read_text()
+    assert not list((tmp_path / "coverage/gremlins").glob("baseline-*.json"))
+
+
+@pytest.mark.parametrize("selection", ["full", "coverage"])
+def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(
+    tmp_path: Path, selection: str
+) -> None:
+    for name in ("first", "second"):
+        (tmp_path / f"{name}.py").write_text("def checked(value):\n    return value > 0\n")
+        (tmp_path / f"test_{name}.py").write_text(
+            f"from {name} import checked\n"
+            "def test_boundary():\n    assert not checked(0)\n    assert checked(1)\n"
+        )
+    runner = Path(__file__).with_name("run_mutations.py")
+    reports = tmp_path / "coverage/gremlins"
+    shared = reports / "baselines"
+    shared.mkdir(parents=True)
+    executions = tmp_path.with_suffix(".executions.jsonl")
+    (tmp_path / "conftest.py").write_text(
+        "import json, os, sys\nfrom pathlib import Path\n"
+        "def pytest_runtest_call(item):\n"
+        f"    with Path({str(executions)!r}).open('a') as stream:\n"
+        "        stream.write(json.dumps({'argv': sys.argv, 'test': item.nodeid, "
+        "'instrumented': bool(os.environ.get('PYTEST_GREMLINS_SOURCES_FILE')), "
+        "'prefix': bool(os.environ.get('TRAILMARK_PREFIX_LIMIT')), "
+        "'mutant': bool(os.environ.get('ACTIVE_GREMLIN'))}) + '\\n')\n"
+    )
+
+    def run(*options: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(  # noqa: S603
+            [
+                sys.executable,
+                str(runner),
+                "--targets=first.py,second.py",
+                f"--test-selection={selection}",
+                "--workers=2",
+                *options,
+                "test_first.py",
+                "test_second.py",
+            ],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    checked = []
+    partitions = 1 if selection == "coverage" else 2
+    for index in range(1, partitions + 1):
+        result = run(f"--baseline-shard={index}/{partitions}")
+        assert result.returncode == 0, result.stdout + result.stderr
+        receipt = reports / f"baseline-{index}-of-{partitions}.json"
+        checked.extend(json.loads(receipt.read_text())["checked"])
+        receipt.rename(shared / receipt.name)
+        assert not (reports / "run.json").exists()
+        assert not (reports / "progress.jsonl").exists()
+    assert len(checked) == len(set(checked)) == partitions
+    calls = [json.loads(line) for line in executions.read_text().splitlines()]
+    assert len(calls) == 2 * partitions
+    assert all(call["instrumented"] for call in calls)
+    assert not any(call["mutant"] for call in calls)
+    if selection == "coverage":
+        (reports / "coverage-plan.json").rename(shared / "coverage-plan.json")
+
+    combined = {}
+    for index in (1, 2):
+        executions.unlink()
+        result = run(f"--shard={index}/2", f"--baselines={shared}")
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert f"Reusing validated instrumented baseline orders: {partitions}" in result.stdout
+        assert "Checking instrumented baseline order" not in result.stdout
+        calls = [json.loads(line) for line in executions.read_text().splitlines()]
+        assert all(call["instrumented"] for call in calls)
+        assert not any(Path(call["argv"][0]) == runner for call in calls)
+        assert all(call["mutant"] or call["prefix"] for call in calls)
+        assert "Checking " not in result.stdout
+        report = json.loads((reports / "gremlins.json").read_text())
+        combined.update({row["gremlin_id"]: row["status"] for row in report["results"]})
+        assert json.loads((reports / "run.json").read_text())["baseline_validation"] == "shared"
+    result = run()
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = json.loads((reports / "gremlins.json").read_text())
+    assert combined == {row["gremlin_id"]: row["status"] for row in report["results"]}
+    assert set(combined.values()) == {"zapped"}
+
+    with (tmp_path / "test_second.py").open("a") as test:
+        test.write("\n# Edited after the baselines were validated.\n")
+    result = run("--shard=1/2", f"--baselines={shared}")
+    assert result.returncode != 0
+    message = (
+        "Invalid shared coverage selection"
+        if selection == "coverage"
+        else "Invalid shared mutation baselines"
+    )
+    assert message in result.stdout + result.stderr
+    assert not (reports / "run.json").exists()
+    assert not (reports / "progress.jsonl").exists()
 
 
 def test_runner_instruments_spawned_children(tmp_path: Path) -> None:

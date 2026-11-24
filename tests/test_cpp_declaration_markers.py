@@ -7,10 +7,20 @@ from pathlib import Path
 
 import pytest
 
+from tests.parse_work import parse_work
 from trailmark.models.edges import EdgeKind
 from trailmark.models.nodes import NodeKind
 from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
+
+
+def test_adjacent_comments_before_a_template_do_not_repeat_the_scan(tmp_path: Path) -> None:
+    path = tmp_path / "sample.cpp"
+    path.write_text("#define API\nAPI\n/**//**/\ntemplate<class T> class View {};\n")
+    graph, _ = parse_work(path, language="cpp", max_work=100_000)
+    assert graph.nodes["sample:View"].kind == NodeKind.CLASS
+    markers = json.loads(str(dict(graph.nodes["sample"].attributes)["cpp_declaration_markers"]))
+    assert [marker["role"] for marker in markers] == ["template_prefix"]
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])

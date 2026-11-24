@@ -82,7 +82,12 @@ def test_policy_allows_product_limits_and_disabled_deadlines(source: str) -> Non
 
 def test_suite_has_no_test_timeouts_or_wall_clock_assertions() -> None:
     # These are opt-in measurement tools or the mutation executor, not tests.
-    measurement_tools = {"benchmark_analysis.py", "smoke_binary_projects.py", "run_mutations.py"}
+    measurement_tools = {
+        "benchmark_analysis.py",
+        "smoke_binary_projects.py",
+        "run_mutations.py",
+        "mutation_confirmation.py",
+    }
     violations = {
         path.name: controls
         for path in Path(__file__).parent.glob("*.py")
@@ -96,3 +101,6 @@ def test_hypothesis_has_no_deadline_or_generation_speed_limit() -> None:
     assert defaults is not None
     assert defaults.deadline is None
     assert HealthCheck.too_slow in defaults.suppress_health_check
+    mutation = settings.get_profile("trailmark-mutation")
+    assert mutation.derandomize is True
+    assert mutation.database is None

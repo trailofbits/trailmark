@@ -16,15 +16,20 @@ def prioritize_tests(source: str, node_ids: list[str]) -> list[str]:
             f"test_{language}_grammar.py",
             f"test_{language}_parser.py",
         ]
-    elif "parsers" in parts and path.name in {"parser.py", "_scopes.py"}:
+    elif "parsers" in parts and path.parent.name != "parsers":
         language = path.parent.name
         preferred = [
             f"test_{language}_local_items.py",
             f"test_{language}_parser.py",
+            f"test_{language}_rule_references.py",
             f"test_{language}_verus_regressions.py",
         ]
+        if path.name not in {"parser.py", "_scopes.py"}:
+            preferred.insert(0, f"test_{language}_{path.stem.removeprefix('_')}.py")
     elif path.name == "_common.py":
         preferred = ["test_common_parser.py", "test_directory_linking.py"]
+    elif path.name == "_declarations.py":
+        preferred = ["test_declaration_identity.py"]
     elif "models" in parts:
         preferred = {
             "snapshot.py": ["test_snapshots.py", "test_binary_snapshots.py", "test_models.py"],

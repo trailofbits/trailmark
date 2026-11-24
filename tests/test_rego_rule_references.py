@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from tests.parse_work import parse_work
 from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
@@ -40,7 +41,7 @@ def test_rule_parameters_some_and_assignments_shadow_rule_names(tmp_path: Path) 
         "quantified { some invalid; invalid == 1 }\n"
     )
 
-    graph = parse_file(str(source), language="rego", strict=True)
+    graph, _ = parse_work(source, language="rego", max_work=100_000)
 
     assert not [edge for edge in graph.edges if edge.kind == EdgeKind.REFERENCES]
 

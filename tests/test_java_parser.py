@@ -4,11 +4,32 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
+from tests.parse_work import parse_work
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
 from trailmark.parsers.java.parser import JavaParser
+
+
+def test_anonymous_fallback_stops_at_its_lexical_owner(tmp_path: Path) -> None:
+    source = tmp_path / "sample.java"
+    source.write_text(
+        "class Outer { class Base {} void helper() {}\n"
+        "Base make() { return new Base() { void run() { helper(); } }; } }\n"
+    )
+    graph, _ = parse_work(source, max_work=100_000)
+    call = next(
+        edge
+        for edge in graph.edges
+        if edge.kind == EdgeKind.CALLS
+        and "$anonymous@" in edge.source_id
+        and edge.source_id.endswith(".run")
+    )
+    assert call.target_id == "sample:Outer.helper"
+    assert call.confidence == EdgeConfidence.INFERRED
+
 
 SAMPLE_CODE = """\
 import java.util.List;

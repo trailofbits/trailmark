@@ -87,66 +87,110 @@ Confirmed execution outcomes are streamed to `coverage/gremlins/progress.jsonl`
 for investigation during long campaigns. This journal can be incomplete; only
 the completed reports and `run.json` establish results for the gate.
 
-CI runs eight mutation shards concurrently, each with four workers. Mutation
+CI runs 32 mutation shards concurrently, each with four workers. Mutation
 jobs install the `binary` extra and GNU and LLVM tools, and set
 `TRAILMARK_REQUIRE_BINARY_TOOLS=1` so missing native-image dependencies fail
-instead of silently skipping their tests. Each file's
-mutants are dealt round-robin across the shards, retaining the full selected test
-suite for every mutant. Every shard checks the clean and instrumented baselines
-and gates its exact share of the source inventory. The final `Mutation Testing`
-check requires all eight shards to pass; reports are uploaded separately per shard.
+instead of silently skipping their tests. Each file's mutants are dealt
+round-robin across the shards. One preparation job runs the selected suite once
+with neutral instrumentation and per-test coverage. The normal CI test jobs run
+the clean suite.
+Mutation jobs reuse its baseline receipt and coverage plan only when repository
+inputs, Python packages, native tool binaries, relevant environment settings,
+test collection, and runner configuration match. Missing, stale, or incomplete receipts fail the run.
+The outer pytest session collects tests and dispatches mutations without replaying
+the clean suite in each shard.
+The mutation shards then execute their assigned mutants. The final
+`Mutation Testing` check requires the baseline job and all 32 mutation shards to pass.
+Each mutation shard enforces
+the reviewed gate for its assigned inventory and uploads its own reports.
 
 To reproduce one CI shard locally, pass the same one-based `--shard=INDEX/TOTAL`
 to both commands (omit `--reviewed` for a full repository shard):
 
 ```bash
-uv run python -m tests.run_mutations --reviewed --workers=4 --shard=1/8
-uv run python -m tests.mutation_gate --shard=1/8
+uv run python -m tests.run_mutations --reviewed --workers=4 --shard=1/32
+uv run python -m tests.mutation_gate --shard=1/32
 ```
 
 Omitting `--shard` runs and gates the complete campaign as before.
+Local campaigns prepare their own coverage and baselines by default. For shared
+preparation, run `--baseline-shard=1/1` with the same targets, tests, and test-order
+setting. Copy `coverage/gremlins/baseline-1-of-1.json` and
+`coverage/gremlins/coverage-plan.json` together into a directory and pass
+`--baselines=PATH` to mutation runs. Preparation executes no mutants and creates
+no gate report; evidence is written only after successful validation. Keep these
+files within the same trusted campaign.
 
 **Scope and gate.** Pull requests mutate the reviewed files named in
 `tests/mutation_baseline.json`. Full
 repository campaigns run on pushes to main and through the mutation workflow's
 manual trigger. The reviewed scope gates all functions in those files, including
-unchanged legacy functions. The gate rejects unreviewed
-survivors, missing tests or results, errors, and timeouts. An exception
+unchanged legacy functions. The gate rejects unreviewed survivors and incomplete
+mutation inventories in that scope. Across the entire campaign, errors, timeouts,
+pardons, and missing tests
+fail the gate, including outside the reviewed scope. An exception
 requires a reason and a fingerprint of the function and mutation; changing
 that function requires reviewing its exceptions again.
 Source hashes and mutation fingerprints use a canonical AST representation so
 reviews remain valid across supported Python versions.
+PRs that change the mutation runner, its controls, the mutation workflow, or
+Python dependency configuration run the full campaign before merging.
 
 **How the runner works.** The runner pins pytest-gremlins 1.14.3 and uses its
 pytest subprocesses and import handling, including fixtures, parametrized tests,
-package metadata, and instrumentation in spawned child processes. Trailmark
-checks the clean baseline and each distinct instrumented test ordering before
-mutating, skips the redundant coverage pre-scan, preserves exact parameter IDs,
-and rejects skipped instrumentation. Tests use deterministic work bounds rather
+package metadata, and instrumentation in spawned child processes. Coverage-driven
+test selection runs only tests observed to execute the mutated line, with shared
+fixture setup and teardown attributed to every consumer. Tests that run unknown
+child processes or replace Python tracing are retained for every mutant. Known
+native GNU/LLVM tools, C compilers, and the fixed `git -C ROOT rev-parse HEAD`
+provenance query are recognized through fingerprints of their executable contents.
+Other Git commands and Python or script wrappers remain opaque. Import-time and
+unmapped locations use the full suite.
+
+After mutant execution, ordinary test failures receive a neutral failure-prefix
+check. The control collects the same selected tests, executes only through the
+test that failed, and includes fixture teardown. Matching full-suite orders reuse
+the passing baseline. For each remaining selected collection, one successful
+longest prefix also validates its shorter failure prefixes. These controls use
+the same worker budget after the mutant pool closes. A failing neutral prefix
+invalidates the campaign before scores are accepted. Survivors require no extra
+test executions. The gate verifies each reported test selection against the saved plan.
+The runner preserves exact parameter IDs and rejects skipped instrumentation.
+Tests use deterministic work bounds rather
 than wall-clock thresholds. The test suite has no elapsed-time assertions,
 pytest timeout markers, or test subprocess deadlines. Hypothesis deadlines and
-its generation-speed health check are disabled. Test product timeout behavior
+its generation-speed health check are disabled. Mutation campaigns also use
+deterministic Hypothesis examples with its example database disabled, so coverage
+collection and mutant execution use the same generated inputs. Test product timeout behavior
 with a simulated clock and process; keep optional wall-clock measurements in
 `tests/benchmark_analysis.py` or `tests/smoke_binary_projects.py`.
 The adapter uses private plugin APIs; its control tests must pass before upgrading
 the plugin.
+
+Collection-time `SystemExit` counts as a kill only when its traceback includes
+an instrumented application source and the unmutated test selection loads
+successfully. Harness failures and unrelated internal errors remain errors.
 
 Each mutant subprocess may run for 240 seconds so the full fallback suite can
 finish with four workers competing for CI resources. A timeout is not counted
 as a kill unless the unmutated confirmation run establishes sufficient headroom;
 inconclusive outcomes still fail the gate.
 
-**Test ordering.** Each mutant keeps the full selected test suite: component
-unit tests run first, followed by the remaining tests, stopping at the first
-failure. Shared-helper mutants retain tests from every language. Tests stay in
+**Test ordering.** Within a coverage-selected subset, component unit tests run first,
+stopping at the first failure. Shared-helper mutants retain tests from every
+language that covers the mutation. Full-suite fallbacks keep collection order so
+they can reuse the shared neutral baseline. Tests stay in
 their existing files; `tests/mutation_order.py` defines the ordering, and
 unknown components keep collection order. Use `--test-order=collection` to
-compare against pytest's original order.
+keep pytest's original order within each subset. Use `--test-selection=full` to
+run every selected test against every mutant as a reference. Full mode validates
+its distinct complete orders; `--baseline-shard=INDEX/TOTAL` can split those checks.
 
 Private helpers use their component test names without the leading underscore;
 Python decorator helpers start with `test_python_decorator_bindings.py`.
 Snapshot and binary model mutants start with `test_snapshots.py` and
-`test_binary_models.py`, respectively, before falling back to general model tests.
+`test_binary_models.py`, respectively, when those files are selected, followed by
+any selected general model tests.
 Snapshot mutants also prioritize binary and proxy round trips. Callable-reference
 mutants prioritize binding-boundary and PHP callable tests; shared parser mutants
 prioritize directory-linking regressions after their utility tests.

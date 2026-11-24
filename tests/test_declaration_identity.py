@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.parse_work import parse_work
 from trailmark.analysis.proxies import ensure_proxy_nodes
 from trailmark.models import (
     CodeGraph,
@@ -24,6 +25,21 @@ from trailmark.parsers.java import JavaParser
 from trailmark.parsers.kotlin import KotlinParser
 from trailmark.parsers.solidity import SolidityParser
 from trailmark.parsers.swift import SwiftParser
+
+
+def test_recursive_calls_do_not_become_containment_cycles(tmp_path: Path) -> None:
+    path = tmp_path / "recursive.ts"
+    path.write_text(
+        "namespace Scope { export function outer() { function inner() { inner(); } inner(); } }\n"
+    )
+    graph, _ = parse_work(path, max_work=100_000)
+    assert {
+        (edge.source_id, edge.target_id) for edge in graph.edges if edge.kind == EdgeKind.CALLS
+    } == {
+        ("recursive:Scope.outer", "recursive:Scope.outer.inner"),
+        ("recursive:Scope.outer.inner", "recursive:Scope.outer.inner"),
+    }
+
 
 _OVERLOADS = [
     pytest.param(

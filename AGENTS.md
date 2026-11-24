@@ -105,13 +105,24 @@ uv run python -m tests.run_mutations --reviewed --workers=4
 uv run python -m tests.mutation_gate
 ```
 
-The runner uses real pytest subprocesses and validates clean and instrumented
-baselines. It orders component unit tests first and retains all selected tests
-as fallback. Use it rather than invoking the pinned plugin directly. Omit
+The runner uses real pytest subprocesses and coverage-driven test selection.
+It validates clean and instrumented baselines, expands shared-fixture coverage
+to every consumer, and retains tests whose subprocesses or tracing obscure
+coverage. Import-time and unmapped mutations run the full suite. Ordinary kills
+require a passing neutral failure-prefix check or a matching validated full-suite
+order. The control retains the full selected collection and fixture teardown. Use it
+rather than invoking the pinned plugin directly. Omit
 `--reviewed` for a full repository campaign; CI runs that after merges
 and on manual dispatch. `--workers` already enables parallel execution.
-CI additionally splits mutants across eight concurrent jobs. To reproduce a
-partition, pass the same `--shard=1/8` (one-based index/total) to both commands.
+CI produces one baseline receipt and coverage plan from a single instrumented
+coverage pass. Its 32 mutation jobs reuse that evidence and execute mutants
+without replaying full baselines or prevalidating selected subsets.
+Local runs validate their own baselines by default. To reproduce a partition,
+pass the same `--shard=1/32` (one-based index/total) to both commands.
+Use `--test-selection=full` for a full-suite reference campaign. Shared coverage
+preparation uses `--baseline-shard=1/1`; copy both `baseline-1-of-1.json` and
+`coverage-plan.json` together when using `--baselines=PATH`.
+See `CONTRIBUTING.md` for baseline sharing and failure-prefix confirmation.
 Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
 
 ## Adding Features

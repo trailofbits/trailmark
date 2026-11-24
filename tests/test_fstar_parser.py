@@ -4,12 +4,26 @@ from pathlib import Path
 
 import pytest
 
+from tests.parse_work import parse_work
 from trailmark.models.edges import EdgeKind
 from trailmark.models.nodes import NodeOrigin
 from trailmark.parse import parse_directory, parse_file
 from trailmark.query.api import QueryEngine
 
 FIXTURE = Path(__file__).parent / "fixtures/kat/fstar/taxonomy.fst"
+
+
+def test_ghost_effect_aliases_reach_a_fixed_point(tmp_path: Path) -> None:
+    path = tmp_path / "Effects.fst"
+    path.write_text(
+        "module Effects\neffect Erased (a:Type) = GTot a\n"
+        "effect Hidden (a:Type) = Erased a\n"
+        "let proof (x:int) : Hidden int = x\nlet run (x:int) : Tot int = x\n"
+    )
+    graph, _ = parse_work(path, language="fstar", max_work=100_000)
+    functions = {node.name: dict(node.attributes) for node in graph.nodes.values()}
+    assert functions["proof"]["executable"] is False
+    assert functions["run"]["executable"] is True
 
 
 @pytest.mark.parametrize("effect", ["Tot", "ML", "Stack", "Lemma"])
