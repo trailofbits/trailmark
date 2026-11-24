@@ -17,6 +17,8 @@ from trailmark.models import (
     EdgeKind,
     EntrypointKind,
     EntrypointTag,
+    ExceptionEvent,
+    ExceptionEventKind,
     NodeKind,
     SourceLocation,
     TrustLevel,
@@ -28,6 +30,7 @@ from trailmark.query.api import (
     _annotation_to_dict,
     _edge_to_dict,
     _unit_to_dict,
+    detect_languages,
 )
 
 _LOC = SourceLocation(file_path="test.py", start_line=1, end_line=10)
@@ -79,6 +82,60 @@ def _build_engine() -> QueryEngine:
         dependencies=["flask", "sqlalchemy"],
     )
     return QueryEngine.from_graph(graph)
+
+
+def test_legacy_query_language_detection_keeps_the_public_result(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text("def action(): pass\n")
+    (tmp_path / "app.rs").write_text("fn action() {}\n")
+    assert detect_languages(str(tmp_path)) == ["python", "rust"]
+
+
+def test_directory_query_requires_an_explicit_empty_opt_in(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="No source files inspected"):
+        QueryEngine.from_directory(str(tmp_path))
+    assert (
+        QueryEngine.from_directory(str(tmp_path), allow_empty=True).summary()["source_files"] == 0
+    )
+
+
+def test_directory_query_keeps_partial_analysis_unless_strict_is_requested(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text("def broken(:\n    pass\n\ndef intact(): pass\n")
+    engine = QueryEngine.from_directory(str(tmp_path))
+    assert engine.summary()["source_files"] == 1
+    diagnostics = engine.parse_diagnostics()
+    assert diagnostics
+    assert all(item["kind"] in {"syntax_error", "missing_syntax"} for item in diagnostics)
+    assert "app:intact" in engine._store._graph.nodes
+    with pytest.raises(ValueError, match="diagnostic"):
+        QueryEngine.from_directory(str(tmp_path), strict=True)
+
+
+def test_query_results_preserve_nonempty_optional_metadata() -> None:
+    plain = _make_node("plain", "plain")
+    typed = CodeUnit(
+        "typed",
+        "typed",
+        NodeKind.FUNCTION,
+        _LOC,
+        type_parameters=(TypeParameter("T"),),
+        exception_events=(ExceptionEvent(ExceptionEventKind.RAISE, _LOC, "raise_statement"),),
+    )
+    engine = QueryEngine.from_graph(
+        CodeGraph(
+            nodes={node.id: node for node in (plain, typed)},
+            edges=[CodeEdge("plain", "typed", EdgeKind.CALLS)],
+        )
+    )
+    (caller,) = engine.callers_of("typed")
+    assert "type_parameters" not in caller
+    assert "exception_events" not in caller
+    (callee,) = engine.callees_of("plain")
+    callee = json.loads(json.dumps(callee))
+    assert callee["type_parameters"] == [
+        {"name": "T", "constraints": [], "default": None, "variance": None}
+    ]
+    assert callee["exception_events"][0]["kind"] == "raise"
+    assert callee["exception_events"][0]["location"]["start_line"] == 1
 
 
 class TestQueryEngineStateAccess:

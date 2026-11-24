@@ -10,6 +10,7 @@ from trailmark.models import (
     CodeUnit,
     EdgeKind,
     NodeKind,
+    ParseDiagnostic,
     SourceLocation,
 )
 from trailmark.query.api import QueryEngine
@@ -52,6 +53,36 @@ class TestCalleesOfMissing:
     def test_callees_of_nonexistent(self) -> None:
         engine = _simple_engine()
         assert engine.callees_of("nonexistent") == []
+
+
+@pytest.mark.parametrize("name", ["a", "missing"])
+def test_type_queries_return_empty_lists_for_absent_metadata(name: str) -> None:
+    engine = _simple_engine()
+    assert engine.generic_parameters(name) == []
+    assert engine.type_references(name) == []
+
+
+def test_parse_diagnostics_are_json_records_even_without_graph_nodes() -> None:
+    assert QueryEngine.from_graph(CodeGraph()).parse_diagnostics() == []
+    diagnostic = ParseDiagnostic(
+        "python", "python", SourceLocation("app.py", 1, 1), "syntax_error", "incomplete function"
+    )
+    engine = QueryEngine.from_graph(CodeGraph(parse_diagnostics=[diagnostic]))
+    assert engine.parse_diagnostics() == [
+        {
+            "language": "python",
+            "grammar": "python",
+            "kind": "syntax_error",
+            "message": "incomplete function",
+            "location": {
+                "file_path": "app.py",
+                "start_line": 1,
+                "end_line": 1,
+                "start_col": None,
+                "end_col": None,
+            },
+        }
+    ]
 
 
 class TestPathsBetweenMissing:

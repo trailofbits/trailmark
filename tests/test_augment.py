@@ -547,9 +547,9 @@ class TestClearAugmented:
 
 
 @pytest.mark.parametrize("source", ["sarif", "weaudit"])
-@pytest.mark.parametrize("replace_existing", [False, True])
-def test_multiple_finding_imports_have_explicit_replacement_policy(
-    tmp_path: Path, source: str, replace_existing: bool
+@pytest.mark.parametrize("replace_existing", [None, False, True])
+def test_multiple_finding_imports_apply_replacement_policy(
+    tmp_path: Path, source: str, replace_existing: bool | None
 ) -> None:
     engine = QueryEngine.from_graph(_build_graph())
     augment = getattr(engine, f"augment_{source}")
@@ -560,10 +560,15 @@ def test_multiple_finding_imports_have_explicit_replacement_policy(
             else _minimal_weaudit([_weaudit_entry(label, file, line - 1, line - 1)])
         )
         path = _write_json(tmp_path, label, data)
-        augment(path, replace_existing=replace_existing)
+        if replace_existing is None:
+            augment(path)
+        else:
+            augment(path, replace_existing=replace_existing)
 
     graph = json.loads(engine.to_json())
-    expected = {"mod:func_c"} if replace_existing else {"mod:func_a", "mod:module", "mod:func_c"}
+    expected = (
+        {"mod:func_a", "mod:module", "mod:func_c"} if replace_existing is False else {"mod:func_c"}
+    )
     assert {finding["id"] for finding in engine.findings()} == expected
     severity_subgraph = "sarif:warning" if source == "sarif" else "weaudit:high"
     assert set(graph["subgraphs"][severity_subgraph]) == expected

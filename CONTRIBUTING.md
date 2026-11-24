@@ -83,8 +83,14 @@ uv run python -m tests.run_mutations --workers=4
 
 `--workers=4` already enables parallel execution. Reports are written to
 `coverage/gremlins/`.
+Confirmed execution outcomes are streamed to `coverage/gremlins/progress.jsonl`
+for investigation during long campaigns. This journal can be incomplete; only
+the completed reports and `run.json` establish results for the gate.
 
-CI runs eight mutation shards concurrently, each with four workers. Each file's
+CI runs eight mutation shards concurrently, each with four workers. Mutation
+jobs install the `binary` extra and GNU and LLVM tools, and set
+`TRAILMARK_REQUIRE_BINARY_TOOLS=1` so missing native-image dependencies fail
+instead of silently skipping their tests. Each file's
 mutants are dealt round-robin across the shards, retaining the full selected test
 suite for every mutant. Every shard checks the clean and instrumented baselines
 and gates its exact share of the source inventory. The final `Mutation Testing`
@@ -100,11 +106,11 @@ uv run python -m tests.mutation_gate --shard=1/8
 
 Omitting `--shard` runs and gates the complete campaign as before.
 
-**Scope and gate.** Pull requests mutate the Rust/Verus files named in
-`tests/mutation_baseline.json` and gate new and changed functions there. Full
+**Scope and gate.** Pull requests mutate the reviewed files named in
+`tests/mutation_baseline.json`. Full
 repository campaigns run on pushes to main and through the mutation workflow's
-manual trigger. Unchanged legacy functions are identified by source hashes and
-enter the gate automatically when edited. The gate rejects unreviewed
+manual trigger. The reviewed scope gates all functions in those files, including
+unchanged legacy functions. The gate rejects unreviewed
 survivors, missing tests or results, errors, and timeouts. An exception
 requires a reason and a fingerprint of the function and mutation; changing
 that function requires reviewing its exceptions again.
@@ -135,6 +141,11 @@ compare against pytest's original order.
 
 Private helpers use their component test names without the leading underscore;
 Python decorator helpers start with `test_python_decorator_bindings.py`.
+Snapshot and binary model mutants start with `test_snapshots.py` and
+`test_binary_models.py`, respectively, before falling back to general model tests.
+Snapshot mutants also prioritize binary and proxy round trips. Callable-reference
+mutants prioritize binding-boundary and PHP callable tests; shared parser mutants
+prioritize directory-linking regressions after their utility tests.
 
 **Focusing a campaign.** Pass `--targets` with comma-separated source paths,
 followed by the relevant test files.

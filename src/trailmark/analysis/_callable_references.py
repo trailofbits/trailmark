@@ -104,6 +104,8 @@ class _Target:
     """A graph node, a Python module path, or a callable without a node.
 
     A default instance is an opaque value: bound, but not known to be callable.
+    Graph-node callability comes from the index; ``callable`` marks targets
+    whose declarations are unavailable.
     """
 
     node_id: str | None = None
@@ -345,7 +347,9 @@ _PY_TARGET_CONTAINERS = frozenset(
         "tuple",
         "list",
         "list_splat_pattern",
+        "dictionary_splat_pattern",
         "list_splat",
+        "typed_parameter",
         "parenthesized_expression",
         "expression_list",
         "as_pattern_target",
@@ -446,11 +450,8 @@ def _parameter_names(node: Node) -> list[str]:
     parameters = node.child_by_field_name("parameters")
     names = []
     for child in parameters.named_children if parameters is not None else []:
-        name = child if child.type == "identifier" else child.child_by_field_name("name")
-        if name is None:
-            name = next((c for c in child.named_children if c.type == "identifier"), None)
-        if name is not None:
-            names.append(_text(name))
+        target = child.child_by_field_name("name")
+        names.extend(_target_names(target if target is not None else child))
     return names
 
 
@@ -564,7 +565,7 @@ class _PythonProject:
             return self.module_member(target.module, name, depth)
         if target.node_id is not None and self.index.kind(target.node_id) in _CLASS_KINDS:
             methods = self.index.members(target.node_id, name)
-            return {_Target(node_id=m, callable=True) for m in methods} or {_OPAQUE}
+            return {_Target(node_id=m) for m in methods} or {_OPAQUE}
         return {_OPAQUE}
 
     def module_member(self, dotted: str, name: str, depth: int) -> set[_Target]:
@@ -738,7 +739,7 @@ class _PythonModule:
         unit = self.index.unit_at(self.path, site)
         if unit is None:
             return _UNKNOWN_CALLABLE if site.type == "function_definition" else _OPAQUE
-        return _Target(node_id=unit, callable=self.index.is_callable(unit))
+        return _Target(node_id=unit)
 
     def _alias(self, site: Node, depth: int) -> set[_Target]:
         left = site.child_by_field_name("left")
@@ -805,7 +806,7 @@ class _PythonModule:
         if not names or names[0] != _text(head) or len(local) != 1:
             return None
         methods = self.index.members(class_id, _text(attribute))
-        return {_Target(node_id=m, callable=True, dispatch=True) for m in methods} or {_OPAQUE}
+        return {_Target(node_id=m, dispatch=True) for m in methods} or {_OPAQUE}
 
     def _method_of(self, node: Node) -> tuple[Node | None, str | None]:
         current = node.parent
@@ -1040,7 +1041,7 @@ class _PhpFile:
             targets = self._methods(self.classes.get(_php_key(name), []), method, dispatch=False)
         else:
             ids = self.functions.get(_php_key(name), [])
-            targets = {_Target(node_id=i, callable=True) for i in ids}
+            targets = {_Target(node_id=i) for i in ids}
         if targets:
             self._record(node, "string", targets, context)
 
@@ -1069,7 +1070,7 @@ class _PhpFile:
 
     def _methods(self, classes: list[str], method: str, *, dispatch: bool) -> set[_Target]:
         return {
-            _Target(node_id=m, callable=True, dispatch=dispatch)
+            _Target(node_id=m, dispatch=dispatch)
             for class_id in classes
             for m in self.index.members(class_id, method, fold=True)
         }
@@ -1084,7 +1085,7 @@ class _PhpFile:
 
     def _scope_classes(self, scope: Node, node: Node) -> tuple[list[str], bool] | None:
         """Classes named by a scope (``Type``, ``self``, ``static``, ``parent``)."""
-        if scope.type in {"name", "qualified_name"}:
+        if scope.type in {"name", "qualified_name", "relative_name"}:
             return self.classes.get(_php_key(self._class_name(_text(scope), node)), []), False
         if scope.type != "relative_scope":
             return None
@@ -1099,10 +1100,10 @@ class _PhpFile:
         name = _text(node.child_by_field_name("name"))
         if node.type == "function_call_expression":
             function = node.child_by_field_name("function")
-            if function is None or function.type not in {"name", "qualified_name"}:
+            if function is None or function.type not in {"name", "qualified_name", "relative_name"}:
                 return {_UNKNOWN_CALLABLE}
             ids = self._function_ids(_text(function), node)
-            return {_Target(node_id=i, callable=True) for i in ids} or {_UNKNOWN_CALLABLE}
+            return {_Target(node_id=i) for i in ids} or {_UNKNOWN_CALLABLE}
         if node.type == "scoped_call_expression":
             scope = node.child_by_field_name("scope")
             found = self._scope_classes(scope, node) if scope is not None else None

@@ -21,7 +21,10 @@ pytestmark = pytest.mark.mutation_infrastructure
         ("parsers/python/parser.py", "test_python_parser.py"),
         ("parsers/_common.py", "test_common_parser.py"),
         ("models/nodes.py", "test_models.py"),
+        ("models/snapshot.py", "test_snapshots.py"),
+        ("models/binary.py", "test_binary_models.py"),
         ("storage/graph_store.py", "test_storage.py"),
+        ("storage/binary_index.py", "test_binary_models.py"),
         ("query/api.py", "test_query.py"),
         ("analysis/entrypoints.py", "test_entrypoints.py"),
         ("analysis/_callable_references.py", "test_callable_references.py"),
@@ -41,6 +44,38 @@ def test_component_first_retains_every_test(source: str, focused: str) -> None:
 def test_unknown_component_keeps_collection_order() -> None:
     ids = ["tests/test_other.py::test_one", "tests/test_integration.py::test_two"]
     assert prioritize_tests("src/trailmark/new_feature.py", ids) == ids
+
+
+def test_snapshot_units_precede_general_models_without_dropping_fallbacks() -> None:
+    ids = [
+        "tests/test_models.py::test_node",
+        "tests/test_query.py::test_roundtrip",
+        "tests/test_snapshots.py::test_bad_digest",
+        "tests/test_snapshots.py::test_location[ZERO]",
+        "tests/test_binary_snapshots.py::test_proxy_roundtrip",
+    ]
+    assert prioritize_tests("src/trailmark/models/snapshot.py", ids) == [
+        ids[2],
+        ids[3],
+        ids[4],
+        ids[0],
+        ids[1],
+    ]
+
+
+def test_callable_boundaries_precede_integration_without_dropping_fallbacks() -> None:
+    ids = [
+        "tests/test_integration.py::test_end_to_end",
+        "tests/test_php_callables.py::test_acquisition",
+        "tests/test_callable_binding_boundaries.py::test_import_budget",
+        "tests/test_callable_references.py::test_argument",
+    ]
+    assert prioritize_tests("src/trailmark/analysis/_callable_references.py", ids) == [
+        ids[3],
+        ids[2],
+        ids[1],
+        ids[0],
+    ]
 
 
 def test_decorator_units_precede_framework_tests_and_keep_fallbacks() -> None:

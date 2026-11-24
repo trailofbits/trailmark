@@ -8,13 +8,17 @@
     "src/trailmark/parsers/rust/_scopes.py": "*",
     "src/trailmark/tree_sitter_custom/_native.py": "*",
     "src/trailmark/tree_sitter_custom/circom/__init__.py": "*",
-    "src/trailmark/tree_sitter_custom/masm/__init__.py": "*"
+    "src/trailmark/tree_sitter_custom/masm/__init__.py": "*",
+    "src/trailmark/models/snapshot.py": "*",
+    "src/trailmark/_path_glob.py": "*",
+    "src/trailmark/models/binary.py": "*",
+    "src/trailmark/query/api.py": "*"
   },
   "exceptions": [
     {
       "fingerprint": "1e4836526a62471ca1ff81350297b62d87418dfe5641268ec992aedb162559e4",
       "function": "_extract_impl_type_name",
-      "line": 538,
+      "line": 558,
       "mutated": "return",
       "operator": "return",
       "original": "return ''",
@@ -25,7 +29,7 @@
     {
       "fingerprint": "f6575441591dbbe6d291e7e2f45e728c284e9102ae9c7a28d1a126251eb4da42",
       "function": "_first_path_segment",
-      "line": 810,
+      "line": 830,
       "mutated": "return",
       "operator": "return",
       "original": "return ''",
@@ -65,154 +69,17 @@
       "path": "src/trailmark/parsers/rust/_scopes.py",
       "source_hash": "ecf434b3f53dbc5c7e8516d9292b9d893b6e8dafbb5550aaf1e4e127a6d61996",
       "reason": "Equivalent for parser-produced call and trait locations: a location starts at an expression or trait token, never the opening-brace token of the declaration's enclosing block. Equality with that enclosing block's start_point cannot occur. Removing equality at the lower bound therefore changes no resolver decision. The closing bound and other comparisons remain gated; arbitrary manually fabricated locations passed to this private helper are outside this exception."
-    }
-  ],
-  "legacy_policy": "These functions match the pre-PR base f7e19d3. Their existing mutation outcomes are reported but not gated until their AST changes. New functions and changed functions in the scoped files are gated automatically.",
-  "unchanged_legacy_functions": [
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "RustParser.language",
-      "source_hash": "74b4d6bfc81a284788f98d59d0145a3d5a5e89350b74715678408789bc872660"
     },
     {
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "RustParser.parse_directory",
-      "source_hash": "e9065c2641b2adc74c245b7fdf875096cf2b9e8de2d32c5debcfc22076b1e6ba"
-    },
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "_extract_impl_type_name",
-      "source_hash": "ffdb1858a2344bb31d04d72cddfc7b76e84342b90b81fcfcbf83149ec1d02814"
-    },
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "_extract_parameters",
-      "source_hash": "cbbaa0b7cb9d4466622226a3a3e1987214c01226652239d1ea3c419863b39ba5"
-    },
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "_extract_single_param",
-      "source_hash": "6eb58025b0c771249e7d36b35a219c1fba9ed7ddcba51ef09bd181b304d757d8"
-    },
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "_call_confidence",
-      "source_hash": "fd0c7263f8bdc977492bec7a5618224d1e73107cbb03073103346f9fe60344db"
-    },
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "_extract_import",
-      "source_hash": "b5112092d64933528d9fc95f6c6d46ab9d093dea97f36cfd3d739a27c82879fc"
-    },
-    {
-      "path": "src/trailmark/parsers/rust/parser.py",
-      "function": "_first_path_segment",
-      "source_hash": "4b5300dfec537fcf923b06171c734e9b801bde876c05de9434ba147c3b1d72a9"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "node_text",
-      "source_hash": "b7e95175bee1b8df37efa16e9d6e6a965042660482e6a5ac0dfb771696a85c7b"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "make_location",
-      "source_hash": "d0d179c611c3270bce28acb8315b6746107c06cc52a938979c6a606ba79ef3e3"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "module_id_from_path",
-      "source_hash": "c9a656d10c67c1c683b7b28d48535bb422ba8f8f3cdaf8070ae1cedf294ecc8f"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_absolute_lexical_path",
-      "source_hash": "917a50b3146f3d14a00324b6aa9612bc3d50e3e0ac6ba221327629bbafe323d4"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_escape_module_path_part",
-      "source_hash": "e3122819d58a58391a93edce0de61670567ead1b1bcac056a26aa9c316b51fbe"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "should_skip_dir",
-      "source_hash": "797990d1cab2034d4517c309e328c750a209c5bc67adc20e5e8eea05528f4099"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "walk_source_files",
-      "source_hash": "857e1c023d397c2a4802bbce46f5246f365934534ba18e3848bc01050d566fec"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "parse_directory",
-      "source_hash": "2c15ded77a405d97825a1af1649cfa17815bd2c760e955ecc3bb45ca5aeccb7c"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_extract_condition_text",
-      "source_hash": "f2dadfdd3edb755e904493b4d4aff80fea9e4b5cf00ecf2841d7895fe4011ba9"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_collect_throw_type",
-      "source_hash": "eb2fcbb814bfbf4ed483eb8e836d636472085eacc96ebc7f03779d140e73fc10"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "extract_call_name",
-      "source_hash": "f7bfe6f949c31eeadbf2563e1901d03e5ba0e1bd7a821856fbba79eb249132d3"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "compute_complexity",
-      "source_hash": "7b05dd5297268c94fe28cc009ca1a956a5831139eae02d470781f2b9f987b86e"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "add_module_node",
-      "source_hash": "603c7fd640563688a77e780dc2c371a990cd6a7b6b57cf6c5a9ed6320cf725ee"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "add_contains_edge",
-      "source_hash": "d8954821596d8988beb6798a67ff417cc758149c0dc5fc2b32baaf20f55bfe04"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_generic_parameter_block",
-      "source_hash": "1264b81279f7bfee66be123d33e54c949919ec28350bfb45ae255535be30695a"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_block_from_match",
-      "source_hash": "c94385dac80edd7c66504d7995272e2d1733ff48088e0ad0cdd84774dca5a5b9"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_delimited_block_at",
-      "source_hash": "bbe5ca82ff344e28a2b28830ddba9a0d8001dfbb1054abd0b0e03dd585c88b4e"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_split_top_level",
-      "source_hash": "bcfbc2447709437a8edad87f918b5c3b1c7594f488014e744154ee29a25f5209"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_parse_type_parameter",
-      "source_hash": "8985aa504f55c2f6997cb7006e2465b49e7ff397947eaa74d720d3e2409598ae"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "first_child_by_type",
-      "source_hash": "ee66557915820a23b03e627c4bebae2b1aa29b5c278bfd49ebefcd5feb894fae"
-    },
-    {
-      "path": "src/trailmark/parsers/_common.py",
-      "function": "_link_cross_file_calls",
-      "source_hash": "0220a0c637ceae13530f1ce5943eb7522e89f2fc0481a0e7a2ae331eb95c6080"
+      "fingerprint": "b2e15a65cb14c960a04e5b103384d60f0b92e304a1f40de3ca89bd1cc9c32568",
+      "source_hash": "ccc5c1be2cccd5df44d95750b2bd29c9bba1846745712cff3b9064ecf3ce485d",
+      "path": "src/trailmark/models/snapshot.py",
+      "function": "_decode",
+      "line": 101,
+      "operator": "boolean",
+      "original": "True",
+      "mutated": "False",
+      "reason": "Equivalent after the explicit fixed-tuple length check immediately above: both input and type lists have equal lengths before zip runs. strict=True and strict=False therefore visit the same pairs and raise the same item-validation errors for every supported snapshot input. Wrong tuple lengths remain rejected before this iterator; malformed tuples and element types are covered by snapshot regressions. No other decoder mutation is exempted. Origin-aware node-location validation leaves this equal-length precondition unchanged."
     }
   ]
 }

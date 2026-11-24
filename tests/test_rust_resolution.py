@@ -6,8 +6,55 @@ from pathlib import Path
 
 import pytest
 
+from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.parse import parse_file
+from trailmark.parsers.rust._scopes import resolve_calls
+from trailmark.parsers.rust.parser import RustParser, parse_syntax_roots
 from trailmark.query.api import QueryEngine
+
+
+@pytest.mark.parametrize("kind", [EdgeKind.REFERENCES, EdgeKind.READS])
+def test_call_resolution_preserves_other_unresolved_relationships(
+    tmp_path: Path, kind: EdgeKind
+) -> None:
+    source = b"fn source() {}\nfn target() {}\n"
+    path = tmp_path / "sample.rs"
+    path.write_bytes(source)
+    graph = RustParser().parse_file(str(path))
+    (root,) = parse_syntax_roots(source, str(path))
+    functions = {}
+    for node in root.named_children:
+        if node.type == "function_item":
+            name = node.child_by_field_name("name")
+            assert name is not None
+            text = name.text
+            assert text is not None
+            functions[f"sample:{text.decode()}"] = node
+    relationship = CodeEdge("sample:source", "target", kind)
+    graph.edges.append(relationship)
+    resolve_calls(graph, [], "sample", functions)
+    assert graph.edges[-1] == relationship
+
+
+def test_syntax_roots_include_top_level_verus_without_opening_function_macros() -> None:
+    source = (
+        b"verus! { fn visible() {} }\n"
+        b"fn host() { verus! { fn hidden() {} } }\n"
+        b"opaque! { verus! { fn opaque() {} } }\n"
+    )
+    roots = parse_syntax_roots(source, "syntax.rs")
+    assert len(roots) == 2
+    pending = [roots[1]]
+    names = []
+    while pending:
+        node = pending.pop()
+        if node.type == "function_item":
+            name = node.child_by_field_name("name")
+            assert name is not None
+            names.append(name.text)
+        pending.extend(node.named_children)
+    assert names == [b"visible"]
+
 
 SOURCE = """\
 struct Engine;

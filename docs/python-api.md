@@ -67,7 +67,9 @@ Roots are ordered: a canonical file belongs to the first root that selects it.
 An explicitly selected root bypasses its parents' exclusions. Multiple roots
 prefix node IDs with `root_name::` to preserve source identity. Include and
 exclude globs are relative to each root; explicit includes override exclusions.
-`*` and `?` match within a path segment; `**` spans directories. A matched
+`*` and `?` match within a path segment; each `**` can span zero or more
+directories, including consecutive globstar segments. Wildcards also match
+newline characters in POSIX filenames. A matched
 directory excludes its descendants, including when a specific include keeps
 traversal open. Both `build` and `build/` exclude that directory.
 Directory symlinks are not followed, file symlinks cannot escape a root, and
@@ -365,6 +367,8 @@ accepts that JSON string or its decoded dictionary. Loading validates the format
 schema, exporter version, typed fields, evidence identities, and graph references
 before building the index. Dangling relationships are permitted only with a matching
 explicit inventory. Incompatible or malformed snapshots raise `ValueError`.
+Binary, proxy, and synthetic nodes may retain the line range `(0, 0)` for
+unknown source locations. Source-node locations use positive line numbers.
 
 ```python
 from pathlib import Path

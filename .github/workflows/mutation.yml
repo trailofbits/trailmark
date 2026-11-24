@@ -24,6 +24,12 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
       MUTATION_SHARD: ${{ matrix.shard }}/8
+      TRAILMARK_REQUIRE_BINARY_TOOLS: "1"
+      TRAILMARK_LLVM_OBJDUMP: /usr/bin/llvm-objdump
+      TRAILMARK_LLVM_SYMBOLIZER: /usr/bin/llvm-symbolizer
+      TRAILMARK_LLVM_READOBJ: /usr/bin/llvm-readobj
+      TRAILMARK_GNU_OBJDUMP: /usr/bin/objdump
+      TRAILMARK_GNU_SYMBOLIZER: /usr/bin/addr2line
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -37,19 +43,20 @@ jobs:
         with:
           python-version: "3.13"
 
+      - run: sudo apt-get update && sudo apt-get install -y llvm binutils-multiarch
       - run: npm ci
-      - run: uv sync --locked --all-groups
+      - run: uv sync --locked --all-groups --extra binary
 
       - name: Run reviewed mutation scope
         if: github.event_name == 'pull_request'
-        run: uv run --locked python -m tests.run_mutations --reviewed --workers=4 --shard="$MUTATION_SHARD"
+        run: uv run --locked --extra binary python -m tests.run_mutations --reviewed --workers=4 --shard="$MUTATION_SHARD"
 
       - name: Run full mutation campaign
         if: github.event_name != 'pull_request'
-        run: uv run --locked python -m tests.run_mutations --workers=4 --shard="$MUTATION_SHARD"
+        run: uv run --locked --extra binary python -m tests.run_mutations --workers=4 --shard="$MUTATION_SHARD"
 
-      - name: Enforce reviewed Rust and Verus baseline
-        run: uv run --locked python -m tests.mutation_gate --shard="$MUTATION_SHARD"
+      - name: Enforce reviewed mutation baseline
+        run: uv run --locked --extra binary python -m tests.mutation_gate --shard="$MUTATION_SHARD"
 
       - name: Record revision
         if: always()

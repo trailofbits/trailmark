@@ -20,6 +20,8 @@ with the enclosing function; initialization traversal defers their bodies.
 Local classes retain separate method owners. Variadic
 parameters retain names and annotations; `self` and `cls` are omitted only as
 actual method receivers, and retained in free functions and static methods.
+Callable-reference discovery respects parameter shadowing, including annotated
+`*args` and `**kwargs`, without treating annotation names as local bindings.
 
 Python module nodes own calls in top-level statements and explicit top-level
 decorator calls. Calls in function and method bodies keep their callable owner.

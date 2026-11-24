@@ -1,10 +1,10 @@
 """Python runtime definitions retain their bodies and execution order."""
 
 from pathlib import Path
-from time import perf_counter
 
 import pytest
 
+from tests.test_round5_python import _parse_work
 from trailmark.models import EdgeKind, NodeKind
 from trailmark.parse import parse_file
 
@@ -75,11 +75,16 @@ def test_only_known_overload_decorators_are_stubs(tmp_path: Path, decorator: str
 @pytest.mark.parametrize("body", ["def f(): pass\n", "@show.register\ndef _(x: T): pass\n"])
 def test_many_runtime_definitions_are_linear(tmp_path: Path, body: str) -> None:
     path = tmp_path / "a.py"
-    path.write_text(body * 4000)
-    start = perf_counter()
-    graph = parse_file(str(path))
-    assert perf_counter() - start < 1
-    assert len([u for u in graph.nodes.values() if u.kind == NodeKind.FUNCTION]) == 4000
+    work = []
+    for count in (1000, 4000):
+        path.write_text(body * count)
+        graph, visits = _parse_work(path)
+        assert visits > 0
+        work.append(visits)
+        assert len([u for u in graph.nodes.values() if u.kind == NodeKind.FUNCTION]) == count
+    # Four times the declarations may use up to five times the Python work.
+    # Repeated scans of earlier definitions grow quadratically (about 16 times).
+    assert work[1] <= 5 * work[0], work
 
 
 def test_python_call_before_local_definition_is_unbound(tmp_path: Path) -> None:
