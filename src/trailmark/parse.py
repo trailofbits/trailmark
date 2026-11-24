@@ -345,7 +345,14 @@ def parse_roots(
         languages = _resolve_directory_languages(
             selected.path, language, allow_empty=True, selected_files=paths
         )
-        sub = _parse_and_merge(os.path.abspath(selected.path), languages, paths)
+        path = os.path.abspath(selected.path)
+        if len(policy.roots) > 1 and "python" in languages:
+            from trailmark.parsers.python.parser import collect_cross_root_imports
+
+            with collect_cross_root_imports():
+                sub = _parse_and_merge(path, languages, paths)
+        else:
+            sub = _parse_and_merge(path, languages, paths)
         if len(policy.roots) == 1:
             merged.language = sub.language
         if len(policy.roots) > 1:
@@ -356,6 +363,10 @@ def parse_roots(
     from trailmark.parsers.php._includes import link_php_includes
 
     link_php_includes(merged)
+    if len(policy.roots) > 1 and merged.source_file_counts.get("python"):
+        from trailmark.parsers.python.parser import link_cross_root_imports
+
+        link_cross_root_imports(merged)
     if not allow_empty and not sum(merged.source_file_counts.values()):
         raise ValueError("No source files inspected under the selected source policy")
     _check_diagnostics(merged, strict=strict)
