@@ -67,6 +67,8 @@ def test_rejects_skipped_or_invalid_instrumentation(
         (2, "pytest_gremlins", "1.9.0"),
         (1, "runner", "trailmark-full-pytest-v2"),
         (1, "runner", "trailmark-full-pytest-v3"),
+        (1, "runner", "trailmark-full-pytest-v4"),
+        (1, "runner", "trailmark-full-pytest-v5"),
     ],
 )
 def test_rejects_previous_adapter_reports(

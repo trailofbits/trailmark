@@ -146,6 +146,10 @@ with a simulated clock and process; keep optional wall-clock measurements in
 The adapter uses private plugin APIs; its control tests must pass before upgrading
 the plugin.
 
+Collection-time `SystemExit` counts as a kill only when its traceback includes
+an instrumented application source and the unmutated test selection loads
+successfully. Harness failures and unrelated internal errors remain errors.
+
 Each mutant subprocess may run for 240 seconds so the full fallback suite can
 finish with four workers competing for CI resources. A timeout is not counted
 as a kill unless the unmutated confirmation run establishes sufficient headroom;

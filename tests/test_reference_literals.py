@@ -20,6 +20,16 @@ def _values(tmp_path: Path, name: str, text: str) -> list[str]:
     return [ref.value for ref in reference_literals(_write(tmp_path, name, text))]
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("\n  value", (3, 1)), ("\n \n\tvalue", (4, 2)), ("\n \n\t", (4, 2))],
+)
+def test_yaml_line_break_scanner_advances_to_content_or_end(
+    text: str, expected: tuple[int, int]
+) -> None:
+    assert _reference_literals._yaml_skip_breaks(text, 0) == expected
+
+
 _GRAPHQL = r'''# comment "App\\Comment::nope" App\Hidden::nope
 """Type description "App\\Doc::nope" with \""" inside."""
 type Query {

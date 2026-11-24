@@ -2,8 +2,19 @@ from pathlib import Path
 
 import pytest
 
+from tests.parse_work import parse_work
 from trailmark.models.edges import EdgeKind
 from trailmark.parse import detect_languages, parse_directory, parse_file
+
+
+def test_missing_import_stops_after_enclosing_namespaces(tmp_path: Path) -> None:
+    source = tmp_path / "Scoped.v"
+    source.write_text(
+        "Module Outer.\nRequire Import Missing.\nDefinition value := 0.\nEnd Outer.\n"
+    )
+    graph, _ = parse_work(source, language="rocq", max_work=100_000)
+    value = next(node for node in graph.nodes.values() if node.name == "value")
+    assert dict(value.attributes)["qualified_name"] == "Scoped.Outer.value"
 
 
 def test_gallina_references_and_statement_roles() -> None:

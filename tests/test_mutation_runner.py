@@ -11,11 +11,94 @@ from pathlib import Path
 
 import pytest
 from pytest_gremlins.instrumentation.transformer import transform_source
+from pytest_gremlins.parallel.exit_codes import COLLECTION_KILLING_TEST
 
+from tests.mutation_bootstrap import record_source_collection_exits
 from tests.mutation_gate import check
 from tests.run_mutations import RUNNER, VERSION, parse_shard, select_shard
 
 pytestmark = pytest.mark.mutation_infrastructure
+
+
+def _run_collection_control(
+    tmp_path: Path, source: str, conftest: str = ""
+) -> subprocess.CompletedProcess[str]:
+    (tmp_path / "target.py").write_text(source)
+    (tmp_path / "test_target.py").write_text(
+        "from target import checked\ndef test_checked():\n    assert checked() is True\n"
+    )
+    if conftest:
+        (tmp_path / "conftest.py").write_text(conftest)
+    return subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            str(Path(__file__).with_name("run_mutations.py")),
+            "--targets=target.py",
+            "--workers=2",
+            "test_target.py",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_application_collection_exit_is_confirmed_as_a_kill(tmp_path: Path) -> None:
+    result = _run_collection_control(
+        tmp_path,
+        "import sys\nif __name__ == '__main__':\n    sys.exit(2)\n"
+        "def checked():\n    return True\n",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
+    assert report["results"]
+    assert {row["status"] for row in report["results"]} == {"zapped"}
+    assert any(row.get("killing_test") == COLLECTION_KILLING_TEST for row in report["results"])
+
+
+@pytest.mark.parametrize(
+    ("hook", "exception"),
+    [
+        ("pytest_collection_modifyitems", "SystemExit(2)"),
+        ("pytest_collection_modifyitems", "RuntimeError('controlled harness failure')"),
+        ("pytest_sessionfinish", "SystemExit(2)"),
+    ],
+)
+def test_harness_failures_remain_errors(tmp_path: Path, hook: str, exception: str) -> None:
+    result = _run_collection_control(
+        tmp_path,
+        "def checked():\n    return True\n",
+        "import os\n"
+        f"def {hook}():\n"
+        "    if os.environ.get('ACTIVE_GREMLIN'):\n"
+        f"        raise {exception}\n",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
+    assert report["results"]
+    assert {row["status"] for row in report["results"]} == {"error"}
+
+
+def test_unmutated_collection_exit_does_not_produce_scores(tmp_path: Path) -> None:
+    result = _run_collection_control(
+        tmp_path,
+        "import os, sys\n"
+        "if os.environ.get('PYTEST_GREMLINS_SOURCES_FILE'):\n    sys.exit(2)\n"
+        "def checked():\n    return True\n",
+    )
+    assert result.returncode != 0
+    assert "Instrumented baseline failed" in result.stdout + result.stderr
+    assert not (tmp_path / "coverage/gremlins/run.json").exists()
+    assert not (tmp_path / "coverage/gremlins/progress.jsonl").exists()
+
+
+def test_bootstrap_adapter_rejects_an_unrecognized_layout(tmp_path: Path) -> None:
+    bootstrap = tmp_path / "gremlin_bootstrap.py"
+    bootstrap.write_text("print('unrecognized bootstrap')\n")
+    with pytest.raises(pytest.UsageError, match="Revalidate"):
+        record_source_collection_exits(tmp_path)
+    assert bootstrap.read_text() == "print('unrecognized bootstrap')\n"
 
 
 @pytest.mark.parametrize("value", ["0/4", "5/4", "1/0", "-1/4", "1", "1/2/3", "one/4"])

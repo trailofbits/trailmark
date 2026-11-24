@@ -29,11 +29,12 @@ from pytest_gremlins.node_id_file import command_with_node_ids_file
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.mutation_bootstrap import record_source_collection_exits
 from tests.mutation_controls import baseline_receipt, input_fingerprint, validate_baselines
 from tests.mutation_order import prioritize_tests, relative_node_ids
 
 VERSION = "1.14.3"
-RUNNER = "trailmark-full-pytest-v5"
+RUNNER = "trailmark-full-pytest-v6"
 
 
 def parse_shard(value: str) -> tuple[int, int]:
@@ -180,6 +181,7 @@ def _instrumented_writer(
         directory = write_sources(instrumented_asts, rootdir, duplicates, unwritable)
         if unwritable:
             raise pytest.UsageError(f"Mutation instrumentation skipped files: {unwritable}")
+        record_source_collection_exits(directory)
         receipts.append(_check_instrumented_orders(directory, instrumented_asts, args, fingerprint))
         return directory
 

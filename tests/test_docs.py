@@ -377,6 +377,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "run the full campaign before merging"),
     ("CONTRIBUTING.md", "inconclusive outcomes still fail the gate"),
     ("CONTRIBUTING.md", "pins pytest-gremlins 1.14.3"),
+    ("CONTRIBUTING.md", "Harness failures and unrelated internal errors remain errors"),
     ("CONTRIBUTING.md", "pytest timeout markers, or test subprocess deadlines"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
