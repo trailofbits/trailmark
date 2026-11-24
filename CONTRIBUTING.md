@@ -122,8 +122,12 @@ pytest subprocesses and import handling, including fixtures, parametrized tests,
 package metadata, and instrumentation in spawned child processes. Trailmark
 checks the clean baseline and each distinct instrumented test ordering before
 mutating, skips the redundant coverage pre-scan, preserves exact parameter IDs,
-and rejects skipped instrumentation. Performance regressions should use
-deterministic work bounds rather than wall-clock thresholds in the mutation suite.
+and rejects skipped instrumentation. Tests use deterministic work bounds rather
+than wall-clock thresholds. The test suite has no elapsed-time assertions,
+pytest timeout markers, or test subprocess deadlines. Hypothesis deadlines and
+its generation-speed health check are disabled. Test product timeout behavior
+with a simulated clock and process; keep optional wall-clock measurements in
+`tests/benchmark_analysis.py` or `tests/smoke_binary_projects.py`.
 The adapter uses private plugin APIs; its control tests must pass before upgrading
 the plugin.
 

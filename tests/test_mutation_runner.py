@@ -70,7 +70,6 @@ def test_sharded_campaigns_match_complete_campaign(tmp_path: Path) -> None:
             capture_output=True,
             text=True,
             check=False,
-            timeout=120,
         )
         assert result.returncode == 0, result.stdout + result.stderr
         report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
@@ -232,9 +231,9 @@ def test_checked_only_in_child(tmp_path):
     child = context.Process(target=evaluate, args=(queue,))
     child.start()
     try:
-        answer = queue.get(timeout=10)
-        child.join(timeout=10)
+        child.join()
         assert child.exitcode == 0
+        answer = queue.get()
         assert answer is True
     finally:
         if child.is_alive():
@@ -249,7 +248,6 @@ def test_checked_only_in_child(tmp_path):
         capture_output=True,
         text=True,
         check=False,
-        timeout=120,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     report = json.loads((tmp_path / "coverage/gremlins/gremlins.json").read_text())
@@ -295,7 +293,6 @@ def test_runner_rejects_skipped_instrumentation(
         capture_output=True,
         text=True,
         check=False,
-        timeout=120,
     )
     assert result.returncode != 0
     assert "Mutation instrumentation skipped files" in result.stdout + result.stderr

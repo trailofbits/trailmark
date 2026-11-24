@@ -24,7 +24,6 @@ def test_php_runtime_exposes_implicit_failure_paths_absent_from_direct_throw_met
         capture_output=True,
         text=True,
         check=True,
-        timeout=10,
     )
     if int(version.stdout) < 70400:
         pytest.skip("Throwing from __toString and __unserialize require PHP 7.4+")
@@ -33,7 +32,6 @@ def test_php_runtime_exposes_implicit_failure_paths_absent_from_direct_throw_met
         capture_output=True,
         text=True,
         check=True,
-        timeout=10,
     )
     observed = json.loads(result.stdout)
     assert observed["state"] == "changed"

@@ -1,7 +1,6 @@
 """Regression coverage for callable ownership and bounded extraction."""
 
 from pathlib import Path
-from time import perf_counter
 from typing import cast
 
 import pytest
@@ -23,9 +22,7 @@ def test_expression_lambdas_are_extracted_once(tmp_path: Path, extension: str, d
     )
     path = tmp_path / f"a.{extension}"
     path.write_text(source)
-    start = perf_counter()
     graph = parse_file(str(path))
-    assert perf_counter() - start < 1
     lambdas = [u for u in graph.nodes.values() if u.name.startswith("$lambda")]
     assert len(lambdas) == min(depth, 47 if extension == "php" else 46)
     calls = [

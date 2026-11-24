@@ -29,7 +29,7 @@ class OracleImage:
 
 
 def _run(command: list[str]) -> str:
-    return subprocess.run(command, check=True, capture_output=True, text=True, timeout=30).stdout  # noqa: S603
+    return subprocess.run(command, check=True, capture_output=True, text=True).stdout  # noqa: S603
 
 
 def _field(body: str, name: str) -> int:

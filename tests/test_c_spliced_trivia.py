@@ -182,7 +182,6 @@ assert graph.parse_diagnostics
         [sys.executable, "-c", script, str(path)],
         capture_output=True,
         text=True,
-        timeout=10,
         check=False,
     )
     assert result.returncode == 0, result.stderr

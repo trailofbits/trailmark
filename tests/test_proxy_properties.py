@@ -168,6 +168,5 @@ print('done')
         capture_output=True,
         text=True,
         check=True,
-        timeout=10,
     )
     assert result.stdout == "done\n"

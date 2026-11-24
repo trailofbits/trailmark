@@ -132,8 +132,6 @@ def test_valid_block_without_functions_is_not_an_error(
     assert caplog.records == []
 
 
-@pytest.mark.timeout(5, func_only=True)
-@pytest.mark.usefixtures("compiled_verus")
 def test_opaque_macros_are_diagnosed_without_expanding_them(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

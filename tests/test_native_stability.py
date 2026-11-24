@@ -49,7 +49,6 @@ def test_large_file_parses_in_subprocess(
         [sys.executable, "-X", "faulthandler", "-c", script],
         capture_output=True,
         text=True,
-        timeout=30,
         check=False,
     )
     assert result.returncode == 0, result.stderr
@@ -71,7 +70,6 @@ for index in range(2000):
         [sys.executable, "-X", "faulthandler", "-c", script],
         capture_output=True,
         text=True,
-        timeout=30,
         check=False,
     )
     assert result.returncode == 0, result.stderr

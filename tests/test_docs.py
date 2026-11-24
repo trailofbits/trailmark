@@ -373,7 +373,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "requires all eight shards to pass"),
     ("CONTRIBUTING.md", "inconclusive outcomes still fail the gate"),
     ("CONTRIBUTING.md", "pins pytest-gremlins 1.14.3"),
-    ("CONTRIBUTING.md", "deterministic work bounds rather than wall-clock thresholds"),
+    ("CONTRIBUTING.md", "pytest timeout markers, or test subprocess deadlines"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
     ("docs/cli.md", "JSON to stdout"),

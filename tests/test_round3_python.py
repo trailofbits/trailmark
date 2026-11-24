@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_round5_python import _parse_work
+from tests.parse_work import parse_work
 from trailmark.models import EdgeKind, NodeKind
 from trailmark.parse import parse_file
 
@@ -78,7 +78,7 @@ def test_many_runtime_definitions_are_linear(tmp_path: Path, body: str) -> None:
     work = []
     for count in (1000, 4000):
         path.write_text(body * count)
-        graph, visits = _parse_work(path)
+        graph, visits = parse_work(path)
         assert visits > 0
         work.append(visits)
         assert len([u for u in graph.nodes.values() if u.kind == NodeKind.FUNCTION]) == count

@@ -73,7 +73,6 @@ dev = [
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.6,<1.0",
-    "pytest-timeout>=2.4,<3",
     "ty>=0.0.107,<0.1",
 ]
 

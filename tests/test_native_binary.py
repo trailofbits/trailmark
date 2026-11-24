@@ -773,7 +773,6 @@ def test_exception_metadata_does_not_imply_recovered_exception_dispatch(tmp_path
         ],
         capture_output=True,
         check=True,
-        timeout=60,
     )
     binary = lief_module().parse(str(image))
     assert binary is not None
