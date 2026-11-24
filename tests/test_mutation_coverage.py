@@ -9,10 +9,12 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+import coverage
 import pytest
 
 from tests.mutation_controls import digest
 from tests.mutation_coverage import (
+    SelectionCoverage,
     collect_plan,
     native_tool_fingerprints,
     select_tests,
@@ -190,6 +192,41 @@ def test_python_and_script_wrappers_never_become_trusted_native_tools(
     assert str(Path(sys.executable).resolve()) not in trusted
 
 
+@pytest.mark.parametrize("kind", ["native", "script", "python"])
+@pytest.mark.parametrize(
+    ("arguments", "spoof_argv", "native_query"),
+    [
+        (["-C", "root with spaces", "rev-parse", "HEAD"], False, True),
+        (["status"], False, False),
+        (["-C", "root", "rev-parse", "main"], False, False),
+        (["-c", "alias.query=external", "-C", "root", "rev-parse", "HEAD"], False, False),
+        (["-C", "root", "rev-parse", "HEAD"], True, False),
+    ],
+)
+def test_only_fixed_native_git_revision_queries_avoid_opaque_coverage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    arguments: list[str],
+    spoof_argv: bool,
+    native_query: bool,
+) -> None:
+    tool = tmp_path / "git"
+    if kind == "python":
+        tool.symlink_to(sys.executable)
+    else:
+        tool.write_bytes(b"\x7fELFnative tool" if kind == "native" else b"#!/usr/bin/env python3\n")
+    monkeypatch.setattr(
+        "tests.mutation_coverage.shutil.which", lambda name: str(tool) if name == "git" else None
+    )
+    collector = SelectionCoverage(coverage.Coverage(config_file=False), ["test_query"])
+    collector.context = ("test", "test_query")
+    command = ["different-git" if spoof_argv else str(tool), *arguments]
+    collector.audit("subprocess.Popen", (str(tool), command, None, None))
+    assert bool(collector.uncertain) == (kind != "native" or not native_query)
+    assert not collector.collection_uncertain
+
+
 def test_collection_tracing_gaps_require_the_full_suite(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -321,7 +358,7 @@ def test_coverage_and_full_campaigns_agree_on_opaque_killers(tmp_path: Path, cas
 
 
 @pytest.mark.parametrize("shared", [False, True])
-def test_selected_subset_must_pass_before_any_mutant_runs(tmp_path: Path, shared: bool) -> None:
+def test_neutral_failure_prefix_must_pass_before_scoring(tmp_path: Path, shared: bool) -> None:
     (tmp_path / "target.py").write_text("def checked():\n    return True\n")
     (tmp_path / "state.py").write_text("ready = False\n")
     (tmp_path / "test_a_setup.py").write_text(
@@ -352,7 +389,7 @@ def test_selected_subset_must_pass_before_any_mutant_runs(tmp_path: Path, shared
         baselines.mkdir()
         for name in ("coverage-plan.json", "baseline-1-of-1.json"):
             (reports / name).rename(baselines / name)
-        options = ["--selection-baseline-shard=1/1", f"--baselines={baselines}"]
+        options = [f"--baselines={baselines}"]
     result = subprocess.run(  # noqa: S603
         [*command, *options, "."],
         cwd=tmp_path,
@@ -361,7 +398,6 @@ def test_selected_subset_must_pass_before_any_mutant_runs(tmp_path: Path, shared
         check=False,
     )
     assert result.returncode != 0
-    assert "Selected instrumented baseline failed" in result.stdout + result.stderr
+    assert "Unmutated failure prefix failed" in result.stdout + result.stderr
     assert not (tmp_path / "coverage/gremlins/run.json").exists()
     assert not (tmp_path / "coverage/gremlins/progress.jsonl").exists()
-    assert not list((tmp_path / "coverage/gremlins").glob("selection-baseline-*.json"))

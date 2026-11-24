@@ -125,6 +125,9 @@ def _validate_versions(run: dict[str, Any], baseline: dict[str, Any]) -> None:
         raise ValueError("Report lacks validated pytest execution")
     if run.get("test_selection") not in {"coverage", "full"}:
         raise ValueError("Unknown mutation test selection mode")
+    confirmation = "baseline-orders" if run["test_selection"] == "full" else "failure-prefix"
+    if run.get("kill_confirmation") != confirmation:
+        raise ValueError("Report lacks validated pytest failure confirmation")
 
 
 def _validate_test_selection(root: Path, report: dict[str, Any], run: dict[str, Any]) -> None:

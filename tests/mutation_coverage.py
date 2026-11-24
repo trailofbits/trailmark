@@ -18,6 +18,7 @@ from unittest.mock import patch
 import coverage
 import pytest
 from _pytest.fixtures import FixtureDef
+from pytest_gremlins.instrumentation.spawn_hook import export_spawn_hook
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -38,7 +39,7 @@ def native_tool_fingerprints() -> dict[str, str]:
     }
     candidates.update(
         path
-        for command in ("cc", "clang", "clang++", "gcc", "g++")
+        for command in ("cc", "clang", "clang++", "gcc", "g++", "git")
         if (path := shutil.which(command))
     )
     for candidate in tuple(candidates):
@@ -84,6 +85,8 @@ class SelectionCoverage:
         self.completed: set[str] = set()
         self._finish_fixture = FixtureDef.finish
         self.native_tools = native_tool_fingerprints()
+        git = shutil.which("git")
+        self.git_tool = str(Path(git).resolve()) if git else None
         self.tracer: object = None
         self.recording = True
         self.switching_context = False
@@ -99,7 +102,17 @@ class SelectionCoverage:
                 name = os.fsdecode(executable)
                 resolved = shutil.which(name) if not Path(name).is_absolute() else name
                 if resolved is not None and str(Path(resolved).resolve()) in self.native_tools:
-                    return
+                    if str(Path(resolved).resolve()) != self.git_tool:
+                        return
+                    argv = arguments[1] if len(arguments) > 1 else None
+                    if (
+                        isinstance(argv, (list, tuple))
+                        and len(argv) == 5
+                        and all(isinstance(arg, (str, bytes)) for arg in argv)
+                    ):
+                        argv = [os.fsdecode(arg) for arg in argv]
+                        if argv[:2] == [name, "-C"] and argv[3:] == ["rev-parse", "HEAD"]:
+                            return
         if event in {
             "subprocess.Popen",
             "os.fork",
@@ -168,6 +181,13 @@ class SelectionCoverage:
             self._finish_fixture(fixturedef, request)
         finally:
             self._switch(previous)
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_load_initial_conftests(self) -> None:
+        for finder in list(sys.meta_path):
+            if getattr(finder, "is_gremlin_finder", False):
+                sys.meta_path.remove(finder)
+                sys.meta_path.insert(0, finder)
 
     def pytest_collection_finish(self, session: pytest.Session) -> None:
         if [item.nodeid for item in session.items] != self.tests:
@@ -239,7 +259,12 @@ def select_tests(
 
 
 def collect_plan(
-    directory: Path, command: Sequence[str], tests: list[str], sources: list[str]
+    directory: Path,
+    command: Sequence[str],
+    tests: list[str],
+    sources: list[str],
+    *,
+    instrumented: bool = False,
 ) -> dict[str, Any]:
     """Require a successful complete pre-scan; never reuse a partial coverage map."""
     specification = directory / "coverage-input.json"
@@ -248,7 +273,15 @@ def collect_plan(
     specification.write_text(json.dumps({"tests": tests, "sources": sources}))
     env = os.environ.copy()
     env.pop("ACTIVE_GREMLIN", None)
-    env.pop("PYTEST_GREMLINS_SOURCES_FILE", None)
+    if instrumented:
+        sources_file = directory / "sources.json"
+        if not sources_file.is_file():
+            raise pytest.UsageError("Missing sources for the instrumented coverage baseline")
+        env["PYTEST_GREMLINS_SOURCES_FILE"] = str(sources_file)
+        env["GREMLIN_ROOTDIR"] = str(Path.cwd())
+        export_spawn_hook(env)
+    else:
+        env.pop("PYTEST_GREMLINS_SOURCES_FILE", None)
     env.pop("COVERAGE_PROCESS_CONFIG", None)
     env.pop("COVERAGE_PROCESS_START", None)
     env["COVERAGE_CORE"] = "ctrace"
@@ -265,6 +298,10 @@ def collect_plan(
         check=False,
     )
     if result.returncode:
+        if instrumented:
+            raise pytest.UsageError(
+                "Instrumented baseline failed during coverage collection; refusing a partial map"
+            )
         raise pytest.UsageError("Coverage baseline failed; refusing a partial selection map")
     try:
         return json.loads(destination.read_text())

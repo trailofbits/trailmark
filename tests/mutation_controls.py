@@ -101,10 +101,8 @@ def validate_baselines(
     directory: Path,
     context: dict[str, Any],
     orders: list[tuple[str, ...]],
-    *,
-    prefix: str = "baseline",
 ) -> None:
-    paths = sorted(directory.glob(f"{prefix}-*.json"))
+    paths = sorted(directory.glob("baseline-*.json"))
     if not paths:
         raise ValueError("Missing shared mutation baselines")
     receipts = [json.loads(path.read_text()) for path in paths]

@@ -1,8 +1,8 @@
 """Run pytest-gremlins with complete pytest semantics and baseline controls.
 
 Run as ``uv run python -m tests.run_mutations --targets=src/trailmark/...``.
-Use upstream's full-pytest bootstrap and import handling, adding complete test
-selection, component ordering, and executed instrumented baseline controls.
+Use upstream's full-pytest bootstrap and import handling, adding coverage-driven
+selection, component ordering, shared baselines, and failure-prefix controls.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ import subprocess
 import sys
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -25,20 +24,22 @@ from unittest.mock import patch
 import pytest
 from pytest_gremlins import plugin
 from pytest_gremlins.instrumentation.gremlin import Gremlin
-from pytest_gremlins.instrumentation.spawn_hook import export_spawn_hook
 from pytest_gremlins.node_id_file import command_with_node_ids_file
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.mutation_bootstrap import record_source_collection_exits
+from tests.mutation_bootstrap import baseline_environment as _baseline_environment
+from tests.mutation_bootstrap import record_source_collection_exits, record_test_execution
+from tests.mutation_bootstrap import test_command as _test_command
+from tests.mutation_confirmation import FailurePrefixControls
 from tests.mutation_controls import baseline_receipt, input_fingerprint, validate_baselines
 from tests.mutation_coverage import collect_plan, validate_plan
 from tests.mutation_coverage import select_tests as coverage_tests
 from tests.mutation_order import prioritize_tests, relative_node_ids
 
 VERSION = "1.14.3"
-RUNNER = "trailmark-pytest-coverage-v8"
+RUNNER = "trailmark-pytest-coverage-v9"
 
 
 def parse_shard(value: str) -> tuple[int, int]:
@@ -84,17 +85,6 @@ def _arguments() -> argparse.Namespace:
         type=Path,
         help="Reuse a complete set of matching shared baseline receipts",
     )
-    selections = parser.add_mutually_exclusive_group()
-    selections.add_argument(
-        "--selection-baseline-shard",
-        type=parse_shard,
-        help="Validate partition INDEX/TOTAL of all distinct coverage-selected subsets",
-    )
-    selections.add_argument(
-        "--selection-baselines",
-        type=Path,
-        help="Reuse matching receipts for every coverage-selected subset",
-    )
     parser.add_argument("tests", nargs="*", default=["tests"])
     args = parser.parse_args()
     if args.workers < 1:
@@ -109,12 +99,6 @@ def _arguments() -> argparse.Namespace:
         parser.error("--baseline-shard cannot be combined with --shard")
     if args.test_selection == "coverage" and args.baseline_shard not in {None, (1, 1)}:
         parser.error("Coverage selection uses a single --baseline-shard=1/1")
-    if (args.selection_baseline_shard or args.selection_baselines) and (
-        args.test_selection != "coverage" or args.baselines is None
-    ):
-        parser.error("Shared selected-test baselines require coverage mode and --baselines")
-    if args.selection_baseline_shard and args.shard != (1, 1):
-        parser.error("--selection-baseline-shard cannot be combined with --shard")
     if args.reviewed:
         baseline_path = Path(__file__).with_name("mutation_baseline.json")
         args.targets = ",".join(json.loads(baseline_path.read_text())["scope"])
@@ -129,28 +113,6 @@ def _source_hashes(targets: str) -> dict[str, str]:
         path = Path(target)
         source_paths.extend(path.rglob("*.py") if path.is_dir() else [path])
     return {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_paths}
-
-
-def _test_command(directory: Path, session: plugin.GremlinSession) -> list[str]:
-    return plugin._build_test_command(
-        directory,
-        session.preserved_addopts,
-        xdist_loaded=session.xdist_loaded,
-        xdist_loader_options=session.xdist_loader_options,
-        doctest_ini_overrides=session.doctest_ini_overrides,
-        config_file_options=session.config_file_options,
-        rerun_options=session.rerun_options,
-        pytest_cov_options=session.pytest_cov_options,
-    )
-
-
-def _baseline_environment(directory: Path) -> dict[str, str]:
-    env = os.environ.copy()
-    env.pop("ACTIVE_GREMLIN", None)
-    env["PYTEST_GREMLINS_SOURCES_FILE"] = str(directory / "sources.json")
-    env["GREMLIN_ROOTDIR"] = str(Path.cwd())
-    export_spawn_hook(env)
-    return env
 
 
 def _check_instrumented_orders(
@@ -197,6 +159,7 @@ def _check_instrumented_orders(
                     [*command[2:], "-p", "no:gremlins"],
                     tests,
                     [str(Path(path).resolve()) for path in instrumented_asts],
+                    instrumented=True,
                 )
             else:
                 envelope = json.loads((args.baselines / "coverage-plan.json").read_text())
@@ -217,6 +180,8 @@ def _check_instrumented_orders(
         print(f"Reusing validated instrumented baseline orders: {len(orders)}", flush=True)
         return {}
     shard = args.baseline_shard or (1, 1)
+    if args.test_selection == "coverage":
+        return baseline_receipt(context, orders, shard)
     for index in range(shard[0] - 1, len(orders), shard[1]):
         print(f"Checking instrumented baseline order {index + 1}/{len(orders)}", flush=True)
         control = subprocess.run(  # noqa: S603
@@ -252,6 +217,7 @@ def _instrumented_writer(
         if unwritable:
             raise pytest.UsageError(f"Mutation instrumentation skipped files: {unwritable}")
         record_source_collection_exits(directory)
+        record_test_execution(directory)
         receipts.append(
             _check_instrumented_orders(directory, instrumented_asts, args, fingerprint, plans)
         )
@@ -261,11 +227,8 @@ def _instrumented_writer(
 
 
 class _RequireCompleteInstrumentation:
-    def __init__(
-        self, args: argparse.Namespace, prepare_selections: Callable[[plugin.GremlinSession], None]
-    ) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
-        self.prepare_selections = prepare_selections
         self.empty_shard = False
 
     @pytest.hookimpl(trylast=True)
@@ -279,18 +242,13 @@ class _RequireCompleteInstrumentation:
         if session is not None:
             if self.args.baseline_shard:
                 session.enabled = False
-            if self.args.selection_baseline_shard or self.args.selection_baselines:
-                # Validate the global selection inventory before partitioning mutants.
-                self.prepare_selections(session)
-            if self.args.selection_baseline_shard:
-                session.enabled = False
             selected = select_shard(session.gremlins, self.args.shard)
             self.empty_shard = bool(session.gremlins) and not selected
             session.gremlins = selected
 
     def pytest_runtestloop(self) -> bool:
-        # Real pytest subprocesses already validated the clean and instrumented
-        # baselines, or collection checked matching shared evidence. The outer
+        # A real pytest subprocess validated neutral instrumentation, or
+        # collection checked matching shared evidence. The outer
         # session only collects tests and dispatches mutations at session finish.
         return True
 
@@ -301,18 +259,22 @@ def _run_campaign(
     fingerprint: str,
     receipts: list[dict[str, object]],
     plans: list[dict[str, Any]],
-    selection_receipts: list[dict[str, object]],
 ) -> int:
+    controls = FailurePrefixControls(
+        args.workers, report_dir, checked_orders=args.test_selection == "full"
+    )
     cache_result = plugin._cache_gremlin_result
+    dispatch = plugin._dispatch_mutation_run
     selections: dict[str, list[str]] = {}
 
-    def record_result(
+    def record_confirmed_result(
         gremlin: Gremlin,
         selected_tests: Sequence[str],
         result: plugin.GremlinResult,
         session: plugin.GremlinSession,
     ) -> None:
-        # Upstream calls this only after confirming subprocess outcomes.
+        # Native collection/timeout checks and our failure-prefix checks have
+        # finished before a result reaches this publication point.
         cache_result(gremlin, selected_tests, result, session)
         with (report_dir / "progress.jsonl").open("a") as progress:
             progress.write(
@@ -329,6 +291,22 @@ def _run_campaign(
                 )
                 + "\n"
             )
+
+    def record_result(
+        gremlin: Gremlin,
+        selected_tests: Sequence[str],
+        result: plugin.GremlinResult,
+        session: plugin.GremlinSession,
+    ) -> None:
+        if not controls.defer(gremlin, selected_tests, result, session):
+            record_confirmed_result(gremlin, selected_tests, result, session)
+
+    def dispatch_and_confirm(
+        session: pytest.Session, gremlin_session: plugin.GremlinSession
+    ) -> list[plugin.GremlinResult]:
+        results = dispatch(session, gremlin_session)
+        controls.flush(gremlin_session, record_confirmed_result)
+        return results
 
     def uncached_tests(gremlin: Gremlin, session: plugin.GremlinSession) -> list[str]:
         tests = list(session.test_node_ids)
@@ -350,89 +328,12 @@ def _run_campaign(
             selections[gremlin.gremlin_id] = uncached_tests(gremlin, session)
         return selections[gremlin.gremlin_id].copy()
 
-    def selected_orders(session: plugin.GremlinSession) -> list[tuple[str, ...]]:
-        orders = {tuple(select_tests(gremlin, session)) for gremlin in session.gremlins}
-        if selections:
-            counts = [len(tests) for tests in selections.values()]
-            fallbacks = counts.count(len(session.test_node_ids))
-            print(
-                f"Coverage selection: {sum(counts) / len(counts):.1f} tests per mutant; "
-                f"{fallbacks}/{len(counts)} full-suite fallbacks",
-                flush=True,
-            )
-        # The complete collection order was already executed locally or shared.
-        orders.discard(tuple(session.test_node_ids))
-        return sorted(orders)
+    def reuse_coverage(session: plugin.GremlinSession, rootdir: Path) -> None:
+        # The writer already collected coverage while validating neutral instrumentation.
+        if args.test_selection == "coverage":
+            print("Reusing coverage from the validated baseline", flush=True)
 
-    def check_selected_orders(
-        session: plugin.GremlinSession,
-        orders: list[tuple[str, ...]],
-        shard: tuple[int, int] = (1, 1),
-    ) -> None:
-        directory = session.instrumented_dir
-        if directory is None:
-            raise pytest.UsageError("Missing instrumented sources for selected test controls")
-        assigned = orders[shard[0] - 1 :: shard[1]]
-        print(
-            f"Checking {len(assigned)} of {len(orders)} distinct selected-test baselines",
-            flush=True,
-        )
-        command = _test_command(directory, session)
-        env = _baseline_environment(directory)
-        executor = ThreadPoolExecutor(max_workers=args.workers)
-        try:
-            futures = [
-                executor.submit(
-                    subprocess.run,
-                    command_with_node_ids_file(command, order, directory),
-                    env=env,
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=240,
-                )
-                for order in assigned
-            ]
-            for completed, future in enumerate(as_completed(futures), 1):
-                try:
-                    control = future.result()
-                except (OSError, subprocess.TimeoutExpired) as exc:
-                    raise pytest.UsageError(
-                        "Selected instrumented baseline could not finish"
-                    ) from exc
-                if control.returncode:
-                    print(control.stdout, file=sys.stderr)
-                    print(control.stderr, file=sys.stderr)
-                    raise pytest.UsageError("Selected instrumented baseline failed")
-                if completed % 10 == 0 or completed == len(futures):
-                    print(
-                        f"Validated selected-test baselines: {completed}/{len(futures)}", flush=True
-                    )
-        finally:
-            executor.shutdown(wait=True, cancel_futures=True)
-
-    def prepare_shared_selections(session: plugin.GremlinSession) -> None:
-        orders = selected_orders(session)
-        context = {**plans[0]["context"], "baseline_phase": "selected-subsets"}
-        if args.selection_baseline_shard:
-            check_selected_orders(session, orders, args.selection_baseline_shard)
-            selection_receipts.append(
-                baseline_receipt(context, orders, args.selection_baseline_shard)
-            )
-        else:
-            try:
-                validate_baselines(
-                    args.selection_baselines, context, orders, prefix="selection-baseline"
-                )
-            except (OSError, ValueError, KeyError, TypeError) as exc:
-                raise pytest.UsageError(f"Invalid shared selected-test baselines: {exc}") from exc
-            print(f"Reusing validated selected-test baseline orders: {len(orders)}", flush=True)
-
-    def validate_selections(session: plugin.GremlinSession, rootdir: Path) -> None:
-        if args.test_selection == "coverage" and args.selection_baselines is None:
-            check_selected_orders(session, selected_orders(session))
-
-    instrumentation = _RequireCompleteInstrumentation(args, prepare_shared_selections)
+    instrumentation = _RequireCompleteInstrumentation(args)
     with (
         patch.object(
             plugin,
@@ -441,8 +342,9 @@ def _run_campaign(
         ),
         patch.object(plugin, "_make_node_ids_relative", side_effect=relative_node_ids),
         patch.object(plugin, "_select_tests_for_gremlin_prioritized", side_effect=select_tests),
-        patch.object(plugin, "_collect_coverage", side_effect=validate_selections),
+        patch.object(plugin, "_collect_coverage", side_effect=reuse_coverage),
         patch.object(plugin, "_cache_gremlin_result", side_effect=record_result),
+        patch.object(plugin, "_dispatch_mutation_run", side_effect=dispatch_and_confirm),
     ):
         result = pytest.main(
             [
@@ -455,7 +357,7 @@ def _run_campaign(
                 *(["--gremlin-no-coverage-filter"] if args.test_selection == "full" else []),
                 f"--gremlin-workers={args.workers}",
                 f"--gremlin-targets={args.targets}",
-                "--gremlin-report=json,html",
+                "--gremlin-report=json",
                 f"--gremlins-html-dir={report_dir}",
             ],
             plugins=[instrumentation],
@@ -472,29 +374,25 @@ def main() -> int:
     os.environ["TRAILMARK_MUTATION_TESTING"] = "1"
     report_dir = Path("coverage/gremlins")
     report_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("run.json", "gremlins.json", "progress.jsonl", "coverage-plan.json"):
+    for name in (
+        "run.json",
+        "gremlins.json",
+        "progress.jsonl",
+        "coverage-plan.json",
+        "prefix-summary.json",
+        "executions.jsonl",
+    ):
         (report_dir / name).unlink(missing_ok=True)
     receipt_path = None
     if args.baseline_shard:
         index, count = args.baseline_shard
         receipt_path = report_dir / f"baseline-{index}-of-{count}.json"
         receipt_path.unlink(missing_ok=True)
-    elif args.selection_baseline_shard:
-        index, count = args.selection_baseline_shard
-        receipt_path = report_dir / f"selection-baseline-{index}-of-{count}.json"
-        receipt_path.unlink(missing_ok=True)
     fingerprint = input_fingerprint(Path.cwd())
-    if args.baselines is None:
-        baseline = subprocess.run(  # noqa: S603
-            [sys.executable, "-m", "pytest", "-q", *args.tests], check=False
-        )
-        if baseline.returncode:
-            return baseline.returncode
     hashes = _source_hashes(args.targets)
     receipts: list[dict[str, object]] = []
     plans: list[dict[str, Any]] = []
-    selection_receipts: list[dict[str, object]] = []
-    result = _run_campaign(args, report_dir, fingerprint, receipts, plans, selection_receipts)
+    result = _run_campaign(args, report_dir, fingerprint, receipts, plans)
     if result == 0 and (not receipts or input_fingerprint(Path.cwd()) != fingerprint):
         print(
             "Mutation inputs changed or instrumented baseline validation is missing",
@@ -504,11 +402,7 @@ def main() -> int:
     if result == 0 and plans:
         (report_dir / "coverage-plan.json").write_text(json.dumps(plans[0]) + "\n")
     if result == 0 and receipt_path is not None:
-        validated = selection_receipts if args.selection_baseline_shard else receipts
-        if not validated:
-            print("Selected baseline validation is missing", file=sys.stderr)
-            return 1
-        receipt_path.write_text(json.dumps(validated[0], indent=2) + "\n")
+        receipt_path.write_text(json.dumps(receipts[0], indent=2) + "\n")
     elif result == 0:
         (report_dir / "run.json").write_text(
             json.dumps(
@@ -524,8 +418,8 @@ def main() -> int:
                     "sources": hashes,
                     "tests": args.tests,
                     "baseline_validation": "shared" if args.baselines is not None else "local",
-                    "selection_baseline_validation": (
-                        "shared" if args.selection_baselines is not None else "local"
+                    "kill_confirmation": (
+                        "baseline-orders" if args.test_selection == "full" else "failure-prefix"
                     ),
                 },
                 indent=2,

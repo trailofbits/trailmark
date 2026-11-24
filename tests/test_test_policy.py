@@ -82,7 +82,12 @@ def test_policy_allows_product_limits_and_disabled_deadlines(source: str) -> Non
 
 def test_suite_has_no_test_timeouts_or_wall_clock_assertions() -> None:
     # These are opt-in measurement tools or the mutation executor, not tests.
-    measurement_tools = {"benchmark_analysis.py", "smoke_binary_projects.py", "run_mutations.py"}
+    measurement_tools = {
+        "benchmark_analysis.py",
+        "smoke_binary_projects.py",
+        "run_mutations.py",
+        "mutation_confirmation.py",
+    }
     violations = {
         path.name: controls
         for path in Path(__file__).parent.glob("*.py")

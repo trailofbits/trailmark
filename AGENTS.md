@@ -108,22 +108,21 @@ uv run python -m tests.mutation_gate
 The runner uses real pytest subprocesses and coverage-driven test selection.
 It validates clean and instrumented baselines, expands shared-fixture coverage
 to every consumer, and retains tests whose subprocesses or tracing obscure
-coverage. Import-time and unmapped mutations run the full suite. Each distinct
-selected subset must pass without a mutation before any mutants run. Use it
+coverage. Import-time and unmapped mutations run the full suite. Ordinary kills
+require a passing neutral failure-prefix check or a matching validated full-suite
+order. The control retains the full selected collection and fixture teardown. Use it
 rather than invoking the pinned plugin directly. Omit
 `--reviewed` for a full repository campaign; CI runs that after merges
 and on manual dispatch. `--workers` already enables parallel execution.
-CI first produces one baseline receipt and coverage plan, then validates each
-distinct selected subset once across 32 preparation jobs. Its 32 mutation jobs
-reuse both sets of receipts without replaying the clean suite or neutral subsets.
+CI produces one baseline receipt and coverage plan from a single instrumented
+coverage pass. Its 32 mutation jobs reuse that evidence and execute mutants
+without replaying full baselines or prevalidating selected subsets.
 Local runs validate their own baselines by default. To reproduce a partition,
 pass the same `--shard=1/32` (one-based index/total) to both commands.
 Use `--test-selection=full` for a full-suite reference campaign. Shared coverage
 preparation uses `--baseline-shard=1/1`; copy both `baseline-1-of-1.json` and
 `coverage-plan.json` together when using `--baselines=PATH`.
-Shared subset preparation uses `--selection-baseline-shard=INDEX/TOTAL` with
-`--baselines=PATH`; consumers also pass `--selection-baselines=PATH` containing
-every subset receipt. See `CONTRIBUTING.md` for the preparation sequence.
+See `CONTRIBUTING.md` for baseline sharing and failure-prefix confirmation.
 Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
 
 ## Adding Features

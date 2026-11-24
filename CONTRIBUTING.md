@@ -91,18 +91,17 @@ CI runs 32 mutation shards concurrently, each with four workers. Mutation
 jobs install the `binary` extra and GNU and LLVM tools, and set
 `TRAILMARK_REQUIRE_BINARY_TOOLS=1` so missing native-image dependencies fail
 instead of silently skipping their tests. Each file's mutants are dealt
-round-robin across the shards. One preparation job checks the clean suite,
-collects per-test coverage, and validates the complete instrumented suite once.
+round-robin across the shards. One preparation job runs the selected suite once
+with neutral instrumentation and per-test coverage. The normal CI test jobs run
+the clean suite.
 Mutation jobs reuse its baseline receipt and coverage plan only when repository
 inputs, Python packages, native tool binaries, relevant environment settings,
 test collection, and runner configuration match. Missing, stale, or incomplete receipts fail the run.
 The outer pytest session collects tests and dispatches mutations without replaying
 the clean suite in each shard.
-Next, 32 preparation jobs partition the globally distinct selected test subsets
-and validate each subset once. Mutation shards require all selected-test receipts
-and reuse those checks without executing neutral subsets again.
-The final `Mutation Testing` check requires the baseline job, all 32 selected-test
-preparation jobs, and all 32 mutation shards to pass. Each mutation shard enforces
+The mutation shards then execute their assigned mutants. The final
+`Mutation Testing` check requires the baseline job and all 32 mutation shards to pass.
+Each mutation shard enforces
 the reviewed gate for its assigned inventory and uploads its own reports.
 
 To reproduce one CI shard locally, pass the same one-based `--shard=INDEX/TOTAL`
@@ -121,14 +120,6 @@ setting. Copy `coverage/gremlins/baseline-1-of-1.json` and
 `--baselines=PATH` to mutation runs. Preparation executes no mutants and creates
 no gate report; evidence is written only after successful validation. Keep these
 files within the same trusted campaign.
-
-To share selected-test controls too, run
-`--selection-baseline-shard=INDEX/TOTAL --baselines=PATH` for every preparation
-partition, using the same targets, tests, and ordering. Each partition writes
-`coverage/gremlins/selection-baseline-INDEX-of-TOTAL.json` only after its assigned
-subsets pass. Copy all those receipts into a separate directory and pass
-`--selection-baselines=PATH` alongside `--baselines=PATH` to mutation runs.
-Missing, stale, duplicate, or incomplete selected-test receipts fail the campaign.
 
 **Scope and gate.** Pull requests mutate the reviewed files named in
 `tests/mutation_baseline.json`. Full
@@ -149,15 +140,19 @@ package metadata, and instrumentation in spawned child processes. Coverage-drive
 test selection runs only tests observed to execute the mutated line, with shared
 fixture setup and teardown attributed to every consumer. Tests that run unknown
 child processes or replace Python tracing are retained for every mutant. Known
-native GNU/LLVM tools and C compilers do not obscure Python coverage; their
-executable contents are fingerprinted, and Python or script wrappers remain
-opaque. Import-time and unmapped locations use the full suite.
+native GNU/LLVM tools, C compilers, and the fixed `git -C ROOT rev-parse HEAD`
+provenance query are recognized through fingerprints of their executable contents.
+Other Git commands and Python or script wrappers remain opaque. Import-time and
+unmapped locations use the full suite.
 
-Before executing mutants, the runner checks distinct selected subsets in neutral
-instrumented pytest subprocesses, or verifies matching shared receipts for all
-such checks. Local runs check their own subsets by default. A failing
-subset invalidates the campaign. These controls finish before mutant timing
-starts. The gate verifies each reported test selection against the saved plan.
+After mutant execution, ordinary test failures receive a neutral failure-prefix
+check. The control collects the same selected tests, executes only through the
+test that failed, and includes fixture teardown. Matching full-suite orders reuse
+the passing baseline. For each remaining selected collection, one successful
+longest prefix also validates its shorter failure prefixes. These controls use
+the same worker budget after the mutant pool closes. A failing neutral prefix
+invalidates the campaign before scores are accepted. Survivors require no extra
+test executions. The gate verifies each reported test selection against the saved plan.
 The runner preserves exact parameter IDs and rejects skipped instrumentation.
 Tests use deterministic work bounds rather
 than wall-clock thresholds. The test suite has no elapsed-time assertions,
