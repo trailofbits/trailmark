@@ -244,6 +244,17 @@ def check(
         raise ValueError("Mutation report shard does not match the requested partition")
     _validate_report(report, baseline, allow_empty=shard[1] > 1)
     _validate_test_selection(root, report, run)
+    inconclusive = [
+        {
+            "path": row["file_path"],
+            "gremlin_id": row["gremlin_id"],
+            "status": row["status"] if row.get("selected_tests") else "no tests",
+        }
+        for row in report["results"]
+        if row["status"] in {"timeout", "error", "pardoned"} or not row.get("selected_tests")
+    ]
+    if inconclusive:
+        return [json.dumps(row, sort_keys=True) for row in inconclusive]
     reviewed = _reviewed_exceptions(baseline)
     legacy = {
         (entry["path"], entry["function"]): entry["source_hash"]

@@ -350,6 +350,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "tests.mutation_gate"),
     ("CONTRIBUTING.md", "Confirmed execution outcomes are streamed to"),
     ("CONTRIBUTING.md", "The reviewed scope gates all functions in those files"),
+    ("CONTRIBUTING.md", "including outside the reviewed scope"),
     (
         "docs/entrypoints.md",
         "PHP `namespace\\` prefixes resolve first-class function and method references",

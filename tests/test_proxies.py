@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import Mock, call
 
 import pytest
 
-from trailmark.analysis.proxies import ensure_proxy_nodes
+from trailmark.analysis.proxies import _callable_owner, ensure_proxy_nodes
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin, SourceLocation, TypeRef
@@ -17,6 +18,15 @@ _LOCATION = SourceLocation("app.py", 1, 3)
 
 def _unit(node_id: str, name: str, kind: NodeKind = NodeKind.FUNCTION) -> CodeUnit:
     return CodeUnit(node_id, name, kind, _LOCATION)
+
+
+def test_callable_owner_stops_before_revisiting_a_container() -> None:
+    graph = CodeGraph(nodes={name: _unit(name, name, NodeKind.CLASS) for name in ("A", "B")})
+    owners = Mock(spec=dict)
+    # The path is work -> A -> B -> A. Revisiting A must not consume another lookup.
+    owners.get.side_effect = ["A", "B", "A"]
+    assert _callable_owner("work", graph, owners, {NodeKind.FUNCTION}) is None
+    assert owners.get.call_args_list == [call("work"), call("A"), call("B")]
 
 
 @pytest.mark.parametrize(

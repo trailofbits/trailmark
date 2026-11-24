@@ -7,8 +7,10 @@ from tree_sitter import Parser
 from tree_sitter_language_pack import get_language
 
 from trailmark.models.edges import EdgeConfidence, EdgeKind
+from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
 from trailmark.parse import detect_languages, parse_directory, parse_file
+from trailmark.parsers.aiken.parser import _Extractor
 from trailmark.query.api import QueryEngine
 
 
@@ -17,6 +19,14 @@ def _source(tmp_path: Path, text: str) -> Path:
     path = tmp_path / "sample.ak"
     path.write_text(text)
     return path
+
+
+@pytest.mark.parametrize(
+    ("owner", "expected"), [("sample", "sample:run"), ("sample:validator", "sample:validator.run")]
+)
+def test_callable_ids_keep_the_module_and_lexical_owner(owner: str, expected: str) -> None:
+    extractor = _Extractor(CodeGraph(language="aiken"), "sample", "sample.ak")
+    assert extractor.child_id(owner, "run") == expected
 
 
 def test_types_signatures_imports_and_branches(tmp_path: Path) -> None:

@@ -125,8 +125,10 @@ files within the same trusted campaign.
 `tests/mutation_baseline.json`. Full
 repository campaigns run on pushes to main and through the mutation workflow's
 manual trigger. The reviewed scope gates all functions in those files, including
-unchanged legacy functions. The gate rejects unreviewed
-survivors, missing tests or results, errors, and timeouts. An exception
+unchanged legacy functions. The gate rejects unreviewed survivors and incomplete
+mutation inventories in that scope. Across the entire campaign, errors, timeouts,
+pardons, and missing tests
+fail the gate, including outside the reviewed scope. An exception
 requires a reason and a fingerprint of the function and mutation; changing
 that function requires reviewing its exceptions again.
 Source hashes and mutation fingerprints use a canonical AST representation so

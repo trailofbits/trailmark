@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
+from tree_sitter import Parser
+from tree_sitter_language_pack import get_language
 
 from trailmark.analysis.entrypoints import detect_entrypoints
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
@@ -13,6 +15,7 @@ from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind, TypeRef
 from trailmark.parse import detect_languages, parse_directory, parse_file, supported_languages
 from trailmark.parsers.lean import LeanParser
+from trailmark.parsers.lean._syntax import application, field
 from trailmark.query.api import QueryEngine
 from trailmark.source_policy import SourcePolicy, SourceRoot
 
@@ -29,6 +32,16 @@ def _calls(graph: CodeGraph, source: str) -> list[CodeEdge]:
 
 def _references(graph: CodeGraph, source: str) -> list[CodeEdge]:
     return [e for e in graph.edges if e.kind == EdgeKind.REFERENCES and e.source_id == source]
+
+
+def test_application_returns_the_head_and_arguments_in_source_order() -> None:
+    root = Parser(get_language("lean")).parse(b"def use := combine first second\n").root_node
+    declaration = root.named_children[0].named_children[0]
+    body = field(declaration, "body")
+    assert body is not None and body.type == "app"
+    head, arguments = application(body)
+    assert head.type == "identifier" and head.text == b"combine"
+    assert [argument.text for argument in arguments] == [b"first", b"second"]
 
 
 def test_reference_fixture_and_opt_in_queries(tmp_path: Path) -> None:

@@ -102,6 +102,37 @@ def test_rejects_result_without_tests(tmp_path: Path, campaign: tuple) -> None:
     assert len(failures) == 1 and '"status": "no tests"' in failures[0]
 
 
+@pytest.mark.parametrize("status", ["timeout", "error", "pardoned", "no tests"])
+def test_rejects_inconclusive_results_outside_reviewed_scope(
+    tmp_path: Path, campaign: tuple, status: str
+) -> None:
+    report, run, baseline = campaign
+    baseline["scope"]["target.py"] = ["another_function"]
+    if status == "no tests":
+        report["results"][0]["selected_tests"] = []
+    else:
+        report["results"][0]["status"] = status
+    report["summary"] = {
+        "total": len(report["results"]),
+        **Counter(row["status"] for row in report["results"]),
+    }
+    failures = check(tmp_path, report, run, baseline)
+    assert len(failures) == 1 and f'"status": "{status}"' in failures[0]
+
+
+def test_survivors_outside_reviewed_scope_remain_informational(
+    tmp_path: Path, campaign: tuple
+) -> None:
+    report, run, baseline = campaign
+    baseline["scope"]["target.py"] = ["another_function"]
+    report["results"][0]["status"] = "survived"
+    report["summary"] = {
+        "total": len(report["results"]),
+        **Counter(row["status"] for row in report["results"]),
+    }
+    assert check(tmp_path, report, run, baseline) == []
+
+
 def test_requires_complete_inventory_even_if_summary_matches(
     tmp_path: Path, campaign: tuple
 ) -> None:

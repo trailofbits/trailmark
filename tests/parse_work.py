@@ -1,4 +1,4 @@
-"""Deterministic Python work counts for parser scaling regressions."""
+"""Deterministic Python work counts for parser and analysis regressions."""
 
 import sys
 from collections.abc import Callable
@@ -11,10 +11,8 @@ from trailmark.parse import parse_file
 type _Trace = Callable[[FrameType, str, object], _Trace | None]
 
 
-def parse_work(
-    path: Path, *, language: str | None = None, max_work: int | None = None
-) -> tuple[CodeGraph, int]:
-    """Count parser line events, including code instrumented in temporary files.
+def count_work[T](operation: Callable[[], T], *, max_work: int | None = None) -> tuple[T, int]:
+    """Count application line events, including code instrumented in temporary files.
 
     This measures Python traversal work; native grammar execution is excluded.
     An optional work budget also bounds nonterminating Python traversals.
@@ -26,7 +24,7 @@ def parse_work(
         if event == "line":
             work += 1
             if max_work is not None and work > max_work:
-                raise AssertionError(f"Parser exceeded its {max_work} line-event work budget")
+                raise AssertionError(f"Application exceeded its {max_work} line-event work budget")
         return count
 
     def select(frame: FrameType, event: str, argument: object) -> _Trace | None:
@@ -35,7 +33,14 @@ def parse_work(
     previous = sys.gettrace()
     try:
         sys.settrace(select)
-        graph = parse_file(str(path), language)
+        result = operation()
     finally:
         sys.settrace(previous)
-    return graph, work
+    return result, work
+
+
+def parse_work(
+    path: Path, *, language: str | None = None, max_work: int | None = None
+) -> tuple[CodeGraph, int]:
+    """Count parser work and optionally bound nonterminating Python traversals."""
+    return count_work(lambda: parse_file(str(path), language), max_work=max_work)

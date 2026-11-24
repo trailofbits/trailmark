@@ -21,6 +21,23 @@ def _values(tmp_path: Path, name: str, text: str) -> list[str]:
 
 
 @pytest.mark.parametrize(
+    ("text", "quote", "expected"),
+    [("x", "", ("x", 1)), ("''", "'", ("'", 2)), (r"\n", '"', ("\n", 2))],
+)
+def test_yaml_flow_character_returns_the_next_unconsumed_index(
+    text: str, quote: str, expected: tuple[str, int]
+) -> None:
+    assert _reference_literals._yaml_flow_char(text, 0, quote) == expected
+
+
+@pytest.mark.parametrize(("text", "expected"), [("\n", " "), ("\n\n", "\n")])
+def test_yaml_flow_folding_distinguishes_one_break_from_an_empty_line(
+    text: str, expected: str
+) -> None:
+    assert _reference_literals._yaml_fold(text, "") == expected
+
+
+@pytest.mark.parametrize(
     ("text", "expected"),
     [("\n  value", (3, 1)), ("\n \n\tvalue", (4, 2)), ("\n \n\t", (4, 2))],
 )

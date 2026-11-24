@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from tests.parse_work import count_work
 from trailmark.analysis._pyramid_includes import discover_pyramid_includes
 from trailmark.models.edges import EdgeKind
 from trailmark.query.api import QueryEngine
@@ -43,7 +44,7 @@ def test_shadowed_or_custom_package_registrars_do_not_guess_relative_targets(
         "def unrelated():\n    obj = unknown()\n    obj.include('target')\n"
     )
     (tmp_path / "target.py").write_text("def includeme(config): pass\n")
-    engine = QueryEngine.from_directory(str(tmp_path))
+    engine, _ = count_work(lambda: QueryEngine.from_directory(str(tmp_path)), max_work=100_000)
     assert not any(
         dict(e.attributes).get("reference_context") == "pyramid_include"
         for e in engine._store._graph.edges
