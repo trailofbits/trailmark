@@ -166,6 +166,7 @@ count (default 20) and must be positive; zero or a negative value raises
 | `exception_support()` | Capability limits for the inspected frontend languages, including unsupported propagation and implicit execution |
 | `summary()` | Total nodes; function, class, and proxy counts; call-edge count; dependencies; entrypoint count; selected languages and inspected source-file counts |
 | `parse_diagnostics()` | Grammar errors and explicitly unsupported constructs, with language, grammar, source span, kind and message |
+| `unresolved_relationships()` | Raw edges excluded from the index, with missing-endpoint flags, source locations, and reasons |
 | `source_policy()` | Effective source roots, globs, and inspected/skipped/unparsed file decisions; empty for graphs without source-selection metadata |
 | `entrypoint_evidence(name=None)` | Source observations for reported entrypoints and candidates, including binding status and unresolved facts |
 | `entrypoint_candidates(name=None)` | Evidence whose target is outside the reported attack surface, including unresolved targets |
@@ -334,6 +335,12 @@ These fields identify the exporter, not the source revision or all settings
 used to construct a graph. Trailmark does not import graph exports or
 automatically validate their compatibility.
 
+When raw relationships have absent endpoints, exports also include
+`unresolved_relationships`. These relationships remain in `edges`; indexed
+traversal cannot follow them until both endpoints exist. External imports and
+bases can legitimately be unresolved. Inspect the inventory instead of treating
+the indexed topology as a complete account of the raw evidence.
+
 Graph exports include `exception_support` for identified frontend languages and
 nonempty node `exception_events`. The [exception audit](exceptions.md) describes
 their source-evidence contract and runtime coverage limits.
@@ -347,6 +354,46 @@ Native imports add `binary_artifacts`, `binary_ranges`, and
 `binary_source_mappings` sections containing persistent evidence. Instruction
 text is obtained again through bounded disassembly and is not stored in the
 graph. Native call edges retain call-site addresses in edge attributes.
+
+## Reloadable analysis snapshots
+
+`to_snapshot()` returns a separate JSON format that preserves complete analysis
+state: every node and edge with its locations and attributes, annotations,
+entrypoint tags and evidence, diagnostics, source policy, subgraphs, dependencies,
+and binary evidence. `QueryEngine.from_snapshot(snapshot, verify_sources=False)`
+accepts that JSON string or its decoded dictionary. Loading validates the format,
+schema, exporter version, typed fields, evidence identities, and graph references
+before building the index. Dangling relationships are permitted only with a matching
+explicit inventory. Incompatible or malformed snapshots raise `ValueError`.
+
+```python
+from pathlib import Path
+from trailmark.query.api import QueryEngine
+
+engine = QueryEngine.from_directory("project", language="auto")
+Path("analysis.snapshot.json").write_text(engine.to_snapshot())
+restored = QueryEngine.from_snapshot(Path("analysis.snapshot.json").read_text())
+```
+
+Loading does not reparse, import, or execute target source, and works without the
+source checkout. `verify_sources=True` additionally requires every recorded source
+file to be present with its parse-time SHA-256 digest. Manually assembled graphs
+can have unfingerprinted sources; verification rejects those snapshots. Fingerprints
+cover inspected files, not external dependencies or deployment configuration.
+
+The snapshot records `snapshot_version`, `trailmark_version`, source and tool Git
+revisions when available, selected-source digests, and a digest of the installed
+Trailmark Python code. Pass `source_revision=` and `tool_revision=` to `to_snapshot()`
+when revision identifiers come from another system. Digests distinguish modified
+working trees sharing a commit. Snapshot version 1 requires the same Trailmark
+package version when loading. These checks establish compatibility and identity,
+not authenticity.
+
+`CodeGraph.to_snapshot()` and `GraphStore.to_snapshot()` return detached dictionaries;
+their `from_snapshot()` class methods restore model data and indexes respectively.
+The snapshot preserves finalized relationships and resolved type-file provenance;
+temporary parser lookup staging is not a reusable parser session. The lightweight
+`to_json()` export retains its existing persistence limits.
 
 ## Compatibility
 

@@ -6,7 +6,7 @@ import dataclasses
 import os
 import re
 from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from operator import attrgetter
 from pathlib import Path
@@ -412,6 +412,14 @@ def add_module_node(
     grammar: str | None = None,
 ) -> None:
     """Create a MODULE node and add it to the graph."""
+    if file_path not in graph.source_digests:
+        from hashlib import sha256
+
+        # In-memory parser clients can supply a synthetic source path.
+        with suppress(OSError):
+            source = root.text if root.start_byte == 0 else Path(file_path).read_bytes()
+            if source is not None:
+                graph.source_digests[file_path] = sha256(source).hexdigest()
     initialize_bindings(root)
     module_loc = make_location(root, file_path)
     module_unit = CodeUnit(
@@ -680,6 +688,10 @@ def link_cross_file_calls(
             )
         elif candidates:
             edge = dataclasses.replace(edge, confidence=EdgeConfidence.UNCERTAIN)
+        elif dict(edge.attributes).get("literal_callable") and not dict(edge.attributes).get(
+            "literal_callable_declared"
+        ):
+            continue
         new_edges.append(edge)
     graph.edges[:] = new_edges
 
@@ -728,7 +740,13 @@ def _needs_cross_file_target(
 ) -> bool:
     target = edge.target_id
     return (
-        edge.kind == EdgeKind.CALLS
+        (
+            edge.kind == EdgeKind.CALLS
+            or (
+                edge.kind == EdgeKind.REFERENCES
+                and bool(dict(edge.attributes).get("literal_callable"))
+            )
+        )
         and target not in graph.nodes
         and edge.source_id in graph.nodes
         and _allows_cross_file_lookup(edge, graph.language)

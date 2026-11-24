@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -37,9 +38,11 @@ from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c._callbacks import resolve_constant_callbacks
 from trailmark.parsers.c._calls import syntax_error_context, typedef_cast
+from trailmark.parsers.c._conditional import conditional_views
 from trailmark.parsers.c._headers import HeaderSources
 from trailmark.parsers.c._macros import DeclarationMacros, MacroSignature
 from trailmark.parsers.c._recovery import recover_bodies
+from trailmark.parsers.c._references import collect_function_references
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -104,6 +107,11 @@ class CParser:
                     resolve_casts=resolve_casts,
                 )
         resolve_constant_callbacks(tree.root_node, module_id, graph)
+        if original.has_error:
+            _recover_conditional_definitions(
+                source, file_path, module_id, graph, macros, self._parser
+            )
+        collect_function_references(tree.root_node, module_id, graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -118,6 +126,99 @@ class CParser:
             link_calls=lambda graph: link_cross_file_calls(
                 graph, included_files=headers.included_files
             ),
+        )
+
+
+def _recover_conditional_definitions(
+    source: bytes,
+    path: str,
+    module: str,
+    graph: CodeGraph,
+    macros: DeclarationMacros,
+    parser: Parser,
+) -> None:
+    original = {unit.location for unit in graph.nodes.values() if unit.kind == NodeKind.FUNCTION}
+    sites: dict[tuple[str, str, EdgeKind, object], tuple[CodeEdge, set[str]]] = {}
+    limited = False
+    for tree, profile, complete in conditional_views(source, parser):
+        limited |= not complete
+        recovered = CodeGraph(language="c", root_path=path)
+        with callable_scope(recovered):
+            initialize_bindings(tree.root_node)
+            for node in walk_owned(tree.root_node, boundaries=frozenset({"function_definition"})):
+                if node.type != "function_definition" or node.has_error:
+                    continue
+                if _find_func_declarator(node.child_by_field_name("declarator")) is None:
+                    continue
+                location = make_location(node, path)
+                if location in original:
+                    continue
+                _extract_function(node, path, module, recovered, macros=macros, recovered=True)
+        renamed = {}
+        for key, unit in recovered.nodes.items():
+            existing = next(
+                (
+                    n
+                    for n in graph.nodes.values()
+                    if n.location == unit.location and n.kind == unit.kind
+                ),
+                None,
+            )
+            ident = existing.id if existing else key
+            if existing is None and ident in graph.nodes:
+                ident = f"{key}@{unit.location.start_line}:{unit.location.start_col}"
+            renamed[key] = ident
+            graph.nodes.setdefault(
+                ident,
+                replace(
+                    unit,
+                    id=ident,
+                    attributes=(
+                        *unit.attributes,
+                        ("conditional_source", True),
+                    ),
+                ),
+            )
+        for edge in recovered.edges:
+            edge = replace(
+                edge,
+                source_id=renamed.get(edge.source_id, edge.source_id),
+                target_id=renamed.get(edge.target_id, edge.target_id),
+            )
+            key = (edge.source_id, edge.target_id, edge.kind, edge.location)
+            sites.setdefault(key, (edge, set()))[1].add(profile)
+    for edge, profiles in sites.values():
+        graph.edges.append(
+            replace(
+                edge,
+                confidence=EdgeConfidence.UNCERTAIN,
+                attributes=(
+                    *edge.attributes,
+                    ("conditional_profiles", json.dumps(sorted(profiles))),
+                ),
+            )
+        )
+    if sites:
+        graph.parse_diagnostics.append(
+            ParseDiagnostic(
+                "c",
+                "c",
+                graph.nodes[module].location,
+                "syntax_recovery",
+                "Recovered conditional function shells and call sites from bounded syntactic "
+                "profiles; build feasibility and preprocessor control flow remain unknown",
+            )
+        )
+    if limited:
+        graph.parse_diagnostics.append(
+            ParseDiagnostic(
+                "c",
+                "c",
+                graph.nodes[module].location,
+                "unsupported_syntax",
+                "Conditional recovery stopped after at most 64 syntactic profiles; "
+                "unvisited conditional source remains unknown",
+            )
         )
 
 

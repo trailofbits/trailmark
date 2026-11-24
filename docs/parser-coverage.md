@@ -16,12 +16,20 @@ edges from their nearest callable owner, with uncertain confidence and `deferred
 metadata. This applies across frontends, including callbacks and methods of local
 or anonymous classes. These edges retain possible execution paths; they do not
 prove that creating or registering a callable invokes it. Python lambda calls stay
-with the enclosing function. Local classes retain separate method owners. Variadic
+with the enclosing function; initialization traversal defers their bodies.
+Local classes retain separate method owners. Variadic
 parameters retain names and annotations; `self` and `cls` are omitted only as
 actual method receivers, and retained in free functions and static methods.
 
 Python module nodes own calls in top-level statements and explicit top-level
 decorator calls. Calls in function and method bodies keep their callable owner.
+Defaults, including keyword-only and lambda defaults, and class-body expressions
+execute in the containing module or callable. Their calls retain source locations
+and `python_execution="definition_time"` provenance; ordinary function and method
+bodies remain deferred. Eager expressions bind before the new parameters exist.
+Explicitly postponed annotations never become calls. Other annotation calls produce
+a coverage diagnostic because target Python version and annotation evaluation policy
+are not configured; Trailmark does not assume eager or deferred annotation execution.
 
 JavaScript and TypeScript retain nested functions, arrows, anonymous callbacks,
 class-field arrows, object methods, CommonJS handler assignments, and anonymous
@@ -233,6 +241,31 @@ Standalone line splices between tokens are omitted before span verification.
 Native `__try` and `__finally` blocks retain their syntax and call confidence.
 Recovery verifies each function independently, so a failed candidate does not
 cancel other verified spans. Unrelated remaining syntax errors remain diagnosed.
+
+When conditional braces hide an entire C function, a separate fallback selects
+at most 64 syntactic source profiles, preserving original byte offsets and line
+breaks. It retains valid function shells and distinct call sites from those views.
+Recovered declarations carry `conditional_source`; their uncertain edges retain
+`conditional_profiles`. Repeated `defined(NAME)` predicates share one assumption.
+These profiles do not expand macros or establish build feasibility. Original
+diagnostics remain, and incomplete enumeration adds a coverage diagnostic. Calls
+outside the visited profiles remain unknown.
+
+C and C++ retain located `references` edges for literal function values in
+initializers, assignments, and callback arguments. Lexical variables and callback
+parameters block unrelated function names. Cross-file references follow the existing
+linkage and header-visibility rules, including their uncertainty. Mutable callback
+storage does not establish eventual invocation. Trimming consumers must explicitly
+include `references` dependencies; default call reachability does not follow them.
+
+Python literal Pyramid `include()` strings add reference evidence only when lexical
+imports and assignments establish a `pyramid.config.Configurator` receiver, or an
+already included configuration callable receives that registrar as its first
+parameter. Absolute names and relative names under the default package can resolve
+to inspected `includeme` functions. Custom constructor packages, method replacement,
+shadowed constructors, and arbitrary methods named `include` are not guessed.
+References preserve configuration activation and invocation uncertainty. See the
+[Pyramid include contract](https://docs.pylonsproject.org/projects/pyramid/en/latest/api/config.html#pyramid.config.Configurator.include).
 
 Single-identifier declaration macros can recover a concrete function signature
 from unambiguous definitions in the file or literal quoted headers. Simple token

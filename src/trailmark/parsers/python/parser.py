@@ -11,7 +11,8 @@ from pathlib import Path
 from tree_sitter import Node, Parser
 from tree_sitter_language_pack import get_language
 
-from trailmark.analysis._python_decorators import imported_callees
+from trailmark.analysis._python_decorators import expression_bindings, imported_callees
+from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import (
@@ -22,7 +23,7 @@ from trailmark.models.nodes import (
     SourceLocation,
     TypeRef,
 )
-from trailmark.parsers._binding_index import binding_scope, record_unit
+from trailmark.parsers._binding_index import binding_scope, record_unit, syntax_nodes
 from trailmark.parsers._bindings import guard_call
 from trailmark.parsers._common import (
     _collect_throw_type,
@@ -62,6 +63,7 @@ _EXTENSIONS = (".py",)
 _CALL_SITES: ContextVar[dict[SourceLocation, Node] | None] = ContextVar(
     "_PYTHON_CALL_SITES", default=None
 )
+_EAGER_SITES: ContextVar[set[int] | None] = ContextVar("_PYTHON_EAGER_SITES", default=None)
 _OVERLOAD_NAMES: ContextVar[frozenset[str]] = ContextVar(
     "_PYTHON_OVERLOAD_NAMES",
     default=frozenset({"overload", "typing.overload", "typing_extensions.overload"}),
@@ -89,8 +91,10 @@ class PythonParser:
         module_id = module_id_from_path(file_path)
         with callable_scope(graph), _call_sites() as calls, _overload_scope(tree.root_node):
             _visit_module(tree.root_node, file_path, module_id, graph)
+            _bind_bases(tree.root_node, file_path, module_id, graph)
             _bind_complete_calls(calls, graph, tree.root_node, module_id, file_path)
             _record_imports(tree.root_node, graph, module_id, module_id, file_path)
+        _annotation_diagnostics(tree.root_node, file_path, graph)
         collect_exception_events(tree.root_node, file_path, graph)
         return graph
 
@@ -204,8 +208,8 @@ def _extract_base_classes(
     arg_list = node.child_by_field_name("superclasses")
     if arg_list is None:
         return
-    for child in arg_list.children:
-        if child.type == "identifier":
+    for child in arg_list.named_children:
+        if child.type not in {"keyword_argument", "list_splat", "dictionary_splat"}:
             base_name = node_text(child)
             base_id = f"{module_id}:{base_name}"
             graph.edges.append(
@@ -214,8 +218,49 @@ def _extract_base_classes(
                     target_id=base_id,
                     kind=EdgeKind.INHERITS,
                     confidence=EdgeConfidence.INFERRED,
+                    location=make_location(child, graph.nodes[class_id].location.file_path),
+                    attributes=(("python_base", True), ("exact_target", True)),
                 )
             )
+
+
+def _bind_bases(root: Node, path: str, module_id: str, graph: CodeGraph) -> None:
+    expressions = [
+        base
+        for definition in syntax_nodes(root, frozenset({"class_definition"}))
+        if (bases := definition.child_by_field_name("superclasses")) is not None
+        for base in bases.named_children
+        if base.type not in {"keyword_argument", "list_splat", "dictionary_splat"}
+    ]
+    bindings = expression_bindings(root, path, expressions)
+    by_location = {make_location(node, path): value for node, value in bindings.items()}
+    definitions = {unit.location: unit.id for unit in graph.nodes.values()}
+    for index, edge in enumerate(graph.edges):
+        if not dict(edge.attributes).get("python_base"):
+            continue
+        if edge.location is None:
+            continue
+        value = by_location[edge.location]
+        target = edge.target_id
+        attributes = edge.attributes
+        confidence = EdgeConfidence.UNCERTAIN
+        if value.binding in {"import_module", "import_name"} and value.path:
+            target = _absolute_import(value.path, module_id, path) or target
+            attributes = (*attributes, ("import_binding", True))
+            confidence = EdgeConfidence.INFERRED
+        elif value.node is not None and value.node.type == "class_definition":
+            target = definitions.get(make_location(value.node, path), target)
+            confidence = EdgeConfidence.INFERRED
+        else:
+            if value.binding != "unbound" or target in graph.nodes:
+                target = (
+                    f"unresolved.python.base:{edge.source_id}:"
+                    f"{edge.location.start_line}:{edge.location.start_col}"
+                )
+            attributes = (*attributes, ("unresolved_reason", "python_base_binding"))
+        graph.edges[index] = replace(
+            edge, target_id=target, confidence=confidence, attributes=attributes
+        )
 
 
 @bounded_nesting
@@ -503,6 +548,7 @@ def _add_call_edges(
                 kind=EdgeKind.CALLS,
                 confidence=confidence,
                 location=location,
+                attributes=_execution_attributes(call_node),
             )
         )
 
@@ -544,9 +590,7 @@ def _python_body_info(
     calls: list[tuple[str, Node]] = []
     if body is None:
         return branches, exceptions, calls
-    for node in owned_syntax(
-        body, _BRANCH_NODE_TYPES | _THROW_TYPES | {"call"}, boundaries=_CALLABLE_BOUNDARIES
-    ):
+    for node in _executed_syntax(body):
         if node.type in _BRANCH_NODE_TYPES:
             branches.append(
                 BranchInfo(
@@ -558,6 +602,70 @@ def _python_body_info(
         if node.type == "call" and (name := extract_call_name(node)):
             calls.append((name, node))
     return branches, exceptions, calls
+
+
+def _executed_syntax(root: Node) -> Generator[Node]:
+    """Visit expressions evaluated now, keeping nested callable bodies deferred."""
+    pending = [(root, False)]
+    eager_sites = _EAGER_SITES.get()
+    while pending:
+        node, eager = pending.pop()
+        if node.type in {"function_definition", "lambda"}:
+            parameters = node.child_by_field_name("parameters")
+            if parameters is not None:
+                pending.extend(
+                    reversed(
+                        [
+                            (value, True)
+                            for parameter in parameters.named_children
+                            if (value := parameter.child_by_field_name("value")) is not None
+                        ]
+                    )
+                )
+            if node.type == "lambda" and not eager and root.type != "module":
+                body = node.child_by_field_name("body")
+                if body is not None:
+                    pending.append((body, False))
+            continue
+        if node.type in {"type", "type_parameter"}:
+            continue
+        eager |= node.type in {"class_definition", "decorator"}
+        if node.type == "call" and eager and eager_sites is not None:
+            eager_sites.add(node.id)
+        yield node
+        pending.extend((child, eager) for child in reversed(node.named_children))
+
+
+def _execution_attributes(call: Node) -> tuple[tuple[str, str], ...]:
+    eager = _EAGER_SITES.get()
+    return (
+        (("python_execution", "definition_time"),) if eager is not None and call.id in eager else ()
+    )
+
+
+def _annotation_diagnostics(root: Node, path: str, graph: CodeGraph) -> None:
+    if any(
+        node.type == "future_import_statement"
+        and any(node_text(name) == "annotations" for name in node.children_by_field_name("name"))
+        for node in root.named_children
+    ):
+        return
+    skipped_until = -1
+    for annotation in syntax_nodes(root, frozenset({"type"})):
+        if annotation.start_byte < skipped_until:
+            continue
+        skipped_until = annotation.end_byte
+        if syntax_nodes(annotation, frozenset({"call"})):
+            graph.parse_diagnostics.append(
+                ParseDiagnostic(
+                    "python",
+                    "python",
+                    make_location(annotation, path),
+                    "unsupported_syntax",
+                    "Python annotation calls are retained as type syntax; evaluation depends on "
+                    "the target Python version and annotation policy, which are not configured",
+                )
+            )
 
 
 def _absolute_import(name: str, module_id: str, file_path: str) -> str:
@@ -644,6 +752,15 @@ def _bind_complete_calls(
     """Bind each call once after all file-local definitions are extracted."""
     prepare_call_bindings(graph)
     imported = imported_callees(root, file_path, list(calls.values()))
+    eager = [
+        calls[edge.location].child_by_field_name("function")
+        for edge in graph.edges
+        if edge.kind == EdgeKind.CALLS
+        and edge.location in calls
+        and dict(edge.attributes).get("python_execution") == "definition_time"
+    ]
+    bindings = expression_bindings(root, file_path, [node for node in eager if node is not None])
+    definitions = {unit.location: unit.id for unit in graph.nodes.values()}
     bound = []
     for edge in graph.edges:
         call = calls.get(edge.location) if edge.kind == EdgeKind.CALLS else None
@@ -657,7 +774,23 @@ def _bind_complete_calls(
                     attributes=(*edge.attributes, ("import_binding", True)),
                 )
             else:
-                edge = guard_call(edge, call, graph=graph)
+                callee = call.child_by_field_name("function")
+                value = bindings.get(callee)
+                if value is not None and value.node is not None:
+                    local = definitions.get(make_location(value.node, file_path))
+                    if local is not None:
+                        edge = replace(edge, target_id=local)
+                    else:
+                        edge = guard_call(edge, call, graph=graph)
+                elif value is not None and callee is not None and callee.type == "identifier":
+                    edge = replace(
+                        edge,
+                        target_id=f"{module_id}:$eager@{call.start_byte}",
+                        confidence=EdgeConfidence.UNCERTAIN,
+                        attributes=(*edge.attributes, ("binding_blocked", True)),
+                    )
+                else:
+                    edge = guard_call(edge, call, graph=graph)
         bound.append(edge)
     graph.edges[:] = bound
 
@@ -666,9 +799,11 @@ def _bind_complete_calls(
 def _call_sites() -> Generator[dict[SourceLocation, Node]]:
     sites: dict[SourceLocation, Node] = {}
     token = _CALL_SITES.set(sites)
+    eager_token = _EAGER_SITES.set(set())
     try:
         yield sites
     finally:
+        _EAGER_SITES.reset(eager_token)
         _CALL_SITES.reset(token)
 
 

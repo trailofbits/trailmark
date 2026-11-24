@@ -331,5 +331,23 @@
     "source_files": 1,
     "total_nodes": 9
   },
-  "trailmark_version": "<trailmark-version>"
+  "trailmark_version": "<trailmark-version>",
+  "unresolved_relationships": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "location": {
+        "end_col": 11,
+        "end_line": 1,
+        "file_path": "taxonomy.pl",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "missing_source": false,
+      "missing_target": true,
+      "reason": "endpoint_not_in_graph",
+      "source": "taxonomy",
+      "target": "strict"
+    }
+  ]
 }

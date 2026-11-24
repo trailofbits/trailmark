@@ -122,6 +122,7 @@ stay unverified. JSON exports retain these profiles alongside nonempty events.
 | `module` | Files, packages, and language modules |
 | `struct` | Structs and records |
 | `interface` | Interfaces, protocols, and ABI declarations |
+| `type` | Other named Go types, including scalar, slice, and function types |
 | `trait` | Traits and type classes |
 | `enum` | Enumerations |
 | `namespace` | Namespaces and declared packages |
@@ -323,7 +324,8 @@ After each file is parsed, Trailmark links the graph by name:
   discard a unique local or free-function match, but that match is `inferred`.
 - `inherits` and `implements` edges link to unique type declarations within one
   language before entrypoint detection runs. These links are name-based and
-  `inferred`.
+  `inferred`, except that Python bases use lexical import and local bindings;
+  an unavailable or ambiguous Python base never falls back to an unrelated name.
 - `type_uses` edges link type names to type declarations. They are linked
   within each language first; in a polyglot parse, a reference still unmatched
   after that can link to a same-named type in another language. Lean owns its
@@ -333,6 +335,17 @@ After each file is parsed, Trailmark links the graph by name:
 
 Compiler-level import, receiver, and overload semantics are not modeled. See
 [Language notes](languages.md) for per-language rules.
+
+Go containment resolves receiver declarations within the same directory and
+package. Method IDs retain their defining file; their `contains` edge can originate
+in another file. Duplicate declarations remain uncertain. Named scalar and other
+non-struct types use `type` nodes.
+
+Raw relationships with absent endpoints remain in `CodeGraph.edges` and lightweight
+JSON exports. `unresolved_relationships()` exposes the excluded relationships, missing
+endpoints, source locations, and reasons at the query layer. Indexed traversal includes
+only relationships whose two endpoints exist; it never fabricates source declarations.
+This inventory covers missing endpoints, separately from unresolved call proxies.
 
 
 Nested callable declarations also have conservative owner-to-body `calls` edges

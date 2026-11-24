@@ -189,6 +189,21 @@ def imported_callees(root: Node, path: str, calls: list[Node]) -> dict[Node, str
     return result
 
 
+def expression_bindings(root: Node, path: str, expressions: list[Node]) -> dict[Node, _Value]:
+    """Resolve eager expressions through the same lexical bindings as decorators.
+
+    The scope is selected by body ranges: bases and defaults belong to the
+    enclosing scope, rather than the class or function being defined.
+    """
+    if not expressions:
+        return {}
+    analyzer = _Analyzer(path, root)
+    return {
+        expression: analyzer._evaluate(expression, scope, expression.start_byte, 0)
+        for expression, scope in analyzer._call_scopes(expressions)
+    }
+
+
 @lru_cache(maxsize=1)
 def _decorator_query() -> Query:
     # Select functions before building lexical scopes: class decorators alone

@@ -36,6 +36,8 @@ that are reachable from user input.
   separate from execution. Select additional source roots with explicit exclusions.
 - **Reachability.** Direct callers and callees, transitive slices, and bounded
   call paths from entrypoints to a target.
+- **Reusable analysis.** Save and reload complete, versioned analysis snapshots
+  with annotations, call locations, entrypoint evidence, and source fingerprints.
 - **Structural diffs.** Compare two directories or git refs and report added or
   removed declarations, signature and type changes, call-edge confidence changes,
   and entrypoints.

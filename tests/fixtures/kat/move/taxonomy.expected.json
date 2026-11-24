@@ -166,5 +166,17 @@
     "source_files": 1,
     "total_nodes": 4
   },
-  "trailmark_version": "<trailmark-version>"
+  "trailmark_version": "<trailmark-version>",
+  "unresolved_relationships": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "location": null,
+      "missing_source": false,
+      "missing_target": true,
+      "reason": "endpoint_not_in_graph",
+      "source": "taxonomy:0x1::taxonomy",
+      "target": "0x1::string"
+    }
+  ]
 }

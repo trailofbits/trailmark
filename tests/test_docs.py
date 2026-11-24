@@ -93,6 +93,17 @@ def pyproject_data() -> dict[str, object]:
 # ── Pinned contracts ──────────────────────────────────────────────────
 
 PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
+    ("README.md", "Save and reload complete, versioned analysis snapshots"),
+    ("docs/python-api.md", "Loading does not reparse, import, or execute target source"),
+    ("docs/python-api.md", "`verify_sources=True`"),
+    ("docs/graph-model.md", "an unavailable or ambiguous Python base never falls back"),
+    ("docs/graph-model.md", "Go containment resolves receiver declarations"),
+    ("docs/parser-coverage.md", "at most 64 syntactic source profiles"),
+    ("docs/parser-coverage.md", "already included configuration callable receives that registrar"),
+    (
+        "docs/parser-coverage.md",
+        "Trimming consumers must explicitly include `references` dependencies",
+    ),
     (
         "docs/parser-coverage.md",
         "Python assignment-expression (`:=`) targets also block unrelated function names",

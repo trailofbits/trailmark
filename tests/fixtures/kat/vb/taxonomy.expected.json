@@ -215,5 +215,23 @@
     "source_files": 1,
     "total_nodes": 5
   },
-  "trailmark_version": "<trailmark-version>"
+  "trailmark_version": "<trailmark-version>",
+  "unresolved_relationships": [
+    {
+      "confidence": "certain",
+      "kind": "imports",
+      "location": {
+        "end_col": 0,
+        "end_line": 2,
+        "file_path": "taxonomy.vb",
+        "start_col": 0,
+        "start_line": 1
+      },
+      "missing_source": false,
+      "missing_target": true,
+      "reason": "endpoint_not_in_graph",
+      "source": "taxonomy",
+      "target": "System"
+    }
+  ]
 }

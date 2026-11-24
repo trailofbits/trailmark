@@ -63,3 +63,28 @@ def test_cpp_source_policy_marks_h_header_inspected(tmp_path: Path) -> None:
     files = cast(list[dict[str, str]], graph.source_policy["files"])
     assert len(files) == 1
     assert files[0]["status"] == "inspected"
+
+
+def test_macro_inline_pointer_return_has_a_real_identifier_in_auto_mode(tmp_path: Path) -> None:
+    (tmp_path / "config.h").write_text("#define ngx_inline inline\n")
+    (tmp_path / "node.h").write_text(
+        '#include "config.h"\n'
+        "typedef struct ngx_rbtree_node_t ngx_rbtree_node_t;\n"
+        "struct ngx_rbtree_node_t { ngx_rbtree_node_t *left; };\n"
+        "static ngx_inline ngx_rbtree_node_t *\n"
+        "ngx_rbtree_min(ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel) {\n"
+        "    while (node->left != sentinel) node = node->left;\n    return node;\n}\n"
+    )
+    (tmp_path / "main.c").write_text(
+        '#include "node.h"\n'
+        "ngx_rbtree_node_t *caller(ngx_rbtree_node_t *node, ngx_rbtree_node_t *end) {\n"
+        "    return ngx_rbtree_min(node, end);\n}\n"
+    )
+    (tmp_path / "unrelated.cpp").write_text("/* unrelated */\n")
+    graph = parse_directory(str(tmp_path), "auto")
+    assert graph.nodes["node:ngx_rbtree_min"].name == "ngx_rbtree_min"
+    assert dict(graph.nodes["node:ngx_rbtree_min"].attributes)["cpp_declarator_recovered"]
+    assert [n["id"] for n in QueryEngine.from_graph(graph).callees_of("main:caller")] == [
+        "node:ngx_rbtree_min"
+    ]
+    assert graph.parse_diagnostics

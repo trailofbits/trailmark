@@ -43,6 +43,7 @@ from trailmark.parsers._declarations import (
 from trailmark.parsers._exceptions import collect_exception_events
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
+from trailmark.parsers.c._references import collect_function_references
 from trailmark.parsers.cpp._block_macros import mark_recovered_bodies, recover_block_bodies
 from trailmark.parsers.cpp._cast_receivers import (
     bind_cast_calls,
@@ -131,6 +132,7 @@ class CppParser:
         resolve_local_method_calls(graph)
         bind_lexical_calls(graph)
         bind_cast_calls(graph)
+        collect_function_references(recovered.root_node, module_id, graph)
         collect_exception_events(recovered.root_node, file_path, graph)
         return graph
 
@@ -590,6 +592,9 @@ def _extract_function(
     unit, calls = _function_unit(
         node, file_path, func_id=func_id, func_name=func_name, kind=kind, generic_node=generic_node
     )
+    declarator = node.child_by_field_name("declarator")
+    if declarator is not None and _missing_qualifier(declarator):
+        unit = replace(unit, attributes=(*unit.attributes, ("cpp_declarator_recovered", True)))
     body = node.child_by_field_name("body")
     branches, exception_types = list(unit.branches), list(unit.exception_types)
     func_id = add_callable(graph, unit)
@@ -679,11 +684,17 @@ def _get_function_name(node: Node) -> str:
 
 def _dig_identifier(node: Node) -> str:
     """Recursively dig through declarator nodes for the name."""
-    if node.type == "identifier":
+    if node.type in {"identifier", "type_identifier"}:
         return node_text(node)
     if node.type == "field_identifier":
         return node_text(node)
     if node.type in ("qualified_identifier", "scoped_identifier"):
+        # Error recovery can put an entire pointer-returning declaration in a
+        # qualified_identifier whose synthetic scope separator is missing.
+        # Follow its real function declarator instead of naming the fragment.
+        if _missing_qualifier(node):
+            name = node.child_by_field_name("name")
+            return _dig_identifier(name) if name is not None else ""
         return node_text(node)
     declarator = node.child_by_field_name("declarator")
     if declarator is not None:
@@ -696,6 +707,12 @@ def _dig_identifier(node: Node) -> str:
         if result:
             return result
     return ""
+
+
+def _missing_qualifier(node: Node) -> bool:
+    return node.type in {"qualified_identifier", "scoped_identifier"} and any(
+        child.is_missing and child.type == "::" for child in node.children
+    )
 
 
 def _extract_parameters(node: Node) -> list[Parameter]:
