@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -11,6 +12,19 @@ from trailmark.models.edges import EdgeKind
 from trailmark.models.nodes import NodeKind
 from trailmark.parsers.rust.parser import RustParser
 from trailmark.query.api import QueryEngine
+
+
+@pytest.mark.parametrize("macro", ["opaque", "crate::opaque"])
+def test_ordinary_macros_keep_nested_verus_opaque(tmp_path: Path, macro: str) -> None:
+    path = tmp_path / "ordinary.rs"
+    path.write_text(f"{macro}! {{ verus! {{ fn hidden() {{}} }} }}\nfn visible() {{}}\n")
+    parser = RustParser()
+    with patch.object(parser, "_parse_verus_block", return_value=None) as parse_verus:
+        graph = parser.parse_file(str(path))
+    parse_verus.assert_not_called()
+    assert {node.id for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION} == {
+        "ordinary:visible"
+    }
 
 
 @pytest.mark.parametrize("wrapper", [False, True])
