@@ -320,7 +320,8 @@ def test_coverage_and_full_campaigns_agree_on_opaque_killers(tmp_path: Path, cas
     assert outcomes[0] == outcomes[1]
 
 
-def test_selected_subset_must_pass_before_any_mutant_runs(tmp_path: Path) -> None:
+@pytest.mark.parametrize("shared", [False, True])
+def test_selected_subset_must_pass_before_any_mutant_runs(tmp_path: Path, shared: bool) -> None:
     (tmp_path / "target.py").write_text("def checked():\n    return True\n")
     (tmp_path / "state.py").write_text("ready = False\n")
     (tmp_path / "test_a_setup.py").write_text(
@@ -330,14 +331,30 @@ def test_selected_subset_must_pass_before_any_mutant_runs(tmp_path: Path) -> Non
         "import state\nfrom target import checked\n"
         "def test_checked():\n    assert state.ready\n    assert checked() is True\n"
     )
+    command = [
+        sys.executable,
+        str(Path(__file__).with_name("run_mutations.py")),
+        "--targets=target.py",
+        "--workers=2",
+    ]
+    options = []
+    if shared:
+        prepared = subprocess.run(  # noqa: S603
+            [*command, "--baseline-shard=1/1", "."],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert prepared.returncode == 0, prepared.stdout + prepared.stderr
+        reports = tmp_path / "coverage/gremlins"
+        baselines = reports / "baselines"
+        baselines.mkdir()
+        for name in ("coverage-plan.json", "baseline-1-of-1.json"):
+            (reports / name).rename(baselines / name)
+        options = ["--selection-baseline-shard=1/1", f"--baselines={baselines}"]
     result = subprocess.run(  # noqa: S603
-        [
-            sys.executable,
-            str(Path(__file__).with_name("run_mutations.py")),
-            "--targets=target.py",
-            "--workers=2",
-            ".",
-        ],
+        [*command, *options, "."],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -347,3 +364,4 @@ def test_selected_subset_must_pass_before_any_mutant_runs(tmp_path: Path) -> Non
     assert "Selected instrumented baseline failed" in result.stdout + result.stderr
     assert not (tmp_path / "coverage/gremlins/run.json").exists()
     assert not (tmp_path / "coverage/gremlins/progress.jsonl").exists()
+    assert not list((tmp_path / "coverage/gremlins").glob("selection-baseline-*.json"))

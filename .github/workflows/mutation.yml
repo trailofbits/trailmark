@@ -84,9 +84,53 @@ jobs:
             coverage/gremlins/coverage-plan.json
           if-no-files-found: error
 
+  selection-baselines:
+    name: Selected test baselines ${{ matrix.shard }}/32
+    needs: [scope, baselines]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [
+          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+          17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+        ]
+    env:
+      SELECTION_BASELINE_SHARD: ${{ matrix.shard }}/32
+      MUTATION_REVIEWED: ${{ needs.scope.outputs.reviewed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.13.9"
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: sudo apt-get update && sudo apt-get install -y llvm binutils-multiarch
+      - run: npm ci
+      - run: uv sync --locked --all-groups --extra binary
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: mutation-baseline
+          path: coverage/gremlins/baselines
+      - name: Validate each selected subset once across the campaign
+        run: |
+          scope=()
+          if [[ "$MUTATION_REVIEWED" == true ]]; then scope+=(--reviewed); fi
+          uv run --locked --extra binary python -m tests.run_mutations "${scope[@]}" --workers=4 --selection-baseline-shard="$SELECTION_BASELINE_SHARD" --baselines=coverage/gremlins/baselines
+      - name: Upload selected-test baseline receipts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: mutation-selected-baseline-${{ matrix.shard }}
+          overwrite: true
+          path: coverage/gremlins/selection-baseline-*.json
+          if-no-files-found: error
+
   gremlins:
     name: Mutation shard ${{ matrix.shard }}/32
-    needs: [scope, baselines]
+    needs: [scope, baselines, selection-baselines]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -116,11 +160,16 @@ jobs:
         with:
           name: mutation-baseline
           path: coverage/gremlins/baselines
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          pattern: mutation-selected-baseline-*
+          merge-multiple: true
+          path: coverage/gremlins/selection-baselines
       - name: Run mutation campaign with shared baselines
         run: |
           scope=()
           if [[ "$MUTATION_REVIEWED" == true ]]; then scope+=(--reviewed); fi
-          uv run --locked --extra binary python -m tests.run_mutations "${scope[@]}" --workers=4 --shard="$MUTATION_SHARD" --baselines=coverage/gremlins/baselines
+          uv run --locked --extra binary python -m tests.run_mutations "${scope[@]}" --workers=4 --shard="$MUTATION_SHARD" --baselines=coverage/gremlins/baselines --selection-baselines=coverage/gremlins/selection-baselines
 
       - name: Enforce reviewed mutation baseline
         run: uv run --locked --extra binary python -m tests.mutation_gate --shard="$MUTATION_SHARD"
@@ -143,15 +192,17 @@ jobs:
   mutation-gate:
     name: Mutation Testing
     if: always()
-    needs: [scope, baselines, gremlins]
+    needs: [scope, baselines, selection-baselines, gremlins]
     runs-on: ubuntu-latest
     steps:
       - name: Require all mutation shards to pass
         env:
           MUTATION_RESULT: ${{ needs.gremlins.result }}
           BASELINE_RESULT: ${{ needs.baselines.result }}
+          SELECTION_BASELINE_RESULT: ${{ needs.selection-baselines.result }}
           SCOPE_RESULT: ${{ needs.scope.result }}
         run: |
           test "$SCOPE_RESULT" = success
           test "$BASELINE_RESULT" = success
+          test "$SELECTION_BASELINE_RESULT" = success
           test "$MUTATION_RESULT" = success

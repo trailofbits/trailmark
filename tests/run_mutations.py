@@ -38,7 +38,7 @@ from tests.mutation_coverage import select_tests as coverage_tests
 from tests.mutation_order import prioritize_tests, relative_node_ids
 
 VERSION = "1.14.3"
-RUNNER = "trailmark-pytest-coverage-v7"
+RUNNER = "trailmark-pytest-coverage-v8"
 
 
 def parse_shard(value: str) -> tuple[int, int]:
@@ -84,6 +84,17 @@ def _arguments() -> argparse.Namespace:
         type=Path,
         help="Reuse a complete set of matching shared baseline receipts",
     )
+    selections = parser.add_mutually_exclusive_group()
+    selections.add_argument(
+        "--selection-baseline-shard",
+        type=parse_shard,
+        help="Validate partition INDEX/TOTAL of all distinct coverage-selected subsets",
+    )
+    selections.add_argument(
+        "--selection-baselines",
+        type=Path,
+        help="Reuse matching receipts for every coverage-selected subset",
+    )
     parser.add_argument("tests", nargs="*", default=["tests"])
     args = parser.parse_args()
     if args.workers < 1:
@@ -98,6 +109,12 @@ def _arguments() -> argparse.Namespace:
         parser.error("--baseline-shard cannot be combined with --shard")
     if args.test_selection == "coverage" and args.baseline_shard not in {None, (1, 1)}:
         parser.error("Coverage selection uses a single --baseline-shard=1/1")
+    if (args.selection_baseline_shard or args.selection_baselines) and (
+        args.test_selection != "coverage" or args.baselines is None
+    ):
+        parser.error("Shared selected-test baselines require coverage mode and --baselines")
+    if args.selection_baseline_shard and args.shard != (1, 1):
+        parser.error("--selection-baseline-shard cannot be combined with --shard")
     if args.reviewed:
         baseline_path = Path(__file__).with_name("mutation_baseline.json")
         args.targets = ",".join(json.loads(baseline_path.read_text())["scope"])
@@ -244,8 +261,11 @@ def _instrumented_writer(
 
 
 class _RequireCompleteInstrumentation:
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(
+        self, args: argparse.Namespace, prepare_selections: Callable[[plugin.GremlinSession], None]
+    ) -> None:
         self.args = args
+        self.prepare_selections = prepare_selections
         self.empty_shard = False
 
     @pytest.hookimpl(trylast=True)
@@ -259,14 +279,20 @@ class _RequireCompleteInstrumentation:
         if session is not None:
             if self.args.baseline_shard:
                 session.enabled = False
+            if self.args.selection_baseline_shard or self.args.selection_baselines:
+                # Validate the global selection inventory before partitioning mutants.
+                self.prepare_selections(session)
+            if self.args.selection_baseline_shard:
+                session.enabled = False
             selected = select_shard(session.gremlins, self.args.shard)
             self.empty_shard = bool(session.gremlins) and not selected
             session.gremlins = selected
 
-    def pytest_runtestloop(self) -> bool | None:
-        if self.args.baseline_shard:
-            return True
-        return None
+    def pytest_runtestloop(self) -> bool:
+        # Real pytest subprocesses already validated the clean and instrumented
+        # baselines, or collection checked matching shared evidence. The outer
+        # session only collects tests and dispatches mutations at session finish.
+        return True
 
 
 def _run_campaign(
@@ -275,8 +301,8 @@ def _run_campaign(
     fingerprint: str,
     receipts: list[dict[str, object]],
     plans: list[dict[str, Any]],
+    selection_receipts: list[dict[str, object]],
 ) -> int:
-    instrumentation = _RequireCompleteInstrumentation(args)
     cache_result = plugin._cache_gremlin_result
     selections: dict[str, list[str]] = {}
 
@@ -324,12 +350,7 @@ def _run_campaign(
             selections[gremlin.gremlin_id] = uncached_tests(gremlin, session)
         return selections[gremlin.gremlin_id].copy()
 
-    def validate_selections(session: plugin.GremlinSession, rootdir: Path) -> None:
-        if args.test_selection == "full":
-            return
-        directory = session.instrumented_dir
-        if directory is None:
-            raise pytest.UsageError("Missing instrumented sources for selected test controls")
+    def selected_orders(session: plugin.GremlinSession) -> list[tuple[str, ...]]:
         orders = {tuple(select_tests(gremlin, session)) for gremlin in session.gremlins}
         if selections:
             counts = [len(tests) for tests in selections.values()]
@@ -341,7 +362,21 @@ def _run_campaign(
             )
         # The complete collection order was already executed locally or shared.
         orders.discard(tuple(session.test_node_ids))
-        print(f"Checking {len(orders)} distinct selected-test baselines", flush=True)
+        return sorted(orders)
+
+    def check_selected_orders(
+        session: plugin.GremlinSession,
+        orders: list[tuple[str, ...]],
+        shard: tuple[int, int] = (1, 1),
+    ) -> None:
+        directory = session.instrumented_dir
+        if directory is None:
+            raise pytest.UsageError("Missing instrumented sources for selected test controls")
+        assigned = orders[shard[0] - 1 :: shard[1]]
+        print(
+            f"Checking {len(assigned)} of {len(orders)} distinct selected-test baselines",
+            flush=True,
+        )
         command = _test_command(directory, session)
         env = _baseline_environment(directory)
         executor = ThreadPoolExecutor(max_workers=args.workers)
@@ -356,7 +391,7 @@ def _run_campaign(
                     text=True,
                     timeout=240,
                 )
-                for order in sorted(orders)
+                for order in assigned
             ]
             for completed, future in enumerate(as_completed(futures), 1):
                 try:
@@ -376,6 +411,28 @@ def _run_campaign(
         finally:
             executor.shutdown(wait=True, cancel_futures=True)
 
+    def prepare_shared_selections(session: plugin.GremlinSession) -> None:
+        orders = selected_orders(session)
+        context = {**plans[0]["context"], "baseline_phase": "selected-subsets"}
+        if args.selection_baseline_shard:
+            check_selected_orders(session, orders, args.selection_baseline_shard)
+            selection_receipts.append(
+                baseline_receipt(context, orders, args.selection_baseline_shard)
+            )
+        else:
+            try:
+                validate_baselines(
+                    args.selection_baselines, context, orders, prefix="selection-baseline"
+                )
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                raise pytest.UsageError(f"Invalid shared selected-test baselines: {exc}") from exc
+            print(f"Reusing validated selected-test baseline orders: {len(orders)}", flush=True)
+
+    def validate_selections(session: plugin.GremlinSession, rootdir: Path) -> None:
+        if args.test_selection == "coverage" and args.selection_baselines is None:
+            check_selected_orders(session, selected_orders(session))
+
+    instrumentation = _RequireCompleteInstrumentation(args, prepare_shared_selections)
     with (
         patch.object(
             plugin,
@@ -422,6 +479,10 @@ def main() -> int:
         index, count = args.baseline_shard
         receipt_path = report_dir / f"baseline-{index}-of-{count}.json"
         receipt_path.unlink(missing_ok=True)
+    elif args.selection_baseline_shard:
+        index, count = args.selection_baseline_shard
+        receipt_path = report_dir / f"selection-baseline-{index}-of-{count}.json"
+        receipt_path.unlink(missing_ok=True)
     fingerprint = input_fingerprint(Path.cwd())
     if args.baselines is None:
         baseline = subprocess.run(  # noqa: S603
@@ -432,7 +493,8 @@ def main() -> int:
     hashes = _source_hashes(args.targets)
     receipts: list[dict[str, object]] = []
     plans: list[dict[str, Any]] = []
-    result = _run_campaign(args, report_dir, fingerprint, receipts, plans)
+    selection_receipts: list[dict[str, object]] = []
+    result = _run_campaign(args, report_dir, fingerprint, receipts, plans, selection_receipts)
     if result == 0 and (not receipts or input_fingerprint(Path.cwd()) != fingerprint):
         print(
             "Mutation inputs changed or instrumented baseline validation is missing",
@@ -442,7 +504,11 @@ def main() -> int:
     if result == 0 and plans:
         (report_dir / "coverage-plan.json").write_text(json.dumps(plans[0]) + "\n")
     if result == 0 and receipt_path is not None:
-        receipt_path.write_text(json.dumps(receipts[0], indent=2) + "\n")
+        validated = selection_receipts if args.selection_baseline_shard else receipts
+        if not validated:
+            print("Selected baseline validation is missing", file=sys.stderr)
+            return 1
+        receipt_path.write_text(json.dumps(validated[0], indent=2) + "\n")
     elif result == 0:
         (report_dir / "run.json").write_text(
             json.dumps(
@@ -458,6 +524,9 @@ def main() -> int:
                     "sources": hashes,
                     "tests": args.tests,
                     "baseline_validation": "shared" if args.baselines is not None else "local",
+                    "selection_baseline_validation": (
+                        "shared" if args.selection_baselines is not None else "local"
+                    ),
                 },
                 indent=2,
             )

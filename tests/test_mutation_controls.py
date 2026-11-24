@@ -29,6 +29,17 @@ def test_shared_baselines_accept_complete_disjoint_orders(receipts: tuple) -> No
     validate_baselines(*receipts)
 
 
+def test_selection_receipts_cannot_be_replaced_by_full_suite_receipts(receipts: tuple) -> None:
+    directory, context, orders = receipts
+    with pytest.raises(ValueError, match="Missing shared mutation baselines"):
+        validate_baselines(directory, context, orders, prefix="selection-baseline")
+    for path in directory.glob("baseline-*.json"):
+        path.rename(path.with_name("selection-" + path.name))
+    validate_baselines(directory, context, orders, prefix="selection-baseline")
+    with pytest.raises(ValueError, match="Missing shared mutation baselines"):
+        validate_baselines(directory, context, orders)
+
+
 @pytest.mark.parametrize(
     "corruption",
     ["missing", "duplicate", "unchecked order", "stale inputs", "wrong order", "invalid partition"],

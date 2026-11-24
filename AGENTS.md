@@ -113,13 +113,17 @@ selected subset must pass without a mutation before any mutants run. Use it
 rather than invoking the pinned plugin directly. Omit
 `--reviewed` for a full repository campaign; CI runs that after merges
 and on manual dispatch. `--workers` already enables parallel execution.
-CI first produces one baseline receipt and coverage plan, then splits mutants
-across 32 concurrent jobs that reuse that matching evidence.
+CI first produces one baseline receipt and coverage plan, then validates each
+distinct selected subset once across 32 preparation jobs. Its 32 mutation jobs
+reuse both sets of receipts without replaying the clean suite or neutral subsets.
 Local runs validate their own baselines by default. To reproduce a partition,
 pass the same `--shard=1/32` (one-based index/total) to both commands.
 Use `--test-selection=full` for a full-suite reference campaign. Shared coverage
 preparation uses `--baseline-shard=1/1`; copy both `baseline-1-of-1.json` and
 `coverage-plan.json` together when using `--baselines=PATH`.
+Shared subset preparation uses `--selection-baseline-shard=INDEX/TOTAL` with
+`--baselines=PATH`; consumers also pass `--selection-baselines=PATH` containing
+every subset receipt. See `CONTRIBUTING.md` for the preparation sequence.
 Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
 
 ## Adding Features

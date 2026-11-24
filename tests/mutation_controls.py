@@ -82,7 +82,12 @@ def input_fingerprint(root: Path) -> str:
 def baseline_receipt(
     context: dict[str, Any], orders: list[tuple[str, ...]], shard: tuple[int, int]
 ) -> dict[str, Any]:
-    identifiers = [digest(order) for order in orders]
+    return _partition_receipt(context, [digest(order) for order in orders], shard)
+
+
+def _partition_receipt(
+    context: dict[str, Any], identifiers: list[str], shard: tuple[int, int]
+) -> dict[str, Any]:
     index, count = shard
     return {
         "context": context,
@@ -93,9 +98,13 @@ def baseline_receipt(
 
 
 def validate_baselines(
-    directory: Path, context: dict[str, Any], orders: list[tuple[str, ...]]
+    directory: Path,
+    context: dict[str, Any],
+    orders: list[tuple[str, ...]],
+    *,
+    prefix: str = "baseline",
 ) -> None:
-    paths = sorted(directory.glob("baseline-*.json"))
+    paths = sorted(directory.glob(f"{prefix}-*.json"))
     if not paths:
         raise ValueError("Missing shared mutation baselines")
     receipts = [json.loads(path.read_text()) for path in paths]
@@ -106,8 +115,9 @@ def validate_baselines(
     if type(count) is not int or count != len(receipts):
         raise ValueError("Incomplete shared mutation baselines")
     by_partition = {tuple(receipt["shard"]): receipt for receipt in receipts}
+    identifiers = [digest(order) for order in orders]
     expected = {
-        (index, count): baseline_receipt(context, orders, (index, count))
+        (index, count): _partition_receipt(context, identifiers, (index, count))
         for index in range(1, count + 1)
     }
     if len(by_partition) != len(receipts) or by_partition != expected:

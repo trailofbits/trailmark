@@ -96,9 +96,14 @@ collects per-test coverage, and validates the complete instrumented suite once.
 Mutation jobs reuse its baseline receipt and coverage plan only when repository
 inputs, Python packages, native tool binaries, relevant environment settings,
 test collection, and runner configuration match. Missing, stale, or incomplete receipts fail the run.
-Each mutation shard enforces the reviewed gate for its assigned inventory. The final
-`Mutation Testing` check requires the baseline job and all 32 shards to pass;
-reports are uploaded separately per shard.
+The outer pytest session collects tests and dispatches mutations without replaying
+the clean suite in each shard.
+Next, 32 preparation jobs partition the globally distinct selected test subsets
+and validate each subset once. Mutation shards require all selected-test receipts
+and reuse those checks without executing neutral subsets again.
+The final `Mutation Testing` check requires the baseline job, all 32 selected-test
+preparation jobs, and all 32 mutation shards to pass. Each mutation shard enforces
+the reviewed gate for its assigned inventory and uploads its own reports.
 
 To reproduce one CI shard locally, pass the same one-based `--shard=INDEX/TOTAL`
 to both commands (omit `--reviewed` for a full repository shard):
@@ -116,6 +121,14 @@ setting. Copy `coverage/gremlins/baseline-1-of-1.json` and
 `--baselines=PATH` to mutation runs. Preparation executes no mutants and creates
 no gate report; evidence is written only after successful validation. Keep these
 files within the same trusted campaign.
+
+To share selected-test controls too, run
+`--selection-baseline-shard=INDEX/TOTAL --baselines=PATH` for every preparation
+partition, using the same targets, tests, and ordering. Each partition writes
+`coverage/gremlins/selection-baseline-INDEX-of-TOTAL.json` only after its assigned
+subsets pass. Copy all those receipts into a separate directory and pass
+`--selection-baselines=PATH` alongside `--baselines=PATH` to mutation runs.
+Missing, stale, duplicate, or incomplete selected-test receipts fail the campaign.
 
 **Scope and gate.** Pull requests mutate the reviewed files named in
 `tests/mutation_baseline.json`. Full
@@ -140,8 +153,9 @@ native GNU/LLVM tools and C compilers do not obscure Python coverage; their
 executable contents are fingerprinted, and Python or script wrappers remain
 opaque. Import-time and unmapped locations use the full suite.
 
-Before executing mutants, each shard checks its distinct selected subsets in
-neutral instrumented pytest subprocesses, using the same worker count. A failing
+Before executing mutants, the runner checks distinct selected subsets in neutral
+instrumented pytest subprocesses, or verifies matching shared receipts for all
+such checks. Local runs check their own subsets by default. A failing
 subset invalidates the campaign. These controls finish before mutant timing
 starts. The gate verifies each reported test selection against the saved plan.
 The runner preserves exact parameter IDs and rejects skipped instrumentation.

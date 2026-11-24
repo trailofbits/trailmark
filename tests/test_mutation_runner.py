@@ -324,6 +324,15 @@ def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(
     reports = tmp_path / "coverage/gremlins"
     shared = reports / "baselines"
     shared.mkdir(parents=True)
+    executions = tmp_path.with_suffix(".executions.jsonl")
+    (tmp_path / "conftest.py").write_text(
+        "import json, os, sys\nfrom pathlib import Path\n"
+        "def pytest_runtest_call(item):\n"
+        f"    with Path({str(executions)!r}).open('a') as stream:\n"
+        "        stream.write(json.dumps({'argv': sys.argv, 'test': item.nodeid, "
+        "'instrumented': bool(os.environ.get('PYTEST_GREMLINS_SOURCES_FILE')), "
+        "'mutant': bool(os.environ.get('ACTIVE_GREMLIN'))}) + '\\n')\n"
+    )
 
     def run(*options: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(  # noqa: S603
@@ -354,15 +363,43 @@ def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(
         assert not (reports / "run.json").exists()
         assert not (reports / "progress.jsonl").exists()
     assert len(checked) == len(set(checked)) == partitions
+    calls = [json.loads(line) for line in executions.read_text().splitlines()]
+    assert any(not call["instrumented"] for call in calls)
+    assert any(call["instrumented"] for call in calls)
+    assert not any(call["mutant"] for call in calls)
     if selection == "coverage":
         (reports / "coverage-plan.json").rename(shared / "coverage-plan.json")
+        executions.unlink()
+        for index in (1, 2):
+            result = run(f"--selection-baseline-shard={index}/2", f"--baselines={shared}")
+            assert result.returncode == 0, result.stdout + result.stderr
+            assert not (reports / "run.json").exists()
+            assert not (reports / "progress.jsonl").exists()
+        calls = [json.loads(line) for line in executions.read_text().splitlines()]
+        assert sorted(call["test"] for call in calls) == [
+            "test_first.py::test_boundary",
+            "test_second.py::test_boundary",
+        ]
+        assert all(call["instrumented"] and not call["mutant"] for call in calls)
 
     combined = {}
     for index in (1, 2):
-        result = run(f"--shard={index}/2", f"--baselines={shared}")
+        executions.unlink()
+        result = run(
+            f"--shard={index}/2",
+            f"--baselines={shared}",
+            *([f"--selection-baselines={reports}"] if selection == "coverage" else []),
+        )
         assert result.returncode == 0, result.stdout + result.stderr
         assert f"Reusing validated instrumented baseline orders: {partitions}" in result.stdout
         assert "Checking instrumented baseline order" not in result.stdout
+        calls = [json.loads(line) for line in executions.read_text().splitlines()]
+        assert all(call["instrumented"] for call in calls)
+        assert not any(Path(call["argv"][0]) == runner for call in calls)
+        if selection == "coverage":
+            assert all(call["mutant"] for call in calls)
+            assert "Reusing validated selected-test baseline orders: 2" in result.stdout
+            assert "Checking " not in result.stdout
         report = json.loads((reports / "gremlins.json").read_text())
         combined.update({row["gremlin_id"]: row["status"] for row in report["results"]})
         assert json.loads((reports / "run.json").read_text())["baseline_validation"] == "shared"
@@ -371,6 +408,17 @@ def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(
     report = json.loads((reports / "gremlins.json").read_text())
     assert combined == {row["gremlin_id"]: row["status"] for row in report["results"]}
     assert set(combined.values()) == {"zapped"}
+
+    if selection == "coverage":
+        selected_receipt = reports / "selection-baseline-2-of-2.json"
+        saved = selected_receipt.read_text()
+        selected_receipt.unlink()
+        result = run(f"--baselines={shared}", f"--selection-baselines={reports}")
+        assert result.returncode != 0
+        assert "Invalid shared selected-test baselines" in result.stdout + result.stderr
+        assert not (reports / "run.json").exists()
+        assert not (reports / "progress.jsonl").exists()
+        selected_receipt.write_text(saved)
 
     with (tmp_path / "test_second.py").open("a") as test:
         test.write("\n# Edited after the baselines were validated.\n")
