@@ -8,7 +8,15 @@ import pytest
 from hypothesis import HealthCheck, settings
 
 settings.register_profile("trailmark", deadline=None, suppress_health_check=[HealthCheck.too_slow])
-settings.load_profile("trailmark")
+settings.register_profile(
+    "trailmark-mutation",
+    parent=settings.get_profile("trailmark"),
+    derandomize=True,
+    database=None,
+)
+settings.load_profile(
+    "trailmark-mutation" if os.environ.get("TRAILMARK_MUTATION_TESTING") else "trailmark"
+)
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:

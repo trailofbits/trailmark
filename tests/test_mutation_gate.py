@@ -40,6 +40,7 @@ def campaign(tmp_path: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, 
     run = {
         "pytest_gremlins": VERSION,
         "runner": RUNNER,
+        "test_selection": "full",
         "shard": [1, 1],
         "sources": {"target.py": hashlib.sha256(source.encode()).hexdigest()},
     }
@@ -69,6 +70,7 @@ def test_rejects_skipped_or_invalid_instrumentation(
         (1, "runner", "trailmark-full-pytest-v3"),
         (1, "runner", "trailmark-full-pytest-v4"),
         (1, "runner", "trailmark-full-pytest-v5"),
+        (1, "runner", "trailmark-full-pytest-v6"),
     ],
 )
 def test_rejects_previous_adapter_reports(

@@ -190,12 +190,14 @@ def test_runner_executes_fixtures_parameters_and_package_mutations(tmp_path: Pat
     )
     (tmp_path / "test_toy.py").write_text("""\
 import coverage
+import os
 import pytest
 from toy import checked, ignored, RESOURCE, VALUE
 
 @pytest.mark.parametrize(("value", "answer"), [(0, False), (1, True)], ids=["ZERO", "ONE"])
 def test_strong(tmp_path, value, answer):
-    assert coverage.Coverage.current() is None
+    collecting = bool(os.environ.get("TRAILMARK_MUTATION_COVERAGE"))
+    assert (coverage.Coverage.current() is not None) == collecting
     assert tmp_path.is_dir()
     assert RESOURCE == "known resource" and VALUE == 7
     assert checked(value) is answer
@@ -250,7 +252,7 @@ def test_weak(tmp_path, value):
     assert {row["gremlin_id"]: row["status"] for row in progress} == {
         row["gremlin_id"]: row["status"] for row in results
     }
-    assert all(row["selected_test_count"] == 5 for row in progress)
+    assert all(0 < row["selected_test_count"] < 5 for row in progress)
     assert all(Path(row["file_path"]).name == "__init__.py" for row in progress)
     strong = [r for r in results if r["line_number"] == 5]
     weak = [r for r in results if r["line_number"] == 7]
@@ -260,12 +262,14 @@ def test_weak(tmp_path, value):
     assert {r["status"] for r in strong} == {"zapped"}
     assert {r["status"] for r in delegated} == {"zapped"}
     assert {r["status"] for r in weak} == {"survived"}
-    assert all(len(r["selected_tests"]) == 5 for r in results)
     assert all(
-        "test_toy.py::test_strong[ZERO]" in r["selected_tests"]
-        and "test_toy.py::test_strong[ONE]" in r["selected_tests"]
-        and "test_integration.py::test_integration" in r["selected_tests"]
-        for r in results
+        r["selected_tests"] == ["test_toy.py::test_strong[ZERO]", "test_toy.py::test_strong[ONE]"]
+        for r in strong
+    )
+    assert all(r["selected_tests"] == ["test_integration.py::test_integration"] for r in delegated)
+    assert all(
+        r["selected_tests"] == ["test_toy.py::test_weak[0]", "test_toy.py::test_weak[1]"]
+        for r in weak
     )
 
 
@@ -285,7 +289,14 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path, partition: str)
     progress.write_text("stale previous campaign\n")
     runner = Path(__file__).with_name("run_mutations.py")
     result = subprocess.run(  # noqa: S603
-        [sys.executable, str(runner), "--targets=target.py", partition, "."],
+        [
+            sys.executable,
+            str(runner),
+            "--targets=target.py",
+            "--test-selection=full",
+            partition,
+            ".",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -299,7 +310,10 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path, partition: str)
     assert not list((tmp_path / "coverage/gremlins").glob("baseline-*.json"))
 
 
-def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(tmp_path: Path) -> None:
+@pytest.mark.parametrize("selection", ["full", "coverage"])
+def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(
+    tmp_path: Path, selection: str
+) -> None:
     for name in ("first", "second"):
         (tmp_path / f"{name}.py").write_text("def checked(value):\n    return value > 0\n")
         (tmp_path / f"test_{name}.py").write_text(
@@ -317,6 +331,7 @@ def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(tmp_p
                 sys.executable,
                 str(runner),
                 "--targets=first.py,second.py",
+                f"--test-selection={selection}",
                 "--workers=2",
                 *options,
                 "test_first.py",
@@ -329,21 +344,24 @@ def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(tmp_p
         )
 
     checked = []
-    for index in (1, 2):
-        result = run(f"--baseline-shard={index}/2")
+    partitions = 1 if selection == "coverage" else 2
+    for index in range(1, partitions + 1):
+        result = run(f"--baseline-shard={index}/{partitions}")
         assert result.returncode == 0, result.stdout + result.stderr
-        receipt = reports / f"baseline-{index}-of-2.json"
+        receipt = reports / f"baseline-{index}-of-{partitions}.json"
         checked.extend(json.loads(receipt.read_text())["checked"])
         receipt.rename(shared / receipt.name)
         assert not (reports / "run.json").exists()
         assert not (reports / "progress.jsonl").exists()
-    assert len(checked) == len(set(checked)) == 2
+    assert len(checked) == len(set(checked)) == partitions
+    if selection == "coverage":
+        (reports / "coverage-plan.json").rename(shared / "coverage-plan.json")
 
     combined = {}
     for index in (1, 2):
         result = run(f"--shard={index}/2", f"--baselines={shared}")
         assert result.returncode == 0, result.stdout + result.stderr
-        assert "Reusing validated instrumented baseline orders: 2" in result.stdout
+        assert f"Reusing validated instrumented baseline orders: {partitions}" in result.stdout
         assert "Checking instrumented baseline order" not in result.stdout
         report = json.loads((reports / "gremlins.json").read_text())
         combined.update({row["gremlin_id"]: row["status"] for row in report["results"]})
@@ -358,7 +376,12 @@ def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(tmp_p
         test.write("\n# Edited after the baselines were validated.\n")
     result = run("--shard=1/2", f"--baselines={shared}")
     assert result.returncode != 0
-    assert "Invalid shared mutation baselines" in result.stdout + result.stderr
+    message = (
+        "Invalid shared coverage selection"
+        if selection == "coverage"
+        else "Invalid shared mutation baselines"
+    )
+    assert message in result.stdout + result.stderr
     assert not (reports / "run.json").exists()
     assert not (reports / "progress.jsonl").exists()
 

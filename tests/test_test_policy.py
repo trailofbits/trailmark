@@ -96,3 +96,6 @@ def test_hypothesis_has_no_deadline_or_generation_speed_limit() -> None:
     assert defaults is not None
     assert defaults.deadline is None
     assert HealthCheck.too_slow in defaults.suppress_health_check
+    mutation = settings.get_profile("trailmark-mutation")
+    assert mutation.derandomize is True
+    assert mutation.database is None

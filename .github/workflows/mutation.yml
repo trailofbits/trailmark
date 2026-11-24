@@ -15,6 +15,7 @@ permissions:
   contents: read
 
 env:
+  PYTHONHASHSEED: "0"
   TRAILMARK_REQUIRE_BINARY_TOOLS: "1"
   TRAILMARK_LLVM_OBJDUMP: /usr/bin/llvm-objdump
   TRAILMARK_LLVM_SYMBOLIZER: /usr/bin/llvm-symbolizer
@@ -42,22 +43,18 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
             reviewed=true
             changed=$(git diff --name-only "$PR_BASE_SHA" HEAD)
-            if grep -Eq '^(\.github/workflows/mutation\.yml$|tests/(run_mutations|mutation_[^/]+|test_mutation_[^/]+)\.py$|pyproject\.toml$|uv\.lock$)' <<< "$changed"; then
+            if grep -Eq '^(\.github/workflows/mutation\.yml$|tests/(run_mutations|mutation_[^/]+|test_mutation_[^/]+|conftest|parse_work|test_test_policy)\.py$|pyproject\.toml$|uv\.lock$)' <<< "$changed"; then
               reviewed=false
             fi
           fi
           echo "reviewed=$reviewed" >> "$GITHUB_OUTPUT"
 
   baselines:
-    name: Mutation baselines ${{ matrix.shard }}/8
+    name: Mutation baseline and coverage
     needs: scope
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
-      BASELINE_SHARD: ${{ matrix.shard }}/8
+      BASELINE_SHARD: 1/1
       MUTATION_REVIEWED: ${{ needs.scope.outputs.reviewed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -72,7 +69,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y llvm binutils-multiarch
       - run: npm ci
       - run: uv sync --locked --all-groups --extra binary
-      - name: Validate assigned instrumented test orders
+      - name: Validate baseline and collect test coverage
         run: |
           scope=()
           if [[ "$MUTATION_REVIEWED" == true ]]; then scope+=(--reviewed); fi
@@ -80,9 +77,11 @@ jobs:
       - name: Upload validated baselines
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
-          name: mutation-baseline-${{ matrix.shard }}
+          name: mutation-baseline
           overwrite: true
-          path: coverage/gremlins/baseline-*.json
+          path: |
+            coverage/gremlins/baseline-*.json
+            coverage/gremlins/coverage-plan.json
           if-no-files-found: error
 
   gremlins:
@@ -115,8 +114,7 @@ jobs:
       - run: uv sync --locked --all-groups --extra binary
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
-          pattern: mutation-baseline-*
-          merge-multiple: true
+          name: mutation-baseline
           path: coverage/gremlins/baselines
       - name: Run mutation campaign with shared baselines
         run: |

@@ -16,6 +16,9 @@ from typing import Any
 from pytest_gremlins.instrumentation.gremlin import Gremlin
 from pytest_gremlins.instrumentation.transformer import transform_source
 
+from tests.mutation_coverage import select_tests as coverage_tests
+from tests.mutation_coverage import validate_plan
+from tests.mutation_order import prioritize_tests
 from tests.run_mutations import RUNNER, VERSION, parse_shard, select_shard
 
 
@@ -120,6 +123,36 @@ def _validate_versions(run: dict[str, Any], baseline: dict[str, Any]) -> None:
         raise ValueError("Mutation version does not match the reviewed baseline")
     if run["runner"] != RUNNER:
         raise ValueError("Report lacks validated pytest execution")
+    if run.get("test_selection") not in {"coverage", "full"}:
+        raise ValueError("Unknown mutation test selection mode")
+
+
+def _validate_test_selection(root: Path, report: dict[str, Any], run: dict[str, Any]) -> None:
+    if run["test_selection"] == "full":
+        return
+    envelope = json.loads((root / "coverage/gremlins/coverage-plan.json").read_text())
+    expected = {
+        key: run[key]
+        for key in (
+            "inputs",
+            "pytest_gremlins",
+            "runner",
+            "targets",
+            "tests",
+            "test_order",
+            "test_selection",
+        )
+    }
+    expected["addopts"] = envelope["context"]["addopts"]
+    expected["coverage_plan"] = run["selection_plan"]
+    tests = envelope["plan"]["tests"]
+    plan = validate_plan(envelope, expected, tests, set(run["sources"]))
+    for row in report["results"]:
+        selected = coverage_tests(plan, row["file_path"], row["line_number"], tests, root=root)
+        if selected != tests and run["test_order"] == "component":
+            selected = prioritize_tests(row["file_path"], selected)
+        if row["selected_tests"] != selected:
+            raise ValueError("Mutation test selection differs from the validated coverage plan")
 
 
 def _validate_report(
@@ -207,6 +240,7 @@ def check(
     if run.get("shard") != list(shard):
         raise ValueError("Mutation report shard does not match the requested partition")
     _validate_report(report, baseline, allow_empty=shard[1] > 1)
+    _validate_test_selection(root, report, run)
     reviewed = _reviewed_exceptions(baseline)
     legacy = {
         (entry["path"], entry["function"]): entry["source_hash"]
