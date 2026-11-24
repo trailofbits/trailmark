@@ -73,6 +73,12 @@ def test_pyramid_view_detector_requires_pyramid_binding(tmp_path: Path) -> None:
     }
 
 
+@pytest.fixture(scope="class")
+def self_analysis_engine() -> QueryEngine:
+    """Parse the repository once for the read-only self-analysis checks."""
+    return QueryEngine.from_directory(str(SRC), language="python")
+
+
 class TestSelfAnalysis:
     """Running Trailmark on its own source must produce entrypoints.
 
@@ -81,22 +87,19 @@ class TestSelfAnalysis:
     silently returned an empty list.
     """
 
-    def test_self_analysis_has_entrypoints(self) -> None:
-        engine = QueryEngine.from_directory(str(SRC), language="python")
-        summary = engine.summary()
+    def test_self_analysis_has_entrypoints(self, self_analysis_engine: QueryEngine) -> None:
+        summary = self_analysis_engine.summary()
         assert summary["entrypoints"] > 0, (
             "Running Trailmark on its own src/ must detect at least one "
             "entrypoint (the pyproject [project.scripts] target)."
         )
 
-    def test_self_analysis_attack_surface_nonempty(self) -> None:
-        engine = QueryEngine.from_directory(str(SRC), language="python")
-        surface = engine.attack_surface()
+    def test_self_analysis_attack_surface_nonempty(self, self_analysis_engine: QueryEngine) -> None:
+        surface = self_analysis_engine.attack_surface()
         assert surface, "attack_surface() returned empty on trailmark's own source"
 
-    def test_self_analysis_finds_pyproject_script(self) -> None:
-        engine = QueryEngine.from_directory(str(SRC), language="python")
-        surface = engine.attack_surface()
+    def test_self_analysis_finds_pyproject_script(self, self_analysis_engine: QueryEngine) -> None:
+        surface = self_analysis_engine.attack_surface()
         node_ids = {ep["node_id"] for ep in surface}
         assert "trailmark.cli:main" in node_ids, (
             f"Expected trailmark.cli:main (the pyproject.toml script target) in {node_ids}"
