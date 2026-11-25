@@ -20,14 +20,14 @@ permissions:
 
 jobs:
   reference:
-    uses: ./.github/workflows/mutation.yml
+    uses: $/.github/workflows/mutation.yml
     with:
       test-group: full
       test-selection: full
       test-order: collection
       full-source: true
   candidate:
-    uses: ./.github/workflows/mutation.yml
+    uses: $/.github/workflows/mutation.yml
     with:
       test-group: fast
       test-selection: coverage
