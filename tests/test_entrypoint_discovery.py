@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.parse_work import count_work
 from trailmark.analysis.entrypoint_candidates import discover_entrypoint_candidates
 from trailmark.models.edges import EdgeKind
 from trailmark.parse import _LANGUAGE_EXTENSIONS, parse_directory
@@ -303,6 +304,11 @@ def test_every_registered_extension_reaches_its_frontend(
 
     fixture, _ = fixture_pair(language, dict(reversed(PARSER_FIXTURES))[language])
     (tmp_path / (fixture.stem + extension)).write_bytes(fixture.read_bytes())
-    graph = parse_directory(str(tmp_path), language)
+    if language in {"fstar", "lean", "rego"}:
+        # Collection order reaches these fixtures before the focused loop regressions.
+        # Bound their traversal work so malformed loops fail instead of hanging the suite.
+        graph, _ = count_work(lambda: parse_directory(str(tmp_path), language), max_work=1_000_000)
+    else:
+        graph = parse_directory(str(tmp_path), language)
     assert graph.source_file_counts == {language: 1}
     assert graph.nodes

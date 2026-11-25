@@ -13,6 +13,8 @@
 mutants/
 src/trailmark/tree_sitter_custom/**/*.so
 src/trailmark/tree_sitter_custom/**/*.pyd
+# Native cache outputs remain generated artifacts when mutations corrupt their suffix.
+/src/trailmark/tree_sitter_custom/*/_binding_*
 .gremlins_cache/
 coverage/
 # Keep raw audit reports, probes, and validation logs local.
