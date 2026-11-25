@@ -11,6 +11,7 @@ from trailmark.parse import parse_directory
 from trailmark.parsers import _ecmascript
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_shared_exports_and_constructors_are_indexed_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str, extension: str

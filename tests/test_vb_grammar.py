@@ -9,6 +9,7 @@ from trailmark.models.nodes import NodeOrigin
 from trailmark.parse import parse_directory, parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("separator", ["\n", " : ", "\n\n ' note\n"])
 def test_class_inheritance_follows_the_header_terminator(tmp_path: Path, separator: str) -> None:
     path = tmp_path / "sample.vb"
@@ -46,6 +47,7 @@ def test_rem_prefix_does_not_consume_next_class_or_property(tmp_path: Path) -> N
     assert not any(u.name == "Ghost" for u in graph.nodes.values())
 
 
+@pytest.mark.mutation_fast
 def test_generic_parameters_and_new_arguments_keep_exact_sites(tmp_path: Path) -> None:
     path = tmp_path / "sample.vb"
     path.write_text(
@@ -134,6 +136,7 @@ def test_cross_file_constructor_binding_requires_a_unique_inspected_type(
         assert call.target_id == "box:Box.New"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "definition,invocation",
     [
@@ -157,6 +160,7 @@ def test_qualified_unknown_and_overloaded_constructors_remain_proxies(
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_constructor_in_recovery_file_remains_uncertain(tmp_path: Path) -> None:
     path = tmp_path / "sample.vb"
     path.write_text(
@@ -169,6 +173,7 @@ def test_constructor_in_recovery_file_remains_uncertain(tmp_path: Path) -> None:
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "context",
     [

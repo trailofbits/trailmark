@@ -6,6 +6,7 @@ from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory, parse_file
 
 
+@pytest.mark.mutation_fast
 def test_records_parameters_and_private_local_operators(tmp_path: Path) -> None:
     (tmp_path / "Base.tla").write_text(
         "---- MODULE Base ----\nVARIABLES field, records\n"
@@ -45,6 +46,7 @@ def test_specification_dependencies_are_not_calls() -> None:
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_binders_do_not_resolve_to_globals(tmp_path: Path) -> None:
     path = tmp_path / "Scope.tla"
     path.write_text(
@@ -61,6 +63,7 @@ def test_binders_do_not_resolve_to_globals(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_extends_limits_visibility_and_instances_are_diagnosed(tmp_path: Path) -> None:
     (tmp_path / "Base.tla").write_text("---- MODULE Base ----\nf == TRUE\n====\n")
     (tmp_path / "Other.tla").write_text("---- MODULE Other ----\nf == FALSE\n====\n")
@@ -76,6 +79,7 @@ def test_extends_limits_visibility_and_instances_are_diagnosed(tmp_path: Path) -
         parse_file(str(path), strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_theorem_proof_is_not_a_dependency_claim(tmp_path: Path) -> None:
     path = tmp_path / "Proof.tla"
     path.write_text(
@@ -102,6 +106,7 @@ def test_nested_namespaces_and_choose_scope_end_at_the_expression(tmp_path: Path
     assert len(refs) == 1 and graph.nodes[refs[0].target_id].name == "x"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
@@ -159,6 +164,7 @@ def test_recursive_forward_declarations(tmp_path: Path) -> None:
     assert len([e for e in graph.edges if e.kind == EdgeKind.CORRESPONDS_TO]) == 1
 
 
+@pytest.mark.mutation_fast
 def test_pluscal_and_nested_proofs_report_one_boundary(tmp_path: Path) -> None:
     path = tmp_path / "Opaque.tla"
     path.write_text(
@@ -175,6 +181,7 @@ def test_pluscal_and_nested_proofs_report_one_boundary(tmp_path: Path) -> None:
     assert len([d for d in graph.parse_diagnostics if "proof steps" in d.message]) == 1
 
 
+@pytest.mark.mutation_fast
 def test_reusable_local_operators_and_bare_constants_keep_dependencies(tmp_path: Path) -> None:
     (tmp_path / "Base.tla").write_text("---- MODULE Base ----\nCONSTANT c\nP(x) == x=c\n====\n")
     (tmp_path / "Middle.tla").write_text("---- MODULE Middle ----\nEXTENDS Base\n====\n")
@@ -197,6 +204,7 @@ def test_reusable_local_operators_and_bare_constants_keep_dependencies(tmp_path:
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_named_instance_retains_template_and_argument_references(tmp_path: Path) -> None:
     (tmp_path / "Base.tla").write_text(
         "---- MODULE Base ----\nVARIABLE x\nSpec == x=x\nOp(n) == n\n====\n"

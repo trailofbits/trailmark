@@ -6,6 +6,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -91,17 +93,20 @@ def _parse_sample() -> tuple[CSharpParser, CodeGraph]:
 
 
 class TestCSharpParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_namespace(self) -> None:
         _, graph = _parse_sample()
         namespaces = [n for n in graph.nodes.values() if n.kind == NodeKind.NAMESPACE]
         names = {n.name for n in namespaces}
         assert "Animals" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_interface(self) -> None:
         _, graph = _parse_sample()
         interfaces = [n for n in graph.nodes.values() if n.kind == NodeKind.INTERFACE]
@@ -121,6 +126,7 @@ class TestCSharpParserNodes:
         names = {e.name for e in enums}
         assert "AnimalType" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_methods(self) -> None:
         _, graph = _parse_sample()
         methods = [n for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
@@ -131,6 +137,7 @@ class TestCSharpParserNodes:
 
 
 class TestCSharpParserParameters:
+    @pytest.mark.mutation_fast
     def test_typed_parameters(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "Fetch")
@@ -139,6 +146,7 @@ class TestCSharpParserParameters:
         assert "item" in param_names
         assert "count" in param_names
 
+    @pytest.mark.mutation_fast
     def test_parameter_types(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "Fetch")
@@ -148,6 +156,7 @@ class TestCSharpParserParameters:
         assert params["count"].type_ref is not None
         assert params["count"].type_ref.name == "int"
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "Fetch")
@@ -163,6 +172,7 @@ class TestCSharpParserComplexity:
         )
         assert speak.cyclomatic_complexity == 1
 
+    @pytest.mark.mutation_fast
     def test_branching_method_complexity(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "Fetch")
@@ -181,11 +191,13 @@ class TestCSharpParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_inherits_edge(self) -> None:
         _, graph = _parse_sample()
         inherits = [e for e in graph.edges if e.kind == EdgeKind.INHERITS]
         assert len(inherits) >= 1
 
+    @pytest.mark.mutation_fast
     def test_call_edges(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -196,6 +208,7 @@ class TestCSharpParserEdges:
         fetch = next(n for n in graph.nodes.values() if n.name == "Fetch")
         assert len(fetch.exception_types) >= 1
 
+    @pytest.mark.mutation_fast
     def test_edge_confidence(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -205,6 +218,7 @@ class TestCSharpParserEdges:
 
 
 class TestCSharpParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "System" in graph.dependencies
@@ -241,6 +255,7 @@ def _parse_generic() -> CodeGraph:
 
 
 class TestCSharpGenericTypes:
+    @pytest.mark.mutation_fast
     def test_generic_parameter_type(self) -> None:
         graph = _parse_generic()
         get_items = next(n for n in graph.nodes.values() if n.name == "GetItems")
@@ -309,6 +324,7 @@ class TestCSharpFileScopedNamespace:
         names = {n.name for n in namespaces}
         assert "Animals" in names
 
+    @pytest.mark.mutation_fast
     def test_module_contains_namespace(self) -> None:
         path, graph = _parse_file_scoped_namespace()
         module = next(n for n in graph.nodes.values() if n.kind == NodeKind.MODULE)
@@ -348,6 +364,7 @@ class TestCSharpFileScopedNamespace:
 
 
 class TestCSharpParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = CSharpParser()
         code_a = "class FromA {}\n"
@@ -374,6 +391,7 @@ class TestCSharpParseDirectory:
         assert len(graph.nodes) == 0
 
 
+@pytest.mark.mutation_fast
 def test_explicit_constructions_keep_sites_and_constructor_targets(tmp_path: Path) -> None:
     from trailmark.query.api import QueryEngine
 
@@ -402,6 +420,7 @@ def test_explicit_constructions_keep_sites_and_constructor_targets(tmp_path: Pat
     assert {n["id"] for n in engine.callers_of(make.target_id)} == {make.source_id}
 
 
+@pytest.mark.mutation_fast
 def test_static_implicit_and_overloaded_constructors_are_not_conflated(tmp_path: Path) -> None:
     source = tmp_path / "construct.cs"
     source.write_text(
@@ -421,6 +440,7 @@ def test_static_implicit_and_overloaded_constructors_are_not_conflated(tmp_path:
     assert all(e.confidence == EdgeConfidence.UNCERTAIN for e in calls if e not in resolved)
 
 
+@pytest.mark.mutation_fast
 def test_constructor_alias_and_namespace_imports_block_outer_namesakes(tmp_path: Path) -> None:
     source = tmp_path / "construct.cs"
     source.write_text(
@@ -441,6 +461,7 @@ def test_constructor_alias_and_namespace_imports_block_outer_namesakes(tmp_path:
             assert graph.nodes[call.target_id].kind == NodeKind.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_generic_type_parameters_do_not_bind_outer_constructor(tmp_path: Path) -> None:
     source = tmp_path / "construct.cs"
     source.write_text(

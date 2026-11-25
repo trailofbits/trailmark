@@ -201,6 +201,52 @@ followed by the relevant test files.
 Snapshot updates (`TRAILMARK_UPDATE_SNAPSHOTS=1`) are disabled during CI and
 mutation runs; do not enable them there.
 
+### Mutation test pools
+
+The candidate fast pool marks existing tests with `pytest.mark.mutation_fast`.
+Tests stay in their original modules and ordinary CI continues to run every test.
+The full pool remains the default until the release acceptance campaign proves
+zero lost kills and at least 20% lower median end-to-end wall time.
+
+```bash
+uv run pytest -q -m mutation_fast tests/
+uv run python -m tests.run_mutations --test-group=fast --workers=4 --report-dir=coverage/fast
+uv run python -m tests.mutation_gate --report-dir=coverage/fast
+
+# Unfiltered reference: test pool and coverage selection are independent controls.
+uv run python -m tests.run_mutations --test-group=full --test-selection=full --test-order=collection --report-dir=coverage/reference
+uv run python -m tests.compare_mutations coverage/reference coverage/fast
+
+# Complete application inventory, three serialized repetitions per configuration.
+# Configure the native tool paths listed above before starting this long benchmark.
+uv run python -m tests.benchmark_mutations --workers=4 --repeat=3 --output-dir=coverage/pool-benchmark
+```
+
+Report directories must be distinct for independent campaigns; put them under
+ignored `coverage/` or outside the checkout. Comparisons require the exact source
+checkout that produced the reports. They reconstruct the complete mutation inventory,
+validate disjoint shard coverage and matching inputs, reject inconclusive outcomes,
+and report each outcome difference rather than comparing percentages alone.
+The benchmark includes clean baselines, instrumented coverage preparation,
+collection, mutation execution, confirmations, and report validation. It includes
+plain unsharded pytest-gremlins only as a measurement reference; normal mutation
+work must use the repository runner. Result caching is disabled in these comparisons.
+
+The seed pool comes from the v0.9.1 campaign's recorded failing-test witnesses.
+These witnesses are candidates, not evidence that each test kills independently.
+Keep integration tests and collection import witnesses that provide unique kills.
+When an audit loses a kill, restore the relevant existing test to the marked pool
+or add a small behavioral regression, then rerun the comparison. Do not expand
+equivalent-mutant exceptions or narrow the mutated application to repair parity.
+Timing measurements belong in the benchmark, never in correctness assertions.
+
+`mutation-audit.yml` compares an unfiltered full-pool campaign with the fast pool
+weekly on Monday at 06:00 UTC and for mutation-infrastructure pull requests.
+Run its manual trigger against each release candidate as well. Each pool uses
+32 mutation shards and its own matching baseline. Once acceptance permits the
+routine fast-pool default, retain these full-pool audits and restore every lost
+kill before accepting a failed audit.
+
 ## Audit artifacts
 
 Keep implementations, minimized behavioral regressions, and concise decisions in

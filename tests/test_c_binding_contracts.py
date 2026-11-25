@@ -8,6 +8,7 @@ from trailmark.models import EdgeConfidence, EdgeKind, NodeKind, NodeOrigin
 from trailmark.parse import parse_directory, parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_recovered_callback_occurrences_stay_unbound_next_to_clean_caller(
     tmp_path: Path, newline: str
@@ -47,6 +48,7 @@ def test_recovered_callback_occurrences_stay_unbound_next_to_clean_caller(
     assert not dict(graph.nodes["sample:after"].attributes).get("parse_incomplete")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("member", ["table.go", "pointer->go"])
 def test_mutable_member_calls_keep_exact_unresolved_target(tmp_path: Path, member: str) -> None:
     path = tmp_path / "sample.c"
@@ -73,6 +75,7 @@ def test_mutable_member_calls_keep_exact_unresolved_target(tmp_path: Path, membe
     assert graph.parse_diagnostics == []
 
 
+@pytest.mark.mutation_fast
 def test_extern_definition_remains_visible_to_other_translation_units(tmp_path: Path) -> None:
     (tmp_path / "implementation.c").write_text(
         "extern void exported(void) {}\nstatic void local(void) {}\n"
@@ -97,6 +100,7 @@ def test_extern_definition_remains_visible_to_other_translation_units(tmp_path: 
     assert graph.parse_diagnostics == []
 
 
+@pytest.mark.mutation_fast
 def test_single_conditional_callback_definition_does_not_prove_a_target(tmp_path: Path) -> None:
     path = tmp_path / "sample.c"
     path.write_text(
@@ -116,6 +120,7 @@ def test_single_conditional_callback_definition_does_not_prove_a_target(tmp_path
     assert graph.parse_diagnostics == []
 
 
+@pytest.mark.mutation_fast
 def test_returned_callable_keeps_inner_and_outer_occurrences_distinct(tmp_path: Path) -> None:
     path = tmp_path / "sample.c"
     path.write_text(

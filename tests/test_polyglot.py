@@ -57,6 +57,7 @@ class TestDetectLanguages:
         detected = detect_languages(str(tmp_path))
         assert detected == ["python"], detected
 
+    @pytest.mark.mutation_fast
     def test_missing_path_returns_empty(self, tmp_path: Path) -> None:
         assert detect_languages(str(tmp_path / "does-not-exist")) == []
 
@@ -99,6 +100,7 @@ class TestFromDirectoryAuto:
         assert any("main" in d.lower() for d in descriptions), surface
         assert any("solidity" in d.lower() for d in descriptions), surface
 
+    @pytest.mark.mutation_fast
     def test_auto_on_empty_dir_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="No supported languages"):
             QueryEngine.from_directory(str(tmp_path), language="auto")

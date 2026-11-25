@@ -84,12 +84,14 @@ def _build_engine() -> QueryEngine:
     return QueryEngine.from_graph(graph)
 
 
+@pytest.mark.mutation_fast
 def test_legacy_query_language_detection_keeps_the_public_result(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text("def action(): pass\n")
     (tmp_path / "app.rs").write_text("fn action() {}\n")
     assert detect_languages(str(tmp_path)) == ["python", "rust"]
 
 
+@pytest.mark.mutation_fast
 def test_directory_query_requires_an_explicit_empty_opt_in(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="No source files inspected"):
         QueryEngine.from_directory(str(tmp_path))
@@ -98,6 +100,7 @@ def test_directory_query_requires_an_explicit_empty_opt_in(tmp_path: Path) -> No
     )
 
 
+@pytest.mark.mutation_fast
 def test_directory_query_keeps_partial_analysis_unless_strict_is_requested(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text("def broken(:\n    pass\n\ndef intact(): pass\n")
     engine = QueryEngine.from_directory(str(tmp_path))
@@ -110,6 +113,7 @@ def test_directory_query_keeps_partial_analysis_unless_strict_is_requested(tmp_p
         QueryEngine.from_directory(str(tmp_path), strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_query_results_preserve_nonempty_optional_metadata() -> None:
     plain = _make_node("plain", "plain")
     typed = CodeUnit(
@@ -139,6 +143,7 @@ def test_query_results_preserve_nonempty_optional_metadata() -> None:
 
 
 class TestQueryEngineStateAccess:
+    @pytest.mark.mutation_fast
     def test_state_queries_resolve_names_and_return_serializable_units(self) -> None:
         function = _make_node("mod:C.update", "update")
         state = _make_node("mod:C.balance", "balance", kind=NodeKind.STATE_VARIABLE)
@@ -172,6 +177,7 @@ class TestQueryEngineCallers:
         assert callers[0]["id"] == "entry"
         assert callers[0]["kind"] == "function"
 
+    @pytest.mark.mutation_fast
     def test_callers_of_missing(self) -> None:
         engine = _build_engine()
         assert engine.callers_of("nonexistent") == []
@@ -186,12 +192,14 @@ class TestQueryEngineCallees:
         assert callees[0]["id"] == "handler"
         assert callees[0]["kind"] == "function"
 
+    @pytest.mark.mutation_fast
     def test_callees_of_missing(self) -> None:
         engine = _build_engine()
         assert engine.callees_of("nonexistent") == []
 
 
 class TestQueryEnginePaths:
+    @pytest.mark.mutation_fast
     def test_selected_edge_kinds_include_reference_paths(self) -> None:
         graph = CodeGraph(
             nodes={f"mod:{n}": _make_node(f"mod:{n}", n) for n in ("entry", "helper", "field")},
@@ -249,6 +257,7 @@ class TestQueryEnginePaths:
         with pytest.raises(ValueError, match="max_depth.*at least 1"):
             engine.paths_between(name, name, max_depth=0, edge_kinds=("references",))
 
+    @pytest.mark.mutation_fast
     def test_depth_in_edges_is_exposed_and_keeps_self_paths_empty(self) -> None:
         engine = _build_engine()
         assert engine.paths_between("entry", "db_query", max_depth=1) == []
@@ -260,6 +269,7 @@ class TestQueryEnginePaths:
         ]
         assert engine.paths_between("entry", "entry", max_depth=1) == []
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("max_depth", [0, -1])
     def test_nonpositive_depth_rejected_for_missing_references(self, max_depth: int) -> None:
         engine = QueryEngine.from_graph(CodeGraph())
@@ -315,6 +325,7 @@ class TestQueryEnginePaths:
 
 
 class TestQueryEngineSubgraphs:
+    @pytest.mark.mutation_fast
     def test_stale_members_are_omitted_from_queries_and_export(self) -> None:
         node = CodeUnit(id="real", name="real", kind=NodeKind.FUNCTION, location=_LOC)
         graph = CodeGraph(nodes={node.id: node}, subgraphs={"left": {"ghost"}, "right": {"ghost"}})
@@ -327,6 +338,7 @@ class TestQueryEngineSubgraphs:
         assert engine.connect_subgraphs("left", "right") == [["real"]]
         assert [node["id"] for node in engine.subgraph("left")] == ["real"]
 
+    @pytest.mark.mutation_fast
     def test_subgraph_edges(self) -> None:
         nodes = {
             "a": _make_node("a", "a"),
@@ -380,6 +392,7 @@ class TestQueryEngineSubgraphs:
 
 
 class TestQueryEngineCallResolution:
+    @pytest.mark.mutation_fast
     def test_counts_call_sites_separately_from_targets_and_preserves_locations(self) -> None:
         nodes = {name: _make_node(name, name) for name in ("mod:entry", "mod:other", "mod:helper")}
         sites = [
@@ -447,6 +460,7 @@ class TestQueryEngineCallResolution:
 
 
 class TestQueryEngineTypes:
+    @pytest.mark.mutation_fast
     def test_generic_parameters(self) -> None:
         node = CodeUnit(
             id="mod:Box",
@@ -466,6 +480,7 @@ class TestQueryEngineTypes:
             }
         ]
 
+    @pytest.mark.mutation_fast
     def test_type_references(self) -> None:
         node = CodeUnit(
             id="mod:make_box",
@@ -489,6 +504,7 @@ class TestQueryEngineTypes:
 
 
 class TestQueryEngineAttackSurface:
+    @pytest.mark.mutation_fast
     def test_attack_surface_exact(self) -> None:
         engine = _build_engine()
         surface = engine.attack_surface()
@@ -542,6 +558,7 @@ class TestQueryEngineAttackSurface:
 
 
 class TestQueryEngineComplexity:
+    @pytest.mark.mutation_fast
     def test_complexity_hotspots(self) -> None:
         engine = _build_engine()
         hotspots = engine.complexity_hotspots(threshold=10)
@@ -549,6 +566,7 @@ class TestQueryEngineComplexity:
         assert hotspots[0]["name"] == "handler"
         assert hotspots[0]["cyclomatic_complexity"] == 12
 
+    @pytest.mark.mutation_fast
     def test_complexity_multiple_sorted(self) -> None:
         """Multiple hotspots should be sorted descending."""
         nodes = {
@@ -615,6 +633,7 @@ class TestQueryEngineSummary:
         engine.summary()["dependencies"].append("outside")
         assert engine.summary()["dependencies"] == ["flask", "sqlalchemy"]
 
+    @pytest.mark.mutation_fast
     def test_summary_exact(self) -> None:
         engine = _build_engine()
         s = engine.summary()
@@ -798,6 +817,7 @@ class TestUnitToDict:
 
 
 class TestEdgeToDict:
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("kind", [EdgeKind.READS, EdgeKind.WRITES, EdgeKind.REFERENCES])
     def test_optional_occurrence_location(self, kind: EdgeKind) -> None:
         edge = CodeEdge("a", "b", kind, location=_LOC)
@@ -862,6 +882,7 @@ class TestEdgeToDict:
 
 
 class TestAnnotationToDict:
+    @pytest.mark.mutation_fast
     def test_annotation_to_dict(self) -> None:
         from trailmark.models import Annotation
 
@@ -890,6 +911,7 @@ class TestAnnotationToDict:
 
 
 class TestQueryEngineAnnotate:
+    @pytest.mark.mutation_fast
     def test_qualified_declaration_wins_over_materialized_proxy(self) -> None:
         graph = CodeGraph(
             nodes={
@@ -928,6 +950,7 @@ class TestQueryEngineAnnotate:
         )
         assert result is True
 
+    @pytest.mark.mutation_fast
     def test_annotate_nonexistent_node(self) -> None:
         engine = _build_engine()
         result = engine.annotate(
@@ -937,6 +960,7 @@ class TestQueryEngineAnnotate:
         )
         assert result is False
 
+    @pytest.mark.mutation_fast
     def test_annotate_default_source(self) -> None:
         engine = _build_engine()
         engine.annotate(
@@ -964,6 +988,7 @@ class TestQueryEngineAnnotationsOf:
         assert anns[0]["source"] == "llm"
         assert set(anns[0].keys()) == {"kind", "description", "source"}
 
+    @pytest.mark.mutation_fast
     def test_annotations_of_filtered_by_kind(self) -> None:
         engine = _build_engine()
         engine.annotate("handler", AnnotationKind.ASSUMPTION, "a")
@@ -975,6 +1000,7 @@ class TestQueryEngineAnnotationsOf:
         assert len(anns) == 1
         assert anns[0]["kind"] == "assumption"
 
+    @pytest.mark.mutation_fast
     def test_annotations_of_nonexistent(self) -> None:
         engine = _build_engine()
         assert engine.annotations_of("nonexistent") == []
@@ -985,6 +1011,7 @@ class TestQueryEngineAnnotationsOf:
 
 
 class TestQueryEngineClearAnnotations:
+    @pytest.mark.mutation_fast
     def test_clear_all(self) -> None:
         engine = _build_engine()
         engine.annotate("handler", AnnotationKind.ASSUMPTION, "a")
@@ -1005,6 +1032,7 @@ class TestQueryEngineClearAnnotations:
         assert len(anns) == 1
         assert anns[0]["kind"] == "invariant"
 
+    @pytest.mark.mutation_fast
     def test_clear_nonexistent_node(self) -> None:
         engine = _build_engine()
         assert engine.clear_annotations("nonexistent") is False
@@ -1018,6 +1046,7 @@ class TestQueryEngineFromDirectory:
         assert s["classes"] > 0
 
 
+@pytest.mark.mutation_fast
 def test_candidate_evidence_preserves_unknowns_and_name_resolution() -> None:
     from trailmark.models.entrypoints import EntrypointEvidence
 
@@ -1038,6 +1067,7 @@ def test_candidate_evidence_preserves_unknowns_and_name_resolution() -> None:
     assert json.loads(engine.to_json())["entrypoint_evidence"] == facts
 
 
+@pytest.mark.mutation_fast
 def test_exception_events_resolve_names_and_return_detached_json_data() -> None:
     from dataclasses import replace
 

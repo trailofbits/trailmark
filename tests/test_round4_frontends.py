@@ -47,6 +47,7 @@ def test_nested_typescript_class_has_qualified_methods(tmp_path: Path, namespace
     assert call.target_id == "app:go" and call.confidence.value == "certain"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("nested", [False, True])
 def test_csharp_delegate_keeps_body_calls(tmp_path: Path, nested: bool) -> None:
     path = tmp_path / "app.cs"
@@ -60,6 +61,7 @@ def test_csharp_delegate_keeps_body_calls(tmp_path: Path, nested: bool) -> None:
     assert calls[0].source_id.count("$lambda") == (2 if nested else 1)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["cs", "dart"])
 def test_curried_lambda_has_one_innermost_call(tmp_path: Path, extension: str) -> None:
     path = tmp_path / f"app.{extension}"

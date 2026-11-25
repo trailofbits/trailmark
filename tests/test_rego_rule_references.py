@@ -2,12 +2,15 @@
 
 from pathlib import Path
 
+import pytest
+
 from tests.parse_work import parse_work
 from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_negated_and_indexed_rule_references_retain_clause_sites(tmp_path: Path) -> None:
     source = tmp_path / "admission.rego"
     source.write_text(
@@ -31,6 +34,7 @@ def test_negated_and_indexed_rule_references_retain_clause_sites(tmp_path: Path)
     )
 
 
+@pytest.mark.mutation_fast
 def test_rule_parameters_some_and_assignments_shadow_rule_names(tmp_path: Path) -> None:
     source = tmp_path / "shadow.rego"
     source.write_text(
@@ -59,6 +63,7 @@ def test_rule_reference_arguments_do_not_turn_callees_into_references(tmp_path: 
     }
 
 
+@pytest.mark.mutation_fast
 def test_some_domain_rule_is_not_a_local_binder(tmp_path: Path) -> None:
     source = tmp_path / "domain.rego"
     source.write_text("package p\nallowed = [true]\nallow { some x in allowed; x }\n")

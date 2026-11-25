@@ -6,6 +6,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from tests.parse_work import parse_work
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -13,6 +15,7 @@ from trailmark.models.nodes import NodeKind
 from trailmark.parsers.java.parser import JavaParser
 
 
+@pytest.mark.mutation_fast
 def test_anonymous_fallback_stops_at_its_lexical_owner(tmp_path: Path) -> None:
     source = tmp_path / "sample.java"
     source.write_text(
@@ -104,6 +107,7 @@ def _parse_sample() -> tuple[JavaParser, CodeGraph]:
 
 
 class TestJavaParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
@@ -138,6 +142,7 @@ class TestJavaParserNodes:
 
 
 class TestJavaParserParameters:
+    @pytest.mark.mutation_fast
     def test_typed_parameters(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "fetch")
@@ -146,6 +151,7 @@ class TestJavaParserParameters:
         assert "item" in param_names
         assert "count" in param_names
 
+    @pytest.mark.mutation_fast
     def test_parameter_types(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "fetch")
@@ -155,6 +161,7 @@ class TestJavaParserParameters:
         assert params["count"].type_ref is not None
         assert params["count"].type_ref.name == "int"
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "fetch")
@@ -197,6 +204,7 @@ class TestJavaParserEdges:
         pet_targets = [t for t in targets if t.endswith(":Pet")]
         assert len(pet_targets) >= 1
 
+    @pytest.mark.mutation_fast
     def test_implements_edge(self) -> None:
         _, graph = _parse_sample()
         implements = [e for e in graph.edges if e.kind == EdgeKind.IMPLEMENTS]
@@ -221,6 +229,7 @@ class TestJavaParserEdges:
 
 
 class TestJavaParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "java" in graph.dependencies
@@ -253,6 +262,7 @@ def _parse_generic() -> CodeGraph:
 
 
 class TestJavaGenericTypes:
+    @pytest.mark.mutation_fast
     def test_generic_parameter_type(self) -> None:
         graph = _parse_generic()
         get_items = next(n for n in graph.nodes.values() if n.name == "getItems")
@@ -271,6 +281,7 @@ class TestJavaGenericTypes:
 
 
 class TestJavaParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = JavaParser()
         code_a = "class FromA {}\n"

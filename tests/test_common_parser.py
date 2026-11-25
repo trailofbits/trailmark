@@ -35,6 +35,7 @@ from trailmark.parsers._common import (
 )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "header,expected",
     [
@@ -53,6 +54,7 @@ def test_generic_header_scanning_preserves_parameter_text(
     assert _generic_parameter_block(header) == expected
 
 
+@pytest.mark.mutation_fast
 def test_in_memory_module_fingerprints_do_not_require_a_source_file(tmp_path: Path) -> None:
     source = b"# comment\n"
     root = get_parser("powershell").parse(source).root_node
@@ -64,6 +66,7 @@ def test_in_memory_module_fingerprints_do_not_require_a_source_file(tmp_path: Pa
     assert graph.parse_diagnostics == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "language,body,has_diagnostics",
     [("powershell", b"# comment\n", False), ("cpp", b"// first\n??? // second\n", True)],
@@ -86,6 +89,7 @@ def test_included_ranges_keep_full_fingerprints_and_relative_comment_offsets(
     assert bool(graph.parse_diagnostics) is has_diagnostics
 
 
+@pytest.mark.mutation_fast
 def test_boolean_branch_collection_preserves_the_operator_kind() -> None:
     root = get_parser("python").parse(b"def choose(a, b):\n    return a and b\n").root_node
     branches: list[BranchInfo] = []
@@ -96,6 +100,7 @@ def test_boolean_branch_collection_preserves_the_operator_kind() -> None:
     assert branches[0].location.start_line == 2
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "language,source,call,expected",
     [
@@ -118,6 +123,7 @@ def test_compound_callees_keep_their_own_identity_and_coordinates(
     pytest.fail(f"Fixture has no call expression for {call!r}")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "text,expected",
     [
@@ -133,6 +139,7 @@ def test_type_parameter_splitting_handles_nested_and_unmatched_delimiters(
     assert _split_top_level(text) == expected
 
 
+@pytest.mark.mutation_fast
 def test_type_parameter_bounds_survive_defaults_and_unhandled_modifiers() -> None:
     parameter = _parse_type_parameter("T any")
     assert parameter is not None
@@ -143,6 +150,7 @@ def test_type_parameter_bounds_survive_defaults_and_unhandled_modifiers() -> Non
     assert modified.constraints == (TypeRef("Comparable<T>"),)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("operand,expected", [("new Bad()", "Bad"), ("problem", "problem")])
 def test_legacy_body_collection_preserves_throw_operands(operand: str, expected: str) -> None:
     root = get_parser("javascript").parse(f"throw {operand};".encode()).root_node
@@ -160,6 +168,7 @@ def test_legacy_body_collection_preserves_throw_operands(operand: str, expected:
     assert exceptions == [TypeRef(expected)]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "language,source",
     [
@@ -212,6 +221,7 @@ def _fake_parse_file(file_path: str) -> CodeGraph:
     )
 
 
+@pytest.mark.mutation_fast
 def test_module_id_from_path_preserves_single_file_stem_behavior(tmp_path: Path) -> None:
     file_path = tmp_path / "src" / "compat.py"
     file_path.parent.mkdir()
@@ -220,6 +230,7 @@ def test_module_id_from_path_preserves_single_file_stem_behavior(tmp_path: Path)
     assert module_id_from_path(str(file_path)) == "compat"
 
 
+@pytest.mark.mutation_fast
 def test_directory_recursion_failure_retains_diagnostics_and_later_files(tmp_path: Path) -> None:
     deep = tmp_path / "a_deep.py"
     deep.write_text("deep source")
@@ -244,6 +255,7 @@ def test_directory_recursion_failure_retains_diagnostics_and_later_files(tmp_pat
     assert "recursion limit" in diagnostic.message
 
 
+@pytest.mark.mutation_fast
 def test_parse_directory_uses_root_relative_module_ids(tmp_path: Path) -> None:
     src = tmp_path / "src"
     tests = tmp_path / "tests"
@@ -286,6 +298,7 @@ def test_parse_directory_matches_extensions_case_insensitively(tmp_path: Path) -
     assert set(graph.nodes) == {"upper", "upper:helper", "mixed", "mixed:helper"}
 
 
+@pytest.mark.mutation_fast
 def test_legacy_directory_walk_skips_hidden_and_dependency_directories(tmp_path: Path) -> None:
     for name in (".hidden", "node_modules", "vendor", "visible"):
         (tmp_path / name).mkdir()
@@ -295,6 +308,7 @@ def test_legacy_directory_walk_skips_hidden_and_dependency_directories(tmp_path:
     assert graph.source_file_counts == {"test": 1}
 
 
+@pytest.mark.mutation_fast
 def test_planned_walk_is_limited_to_its_own_root(tmp_path: Path) -> None:
     selected = tmp_path / "selected.py"
     ignored = tmp_path / "ignored.py"
@@ -308,6 +322,7 @@ def test_planned_walk_is_limited_to_its_own_root(tmp_path: Path) -> None:
         assert list(walk_source_files(str(nested), (".py",))) == [str(local)]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("origin", list(NodeOrigin))
 def test_type_name_inference_only_indexes_source_declarations(origin: NodeOrigin) -> None:
     location = SourceLocation("types.java", 1, 1)
@@ -322,6 +337,7 @@ def test_type_name_inference_only_indexes_source_declarations(origin: NodeOrigin
     )
 
 
+@pytest.mark.mutation_fast
 def test_parse_directory_does_not_traverse_directory_symlinks(tmp_path: Path) -> None:
     root = tmp_path / "project"
     outside = tmp_path / "outside"
@@ -367,6 +383,7 @@ def test_parse_directory_escapes_dotted_path_components(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.mutation_fast
 def test_parse_directory_uses_package_path_for_init_files(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     subpkg = pkg / "subpkg"
@@ -505,6 +522,7 @@ def _cross_file_parse(file_path: str) -> CodeGraph:
     return CodeGraph(nodes=nodes, edges=edges, language="test", root_path=file_path)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("kind", list(EdgeKind))
 @pytest.mark.parametrize("literal_callable", [None, False, True])
 def test_cross_file_linking_only_rebinds_calls_and_literal_callable_references(
@@ -588,6 +606,7 @@ def test_cross_file_linker_keeps_same_module_when_target_exists(tmp_path: Path) 
     assert call_edges[0].confidence == EdgeConfidence.CERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_cross_file_linker_leaves_unresolvable_calls(tmp_path: Path) -> None:
     """Calls to functions not defined anywhere are materialized as proxies."""
     (tmp_path / "caller.c").write_text("")
@@ -605,6 +624,7 @@ def test_cross_file_linker_leaves_unresolvable_calls(tmp_path: Path) -> None:
     assert "proxy.unresolved:caller:do_work" in graph.nodes
 
 
+@pytest.mark.mutation_fast
 def test_cross_file_linker_keeps_ambiguous_cross_file_calls_unresolved(
     tmp_path: Path,
 ) -> None:

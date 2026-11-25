@@ -28,6 +28,7 @@ from trailmark.storage.graph_store import GraphStore
 FIXTURES = Path(__file__).parent / "fixtures" / "audit"
 
 
+@pytest.mark.mutation_fast
 def test_proto_nested_fields_and_public_import() -> None:
     graph = parse_file(str(FIXTURES / "proto/cases/schema.proto"), "proto")
     for owner in ("Request", "Response"):
@@ -48,6 +49,7 @@ def test_proto_nested_fields_and_public_import() -> None:
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_graphql_effective_roots() -> None:
     engine = QueryEngine.from_directory(
         str(FIXTURES / "graphql/explicit_roots"), language="graphql"
@@ -60,6 +62,7 @@ def test_graphql_effective_roots() -> None:
     }
 
 
+@pytest.mark.mutation_fast
 def test_graphql_wrapped_type_dependencies() -> None:
     graph = parse_file(str(FIXTURES / "graphql/signatures/schema.graphql"), "graphql")
     wrapped = [
@@ -77,6 +80,7 @@ def test_graphql_wrapped_type_dependencies() -> None:
         )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("mode", ["single", "split"])
 def test_graphql_extensions(mode: str) -> None:
     graph = parse_directory(str(FIXTURES / "graphql/extensions" / mode), "graphql")
@@ -85,6 +89,7 @@ def test_graphql_extensions(mode: str) -> None:
     assert not any(edge.kind == EdgeKind.CALLS for edge in graph.edges)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("artifact", [{"index": 0}, {"uri": "app.py", "uriBaseId": "SRC"}])
 def test_sarif_run_locations_bind_correct_source(tmp_path: Path, artifact: dict) -> None:
     graph = CodeGraph(root_path=str(tmp_path))
@@ -123,6 +128,7 @@ def test_sarif_run_locations_bind_correct_source(tmp_path: Path, artifact: dict)
     assert set(graph.annotations) == {"lib"}
 
 
+@pytest.mark.mutation_fast
 def test_thrift_file_identity_and_signature_types() -> None:
     graph = parse_directory(str(FIXTURES / "thrift/identity"), "thrift")
     requests = [unit for unit in graph.nodes.values() if unit.name == "Request"]
@@ -155,6 +161,7 @@ def test_thrift_file_identity_and_signature_types() -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("case", ["contract", "contract_inline", "impl_self"])
 def test_sway_implemented_abi_entrypoints(case: str) -> None:
     engine = QueryEngine.from_directory(str(FIXTURES / "sway" / case), language="sway")
@@ -162,6 +169,7 @@ def test_sway_implemented_abi_entrypoints(case: str) -> None:
     assert engine.entrypoint_paths_to("sink")
 
 
+@pytest.mark.mutation_fast
 def test_sway_generic_impl_owners() -> None:
     graph = parse_directory(str(FIXTURES / "sway/generic"), "sway")
     assert "main:get" not in graph.nodes
@@ -175,6 +183,7 @@ def test_sway_generic_impl_owners() -> None:
         } == {f"main:{sink}"}
 
 
+@pytest.mark.mutation_fast
 def test_func_method_variants_and_lexical_callbacks() -> None:
     graph = parse_file(str(FIXTURES / "func/methods.fc"), "func")
 
@@ -200,6 +209,7 @@ def test_func_method_variants_and_lexical_callbacks() -> None:
     assert sum(edge.target_id == "methods:helper" for edge in scoped_edges) == 1
 
 
+@pytest.mark.mutation_fast
 def test_func_semantic_getters_and_reserved_handlers() -> None:
     engine = QueryEngine.from_directory(str(FIXTURES / "func"), language="func")
     ids = {row["node_id"] for row in engine.attack_surface()}
@@ -207,6 +217,7 @@ def test_func_semantic_getters_and_reserved_handlers() -> None:
     assert "constructs:get_private" not in ids
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "language,name,source",
     [("python", "bad.py", "def broken(:\n    pass\n"), ("c", "bad.c", "int f() { return 1 }\n")],
@@ -255,6 +266,7 @@ def test_cli_strict_analysis(
     assert "Incomplete source analysis" in output.err
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("directory", [False, True])
 def test_python_callable_ownership_and_shadowing(tmp_path: Path, directory: bool) -> None:
     path = tmp_path / "owned.py"
@@ -307,6 +319,7 @@ class C:
     assert [p.name for p in graph.nodes["owned:C.static"].parameters] == ["self", "cls"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_ecmascript_nested_callable_ownership(
     tmp_path: Path, language: str, extension: str
@@ -334,6 +347,7 @@ exports.handler = (event) => sink();
     assert not graph.parse_diagnostics
 
 
+@pytest.mark.mutation_fast
 def test_typescript_tsx_and_interface_signatures() -> None:
     graph = parse_file(str(FIXTURES / "typescript/tsx/case.tsx"), "typescript", strict=True)
     calls = {(e.source_id, e.target_id) for e in graph.edges if e.kind == EdgeKind.CALLS}
@@ -345,6 +359,7 @@ def test_typescript_tsx_and_interface_signatures() -> None:
     assert member.type_parameters[0].name == "U"
 
 
+@pytest.mark.mutation_fast
 def test_typescript_receiver_invalidations() -> None:
     graph = parse_directory(str(FIXTURES / "typescript/receivers"), "typescript")
     calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -365,6 +380,7 @@ def _calls(graph: CodeGraph, source: str) -> list[str]:
     return [e.target_id for e in graph.edges if e.source_id == source and e.kind == EdgeKind.CALLS]
 
 
+@pytest.mark.mutation_fast
 def test_sql_identity_body_ownership_and_identifier_matching() -> None:
     graph = parse_directory(str(FIXTURES / "sql/identities"), "sql")
     overloads = [n for n in graph.nodes.values() if n.name == "lookup"]
@@ -403,6 +419,7 @@ def test_sql_identity_body_ownership_and_identifier_matching() -> None:
     assert ("z_views:app.mixed_distinct", 'a_tables:app."MiXeD"') not in dependencies
 
 
+@pytest.mark.mutation_fast
 def test_r_binding_order_mutation_and_quoted_syntax() -> None:
     graph = parse_file(str(FIXTURES / "r/scope/main.R"), "r")
     calls = [e for e in graph.edges if e.source_id == "main:main" and e.kind == EdgeKind.CALLS]
@@ -415,6 +432,7 @@ def test_r_binding_order_mutation_and_quoted_syntax() -> None:
     assert engine.paths_between("main:main", "main:helper") == []
 
 
+@pytest.mark.mutation_fast
 def test_miden_invocation_kinds_qualified_names_and_entrypoints() -> None:
     graph = parse_directory(str(FIXTURES / "masm/qualified"), "masm")
     assert "client:check" not in _calls(graph, "client:caller")
@@ -431,6 +449,7 @@ def test_miden_invocation_kinds_qualified_names_and_entrypoints() -> None:
     assert {row["node_id"] for row in engine.attack_surface()} == {"library:api", "program:begin"}
 
 
+@pytest.mark.mutation_fast
 def test_zig_identifiers_signatures_and_destructured_binding_guard() -> None:
     graph = parse_file(str(FIXTURES / "zig/quoted.zig"), "zig")
     assert _calls(graph, "quoted:main") == [
@@ -450,6 +469,7 @@ def test_zig_identifiers_signatures_and_destructured_binding_guard() -> None:
     assert graph.nodes[calls[0]].kind == NodeKind.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_aiken_labels_and_deferred_captures() -> None:
     graph = parse_directory(str(FIXTURES / "aiken/labels"), "aiken")
     assert [p.name for p in graph.nodes["sample:another"].parameters] == ["helper"]
@@ -460,6 +480,7 @@ def test_aiken_labels_and_deferred_captures() -> None:
     assert _calls(graph, "sample:passed") == ["sample:receives"]
 
 
+@pytest.mark.mutation_fast
 def test_lua_local_assignments_and_environment() -> None:
     graph = parse_directory(str(FIXTURES / "lua/lexical"), "lua")
     assert all(
@@ -471,6 +492,7 @@ def test_lua_local_assignments_and_environment() -> None:
     assert "environment:helper" not in _calls(graph, "environment:main")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("case", ["quoted_eval", "escaped_eval", "quoted_source", "quoted_unset"])
 def test_bash_static_command_words_invalidate_bindings(case: str) -> None:
     graph = parse_directory(str(FIXTURES / "bash/cases" / case), "bash")
@@ -479,6 +501,7 @@ def test_bash_static_command_words_invalidate_bindings(case: str) -> None:
         assert "./library.bash" in graph.dependencies
 
 
+@pytest.mark.mutation_fast
 def test_bash_coproc_and_time_ownership() -> None:
     graph = parse_file(str(FIXTURES / "bash/cases/coproc/sample.sh"), "bash", strict=True)
     assert graph.nodes["sample:main"].location.end_line == 8
@@ -487,6 +510,7 @@ def test_bash_coproc_and_time_ownership() -> None:
     assert _calls(graph, "sample:main").count("sample:helper") == 2
 
 
+@pytest.mark.mutation_fast
 def test_go_generics_signatures_and_package_boundaries() -> None:
     graph = parse_directory(str(FIXTURES / "go"), "go")
     assert _calls(graph, "features:genericCaller") == ["features:identity"]
@@ -517,12 +541,14 @@ def test_rust_impl_bodies_remain_distinct(case: str) -> None:
         assert graph.nodes[_calls(graph, method.id)[0]].name in {"first_sink", "second_sink"}
 
 
+@pytest.mark.mutation_fast
 def test_rust_2024_exports() -> None:
     engine = QueryEngine.from_directory(str(FIXTURES / "rust/ffi2024"), language="rust")
     names = {row["node_id"].split(":")[-1] for row in engine.attack_surface()}
     assert {"hidden_export", "rust_abi_export", "signature_control"} <= names
 
 
+@pytest.mark.mutation_fast
 def test_cairo_module_ownership_and_embedded_abi() -> None:
     graph = parse_directory(str(FIXTURES / "cairo/core/src"), "cairo")
     assert _calls(graph, "lib:local.caller") == ["lib:local.helper"]
@@ -546,6 +572,7 @@ def test_cairo_module_ownership_and_embedded_abi() -> None:
     }
 
 
+@pytest.mark.mutation_fast
 def test_php_namespace_and_callable_ownership() -> None:
     graph = parse_file(str(FIXTURES / "php/namespaces.php"), "php", strict=True)
     for namespace in ("Alpha", "Beta"):
@@ -569,6 +596,7 @@ def test_php_namespace_and_callable_ownership() -> None:
     assert "call_forms:Base.parentAction" in calls
 
 
+@pytest.mark.mutation_fast
 def test_perl_package_context_defaults_and_bare_calls() -> None:
     graph = parse_directory(str(FIXTURES / "perl/fixtures/qualified_body"), "perl")
     assert _calls(graph, "qualified_body:Beta.main") == ["qualified_body:Alpha.helper"]
@@ -591,6 +619,7 @@ def test_powershell_mutators_keep_stale_functions_unresolved(case: str) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_powershell_callback_signatures_and_header_defaults() -> None:
     graph = parse_directory(str(FIXTURES / "powershell/parameters"), "powershell")
     for name, annotation in (("Invoke-Work", "string"), ("Invoke-Header", "int")):
@@ -613,6 +642,7 @@ def test_powershell_callback_signatures_and_header_defaults() -> None:
     assert _calls(graph, callback.id) == ["sample:Get-Default"]
 
 
+@pytest.mark.mutation_fast
 def test_vb_field_and_property_shadows() -> None:
     graph = parse_directory(str(FIXTURES / "vb/field_shadow"), "vb")
     assert "sample:Sink.Execute" not in _calls(graph, "sample:App.Run")
@@ -627,6 +657,7 @@ def test_vb_field_and_property_shadows() -> None:
         assert dict(graph.nodes[f"sample:App.Value.{accessor}"].attributes)["vb_shared"] is True
 
 
+@pytest.mark.mutation_fast
 def test_vb_array_declarators_retain_main_entrypoint() -> None:
     engine = QueryEngine.from_directory(str(FIXTURES / "vb/array_main"), language="vb")
     assert engine.entrypoint_paths_to("sample:App.Helper") == [
@@ -636,6 +667,7 @@ def test_vb_array_declarators_retain_main_entrypoint() -> None:
     assert graph.nodes["sample:App.Main"].parameters[0].type_ref == TypeRef("String()")
 
 
+@pytest.mark.mutation_fast
 def test_julia_destructuring_quotes_and_callable_methods(tmp_path: Path) -> None:
     engine = QueryEngine.from_directory(
         str(FIXTURES / "julia/cases/destructuring"), language="julia"
@@ -665,6 +697,7 @@ def test_julia_destructuring_quotes_and_callable_methods(tmp_path: Path) -> None
     assert graph.nodes["case:Handler.__call__"].parameters[0] == Parameter("h", TypeRef("Handler"))
 
 
+@pytest.mark.mutation_fast
 def test_c_indirect_calls_and_tag_namespaces() -> None:
     graph = parse_directory(str(FIXTURES / "c/shadowing"), "c")
     for name in ("dispatch", "explicit_indirect", "local_shadow"):
@@ -681,6 +714,7 @@ def test_c_indirect_calls_and_tag_namespaces() -> None:
         assert target != f"{module}:{name}"
 
 
+@pytest.mark.mutation_fast
 def test_solidity_call_options_and_declaration_arguments() -> None:
     graph = parse_directory(str(FIXTURES / "solidity/call_options"), "solidity")
     calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -699,6 +733,7 @@ def test_solidity_call_options_and_declaration_arguments() -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_cpp_namespace_identity_and_deferred_ownership(tmp_path: Path) -> None:
     graph = parse_directory(str(FIXTURES / "cpp/namespace_scope"), "cpp")
     for namespace in ("alpha", "beta"):
@@ -728,6 +763,7 @@ def test_cpp_namespace_identity_and_deferred_ownership(tmp_path: Path) -> None:
         assert "case:Holder.callback" not in _calls(graph, f"case:{name}")
 
 
+@pytest.mark.mutation_fast
 def test_csharp_namespaces_shadowing_and_call_forms() -> None:
     graph = parse_directory(str(FIXTURES / "c_sharp/fixtures"), "c_sharp")
     for namespace, method in (("First", "FirstOnly"), ("Second", "SecondOnly")):
@@ -745,6 +781,7 @@ def test_csharp_namespaces_shadowing_and_call_forms() -> None:
     assert graph.nodes[_calls(graph, f"{prefix}.Nullable")[0]].kind == NodeKind.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_java_deferred_owners_explicit_construction_and_servlets(tmp_path: Path) -> None:
     graph = parse_directory(str(FIXTURES / "java/ownership"), "java")
     for name in ("deferred", "local", "anonymous"):
@@ -770,6 +807,7 @@ def test_java_deferred_owners_explicit_construction_and_servlets(tmp_path: Path)
     assert {e["node_id"] for e in engine.attack_surface()} == {"Servlets:Web.doGet"}
 
 
+@pytest.mark.mutation_fast
 def test_swift_extensions_scopes_and_deferred_bodies(tmp_path: Path) -> None:
     graph = parse_directory(str(FIXTURES / "swift/extensions"), "swift")
     assert graph.nodes["probe:Service"].kind == NodeKind.STRUCT
@@ -793,6 +831,7 @@ def test_swift_extensions_scopes_and_deferred_bodies(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_kotlin_nested_companions_and_local_owners() -> None:
     graph = parse_directory(str(FIXTURES / "kotlin/fixtures"), "kotlin")
     _assert_deferred_reachable(graph, "Ownership:caller")
@@ -806,6 +845,7 @@ def test_kotlin_nested_companions_and_local_owners() -> None:
     assert "Ownership:Outer.Companion.main" in {e["node_id"] for e in engine.attack_surface()}
 
 
+@pytest.mark.mutation_fast
 def test_objc_selectors_dispatch_identity_and_blocks() -> None:
     graph = parse_directory(str(FIXTURES / "objc/fixtures/selectors"), "objc")
     assert _calls(graph, "Selectors:Worker.+touch") == ["Selectors:class_sink"]
@@ -833,6 +873,7 @@ def test_objc_selectors_dispatch_identity_and_blocks() -> None:
     assert _calls(graph, block.id) == ["Blocks:callback_sink"]
 
 
+@pytest.mark.mutation_fast
 def test_dart_constructors_arrows_and_lexical_binding() -> None:
     graph = parse_file(str(FIXTURES / "dart/constructors.dart"), "dart", strict=True)
     constructors = [n for n in graph.nodes.values() if dict(n.attributes).get("dart_constructor")]
@@ -854,6 +895,7 @@ def test_dart_constructors_arrows_and_lexical_binding() -> None:
     _assert_deferred_reachable(graph, "binding:deferred")
 
 
+@pytest.mark.mutation_fast
 def test_circom_include_visibility_discard_and_main_arguments(tmp_path: Path) -> None:
     graph = parse_directory(str(FIXTURES / "circom/includes"), "circom")
     assert set(_calls(graph, "circuit:Root")) == {"lib.child:Child", "lib.child:width"}
@@ -871,6 +913,7 @@ def test_circom_include_visibility_discard_and_main_arguments(tmp_path: Path) ->
     assert all(target not in {"a:Child", "b:Child"} for target in _calls(graph, "root:main"))
 
 
+@pytest.mark.mutation_fast
 def test_move_qualified_generics_callbacks_and_modules() -> None:
     graph = parse_directory(str(FIXTURES / "move/bindings"), "move")
     assert _calls(graph, "caller:0x42::caller:run").count("caller:0x42::caller:transfer") == 1
@@ -898,6 +941,7 @@ def test_move_qualified_generics_callbacks_and_modules() -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_move_entrypoint_modifiers_and_generic_comparison_control(tmp_path: Path) -> None:
     engine = QueryEngine.from_directory(str(FIXTURES / "move/entrypoints"), language="move")
     assert {row["node_id"].rsplit(":", 1)[-1] for row in engine.attack_surface()} == {
@@ -914,6 +958,7 @@ def test_move_entrypoint_modifiers_and_generic_comparison_control(tmp_path: Path
     assert _calls(graph, "nested:0x1::test:run") == ["nested:0x1::test:id"]
 
 
+@pytest.mark.mutation_fast
 def test_tact_static_member_binding_and_receiver_signatures() -> None:
     graph = parse_file(str(FIXTURES / "tact/binding/wallet.tact"), "tact")
     targets = _calls(graph, "wallet:Wallet.receive")
@@ -928,6 +973,7 @@ def test_tact_static_member_binding_and_receiver_signatures() -> None:
     assert graph.nodes["wallet:Wallet.current"].return_type == TypeRef("Int")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "case,package", [("repeated", "repeated"), ("cross_clause", "crossclause")]
 )
@@ -951,6 +997,7 @@ def test_rego_else_and_head_calls_stay_with_clause() -> None:
     assert _calls(graph, clause) == ["multibody:helper"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "language,path",
     [
@@ -969,6 +1016,7 @@ def test_unsupported_syntax_reports_diagnostics_and_strict_rejects(
         parse_file(str(FIXTURES / path), language, strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_ruby_owners_vcalls_and_entrypoint_visibility() -> None:
     graph = parse_file(str(FIXTURES / "ruby/fixtures/namespaces.rb"), "ruby")
     assert {
@@ -998,6 +1046,7 @@ def test_ruby_owners_vcalls_and_entrypoint_visibility() -> None:
     assert not any(target.endswith(":item") for target in _calls(graph, "modern:iterate"))
 
 
+@pytest.mark.mutation_fast
 def test_erlang_arity_exports_specs_and_qualified_calls() -> None:
     graph = parse_file(str(FIXTURES / "erlang/arity/arity_demo.erl"), "erlang")
     assert _calls(graph, "arity_demo:choose/0") == ["arity_demo:zero_sink/0"]
@@ -1019,6 +1068,7 @@ def test_erlang_arity_exports_specs_and_qualified_calls() -> None:
     assert not engine.paths_between("caller:dynamic/2", "local_target:hit/0")
 
 
+@pytest.mark.mutation_fast
 def test_erlang_closure_creation_capture_and_target_evaluation() -> None:
     graph = parse_file(str(FIXTURES / "erlang/closures/closure_demo.erl"), "erlang")
     for source in ("capture/0", "remote_capture/0"):
@@ -1032,6 +1082,7 @@ def test_erlang_closure_creation_capture_and_target_evaluation() -> None:
     assert "closure_demo:maker/0" in _calls(graph, "closure_demo:factory_call/0")
 
 
+@pytest.mark.mutation_fast
 def test_haskell_lexical_owners_binding_and_call_syntax() -> None:
     engine = QueryEngine.from_directory(str(FIXTURES / "haskell/fixtures"), language="haskell")
     graph = parse_directory(str(FIXTURES / "haskell/fixtures"), "haskell")
@@ -1053,6 +1104,7 @@ def test_haskell_lexical_owners_binding_and_call_syntax() -> None:
     assert all(target.startswith("proxy.") for target in _calls(graph, "Syntax:viaDollar"))
 
 
+@pytest.mark.mutation_fast
 def test_go_directory_linking_respects_package_even_in_polyglot(tmp_path: Path) -> None:
     (tmp_path / "app.go").write_text("package app\nfunc Run() { missing() }")
     (tmp_path / "other_test.go").write_text("package app_test\nfunc missing() {}")
@@ -1072,6 +1124,7 @@ def test_skipped_verus_reports_structured_diagnostic(tmp_path: Path) -> None:
         parse_file(str(path), "rust", strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_solidity_inherited_callable_storage_blocks_free_binding(tmp_path: Path) -> None:
     (tmp_path / "base.sol").write_text(
         "contract Base { function() internal work; function helper() internal {} }"
@@ -1086,6 +1139,7 @@ def test_solidity_inherited_callable_storage_blocks_free_binding(tmp_path: Path)
     assert any("$binding.work" in target for target in _calls(graph, "child:Child.run"))
 
 
+@pytest.mark.mutation_fast
 def test_sql_replacement_signature_excludes_default_and_normalizes_schema(tmp_path: Path) -> None:
     path = tmp_path / "replace.sql"
     path.write_text(
@@ -1108,6 +1162,7 @@ def test_sql_replacement_signature_excludes_default_and_normalizes_schema(tmp_pa
         assert routine.parameters[0].type_ref == TypeRef("integer")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "artifact",
     [
@@ -1136,6 +1191,7 @@ def test_sarif_invalid_bases_and_indices_remain_unmatched(tmp_path: Path, artifa
     assert not graph.annotations
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("definition", ["struct same;", "struct same { int value; };"])
 def test_c_tag_collision_retains_both_containment_edges(tmp_path: Path, definition: str) -> None:
     source = tmp_path / "tag.c"
@@ -1151,6 +1207,7 @@ def test_c_tag_collision_retains_both_containment_edges(tmp_path: Path, definiti
     assert {"tag:same", function.id} <= children
 
 
+@pytest.mark.mutation_fast
 def test_ruby_named_visibility_is_local_to_its_class(tmp_path: Path) -> None:
     (tmp_path / "nested.rb").write_text(
         "class Outer < ApplicationController\n def show; end\n"
@@ -1160,6 +1217,7 @@ def test_ruby_named_visibility_is_local_to_its_class(tmp_path: Path) -> None:
     assert {row["node_id"] for row in engine.attack_surface()} == {"nested:Outer.Inner.show"}
 
 
+@pytest.mark.mutation_fast
 def test_static_namespace_linking_keeps_file_local_visibility(tmp_path: Path) -> None:
     (tmp_path / "owner.cpp").write_text(
         "namespace Util { static void local() {} static void remote() {} }\n"
@@ -1171,6 +1229,7 @@ def test_static_namespace_linking_keeps_file_local_visibility(tmp_path: Path) ->
     assert "owner:Util.remote" not in _calls(graph, "other:other")
 
 
+@pytest.mark.mutation_fast
 def test_cross_file_linking_go_same_package_and_python_import(tmp_path: Path) -> None:
     (tmp_path / "app.go").write_text("package app\nfunc Run() { helper() }")
     (tmp_path / "helper.go").write_text("package app\nfunc helper() {}")
@@ -1184,6 +1243,7 @@ def test_cross_file_linking_go_same_package_and_python_import(tmp_path: Path) ->
     assert _calls(graph, "app:run") == ["pkg.helper:helper"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("kind,blocked", [(EdgeKind.CALLS, True), (EdgeKind.READS, False)])
 def test_rust_alias_resolution_preserves_blocked_and_noncall_edges(
     tmp_path: Path, kind: EdgeKind, blocked: bool

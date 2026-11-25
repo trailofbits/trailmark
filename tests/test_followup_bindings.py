@@ -17,6 +17,7 @@ def _parse(tmp_path: Path, filename: str, text: str) -> CodeGraph:
     return parse_file(str(source))
 
 
+@pytest.mark.mutation_fast
 def test_python_method_does_not_retarget_module_function(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -31,6 +32,7 @@ def test_python_method_does_not_retarget_module_function(tmp_path: Path) -> None
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("filename", "text", "caller", "target"),
     [
@@ -96,6 +98,7 @@ def test_go_closure_calls_are_owned(tmp_path: Path) -> None:
     assert len(calls) == 3
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("filename", "text", "root", "targets"),
     [
@@ -191,6 +194,7 @@ def test_repeated_python_nested_definitions_keep_bodies(tmp_path: Path) -> None:
     assert any(s == "case:two.inner" and t.endswith(":case:second") for s, t in calls.items())
 
 
+@pytest.mark.mutation_fast
 def test_javascript_local_require_destructure_links_across_files(tmp_path: Path) -> None:
     (tmp_path / "app.js").write_text(
         "function handler(x) { const { sanitize } = require('./util'); return sanitize(x); }"
@@ -216,6 +220,7 @@ def test_unmatched_entrypoint_override_warns(
     assert "Entrypoint override matches no node: app:old_handler" in caplog.text
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("filename", "text"),
     [
@@ -241,6 +246,7 @@ def test_unextracted_callback_parameters_do_not_bind_globals(
     assert blocked[0].confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_python_local_class_methods_do_not_leak_into_function_scope(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,

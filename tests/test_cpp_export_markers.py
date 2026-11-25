@@ -14,6 +14,7 @@ from trailmark.parsers.cpp.parser import CppParser
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("access", ["public", "private", "protected"])
 def test_export_marked_class_recovers_method_navigation(tmp_path: Path, access: str) -> None:
     path = tmp_path / "example.hpp"
@@ -75,6 +76,7 @@ def test_original_diagnostics_survive_including_unrelated_syntax_error(tmp_path:
     assert any(u.kind == NodeKind.CLASS and u.name == "File" for u in graph.nodes.values())
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [

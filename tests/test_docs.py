@@ -397,6 +397,11 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "pins pytest-gremlins 1.14.3"),
     ("CONTRIBUTING.md", "Harness failures and unrelated internal errors remain errors"),
     ("CONTRIBUTING.md", "pytest timeout markers, or test subprocess deadlines"),
+    ("CONTRIBUTING.md", "--test-group=fast"),
+    ("CONTRIBUTING.md", "tests.compare_mutations coverage/reference coverage/fast"),
+    ("CONTRIBUTING.md", "tests.benchmark_mutations --workers=4 --repeat=3"),
+    ("CONTRIBUTING.md", "zero lost kills and at least 20% lower median"),
+    ("CONTRIBUTING.md", "weekly on Monday at 06:00 UTC"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
     ("docs/cli.md", "JSON to stdout"),
@@ -678,6 +683,7 @@ def test_every_public_query_method_is_documented() -> None:
         assert f"{name}(" in api_doc, f"QueryEngine.{name}() is not documented"
 
 
+@pytest.mark.mutation_fast
 def test_exception_evidence_contract_is_documented() -> None:
     from trailmark.models import ExceptionEventKind
 
@@ -834,6 +840,7 @@ def test_module_ids_depend_on_parse_scope(tmp_path: Path) -> None:
     assert "`__init__.py` uses its parent directory's name" in guide
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("language", "suffix", "source", "confidence"),
     [
@@ -861,6 +868,7 @@ def test_unresolved_confidence_varies_by_frontend(
     assert "Confidence varies by frontend" in guide
 
 
+@pytest.mark.mutation_fast
 def test_readme_example_graph(tmp_path: Path) -> None:
     """The README example's graph, proxy, and prose claims match real output."""
     (tmp_path / "app.py").write_text(_code_block_after("README.md", "Given `app.py`", "python"))

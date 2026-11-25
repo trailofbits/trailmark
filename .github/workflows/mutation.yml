@@ -6,15 +6,41 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      test-group:
+        type: choice
+        options: [full, fast]
+        default: full
+      test-selection:
+        type: choice
+        options: [coverage, full]
+        default: coverage
+  workflow_call:
+    inputs:
+      test-group:
+        type: string
+        default: full
+      test-selection:
+        type: string
+        default: coverage
+      test-order:
+        type: string
+        default: component
+      full-source:
+        type: boolean
+        default: false
 
 concurrency:
-  group: mutation-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  group: mutation-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}-${{ inputs.test-group || 'full' }}-${{ inputs.test-selection || 'coverage' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 env:
+  MUTATION_TEST_GROUP: ${{ inputs.test-group || 'full' }}
+  MUTATION_TEST_SELECTION: ${{ inputs.test-selection || 'coverage' }}
+  MUTATION_TEST_ORDER: ${{ inputs.test-order || 'component' }}
   PYTHONHASHSEED: "0"
   TRAILMARK_REQUIRE_BINARY_TOOLS: "1"
   TRAILMARK_LLVM_OBJDUMP: /usr/bin/llvm-objdump
@@ -38,6 +64,7 @@ jobs:
         id: scope
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          FULL_SOURCE: ${{ inputs.full-source }}
         run: |
           reviewed=false
           if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
@@ -47,6 +74,7 @@ jobs:
               reviewed=false
             fi
           fi
+          if [[ "$FULL_SOURCE" == true ]]; then reviewed=false; fi
           echo "reviewed=$reviewed" >> "$GITHUB_OUTPUT"
 
   baselines:
@@ -73,11 +101,11 @@ jobs:
         run: |
           scope=()
           if [[ "$MUTATION_REVIEWED" == true ]]; then scope+=(--reviewed); fi
-          uv run --locked --extra binary python -m tests.run_mutations "${scope[@]}" --baseline-shard="$BASELINE_SHARD"
+          uv run --locked --extra binary python -m tests.run_mutations "${scope[@]}" --test-group="$MUTATION_TEST_GROUP" --test-selection="$MUTATION_TEST_SELECTION" --test-order="$MUTATION_TEST_ORDER" --baseline-shard="$BASELINE_SHARD"
       - name: Upload validated baselines
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
-          name: mutation-baseline
+          name: mutation-baseline-${{ env.MUTATION_TEST_GROUP }}
           overwrite: true
           path: |
             coverage/gremlins/baseline-*.json
@@ -114,13 +142,13 @@ jobs:
       - run: uv sync --locked --all-groups --extra binary
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
-          name: mutation-baseline
+          name: mutation-baseline-${{ env.MUTATION_TEST_GROUP }}
           path: coverage/gremlins/baselines
       - name: Run mutation campaign with shared baselines
         run: |
           scope=()
           if [[ "$MUTATION_REVIEWED" == true ]]; then scope+=(--reviewed); fi
-          uv run --locked --extra binary python -m tests.run_mutations "${scope[@]}" --workers=4 --shard="$MUTATION_SHARD" --baselines=coverage/gremlins/baselines
+          uv run --locked --extra binary python -m tests.run_mutations "${scope[@]}" --test-group="$MUTATION_TEST_GROUP" --test-selection="$MUTATION_TEST_SELECTION" --test-order="$MUTATION_TEST_ORDER" --workers=4 --shard="$MUTATION_SHARD" --baselines=coverage/gremlins/baselines
 
       - name: Enforce reviewed mutation baseline
         run: uv run --locked --extra binary python -m tests.mutation_gate --shard="$MUTATION_SHARD"
@@ -135,7 +163,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
-          name: mutation-report-${{ github.sha }}-shard-${{ matrix.shard }}
+          name: mutation-report-${{ github.sha }}-${{ env.MUTATION_TEST_GROUP }}-shard-${{ matrix.shard }}
           overwrite: true
           path: coverage/gremlins/
           if-no-files-found: error

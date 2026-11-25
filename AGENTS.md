@@ -137,3 +137,7 @@ Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
   `test_query.py`, plus focused parser/analysis/doc regression tests.
 - Update `README.md` and the matching regression tests if adding or
   changing user-facing API.
+
+The candidate `mutation_fast` pool is opt-in with `--test-group=fast`; the full
+pool stays the default until complete parity and a 20% median wall-time saving
+are measured. See CONTRIBUTING.md for comparisons and weekly/release audits.

@@ -9,6 +9,7 @@ from trailmark.parse import parse_directory, parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_recursive_let_function_has_own_body_and_navigation(tmp_path: Path) -> None:
     source = tmp_path / "Fold.tla"
     source.write_text(
@@ -54,6 +55,7 @@ def test_sibling_let_definitions_keep_distinct_targets_and_do_not_leak(tmp_path:
     assert len(refs) == 2
 
 
+@pytest.mark.mutation_fast
 def test_nested_let_ownership_and_parameter_shadowing(tmp_path: Path) -> None:
     source = tmp_path / "Nested.tla"
     source.write_text(
@@ -101,6 +103,7 @@ def test_quantifiers_shadow_let_names_and_locals_are_not_exported(tmp_path: Path
     } == {("Helper", "Global")}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "expression, count",
     [("M!op(Local)", 1), ("M(Local)!op", 1), ("M(Local)!N(Local)!op(Local)", 3)],
@@ -119,6 +122,7 @@ def test_prefixed_operator_arguments_keep_local_references(
     ] == [("Outer", "Local")] * count
 
 
+@pytest.mark.mutation_fast
 def test_local_recursive_forward_declarations_link_mutual_operators(tmp_path: Path) -> None:
     source = tmp_path / "Recursive.tla"
     source.write_text(
@@ -137,6 +141,7 @@ def test_local_recursive_forward_declarations_link_mutual_operators(tmp_path: Pa
     assert len([edge for edge in graph.edges if edge.kind == EdgeKind.CORRESPONDS_TO]) == 2
 
 
+@pytest.mark.mutation_fast
 def test_later_let_binding_does_not_capture_its_initializer(tmp_path: Path) -> None:
     source = tmp_path / "Sequential.tla"
     source.write_text(

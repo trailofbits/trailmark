@@ -38,6 +38,7 @@ def test_index_text_in_literals_and_comments_does_not_create_declarations(tmp_pa
     assert {n.name for n in graph.nodes.values()} == {"p", "allow", "$clause"}
 
 
+@pytest.mark.mutation_fast
 def test_malformed_index_still_reports_recovery_and_blocks_guesses(tmp_path: Path) -> None:
     source = tmp_path / "policy.rego"
     source.write_text("package p\nhelper(x) = x\nallow {\n types[input.key\n helper(true)\n}\n")

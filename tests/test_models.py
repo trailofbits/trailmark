@@ -57,6 +57,7 @@ def _make_unit(
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "value,field",
     [
@@ -201,6 +202,7 @@ class TestCodeUnit:
 
 
 class TestCallResolution:
+    @pytest.mark.mutation_fast
     def test_unresolved_calls_include_missing_and_unresolved_proxy_targets(self) -> None:
         source = _make_unit("f", "f")
         unresolved = _make_unit("proxy:unknown", "unknown", kind=NodeKind.PROXY)
@@ -295,6 +297,7 @@ class TestAnnotations:
 
 
 class TestCodeGraph:
+    @pytest.mark.mutation_fast
     def test_merge_source_file_counts(self) -> None:
         graph = CodeGraph(source_file_counts={"python": 2, "go": 0})
         other = CodeGraph(source_file_counts={"python": 1, "rust": 3})
@@ -358,6 +361,7 @@ class TestCodeGraph:
         g.clear_annotations("a")
         assert "a" not in g.annotations
 
+    @pytest.mark.mutation_fast
     def test_clear_annotations_by_kind(self) -> None:
         g = CodeGraph()
         g.add_annotation(
@@ -414,6 +418,7 @@ class TestCodeGraph:
         assert g1.dependencies.count("foo") == 1
 
 
+@pytest.mark.mutation_fast
 def test_entrypoint_evidence_preserves_occurrences_across_merge() -> None:
     first = EntrypointEvidence("handler", "reference", "callback", _make_location())
     second = replace(first, location=_make_location(start_line=11, end_line=11))
@@ -430,6 +435,7 @@ def test_entrypoint_evidence_preserves_occurrences_across_merge() -> None:
         replace(first, node_id=None)
 
 
+@pytest.mark.mutation_fast
 def test_merged_source_policies_retain_each_selection_and_do_not_alias() -> None:
     from trailmark.models.graph import source_manifests
 
@@ -441,6 +447,7 @@ def test_merged_source_policies_retain_each_selection_and_do_not_alias() -> None
     assert len(source_manifests(graph)) == 2
 
 
+@pytest.mark.mutation_fast
 def test_exception_evidence_is_immutable_and_survives_graph_merge() -> None:
     event = ExceptionEvent(
         ExceptionEventKind.RAISE,

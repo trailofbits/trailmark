@@ -75,6 +75,7 @@ PARSER_FIXTURES: list[tuple[str, str]] = [
 ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(("language", "basename"), PARSER_FIXTURES)
 def test_parser_snapshot(language: str, basename: str) -> None:
     fixture, snapshot = fixture_pair(language, basename)

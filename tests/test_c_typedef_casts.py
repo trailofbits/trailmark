@@ -2,10 +2,13 @@
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeKind
 from trailmark.parsers.c import CParser
 
 
+@pytest.mark.mutation_fast
 def test_typedef_casts_preserve_operand_calls_and_value_shadows(tmp_path: Path) -> None:
     source = tmp_path / "casts.c"
     source.write_text(
@@ -33,6 +36,7 @@ int nested(void) {
     ]
 
 
+@pytest.mark.mutation_fast
 def test_unexpanded_macros_leave_ambiguous_parenthesized_calls(tmp_path: Path) -> None:
     source = tmp_path / "casts.c"
     source.write_text(

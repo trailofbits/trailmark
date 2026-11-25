@@ -29,6 +29,7 @@ def test_move_error_does_not_poison_unrelated_calls(tmp_path: Path) -> None:
     assert graph.parse_diagnostics
 
 
+@pytest.mark.mutation_fast
 def test_move_aptos_syntax_and_positioned_shadowing(tmp_path: Path) -> None:
     path = tmp_path / "bank.move"
     path.write_text(
@@ -45,6 +46,7 @@ def test_move_aptos_syntax_and_positioned_shadowing(tmp_path: Path) -> None:
     assert calls[1].confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_move_qualified_generic_links_and_import_edges(tmp_path: Path) -> None:
     (tmp_path / "lib.move").write_text("module 0x43::library { public fun make<T>() {} }")
     (tmp_path / "app.move").write_text(
@@ -69,6 +71,7 @@ def test_haskell_do_bind_expressions_keep_calls(tmp_path: Path) -> None:
     assert {e.target_id for e in _calls(graph, "D:handler")} == {"D:fetch", "D:validate", "D:store"}
 
 
+@pytest.mark.mutation_fast
 def test_haskell_operator_proxies_are_readable(tmp_path: Path) -> None:
     path = tmp_path / "Ops.hs"
     path.write_text("module Ops where\nadd x y = x + y\nconcat x y = x ++ y\n")
@@ -77,6 +80,7 @@ def test_haskell_operator_proxies_are_readable(tmp_path: Path) -> None:
     assert _calls(graph, "Ops:concat")[0].target_id.endswith("$operator.plus_plus")
 
 
+@pytest.mark.mutation_fast
 def test_php_namespace_linking_and_global_qualification(tmp_path: Path) -> None:
     (tmp_path / "controller.php").write_text(
         "<?php namespace App; function route($x) { return sanitize($x); }"
@@ -102,6 +106,7 @@ def test_php_namespaced_builtin_falls_back_to_global(tmp_path: Path) -> None:
     assert _calls(graph, "example:App.fraction")[0].target_id.endswith(":example:intdiv")
 
 
+@pytest.mark.mutation_fast
 def test_ruby_inherited_and_global_calls_stay_linkable(tmp_path: Path) -> None:
     (tmp_path / "animal.rb").write_text(
         "def top_helper; end\nclass Animal\n def describe; end\nend\n"
@@ -118,6 +123,7 @@ def test_ruby_inherited_and_global_calls_stay_linkable(tmp_path: Path) -> None:
     assert not any("Dog.raise" in t or "Dog.super" in t or "Dog.Integer" in t for t in targets)
 
 
+@pytest.mark.mutation_fast
 def test_ruby_binding_forms_are_values(tmp_path: Path) -> None:
     path = tmp_path / "bindings.rb"
     path.write_text(
@@ -130,6 +136,7 @@ def test_ruby_binding_forms_are_values(tmp_path: Path) -> None:
     assert calls[0].target_id.endswith(":bindings:work")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("extension", "depth", "opening", "closing"),
     [
@@ -149,6 +156,7 @@ def test_deep_declarations_report_limit_without_crashing(
     )
 
 
+@pytest.mark.mutation_fast
 def test_dart_initializers_keep_helper_calls(tmp_path: Path) -> None:
     path = tmp_path / "ctor.dart"
     path.write_text(
@@ -161,6 +169,7 @@ def test_dart_initializers_keep_helper_calls(tmp_path: Path) -> None:
     assert sum(e.target_id == "ctor:helper" for e in _calls(graph, "ctor:A.A.redirect")) == 1
 
 
+@pytest.mark.mutation_fast
 def test_sql_replaced_overload_has_only_new_dependencies(tmp_path: Path) -> None:
     path = tmp_path / "db.sql"
     path.write_text(
@@ -200,6 +209,7 @@ def test_objc_self_selector_can_link_in_same_implementation(tmp_path: Path) -> N
     ]
 
 
+@pytest.mark.mutation_fast
 def test_circom_same_file_calls_stay_certain_with_include(tmp_path: Path) -> None:
     (tmp_path / "dep.circom").write_text("template Other() {}")
     (tmp_path / "app.circom").write_text(

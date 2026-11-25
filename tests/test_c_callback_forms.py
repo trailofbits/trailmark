@@ -8,6 +8,7 @@ from trailmark.models import EdgeConfidence, EdgeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 @pytest.mark.parametrize("initializer", ["helper", "&helper", "*helper"])
 def test_function_designator_forms_keep_unsupported_initializers_symbolic(

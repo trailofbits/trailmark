@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.graph import CodeGraph
 from trailmark.parsers.objc import ObjCParser
 from trailmark.query.api import QueryEngine
@@ -15,6 +17,7 @@ def _parse(tmp_path: Path, body: str, name: str = "Foo.m") -> CodeGraph:
 
 
 class TestCFunctions:
+    @pytest.mark.mutation_fast
     def test_main_extracted(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "int main(int argc, char **argv) { return 0; }\n")
         assert "Foo:main" in graph.nodes
@@ -22,6 +25,7 @@ class TestCFunctions:
         assert func.kind.value == "function"
         assert [p.name for p in func.parameters] == ["argc", "argv"]
 
+    @pytest.mark.mutation_fast
     def test_return_type_captured(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "void hello(void) { }\n")
         func = graph.nodes["Foo:hello"]
@@ -30,6 +34,7 @@ class TestCFunctions:
 
 
 class TestClasses:
+    @pytest.mark.mutation_fast
     def test_class_interface_creates_class_node(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -38,6 +43,7 @@ class TestClasses:
         assert "Foo:Thing" in graph.nodes
         assert graph.nodes["Foo:Thing"].kind.value == "class"
 
+    @pytest.mark.mutation_fast
     def test_zero_arg_method_selector(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -46,6 +52,7 @@ class TestClasses:
         assert "Foo:T.reset" in graph.nodes
         assert graph.nodes["Foo:T.reset"].name == "reset"
 
+    @pytest.mark.mutation_fast
     def test_multi_arg_method_selector_has_colons(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -58,6 +65,7 @@ class TestClasses:
         assert method.name == "login:password:"
         assert [p.name for p in method.parameters] == ["user", "pw"]
 
+    @pytest.mark.mutation_fast
     def test_implementation_body_replaces_interface_stub(
         self,
         tmp_path: Path,
@@ -81,6 +89,7 @@ class TestClasses:
 
 
 class TestImports:
+    @pytest.mark.mutation_fast
     def test_system_import_captured(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -89,6 +98,7 @@ class TestImports:
         assert "Foundation" in graph.dependencies
 
 
+@pytest.mark.mutation_fast
 def test_conditional_implementation_methods_keep_owners_and_sites(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,

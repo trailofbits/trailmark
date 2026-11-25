@@ -31,6 +31,7 @@ def _calls(graph: CodeGraph, name: str) -> list[CodeEdge]:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_guarded_cpp_namespace_preserves_c_functions(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -49,6 +50,7 @@ def test_guarded_cpp_namespace_preserves_c_functions(tmp_path: Path) -> None:
     assert graph.parse_diagnostics  # Keep original syntax evidence.
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("closing", ["OTHER_NAMESPACE", "!OPTIONAL_NAMESPACE"])
 def test_cpp_namespace_recovery_requires_matching_positive_guards(
     tmp_path: Path, closing: str
@@ -67,6 +69,7 @@ def test_cpp_namespace_recovery_requires_matching_positive_guards(
     assert tree is original
 
 
+@pytest.mark.mutation_fast
 def test_namespace_type_name_is_still_a_c_function(tmp_path: Path) -> None:
     path = _source(
         tmp_path, "typedef int namespace;\nnamespace action(void) { return 1; }\nint broken = ;"
@@ -75,6 +78,7 @@ def test_namespace_type_name_is_still_a_c_function(tmp_path: Path) -> None:
     assert graph.nodes["sample:action"].kind == NodeKind.FUNCTION
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_cpp_namespace_masks_exact_tokens_and_preserves_positions(newline: str) -> None:
     source = newline.join(
@@ -121,6 +125,7 @@ def test_multiple_namespace_wrappers_preserve_function_text(tmp_path: Path) -> N
     assert "sample:helper" in {e.target_id for e in _calls(graph, "action")}
 
 
+@pytest.mark.mutation_fast
 def test_namespace_header_does_not_invent_a_function(tmp_path: Path) -> None:
     path = tmp_path / "sample.h"
     path.write_text(
@@ -142,6 +147,7 @@ def test_alternative_cpp_linkage_arms_are_not_guessed() -> None:
     assert masked == source and tree is original
 
 
+@pytest.mark.mutation_fast
 def test_empty_guarded_cpp_namespace_is_not_a_function(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -164,6 +170,7 @@ def test_guarded_c_function_keeps_its_body(tmp_path: Path) -> None:
     assert "sample:helper" in {e.target_id for e in _calls(graph, "action")}
 
 
+@pytest.mark.mutation_fast
 def test_unresolved_wrapper_keeps_same_file_targets(tmp_path: Path) -> None:
     path = _source(
         tmp_path, "#define DECL(n) DECL(n)\nvoid helper(void) {}\nDECL(left) { helper(); }"
@@ -176,6 +183,7 @@ def test_unresolved_wrapper_keeps_same_file_targets(tmp_path: Path) -> None:
     assert not dict(edge.attributes).get("binding_blocked")
 
 
+@pytest.mark.mutation_fast
 def test_unresolved_wrapper_links_across_files(tmp_path: Path) -> None:
     _source(tmp_path, "UNAVAILABLE(left) { helper(); }")
     (tmp_path / "peer.c").write_text("void helper(void) {}")
@@ -186,6 +194,7 @@ def test_unresolved_wrapper_links_across_files(tmp_path: Path) -> None:
     assert dict(edge.attributes)["macro_signature_unresolved"]
 
 
+@pytest.mark.mutation_fast
 def test_syntax_error_preserves_unaffected_call_confidence(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -199,6 +208,7 @@ def test_syntax_error_preserves_unaffected_call_confidence(tmp_path: Path) -> No
     assert [d.kind for d in graph.parse_diagnostics] == ["syntax_error"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("broken", ["return helper(,);", "other() helper();"])
 def test_only_calls_inside_broken_syntax_get_context_marker(tmp_path: Path, broken: str) -> None:
     path = _source(
@@ -212,6 +222,7 @@ def test_only_calls_inside_broken_syntax_get_context_marker(tmp_path: Path, brok
     assert all(e.confidence == EdgeConfidence.CERTAIN for e in edges if e not in broken_edges)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("kind", ["relative", "absolute", "symlink"])
 def test_headers_outside_analysis_root_are_not_read(tmp_path: Path, kind: str) -> None:
     root = tmp_path / "repo"
@@ -236,6 +247,7 @@ def test_headers_outside_analysis_root_are_not_read(tmp_path: Path, kind: str) -
     assert "sample:DECL(first)" in parse_file(str(path), "c").nodes
 
 
+@pytest.mark.mutation_fast
 def test_in_root_parent_header_is_cached_for_one_directory_parse(tmp_path: Path) -> None:
     include = tmp_path / "include"
     source = tmp_path / "source"
@@ -265,6 +277,7 @@ def test_in_root_parent_header_is_cached_for_one_directory_parse(tmp_path: Path)
     assert "first:DECL(first)" in parse_file(str(source / "first.c"), "c").nodes
 
 
+@pytest.mark.mutation_fast
 def test_object_macro_aliases_expand_to_verified_compiled_name(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -323,6 +336,7 @@ def test_callback_binding_survives_an_unrelated_parse_error(tmp_path: Path) -> N
     assert edge.confidence == EdgeConfidence.INFERRED
 
 
+@pytest.mark.mutation_fast
 def test_brace_changing_conditionals_are_not_recovered(tmp_path: Path) -> None:
 
     source = BLOCKS.replace(
@@ -375,6 +389,7 @@ def test_failed_span_candidate_does_not_cancel_an_independent_recovery(
     assert recovered.root_node.text.count(b"BLOCK_BEGIN { first();") == 1
 
 
+@pytest.mark.mutation_fast
 def test_inactive_prose_does_not_hide_physical_end(tmp_path: Path) -> None:
     source = BLOCKS.replace(
         " BLOCK_BEGIN { first();",

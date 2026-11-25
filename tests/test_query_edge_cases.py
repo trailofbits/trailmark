@@ -55,6 +55,7 @@ class TestCalleesOfMissing:
         assert engine.callees_of("nonexistent") == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("name", ["a", "missing"])
 def test_type_queries_return_empty_lists_for_absent_metadata(name: str) -> None:
     engine = _simple_engine()
@@ -96,6 +97,7 @@ class TestPathsBetweenMissing:
 
 
 class TestProxyNodes:
+    @pytest.mark.mutation_fast
     def test_from_graph_materializes_unresolved_call_proxy(self) -> None:
         graph = CodeGraph(
             nodes={"a": _make_node("a", "a")},

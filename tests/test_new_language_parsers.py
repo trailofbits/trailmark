@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory, parse_file
 
@@ -34,6 +36,7 @@ def test_tact_repeated_receivers_get_distinct_nodes(tmp_path: Path) -> None:
     assert "wallet:Wallet.receive_2" in graph.nodes
 
 
+@pytest.mark.mutation_fast
 def test_tact_traits_retain_methods_and_inclusion_relationships(tmp_path: Path) -> None:
     source = tmp_path / "wallet.tact"
     source.write_text(
@@ -94,6 +97,7 @@ def test_schema_languages_do_not_emit_runtime_call_edges(tmp_path: Path) -> None
         assert [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS] == []
 
 
+@pytest.mark.mutation_fast
 def test_graphql_implements_relationships_include_interfaces_and_extensions(tmp_path: Path) -> None:
     (tmp_path / "types.graphql").write_text(
         "interface Node { id: ID! }\n"
@@ -120,6 +124,7 @@ def test_graphql_implements_relationships_include_interfaces_and_extensions(tmp_
     assert not [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
 
 
+@pytest.mark.mutation_fast
 def test_thrift_generic_parameter_types_preserve_closing_brackets(tmp_path: Path) -> None:
     source = tmp_path / "store.thrift"
     source.write_text(
@@ -138,6 +143,7 @@ def test_thrift_generic_parameter_types_preserve_closing_brackets(tmp_path: Path
     assert method.return_type.name == "list<string>"
 
 
+@pytest.mark.mutation_fast
 def test_thrift_service_inheritance_retains_local_and_included_bases(tmp_path: Path) -> None:
     (tmp_path / "base.thrift").write_text("service Parent { void ping() }\n")
     client = tmp_path / "client.thrift"
@@ -180,6 +186,7 @@ def test_thrift_service_base_comments_do_not_change_names(tmp_path: Path) -> Non
     } == {("client:Child", "client:Local"), ("client:Imported", "base:Parent")}
 
 
+@pytest.mark.mutation_fast
 def test_thrift_missing_included_base_does_not_bind_unrelated_service(tmp_path: Path) -> None:
     (tmp_path / "unrelated.thrift").write_text("service Parent {}\n")
     (tmp_path / "client.thrift").write_text(

@@ -28,6 +28,7 @@ def test_swift_nested_extension_owners_are_remapped(tmp_path: Path) -> None:
     assert all(e.source_id in graph.nodes and e.target_id in graph.nodes for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_java_constructors_bind_across_files(tmp_path: Path) -> None:
     (tmp_path / "Repo.java").write_text("class Repo { Repo() {} }")
     (tmp_path / "Service.java").write_text("class Service { void run() { new Repo(); } }")
@@ -133,6 +134,7 @@ def test_unresolved_wrapper_allows_callback_table_and_preserves_indirect_calls(
     assert indirect.confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("order", [("b0", "b9"), ("b9", "b0")])
 def test_sarif_chain_limit_is_independent_of_result_order(order: tuple[str, str]) -> None:
     bases = {f"b{i}": {"uri": "./", "uriBaseId": f"b{i + 1}"} for i in range(40)}
@@ -142,6 +144,7 @@ def test_sarif_chain_limit_is_independent_of_result_order(order: tuple[str, str]
     assert resolved == {"b0": None, "b9": "file:///project/app.py"}
 
 
+@pytest.mark.mutation_fast
 def test_sarif_description_only_base_uses_root() -> None:
     resolver = SarifUris({"originalUriBaseIds": {"ROOT": {"description": {"text": "unknown"}}}})
     assert resolver.resolve({"uri": "app.py", "uriBaseId": "ROOT"}) == "app.py"
@@ -161,6 +164,7 @@ def test_move_module_alias_does_not_shadow_bare_function(tmp_path: Path) -> None
     assert edge.confidence == EdgeConfidence.CERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_move_macro_callbacks_and_import_modules(tmp_path: Path) -> None:
     path = tmp_path / "macro.move"
     path.write_text(
@@ -180,6 +184,7 @@ def test_move_macro_callbacks_and_import_modules(tmp_path: Path) -> None:
     assert graph.dependencies == ["sui::coin"]
 
 
+@pytest.mark.mutation_fast
 def test_ruby_vcalls_use_preceding_assignment_and_self_keeps_receiver(tmp_path: Path) -> None:
     path = tmp_path / "calls.rb"
     path.write_text(
@@ -194,6 +199,7 @@ def test_ruby_vcalls_use_preceding_assignment_and_self_keeps_receiver(tmp_path: 
     assert edge.target_id.endswith(":calls:Bar.name2")
 
 
+@pytest.mark.mutation_fast
 def test_ruby_ambiguous_inheritance_keeps_uncertain_proxy(tmp_path: Path) -> None:
     path = tmp_path / "ambiguous.rb"
     path.write_text(
@@ -228,6 +234,7 @@ def test_resolved_frontend_calls_are_not_binding_blocked(
     assert not dict(calls[0].attributes).get("binding_blocked")
 
 
+@pytest.mark.mutation_fast
 def test_move_grouped_address_imports_emit_modules(tmp_path: Path) -> None:
     path = tmp_path / "imports.move"
     path.write_text(
@@ -244,6 +251,7 @@ def test_move_grouped_address_imports_emit_modules(tmp_path: Path) -> None:
     } == {"sui::coin::work", "sui::balance::work"}
 
 
+@pytest.mark.mutation_fast
 def test_haskell_operator_proxies_are_consistent(tmp_path: Path) -> None:
     path = tmp_path / "ops.hs"
     path.write_text("run x = f . g $ x + 1\n")
@@ -270,6 +278,7 @@ def test_recursive_legacy_walker_reports_file_and_continues(tmp_path: Path) -> N
     assert graph.source_file_counts == {"erlang": 2}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("extension", "caller", "callee"),
     [

@@ -11,6 +11,7 @@ from trailmark.models import EdgeConfidence, EdgeKind, NodeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 @pytest.mark.parametrize("condition", [None, "OPTION", "0"])
 def test_conditional_include_cannot_establish_a_declaration_macro(

@@ -34,6 +34,7 @@ def _anonymous_call(
     return graph, call
 
 
+@pytest.mark.mutation_fast
 def test_anonymous_subclass_binds_generic_base_helper_before_enclosing_method(
     tmp_path: Path,
 ) -> None:
@@ -59,6 +60,7 @@ def test_anonymous_own_override_wins(tmp_path: Path) -> None:
     assert graph.nodes[call.target_id].origin == NodeOrigin.SOURCE
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "base",
     [
@@ -80,6 +82,7 @@ def test_anonymous_subclass_can_reach_inspected_grandparent(tmp_path: Path) -> N
     assert call.target_id == "sample:Outer.Parent.helper"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "base,confidence",
     [
@@ -115,6 +118,7 @@ def test_external_interface_callback_preserves_enclosing_helper(tmp_path: Path) 
     assert call.confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "base,blocked",
     [
@@ -166,6 +170,7 @@ def test_anonymous_interface_uses_implements_and_own_method(tmp_path: Path) -> N
     assert call.target_id == call.source_id.removesuffix(".run") + ".helper"
 
 
+@pytest.mark.mutation_fast
 def test_anonymous_base_is_revisited_after_directory_merge(tmp_path: Path) -> None:
     (tmp_path / "base.java").write_text("class Base { void helper() {} }\n")
     (tmp_path / "entry.java").write_text(
@@ -190,6 +195,7 @@ def test_ambiguous_remote_base_does_not_select_unrelated_helper(tmp_path: Path) 
     assert relation.kind == EdgeKind.TYPE_USES
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("visibility", ["", "protected", "public"])
 def test_inherited_access_respects_packages(tmp_path: Path, visibility: str) -> None:
     (tmp_path / "base.java").write_text(

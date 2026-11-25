@@ -6,6 +6,7 @@ from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory, parse_file
 
 
+@pytest.mark.mutation_fast
 def test_rule_and_formula_symbol_references() -> None:
     graph = parse_file(
         str(Path(__file__).parent / "fixtures/kat/tamarin/taxonomy.spthy"), strict=True
@@ -30,6 +31,7 @@ def test_rule_and_formula_symbol_references() -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_fact_arity_and_bare_constants(tmp_path: Path) -> None:
     path = tmp_path / "arity.spthy"
     path.write_text(
@@ -47,6 +49,7 @@ def test_fact_arity_and_bare_constants(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("operator", ["^", "*", "+", "XOR"])
 def test_operator_let_values_and_macro_bodies_keep_dependencies(
     tmp_path: Path, operator: str
@@ -78,6 +81,7 @@ def test_explicit_all_traces_quantifier(tmp_path: Path) -> None:
     assert any(n.name == "seen" for n in graph.nodes.values())
 
 
+@pytest.mark.mutation_fast
 def test_nested_comments_and_unsupported_proofs(tmp_path: Path) -> None:
     path = tmp_path / "comments.spthy"
     path.write_text(
@@ -139,6 +143,7 @@ def test_function_rule_and_lemma_names_do_not_collide(tmp_path: Path) -> None:
     assert dict(graph.nodes[refs[0].target_id].attributes)["declaration_role"] == "function"
 
 
+@pytest.mark.mutation_fast
 def test_activated_builtin_symbols_are_retained(tmp_path: Path) -> None:
     path = tmp_path / "builtin.spthy"
     path.write_text(
@@ -166,6 +171,7 @@ def test_unsupported_language_boundaries_are_targeted(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_conditionals_preserve_all_branches_and_the_next_rule(tmp_path: Path, newline: str) -> None:
     path = tmp_path / "conditional.spthy"
@@ -188,6 +194,7 @@ def test_conditionals_preserve_all_branches_and_the_next_rule(tmp_path: Path, ne
     )
 
 
+@pytest.mark.mutation_fast
 def test_macros_predicates_and_constant_dependencies(tmp_path: Path) -> None:
     path = tmp_path / "reusable.spthy"
     path.write_text(
@@ -225,6 +232,7 @@ def test_macros_predicates_and_constant_dependencies(tmp_path: Path) -> None:
     assert not any(n.name == "Both/1" for n in graph.nodes.values())
 
 
+@pytest.mark.mutation_fast
 def test_constant_aliases_respect_sorts_and_local_bindings(tmp_path: Path) -> None:
     path = tmp_path / "constants.spthy"
     path.write_text(
@@ -248,6 +256,7 @@ def test_constant_aliases_respect_sorts_and_local_bindings(tmp_path: Path) -> No
     )
 
 
+@pytest.mark.mutation_fast
 def test_included_fragments_link_transitively_by_path(tmp_path: Path) -> None:
     for directory in ("left", "right"):
         (tmp_path / directory).mkdir()
@@ -316,6 +325,7 @@ def test_parenthesized_quantifiers_do_not_shadow_following_constants(tmp_path: P
     )
 
 
+@pytest.mark.mutation_fast
 def test_fact_roles_persistence_and_common_attributes(tmp_path: Path) -> None:
     path = tmp_path / "Roles.spthy"
     path.write_text(
@@ -337,6 +347,7 @@ def test_fact_roles_persistence_and_common_attributes(tmp_path: Path) -> None:
     assert {"senc", "sdec"} <= {n.name for n in graph.nodes.values()}
 
 
+@pytest.mark.mutation_fast
 def test_include_fragments_share_theory_symbols(tmp_path: Path) -> None:
     (tmp_path / "main.spthy").write_text(
         'theory Main begin\nfunctions: k/0\n#include "rules.spthy"\n'

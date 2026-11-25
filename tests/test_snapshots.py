@@ -61,6 +61,7 @@ def _engine(tmp_path: Path) -> QueryEngine:
     return engine
 
 
+@pytest.mark.mutation_fast
 def test_snapshot_restores_complete_queries_without_source(tmp_path: Path) -> None:
     engine = _engine(tmp_path)
     snapshot = engine.to_snapshot(source_revision="source-revision", tool_revision="tool-revision")
@@ -126,6 +127,7 @@ def _graph_with_binary_evidence(tmp_path: Path) -> CodeGraph:
     return graph
 
 
+@pytest.mark.mutation_fast
 def test_snapshot_retains_diagnostics_and_binary_evidence(tmp_path: Path) -> None:
     graph = _graph_with_binary_evidence(tmp_path)
     snapshot = graph.to_snapshot()
@@ -140,6 +142,7 @@ def test_snapshot_retains_diagnostics_and_binary_evidence(tmp_path: Path) -> Non
     )
 
 
+@pytest.mark.mutation_fast
 def test_source_fingerprints_are_captured_before_export_and_can_be_verified(tmp_path: Path) -> None:
     engine = _engine(tmp_path)
     snapshot = engine.to_snapshot()
@@ -154,6 +157,7 @@ def test_source_fingerprints_are_captured_before_export_and_can_be_verified(tmp_
     QueryEngine.from_snapshot(snapshot)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "change",
     [
@@ -182,6 +186,7 @@ def test_malformed_or_incompatible_snapshots_fail_explicitly(
         QueryEngine.from_snapshot(snapshot)
 
 
+@pytest.mark.mutation_fast
 def test_lightweight_json_is_not_a_snapshot(tmp_path: Path) -> None:
     engine = _engine(tmp_path)
     with pytest.raises(ValueError, match="snapshot fields"):
@@ -192,6 +197,7 @@ def test_lightweight_json_is_not_a_snapshot(tmp_path: Path) -> None:
     assert restored.callers_of("helper")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "location",
     [
@@ -211,6 +217,7 @@ def test_snapshot_rejects_invalid_location_boundaries(
         CodeGraph.from_snapshot(graph.to_snapshot())
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "location",
     [
@@ -228,6 +235,7 @@ def test_snapshot_preserves_valid_location_boundaries(
     assert CodeGraph.from_snapshot(graph.to_snapshot()).nodes["app:helper"].location == location
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan"), complex(1, 2)])
 def test_snapshot_rejects_unsupported_metadata_values(tmp_path: Path, value: object) -> None:
     graph = _engine(tmp_path)._store._graph
@@ -236,6 +244,7 @@ def test_snapshot_rejects_unsupported_metadata_values(tmp_path: Path, value: obj
         graph.to_snapshot()
 
 
+@pytest.mark.mutation_fast
 def test_snapshot_preserves_float_attributes_and_converts_integer_timeouts(tmp_path: Path) -> None:
     graph = _graph_with_binary_evidence(tmp_path)
     graph.nodes["app:helper"] = replace(
@@ -256,6 +265,7 @@ def test_snapshot_preserves_float_attributes_and_converts_integer_timeouts(tmp_p
     assert (limits.tool_timeout, limits.import_timeout) == (2.0, 3.0)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("value", [[], {1: "value"}])
 def test_snapshot_reports_invalid_typed_dictionary(tmp_path: Path, value: object) -> None:
     snapshot: dict[str, Any] = _engine(tmp_path)._store._graph.to_snapshot()
@@ -264,6 +274,7 @@ def test_snapshot_reports_invalid_typed_dictionary(tmp_path: Path, value: object
         CodeGraph.from_snapshot(snapshot)
 
 
+@pytest.mark.mutation_fast
 def test_snapshot_reports_invalid_literal_at_its_field(tmp_path: Path) -> None:
     snapshot: dict[str, Any] = _engine(tmp_path)._store._graph.to_snapshot()
     evidence = next(iter(snapshot["graph"]["entrypoint_evidence"].values()))
@@ -272,6 +283,7 @@ def test_snapshot_reports_invalid_literal_at_its_field(tmp_path: Path) -> None:
         CodeGraph.from_snapshot(snapshot)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("field", ["source_sha256", "tool_sha256"])
 @pytest.mark.parametrize("digest", ["a" * 63, "g" * 64])
 def test_snapshot_rejects_invalid_provenance_digests(
@@ -283,6 +295,7 @@ def test_snapshot_rejects_invalid_provenance_digests(
         CodeGraph.from_snapshot(snapshot)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("digest", ["a" * 63, "g" * 64])
 def test_snapshot_rejects_invalid_source_digest_even_with_matching_inventory(
     tmp_path: Path, digest: str
@@ -296,6 +309,7 @@ def test_snapshot_rejects_invalid_source_digest_even_with_matching_inventory(
         CodeGraph.from_snapshot(snapshot)
 
 
+@pytest.mark.mutation_fast
 def test_snapshot_source_digest_does_not_depend_on_insertion_order() -> None:
     first = CodeGraph(source_digests={"b.py": "b" * 64, "a.py": "a" * 64})
     second = CodeGraph(source_digests={"a.py": "a" * 64, "b.py": "b" * 64})
@@ -308,18 +322,21 @@ def test_snapshot_source_digest_does_not_depend_on_insertion_order() -> None:
     assert second_snapshot["provenance"]["source_sha256"] == expected
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("count", [0, 1])
 def test_snapshot_accepts_nonnegative_file_counts(count: int) -> None:
     graph = CodeGraph(source_file_counts={"python": count})
     assert CodeGraph.from_snapshot(graph.to_snapshot()).source_file_counts == {"python": count}
 
 
+@pytest.mark.mutation_fast
 def test_snapshot_rejects_negative_file_counts() -> None:
     graph = CodeGraph(source_file_counts={"python": -1})
     with pytest.raises(ValueError, match="Invalid source file count"):
         CodeGraph.from_snapshot(graph.to_snapshot())
 
 
+@pytest.mark.mutation_fast
 def test_snapshot_rejects_integer_in_string_field(tmp_path: Path) -> None:
     snapshot: dict[str, Any] = _engine(tmp_path)._store._graph.to_snapshot()
     snapshot["graph"]["nodes"]["app:helper"]["name"] = 1
@@ -334,6 +351,7 @@ def test_snapshot_rejects_boolean_timeout(tmp_path: Path) -> None:
         CodeGraph.from_snapshot(snapshot)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("field", ["node_id", "source_id"])
 def test_snapshot_rejects_missing_evidence_endpoints(tmp_path: Path, field: str) -> None:
     graph = _engine(tmp_path)._store._graph
@@ -344,6 +362,7 @@ def test_snapshot_rejects_missing_evidence_endpoints(tmp_path: Path, field: str)
         CodeGraph.from_snapshot(graph.to_snapshot())
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("start,end", [(0, 1), (0, 2), (1, 2)])
 def test_snapshot_preserves_binary_range_boundaries(tmp_path: Path, start: int, end: int) -> None:
     graph = _graph_with_binary_evidence(tmp_path)
@@ -363,6 +382,7 @@ def test_snapshot_preserves_binary_range_boundaries(tmp_path: Path, start: int, 
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "changes",
     [{"start": -1}, {"start": 4100}, {"artifact_id": "absent"}, {"node_id": "absent"}],
@@ -374,6 +394,7 @@ def test_snapshot_rejects_invalid_binary_ranges(tmp_path: Path, changes: dict[st
         CodeGraph.from_snapshot(graph.to_snapshot())
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("field", ["range_id", "source_node_id"])
 def test_snapshot_rejects_missing_binary_mapping_endpoints(tmp_path: Path, field: str) -> None:
     graph = _graph_with_binary_evidence(tmp_path)
@@ -404,6 +425,7 @@ def test_snapshot_lists_only_unfingerprinted_source_nodes(tmp_path: Path) -> Non
         CodeGraph.from_snapshot(snapshot)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("returncode,expected", [(0, "revision"), (1, None), (128, None)])
 def test_snapshot_records_only_successful_git_revisions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, returncode: int, expected: str | None
@@ -428,6 +450,7 @@ def test_snapshot_keeps_explicit_revision_overrides_when_reexported(tmp_path: Pa
     assert restored.to_snapshot() == snapshot
 
 
+@pytest.mark.mutation_fast
 def test_snapshot_v1_preserves_known_entrypoint_evidence_identity() -> None:
     """An opaque ID persisted by v1 must still identify the same observation."""
     evidence = EntrypointEvidence(

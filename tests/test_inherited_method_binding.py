@@ -21,6 +21,7 @@ def _calls(graph: CodeGraph, source: str) -> list[tuple[str, EdgeConfidence]]:
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("directory", [False, True])
 def test_unique_inherited_method_remains_reachable(tmp_path: Path, directory: bool) -> None:
     base = "contract Base { uint total; function _mint(uint a) internal { total += a; } }"
@@ -45,6 +46,7 @@ def test_unique_inherited_method_remains_reachable(tmp_path: Path, directory: bo
     assert engine.entrypoint_paths_to("Base._mint") == [[source, target]]
 
 
+@pytest.mark.mutation_fast
 def test_inherited_method_precedes_same_named_free_function(tmp_path: Path) -> None:
     (tmp_path / "Base.sol").write_text("contract Base { function work() internal {} }")
     (tmp_path / "Token.sol").write_text(
@@ -54,6 +56,7 @@ def test_inherited_method_precedes_same_named_free_function(tmp_path: Path) -> N
     assert _calls(graph, "Token:Token.run") == [("Base:Base.work", EdgeConfidence.INFERRED)]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("visibility", ["private", "external"])
 @pytest.mark.parametrize("directory", [False, True])
 def test_non_internal_base_methods_do_not_capture_free_calls(
@@ -72,6 +75,7 @@ def test_non_internal_base_methods_do_not_capture_free_calls(
     assert _calls(graph, "Token:Token.run") == [("Token:work", EdgeConfidence.CERTAIN)]
 
 
+@pytest.mark.mutation_fast
 def test_local_and_nearest_inherited_overrides_win(tmp_path: Path) -> None:
     path = tmp_path / "Token.sol"
     path.write_text(
@@ -142,6 +146,7 @@ def test_local_method_does_not_hide_a_different_inherited_signature(tmp_path: Pa
     assert confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_directory_reconsiders_a_binding_when_another_base_becomes_known(tmp_path: Path) -> None:
     (tmp_path / "Remote.sol").write_text(
         "contract Remote { function work(string memory x) internal {} }"

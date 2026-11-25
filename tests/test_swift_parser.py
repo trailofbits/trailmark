@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.graph import CodeGraph
 from trailmark.parsers.swift import SwiftParser
 
@@ -14,17 +16,20 @@ def _parse(tmp_path: Path, body: str, name: str = "app.swift") -> CodeGraph:
 
 
 class TestBasicExtraction:
+    @pytest.mark.mutation_fast
     def test_module_node_created(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "func greet() {}\n")
         assert "app" in graph.nodes
         assert graph.nodes["app"].kind.value == "module"
 
+    @pytest.mark.mutation_fast
     def test_top_level_function(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "func greet() {}\n")
         assert "app:greet" in graph.nodes
         func = graph.nodes["app:greet"]
         assert func.kind.value == "function"
 
+    @pytest.mark.mutation_fast
     def test_parameters_and_types(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "func add(a: Int, b: Int) -> Int { return a + b }\n")
         func = graph.nodes["app:add"]
@@ -32,6 +37,7 @@ class TestBasicExtraction:
         assert func.return_type is not None
         assert func.return_type.name == "Int"
 
+    @pytest.mark.mutation_fast
     def test_class_with_method(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -42,6 +48,7 @@ class TestBasicExtraction:
         assert "app:Foo.bar" in graph.nodes
         assert graph.nodes["app:Foo.bar"].kind.value == "method"
 
+    @pytest.mark.mutation_fast
     def test_struct_and_enum_kinds(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -53,6 +60,7 @@ class TestBasicExtraction:
 
 
 class TestControlFlow:
+    @pytest.mark.mutation_fast
     def test_complexity_counts_branches(self, tmp_path: Path) -> None:
         code = (
             "func check(x: Int) -> Bool {\n"
@@ -79,12 +87,14 @@ class TestControlFlow:
 
 
 class TestImports:
+    @pytest.mark.mutation_fast
     def test_import_captured(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "import Foundation\nfunc f() {}\n")
         assert "Foundation" in graph.dependencies
 
 
 class TestCallEdges:
+    @pytest.mark.mutation_fast
     def test_call_edge_recorded(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -94,6 +104,7 @@ class TestCallEdges:
         assert "app:a" in sources
 
 
+@pytest.mark.mutation_fast
 def test_defer_keeps_calls_and_branches_in_enclosing_method(tmp_path: Path) -> None:
     from trailmark.models.edges import EdgeKind
 
@@ -174,6 +185,7 @@ def test_defer_method_navigation_is_visible_to_queries(tmp_path: Path) -> None:
     assert {n["id"] for n in engine.callers_of("app:Lock.unlock")} == {"app:Lock.run"}
 
 
+@pytest.mark.mutation_fast
 def test_capture_rebound_self_does_not_bind_lexical_type(tmp_path: Path) -> None:
     from trailmark.models.edges import EdgeConfidence, EdgeKind
 

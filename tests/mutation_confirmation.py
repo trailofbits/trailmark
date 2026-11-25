@@ -52,6 +52,7 @@ class FailurePrefixControls:
         self.output = output
         self.checked_orders = checked_orders
         self.pending: list[_PendingKill] = []
+        self.witnesses: dict[str, dict[str, str]] = {}
 
     def defer(
         self,
@@ -79,6 +80,9 @@ class FailurePrefixControls:
                 try:
                     evidence = _read_execution(_execution_path(directory, gremlin.gremlin_id))
                     executions[gremlin.gremlin_id] = evidence
+                    failures = evidence.get("failures", [])
+                    if failures:
+                        self.witnesses[gremlin.gremlin_id] = failures[0]
                 except (OSError, ValueError):
                     evidence = None
                 output.write(
@@ -91,6 +95,7 @@ class FailurePrefixControls:
                             ),
                             "failed": evidence["failed"] if evidence else None,
                             "exit_code": evidence["exit_code"] if evidence else None,
+                            "failure": self.witnesses.get(gremlin.gremlin_id),
                         }
                     )
                     + "\n"

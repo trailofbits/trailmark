@@ -14,6 +14,7 @@ from trailmark.parse import parse_directory
 from trailmark.storage.graph_store import GraphStore
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("folder", ["src", "my dir"])
 def test_semgrep_undefined_source_root_base_matches(tmp_path: Path, folder: str) -> None:
     source = tmp_path / folder
@@ -67,6 +68,7 @@ def test_artifact_index_and_base_name_have_separate_namespaces(tmp_path: Path) -
     assert SarifUris(run).resolve({"index": 0}) == (tmp_path / "app.py").as_uri()
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "suffix", ["../app.py", "%2e%2e/app.py", "nested/../../app.py", "\\..\\app.py"]
 )
@@ -75,6 +77,7 @@ def test_relative_uri_cannot_escape_a_defined_base(suffix: str) -> None:
     assert resolver.resolve({"uri": suffix, "uriBaseId": "ROOT"}) is None
 
 
+@pytest.mark.mutation_fast
 def test_defined_base_requires_a_directory_uri() -> None:
     resolver = SarifUris({"originalUriBaseIds": {"ROOT": {"uri": "file:///project/src"}}})
     assert resolver.resolve({"uri": "app.py", "uriBaseId": "ROOT"}) is None

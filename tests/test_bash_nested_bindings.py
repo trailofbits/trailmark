@@ -24,6 +24,7 @@ def _helpers(tmp_path: Path, source: str) -> tuple[CodeGraph, list[CodeEdge]]:
     return graph, calls
 
 
+@pytest.mark.mutation_fast
 def test_nested_helper_definition_dominates_its_call(tmp_path: Path) -> None:
     graph, calls = _helpers(tmp_path, "outer() {\n helper() { :; }\n helper\n}\n")
     call = next(edge for edge in calls if edge.source_id == "nested:outer")
@@ -32,6 +33,7 @@ def test_nested_helper_definition_dominates_its_call(tmp_path: Path) -> None:
     assert call.confidence == EdgeConfidence.INFERRED
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("alias", ["alias helper=other", "alias ${CMD:-x}=other"])
 def test_later_alias_cannot_rewrite_an_already_parsed_function_body(
     tmp_path: Path, alias: str
@@ -41,6 +43,7 @@ def test_later_alias_cannot_rewrite_an_already_parsed_function_body(
     assert call.target_id == "nested:outer.helper"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body",
     [

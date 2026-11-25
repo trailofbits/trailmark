@@ -8,6 +8,7 @@ from trailmark.models import EdgeConfidence, EdgeKind, NodeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", [b"\n", b"\r\n"])
 def test_utf8_and_spliced_call_arguments_preserve_original_call_locations(
     tmp_path: Path, newline: bytes

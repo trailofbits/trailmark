@@ -13,6 +13,7 @@ from trailmark.query.api import QueryEngine
 FIXTURE = Path(__file__).parent / "fixtures/kat/fstar/taxonomy.fst"
 
 
+@pytest.mark.mutation_fast
 def test_ghost_effect_aliases_reach_a_fixed_point(tmp_path: Path) -> None:
     path = tmp_path / "Effects.fst"
     path.write_text(
@@ -26,6 +27,7 @@ def test_ghost_effect_aliases_reach_a_fixed_point(tmp_path: Path) -> None:
     assert functions["run"]["executable"] is True
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("effect", ["Tot", "ML", "Stack", "Lemma"])
 @pytest.mark.parametrize("interface", [False, True])
 def test_implementation_inherits_signature_effect(
@@ -50,6 +52,7 @@ def test_implementation_inherits_signature_effect(
     assert not dict(graph.nodes[correspondence[0].target_id].attributes)["signature"]
 
 
+@pytest.mark.mutation_fast
 def test_explicit_implementation_effect_is_preserved(tmp_path: Path) -> None:
     path = tmp_path / "Effects.fst"
     path.write_text(
@@ -79,6 +82,7 @@ def test_ambiguous_signature_effect_is_not_inherited(tmp_path: Path) -> None:
     assert dict(implementation.attributes)["effect"] == ""
 
 
+@pytest.mark.mutation_fast
 def test_specification_positions_stay_references(tmp_path: Path) -> None:
     path = tmp_path / "Contexts.fst"
     path.write_text(
@@ -99,6 +103,7 @@ def test_specification_positions_stay_references(tmp_path: Path) -> None:
     } == {"a", "b", "runtime"}
 
 
+@pytest.mark.mutation_fast
 def test_signature_effects_and_privacy_propagate(tmp_path: Path) -> None:
     (tmp_path / "Base.fst").write_text(
         "module Base\nprivate val hidden : int -> Tot int\nlet hidden x = x\n"
@@ -127,6 +132,7 @@ def test_signature_effects_and_privacy_propagate(tmp_path: Path) -> None:
     assert dict(proof.attributes)["declaration_role"] == "lemma"
 
 
+@pytest.mark.mutation_fast
 def test_operator_and_unopened_qualified_applications(tmp_path: Path) -> None:
     (tmp_path / "Base.fst").write_text("module FStar.Base\nlet f (x:int) : int = x\n")
     (tmp_path / "Use.fst").write_text(
@@ -152,6 +158,7 @@ def test_operator_and_unopened_qualified_applications(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.mutation_fast
 def test_roles_references_calls_and_shadowing() -> None:
     graph = parse_file(str(FIXTURE), strict=True)
     names = {n.id: n.name for n in graph.nodes.values()}
@@ -177,6 +184,7 @@ def test_roles_references_calls_and_shadowing() -> None:
     assert engine.reachable_from("proof") == []
 
 
+@pytest.mark.mutation_fast
 def test_interfaces_keep_both_locations_and_resolve_imported_signatures(tmp_path: Path) -> None:
     (tmp_path / "Base.fst").write_text("module Base\nlet f (x:int) : Tot int = x\n")
     (tmp_path / "Base.fsti").write_text("module Base\nval f : int -> Tot int\n")
@@ -193,6 +201,7 @@ def test_interfaces_keep_both_locations_and_resolve_imported_signatures(tmp_path
     assert dict(graph.nodes[references[0].target_id].attributes)["signature"] is True
 
 
+@pytest.mark.mutation_fast
 def test_call_traversal_can_follow_interface_correspondence(tmp_path: Path) -> None:
     (tmp_path / "A.fsti").write_text("module A\nval pub : nat -> nat\n")
     (tmp_path / "A.fst").write_text(
@@ -212,6 +221,7 @@ def test_call_traversal_can_follow_interface_correspondence(tmp_path: Path) -> N
     }
 
 
+@pytest.mark.mutation_fast
 def test_local_binders_and_local_opens(tmp_path: Path) -> None:
     (tmp_path / "Base.fst").write_text("module Base\nlet f (x:int) : Tot int = x\n")
     path = tmp_path / "Use.fst"
@@ -255,6 +265,7 @@ def test_computational_expression_in_lemma_argument_is_not_a_call(tmp_path: Path
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_nested_computation_types_private_and_directives(tmp_path: Path) -> None:
     path = tmp_path / "Scopes.fst"
     path.write_text(
@@ -275,6 +286,7 @@ def test_nested_computation_types_private_and_directives(tmp_path: Path) -> None
     assert len([e for e in graph.edges if e.kind == EdgeKind.CALLS]) == 2
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
@@ -305,6 +317,7 @@ def test_binding_scope_boundaries(tmp_path: Path, expression: str, expected: int
     )
 
 
+@pytest.mark.mutation_fast
 def test_labels_pattern_bindings_and_deep_patterns(tmp_path: Path) -> None:
     path = tmp_path / "Patterns.fst"
     path.write_text(
@@ -338,6 +351,7 @@ def test_private_declarations_stay_in_their_module(tmp_path: Path) -> None:
     } == {("public", "hidden")}
 
 
+@pytest.mark.mutation_fast
 def test_mutual_binding_parameters_do_not_leak(tmp_path: Path) -> None:
     path = tmp_path / "Mutual.fst"
     path.write_text(
@@ -352,6 +366,7 @@ def test_mutual_binding_parameters_do_not_leak(tmp_path: Path) -> None:
     assert refs == [("g", "x")]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("directive,expected", [("include", {"c", "p"}), ("open", set())])
 def test_reexports_retain_constants_and_reusable_predicates(
     tmp_path: Path, directive: str, expected: set[str]
@@ -379,6 +394,7 @@ def test_empty_directives_preserve_the_following_declaration(
     assert any(n.name == "retained" for n in parse_file(str(path), strict=True).nodes.values())
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("directive", ["include Base {c}", "open Base {c as renamed}"])
 def test_restricted_imports_are_not_treated_as_unrestricted(tmp_path: Path, directive: str) -> None:
     (tmp_path / "Base.fst").write_text("module Base\nlet c = 1\nlet hidden = 2\n")
@@ -402,6 +418,7 @@ def test_interface_exports_and_later_opens(tmp_path: Path) -> None:
     assert dict(graph.nodes[calls[0].target_id].attributes)["qualified_name"] == "Other.public"
 
 
+@pytest.mark.mutation_fast
 def test_monadic_and_dependent_binders_shadow_globals(tmp_path: Path) -> None:
     path = tmp_path / "Binders.fst"
     path.write_text(
@@ -419,6 +436,7 @@ def test_monadic_and_dependent_binders_shadow_globals(tmp_path: Path) -> None:
     } == {"positive"}
 
 
+@pytest.mark.mutation_fast
 def test_erased_effect_alias_and_result_types(tmp_path: Path) -> None:
     path = tmp_path / "Effects.fst"
     path.write_text(

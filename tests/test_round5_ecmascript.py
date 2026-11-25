@@ -8,6 +8,7 @@ from trailmark.models import EdgeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 def test_local_class_evaluation_keeps_calls(tmp_path: Path, extension: str) -> None:
     path = tmp_path / f"app.{extension}"
@@ -39,6 +40,7 @@ def test_mixin_class_field_evaluation_keeps_calls(tmp_path: Path, extension: str
     assert calls[0].source_id == "app:Mix"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("keyword", ["namespace", "module"])
 def test_repeated_typescript_namespace_blocks_merge(tmp_path: Path, keyword: str) -> None:
     path = tmp_path / "app.ts"

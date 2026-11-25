@@ -20,6 +20,7 @@ def _values(tmp_path: Path, name: str, text: str) -> list[str]:
     return [ref.value for ref in reference_literals(_write(tmp_path, name, text))]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("text", "quote", "expected"),
     [("x", "", ("x", 1)), ("''", "'", ("'", 2)), (r"\n", '"', ("\n", 2))],
@@ -30,6 +31,7 @@ def test_yaml_flow_character_returns_the_next_unconsumed_index(
     assert _reference_literals._yaml_flow_char(text, 0, quote) == expected
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("text", "expected"),
     [("\n  value", (3, 1)), ("\n \n\tvalue", (4, 2)), ("\n \n\t", (4, 2))],
@@ -40,6 +42,7 @@ def test_yaml_line_break_scanner_advances_to_content_or_end(
     assert _reference_literals._yaml_skip_breaks(text, 0) == expected
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(("text", "expected"), [("\n", " "), ("\n\n", "\n")])
 def test_yaml_flow_folding_distinguishes_one_break_from_an_empty_line(
     text: str, expected: str
@@ -64,6 +67,7 @@ type Query {
 '''
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("suffix", [".graphql", ".gql", ".graphqls"])
 def test_graphql_argument_values_under_any_directive(tmp_path: Path, suffix: str) -> None:
     assert _values(tmp_path, f"schema{suffix}", _GRAPHQL) == [
@@ -77,12 +81,14 @@ def test_graphql_argument_values_under_any_directive(tmp_path: Path, suffix: str
     ]
 
 
+@pytest.mark.mutation_fast
 def test_graphql_spans_cover_the_original_escaped_token(tmp_path: Path) -> None:
     path = _write(tmp_path, "op.graphql", 'query { f(a: "App\\\\X::y") }\n')
     [ref] = reference_literals(path)
     assert ref == LiteralReference("App\\X::y", SourceLocation(path, 1, 1, 13, 24))
 
 
+@pytest.mark.mutation_fast
 def test_json_values_exclude_keys_and_decode_escapes(tmp_path: Path) -> None:
     text = r"""{
   "App\\Key::nope": "App\\Http\\Controller::index",
@@ -101,6 +107,7 @@ def test_json_values_exclude_keys_and_decode_escapes(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_json_span_includes_quotes(tmp_path: Path) -> None:
     path = _write(tmp_path, "span.json", '{\n  "k": "App\\\\X"\n}\n')
     [ref] = reference_literals(path)
@@ -146,6 +153,7 @@ next: second.document
 """
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("suffix", [".yaml", ".yml"])
 def test_yaml_quoted_and_plain_values(tmp_path: Path, suffix: str) -> None:
     assert _values(tmp_path, f"conf{suffix}", _YAML) == [
@@ -166,6 +174,7 @@ def test_yaml_quoted_and_plain_values(tmp_path: Path, suffix: str) -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_yaml_block_chomping_and_more_indented_lines(tmp_path: Path) -> None:
     text = "keep: |+\n  a\n\n\nfold: >\n  x\n    y\n  z\n\n  w\nend: e\n"
     assert _values(tmp_path, "block.yaml", text) == ["a\n\n\n", "x\n  y\nz\nw\n", "e"]
@@ -178,6 +187,7 @@ def test_yaml_tags_are_not_constructed(tmp_path: Path) -> None:
     assert not sentinel.exists()
 
 
+@pytest.mark.mutation_fast
 def test_toml_values_in_tables_and_arrays(tmp_path: Path) -> None:
     lines = [
         r'# comment = "App\\Comment::nope"',
@@ -209,6 +219,7 @@ def test_toml_values_in_tables_and_arrays(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_xml_attributes_and_text_but_not_comments_or_names(tmp_path: Path) -> None:
     text = """<?xml version="1.0"?>
 <!-- <bean handler="App\\Commented::nope"/> -->
@@ -251,6 +262,7 @@ def test_xml_entities_are_never_expanded(tmp_path: Path) -> None:
     assert _values(tmp_path, "xxe.xml", text) == ["kept.value"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("reference", "expected"),
     [
@@ -274,6 +286,7 @@ def test_xml_numeric_references_are_bounded_without_rejecting_leading_zeroes(
     assert _values(tmp_path, "reference.xml", f"<c>{reference}</c>") == expected
 
 
+@pytest.mark.mutation_fast
 def test_large_xml_reference_keeps_source_analysis_available(tmp_path: Path) -> None:
     from trailmark.query.api import QueryEngine
     from trailmark.source_policy import SourcePolicy, SourceRoot
@@ -288,6 +301,7 @@ def test_large_xml_reference_keeps_source_analysis_available(tmp_path: Path) -> 
     assert "app:handler" in json.loads(engine.to_json())["nodes"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("name", "text"),
     [
@@ -304,6 +318,7 @@ def test_malformed_files_yield_nothing(tmp_path: Path, name: str, text: str) -> 
     assert _values(tmp_path, name, text) == []
 
 
+@pytest.mark.mutation_fast
 def test_unreadable_unsupported_and_oversized_inputs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -329,6 +344,7 @@ def test_scan_failures_are_visible_to_discovery(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("value", [r"App\\Handler", r"\u{41}", r"\u0041", r"\uD83D\uDCA9"])
 def test_graphql_escape_recovery_preserves_valid_schema(value: str, tmp_path: Path) -> None:
     from trailmark.parse import parse_file
@@ -339,6 +355,7 @@ def test_graphql_escape_recovery_preserves_valid_schema(value: str, tmp_path: Pa
     assert "schema:Query.item" in graph.nodes
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("value", [r"\q", r"\uDEAD", r"\u{110000}"])
 def test_graphql_escape_recovery_retains_invalid_syntax(value: str, tmp_path: Path) -> None:
     from trailmark.parse import parse_file

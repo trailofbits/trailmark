@@ -8,6 +8,7 @@ import pytest
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [

@@ -25,6 +25,7 @@ void handler(int b) {
 """
 
 
+@pytest.mark.mutation_fast
 def test_split_conditional_braces_retain_the_handler_and_each_call(tmp_path: Path) -> None:
     path = tmp_path / "handler.c"
     path.write_text(SOURCE)

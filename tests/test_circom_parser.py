@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -74,11 +76,13 @@ def _parse_sample() -> tuple[CircomParser, CodeGraph]:
 
 
 class TestCircomParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_templates(self) -> None:
         _, graph = _parse_sample()
         templates = [n for n in graph.nodes.values() if n.kind == NodeKind.TEMPLATE]
@@ -86,6 +90,7 @@ class TestCircomParserNodes:
         assert "Multiplier" in names
         assert "RangeCheck" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_functions(self) -> None:
         _, graph = _parse_sample()
         funcs = [
@@ -101,6 +106,7 @@ class TestCircomParserNodes:
         assert main is not None
         assert main.kind == NodeKind.FUNCTION
 
+    @pytest.mark.mutation_fast
     def test_template_docstring(self) -> None:
         _, graph = _parse_sample()
         mult = next(n for n in graph.nodes.values() if n.name == "Multiplier")
@@ -115,6 +121,7 @@ class TestCircomParserNodes:
 
 
 class TestCircomParserParameters:
+    @pytest.mark.mutation_fast
     def test_template_params(self) -> None:
         _, graph = _parse_sample()
         mult = next(n for n in graph.nodes.values() if n.name == "Multiplier")
@@ -175,6 +182,7 @@ class TestCircomParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_call_edges_from_template(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -187,6 +195,7 @@ class TestCircomParserEdges:
         fact_calls = [e for e in calls if "factorial" in e.source_id]
         assert len(fact_calls) > 0
 
+    @pytest.mark.mutation_fast
     def test_main_calls_template(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -201,12 +210,14 @@ class TestCircomParserEdges:
 
 
 class TestCircomParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "circomlib/poseidon.circom" in graph.dependencies
 
 
 class TestCircomParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = CircomParser()
         code_a = "template A() { signal input x; }\n"

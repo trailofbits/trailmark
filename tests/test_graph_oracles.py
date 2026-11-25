@@ -96,6 +96,7 @@ def _paths(
     return result
 
 
+@pytest.mark.mutation_fast
 @given(graph=_small_multigraph(), kinds=_KINDS)
 @example(
     graph=_graph(4, [(0, 1, EdgeKind.CALLS), (1, 2, EdgeKind.CALLS), (2, 3, EdgeKind.CALLS)]),
@@ -234,6 +235,7 @@ def test_access_neighbors_match_relation_specific_endpoints(graph: CodeGraph) ->
             assert found == sorted(reverse.get(node, set()))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "kind,origin",
     [(NodeKind.PROXY, NodeOrigin.SOURCE), (NodeKind.FUNCTION, NodeOrigin.PROXY)],
@@ -249,6 +251,7 @@ def test_partial_proxy_tagging_does_not_outrank_a_declaration(
     assert store.find_node_id("shared") == real.id
 
 
+@pytest.mark.mutation_fast
 @given(graph=_small_multigraph(), kinds=_KINDS, data=st.data())
 @settings(max_examples=150, deadline=None)
 def test_induced_subgraphs_preserve_sites_and_return_detached_memberships(

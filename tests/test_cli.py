@@ -50,6 +50,7 @@ def _write_finding_report(report: Path, source: str, source_file: str) -> None:
     report.write_text(json.dumps(payload))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("source", ["sarif", "weaudit"])
 @pytest.mark.parametrize("as_json", [False, True])
 def test_augment_output_streams(
@@ -81,6 +82,7 @@ def test_augment_output_streams(
         assert captured.err == ""
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("source", ["sarif", "weaudit"])
 def test_repeated_augment_flags_retain_findings_from_every_file(
     tmp_path: Path,
@@ -106,6 +108,7 @@ def test_repeated_augment_flags_retain_findings_from_every_file(
     assert captured.err.count("Matched: 1") == 2
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("command", ["analyze", "entrypoints", "augment", "diagram"])
 @pytest.mark.parametrize("missing", [False, True])
 def test_source_commands_reject_uninspected_inputs(
@@ -132,6 +135,7 @@ def test_source_commands_reject_uninspected_inputs(
     assert "Traceback" not in output.err
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("empty_side", ["before", "after"])
 def test_diff_rejects_zero_source_files_on_either_side(
     tmp_path: Path,
@@ -163,6 +167,7 @@ def test_diff_rejects_zero_source_files_on_either_side(
     assert diff["nodes"]["added" if empty_side == "before" else "removed"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,counts", [("python", {"python": 0}), ("auto", {})])
 def test_analyze_explicit_empty_input(
     tmp_path: Path,
@@ -184,6 +189,7 @@ def test_analyze_explicit_empty_input(
     assert output.err == ""
 
 
+@pytest.mark.mutation_fast
 def test_diff_git_refs_allow_intentional_empty_snapshot_and_clean_up(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -374,6 +380,7 @@ class TestMainHelpText:
 
 
 class TestAnalyzeCommand:
+    @pytest.mark.mutation_fast
     def test_analyze_json_output(self, tmp_path: Path) -> None:
         sample = tmp_path / "hello.py"
         sample.write_text("def greet():\n    return 'hi'\n")
@@ -395,6 +402,7 @@ class TestAnalyzeCommand:
         node_names = [n["name"] for n in data["nodes"].values()]
         assert "greet" in node_names
 
+    @pytest.mark.mutation_fast
     def test_analyze_json_full_structure(
         self,
         tmp_path: Path,
@@ -445,6 +453,7 @@ class TestAnalyzeCommand:
         assert data["trailmark_version"] == __version__
         assert data["schema_version"] == 1
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("empty", [False, True])
     def test_analyze_summary_json_matches_query_api(
         self,
@@ -471,6 +480,7 @@ class TestAnalyzeCommand:
         assert summary["source_file_counts"] == ({} if empty else {"python": 1, "rust": 1})
         assert summary["source_files"] == (0 if empty else 2)
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("threshold", ["0", "1"])
     def test_analyze_json_rejects_complexity_before_reading_source(
         self,
@@ -614,6 +624,7 @@ class TestAnalyzeCommand:
         assert "Functions:" in output
         assert "Classes:" in output
 
+    @pytest.mark.mutation_fast
     def test_analyze_complexity_exact_output(
         self,
         tmp_path: Path,
@@ -877,6 +888,7 @@ class TestAnalyzeCommand:
         assert "app:branching  complexity=2" in output
         assert len(output.splitlines()) == 2
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("threshold", ["-1", "-20"])
     def test_analyze_rejects_negative_complexity_before_parsing_source(
         self,
@@ -926,6 +938,7 @@ class TestDiagramCommand:
             "def helper():\n    return 1\n\ndef main():\n    return helper()\n",
         )
 
+    @pytest.mark.mutation_fast
     def test_call_graph_emits_flowchart(self, tmp_path: Path) -> None:
         self._write_call_chain(tmp_path)
         with (
@@ -976,6 +989,7 @@ class TestDiagramCommand:
             main()
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("command", ["analyze", "entrypoints"])
 def test_source_policy_cli_selects_roots_and_reincludes_files(
     tmp_path: Path,
@@ -1021,6 +1035,7 @@ def test_source_policy_cli_selects_roots_and_reincludes_files(
         assert {item["name"] for item in data["source_policy"]["roots"]} == {"root", "custom"}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("flag", ["--evidence", "--candidates"])
 def test_entrypoint_evidence_cli_keeps_candidates_separate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], flag: str
@@ -1034,6 +1049,7 @@ def test_entrypoint_evidence_cli_keeps_candidates_separate(
     assert any(fact["reported"] for fact in facts) == (flag == "--evidence")
 
 
+@pytest.mark.mutation_fast
 def test_source_root_cli_rejects_missing_name_separator(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

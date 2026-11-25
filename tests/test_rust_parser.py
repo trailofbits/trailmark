@@ -146,6 +146,7 @@ def _parse_verus_sample() -> tuple[RustParser, CodeGraph]:
 
 
 class TestRustParserNodes:
+    @pytest.mark.mutation_fast
     def test_language_matches_the_public_frontend_name(self) -> None:
         assert RustParser().language == "rust"
 
@@ -195,6 +196,7 @@ class TestRustParserNodes:
         has_point = any("Point" in mid for mid in method_ids)
         assert has_point
 
+    @pytest.mark.mutation_fast
     def test_struct_docstring(self) -> None:
         _, graph = _parse_sample()
         point = next(n for n in graph.nodes.values() if n.name == "Point")
@@ -203,6 +205,7 @@ class TestRustParserNodes:
 
 
 class TestRustParserParameters:
+    @pytest.mark.mutation_fast
     def test_missing_parameter_node_returns_an_empty_collection(self) -> None:
         root = RustParser()._parser.parse(b"").root_node
         assert _extract_parameters(root) == []
@@ -233,6 +236,7 @@ class TestRustParserParameters:
         assert "x" in names
         assert "y" in names
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         abs_fn = next(n for n in graph.nodes.values() if n.name == "abs")
@@ -282,6 +286,7 @@ class TestRustParserEdges:
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
         assert len(calls) > 0
 
+    @pytest.mark.mutation_fast
     def test_call_confidence(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -297,6 +302,7 @@ class TestRustParserEdges:
 
 
 class TestRustParserDependencies:
+    @pytest.mark.mutation_fast
     def test_plain_import_names_are_retained_once(self, tmp_path: Path) -> None:
         path = tmp_path / "imports.rs"
         path.write_text("use dependency;\nuse dependency;\nuse std::io;\nuse std::fmt;\n")
@@ -338,6 +344,7 @@ class TestRustParserVerus:
             end_col=5,
         )
 
+    @pytest.mark.mutation_fast
     def test_extracts_verus_signature_metadata(self) -> None:
         _, graph = _parse_verus_sample()
         verified = next(node for node in graph.nodes.values() if node.name == "verified")
@@ -391,6 +398,7 @@ class TestRustParserVerus:
         assert graph.nodes["returns:verified"].return_type is not None
         assert graph.nodes["returns:verified"].return_type.name == expected
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize(
         "declaration",
         [
@@ -498,6 +506,7 @@ verus! { proof fn second() {} }
 
 
 class TestRustParseDirectory:
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize(
         "error",
         [
@@ -580,6 +589,7 @@ class TestRustGrammarLoading:
         yield
         rust_module._rust_grammar.cache_clear()
 
+    @pytest.mark.mutation_fast
     def test_bundled_grammar_loads_once_per_process(self) -> None:
         with patch.object(rust_module, "rust_language", wraps=rust_module.rust_language) as loader:
             RustParser()
@@ -588,6 +598,7 @@ class TestRustGrammarLoading:
                 parse_syntax_roots(b"fn f() {}", "a.rs")
         assert loader.call_count == 1
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize(
         "error",
         [

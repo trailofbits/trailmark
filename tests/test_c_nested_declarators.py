@@ -10,6 +10,7 @@ from trailmark.models import EdgeConfidence, EdgeKind, NodeKind, NodeOrigin
 from trailmark.parse import parse_directory, parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 @pytest.mark.parametrize(
     "declaration,returned,bridge",

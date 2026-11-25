@@ -28,6 +28,7 @@ def _calls(graph: CodeGraph, caller: str) -> list[tuple[str, EdgeConfidence]]:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_modules_types_signatures_and_entrypoint(tmp_path: Path) -> None:
     _source(
         tmp_path,
@@ -71,6 +72,7 @@ end
     assert engine.entrypoint_paths_to("helper")
 
 
+@pytest.mark.mutation_fast
 def test_all_dispatch_candidates_survive_without_guessing(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -88,6 +90,7 @@ main() = f(1)
     assert graph.nodes[target].kind == NodeKind.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_closures_and_do_blocks_own_calls_and_branches(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -122,6 +125,7 @@ end
     assert graph.nodes["sample:outer"].cyclomatic_complexity == 1
 
 
+@pytest.mark.mutation_fast
 def test_shadowing_aliases_qualified_and_cross_file_calls_stay_unresolved(tmp_path: Path) -> None:
     _source(
         tmp_path,
@@ -144,6 +148,7 @@ helper.([1])
     assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "binding",
     [
@@ -160,6 +165,7 @@ def test_local_writes_and_loop_variables_shadow_functions(tmp_path: Path, bindin
     assert all(c == EdgeConfidence.UNCERTAIN for _, c in _calls(graph, "sample:caller"))
 
 
+@pytest.mark.mutation_fast
 def test_conditional_definitions_script_order_and_module_boundaries(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -192,6 +198,7 @@ def test_keyword_arguments_do_not_shadow_function_names(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_imports_and_literal_includes(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -209,6 +216,7 @@ main() = helper()
     assert _calls(graph, "sample:main")[0][1] == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_shadowed_include_and_import_aliases(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -225,6 +233,7 @@ include("not-a-file.jl")
     assert _calls(graph, "sample:main")[0][1] == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_transparent_macros_and_opaque_expansion_warning(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -273,6 +282,7 @@ def test_syntax_error_warns_and_prevents_inference(
     )
 
 
+@pytest.mark.mutation_fast
 def test_closure_writes_and_catch_bindings_prevent_false_calls(tmp_path: Path) -> None:
     path = _source(
         tmp_path,

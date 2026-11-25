@@ -16,6 +16,7 @@ from trailmark.models.nodes import NodeKind
 from trailmark.parsers.cairo.parser import CairoParser, _first_path_segment
 
 
+@pytest.mark.mutation_fast
 def test_qualified_calls_stop_at_the_enclosing_module(tmp_path: Path) -> None:
     path = tmp_path / "sample.cairo"
     path.write_text("mod nested { fn helper() {} }\nfn run() { nested::helper(); }\n")
@@ -109,11 +110,13 @@ def _parse_sample() -> tuple[CairoParser, CodeGraph]:
 
 
 class TestCairoParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_contract(self) -> None:
         _, graph = _parse_sample()
         contracts = [n for n in graph.nodes.values() if n.kind == NodeKind.CONTRACT]
@@ -126,6 +129,7 @@ class TestCairoParserNodes:
         names = {t.name for t in traits}
         assert "ICounter" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_structs(self) -> None:
         _, graph = _parse_sample()
         structs = [n for n in graph.nodes.values() if n.kind == NodeKind.STRUCT]
@@ -134,6 +138,7 @@ class TestCairoParserNodes:
         assert "CounterIncreased" in names
         assert "ExternalPoint" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_enums(self) -> None:
         _, graph = _parse_sample()
         enums = [n for n in graph.nodes.values() if n.kind == NodeKind.ENUM]
@@ -160,12 +165,14 @@ class TestCairoParserNodes:
         names = {m.name for m in methods}
         assert "internal_helper" in names
 
+    @pytest.mark.mutation_fast
     def test_function_docstring(self) -> None:
         _, graph = _parse_sample()
         func = next(n for n in graph.nodes.values() if n.name == "standalone_func")
         assert func.docstring is not None
         assert "Adds one" in func.docstring
 
+    @pytest.mark.mutation_fast
     def test_method_id_includes_impl(self) -> None:
         _, graph = _parse_sample()
         method_ids = [n.id for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
@@ -174,6 +181,7 @@ class TestCairoParserNodes:
 
 
 class TestCairoParserParameters:
+    @pytest.mark.mutation_fast
     def test_function_params(self) -> None:
         _, graph = _parse_sample()
         standalone = next(n for n in graph.nodes.values() if n.name == "standalone_func")
@@ -199,6 +207,7 @@ class TestCairoParserParameters:
         assert "x" in names
         assert "y" in names
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         standalone = next(n for n in graph.nodes.values() if n.name == "standalone_func")
@@ -235,6 +244,7 @@ class TestCairoParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_implements_edge(self) -> None:
         _, graph = _parse_sample()
         implements = [e for e in graph.edges if e.kind == EdgeKind.IMPLEMENTS]
@@ -246,12 +256,14 @@ class TestCairoParserEdges:
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
         assert len(calls) > 0
 
+    @pytest.mark.mutation_fast
     def test_call_confidence(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
         inferred = [e for e in calls if e.confidence == EdgeConfidence.INFERRED]
         assert len(inferred) > 0
 
+    @pytest.mark.mutation_fast
     def test_contract_contains_struct(self) -> None:
         _, graph = _parse_sample()
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
@@ -260,10 +272,12 @@ class TestCairoParserEdges:
 
 
 class TestCairoParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "starknet" in graph.dependencies
 
+    @pytest.mark.mutation_fast
     def test_deeply_nested_import(self) -> None:
         """Triple-nested use path should extract the first segment."""
         parser = CairoParser()
@@ -296,6 +310,7 @@ class TestFirstPathSegment:
                 return child
         return use_decl
 
+    @pytest.mark.mutation_fast
     def test_simple_identifier(self) -> None:
         node = self._parse_use("use foo;")
         assert _first_path_segment(node) == "foo"
@@ -308,6 +323,7 @@ class TestFirstPathSegment:
         node = self._parse_use("use core::starknet::storage;")
         assert _first_path_segment(node) == "core"
 
+    @pytest.mark.mutation_fast
     def test_returns_empty_for_no_identifier(self) -> None:
         """A synthetic node with no identifier children returns empty string."""
         from tree_sitter import Parser
@@ -329,6 +345,7 @@ class TestFirstPathSegment:
 
 
 class TestCairoParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = CairoParser()
         code_a = "fn from_a() {}\n"

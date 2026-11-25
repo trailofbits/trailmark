@@ -93,6 +93,7 @@ def test_duplicate_header_statics_stay_ambiguous(tmp_path: Path) -> None:
     assert edge.confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_include_closure_uses_shallowest_path_and_strict_cap(tmp_path: Path) -> None:
     (tmp_path / "a.c").write_text('#include "deep1.h"\n#include "mid.h"')
     for i in range(1, 17):
@@ -151,6 +152,7 @@ def test_comment_before_macro_block_does_not_disable_recovery(tmp_path: Path, co
     } >= {"a:first", "a:second", "a:third", "a:fourth", "a:final_step"}
 
 
+@pytest.mark.mutation_fast
 def test_anonymous_namespace_in_header_does_not_leak(tmp_path: Path) -> None:
     (tmp_path / "a.cpp").write_text("int run(){return helper();}")
     (tmp_path / "b.hpp").write_text("namespace { int helper(){return 1;} }")
@@ -174,6 +176,7 @@ def test_cpp_source_includes_survive_single_file_graph_merge(tmp_path: Path) -> 
     assert edge.confidence == EdgeConfidence.INFERRED
 
 
+@pytest.mark.mutation_fast
 def test_same_file_anonymous_namespace_is_visible(tmp_path: Path) -> None:
     (tmp_path / "a.cpp").write_text(
         "namespace { int helper(){return 1;} } int run(){return helper();}"

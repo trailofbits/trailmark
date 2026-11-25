@@ -48,6 +48,7 @@ def test_ordinary_c_macro_specifiers(tmp_path: Path, definition: str, name: str)
         assert [p.name for p in unit.parameters] == ["a"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts", "cpp", "py", "rs"])
 def test_compound_callee_does_not_bind_operand(tmp_path: Path, extension: str) -> None:
     source = {
@@ -79,6 +80,7 @@ def test_parenthesized_parameter_stays_shadowed(tmp_path: Path, extension: str) 
     assert not any(e.target_id == "app:a" for e in _calls(graph))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 def test_named_iife_calls_expression(tmp_path: Path, extension: str) -> None:
     graph = _graph(
@@ -88,6 +90,7 @@ def test_named_iife_calls_expression(tmp_path: Path, extension: str) -> None:
     assert not any(e.target_id == "app:setup" for e in _calls(graph))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 def test_unextracted_iife_does_not_bind_module_function(tmp_path: Path, extension: str) -> None:
     source = (
@@ -109,6 +112,7 @@ def test_go_parenthesized_pointer_conversion_is_not_call(tmp_path: Path) -> None
     assert _calls(graph) == []
 
 
+@pytest.mark.mutation_fast
 def test_parameter_decorators_do_not_run_in_method(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -131,6 +135,7 @@ def test_named_function_expression_recurses_to_itself(tmp_path: Path, extension:
     assert call.confidence == EdgeConfidence.CERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_do_while_receiver_assignment_is_unconditional(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path, "class Bar {m(){}} function run(){let x; do{x=new Bar()}while(false);x.m()}", "ts"
@@ -138,6 +143,7 @@ def test_do_while_receiver_assignment_is_unconditional(tmp_path: Path) -> None:
     assert any(e.target_id == "app:Bar.m" for e in _calls(graph))
 
 
+@pytest.mark.mutation_fast
 def test_python_try_body_binding_is_not_conditional(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path, "def run():\n try:\n  def k(): pass\n finally: pass\n return k()", "py"
@@ -147,6 +153,7 @@ def test_python_try_body_binding_is_not_conditional(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_namespace_does_not_rebind_module_call_as_self(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -159,12 +166,14 @@ def test_namespace_does_not_rebind_module_call_as_self(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("parameter", ["unsigned", "const T", "struct S", "enum E", "union U"])
 def test_cpp_typed_block_prototypes(tmp_path: Path, parameter: str) -> None:
     graph = _graph(tmp_path, f"int run(){{int other({parameter});return other(5);}}", "cpp")
     assert not any(dict(e.attributes).get("binding_blocked") for e in _calls(graph))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["c", "cpp"])
 def test_swallowed_static_prototype_keeps_same_file_definition(
     tmp_path: Path, extension: str
@@ -178,6 +187,7 @@ def test_swallowed_static_prototype_keeps_same_file_definition(
     assert any(e.source_id == "app:run" and e.target_id == "app:helper" for e in _calls(graph))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 def test_local_class_initializers_do_not_inherit_outer_this(tmp_path: Path, extension: str) -> None:
     graph = _graph(
@@ -218,6 +228,7 @@ def test_ambient_module_quotes_do_not_change_ids(tmp_path: Path) -> None:
     assert set(graphs[0].nodes) == set(graphs[1].nodes)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "extension,source",
     [
@@ -254,6 +265,7 @@ def test_object_literal_callable_has_object_owner(tmp_path: Path, extension: str
     assert "app:api.sign" in graph.nodes
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "extension,source",
     [
@@ -277,6 +289,7 @@ def test_overload_blocked_targets_use_final_owner(
     assert len({e.target_id for e in calls}) == 2
 
 
+@pytest.mark.mutation_fast
 def test_java_constructor_proxy_uses_final_owner(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path, "class C {void run(){new Missing();} void run(int x){new Missing();}}", "java"
@@ -285,12 +298,14 @@ def test_java_constructor_proxy_uses_final_owner(tmp_path: Path) -> None:
     assert calls and all(e.source_id + ".$constructor" in e.target_id for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("body", ["xs.each { it }", "-> { it }"])
 def test_ruby_implicit_it_is_a_value(tmp_path: Path, body: str) -> None:
     graph = _graph(tmp_path, f"def it;end\ndef run(xs);{body};end", "rb")
     assert not any(e.target_id == "app:it" for e in _calls(graph))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body", ["it", "xs.each { |x| it }", "xs.each { it() }", "xs.each { it(1) }"]
 )
@@ -299,6 +314,7 @@ def test_ruby_explicit_it_calls_stay_methods(tmp_path: Path, body: str) -> None:
     assert any(e.target_id == "app:it" for e in _calls(graph))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("namespace_first", [True, False])
 def test_qualified_merged_namespace_call(tmp_path: Path, namespace_first: bool) -> None:
     namespace = "namespace outer {export function member(){}}"
@@ -319,6 +335,7 @@ def test_known_c_wrapper_with_type_named_argument(tmp_path: Path) -> None:
     assert "app:zif_void" in graph.nodes
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("shadow", ["parameter", "local", "captured"])
 def test_merged_namespace_receiver_can_be_shadowed(tmp_path: Path, shadow: str) -> None:
     caller = {

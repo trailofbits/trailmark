@@ -28,6 +28,7 @@ def test_mixed_template_retains_sql_calls_and_callable_boundaries(tmp_path: Path
     assert parse_directory(str(tmp_path), "auto").source_file_counts == {"php": 1}
 
 
+@pytest.mark.mutation_fast
 def test_top_level_script_owns_its_calls(tmp_path: Path) -> None:
     file = tmp_path / "custom.php"
     file.write_text(
@@ -86,6 +87,7 @@ def test_php_and_sql_in_arbitrary_custom_directory(tmp_path: Path) -> None:
     assert parse_directory(str(tmp_path), "auto").source_file_counts == {"php": 2, "sql": 1}
 
 
+@pytest.mark.mutation_fast
 def test_include_executes_inspected_file_body_and_dynamic_paths_remain_unknown(
     tmp_path: Path,
 ) -> None:
@@ -110,6 +112,7 @@ def test_executable_file_body_does_not_require_a_call(source: str, tmp_path: Pat
     assert "body:<script>" in parse_file(str(file), strict=True).nodes
 
 
+@pytest.mark.mutation_fast
 def test_script_calls_retain_lexical_namespaces(tmp_path: Path) -> None:
     file = tmp_path / "body.php"
     file.write_text("<?php namespace A; function f() {} f(); namespace B; function f() {} f();")

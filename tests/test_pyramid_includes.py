@@ -1,11 +1,14 @@
 from pathlib import Path
 
+import pytest
+
 from tests.parse_work import count_work
 from trailmark.analysis._pyramid_includes import discover_pyramid_includes
 from trailmark.models.edges import EdgeKind
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_literal_includes_follow_a_proven_registrar_and_its_included_configurators(
     tmp_path: Path,
 ) -> None:
@@ -34,6 +37,7 @@ def test_literal_includes_follow_a_proven_registrar_and_its_included_configurato
     assert graph.edges == before
 
 
+@pytest.mark.mutation_fast
 def test_shadowed_or_custom_package_registrars_do_not_guess_relative_targets(
     tmp_path: Path,
 ) -> None:

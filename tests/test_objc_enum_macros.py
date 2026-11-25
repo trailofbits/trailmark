@@ -15,6 +15,7 @@ _BODY = (
 )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("macro", ["NS_ENUM", "NS_OPTIONS"])
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_enum_macro_keeps_following_class_and_original_sites(
@@ -45,6 +46,7 @@ def test_enum_macro_keeps_following_class_and_original_sites(
     assert path.read_bytes() == source
 
 
+@pytest.mark.mutation_fast
 def test_multiple_enums_compose_with_nullability_ranges(tmp_path: Path) -> None:
     path = tmp_path / "sample.m"
     path.write_text(
@@ -59,6 +61,7 @@ def test_multiple_enums_compose_with_nullability_ranges(tmp_path: Path) -> None:
     assert any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_enum_only_file_terminates_and_parser_ranges_do_not_leak(tmp_path: Path) -> None:
     path = tmp_path / "sample.m"
     parser = ObjCParser()
@@ -72,6 +75,7 @@ def test_enum_only_file_terminates_and_parser_ranges_do_not_leak(tmp_path: Path)
     assert any(e.kind == EdgeKind.CALLS for e in following.edges)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "declaration",
     [

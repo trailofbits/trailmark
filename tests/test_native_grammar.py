@@ -19,6 +19,7 @@ from trailmark.tree_sitter_custom import verus as verus_mod
 from trailmark.tree_sitter_custom._native import NativeGrammar, bundled_grammar
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("suffix", [None, "", 1])
 def test_extension_suffix_requires_a_native_python_abi(suffix: object) -> None:
     with (
@@ -28,11 +29,13 @@ def test_extension_suffix_requires_a_native_python_abi(suffix: object) -> None:
         _native.extension_suffix()
 
 
+@pytest.mark.mutation_fast
 def test_extension_suffix_preserves_python_abi() -> None:
     with patch.object(_native.sysconfig, "get_config_var", return_value=".cpython-test.so"):
         assert _native.extension_suffix() == ".cpython-test.so"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("field", ["directory", "sources"])
 def test_native_grammar_configuration_is_immutable(tmp_path: Path, field: str) -> None:
     grammar = NativeGrammar(tmp_path, ("binding.c", "src/parser.c"))
@@ -40,6 +43,7 @@ def test_native_grammar_configuration_is_immutable(tmp_path: Path, field: str) -
         setattr(grammar, field, None)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("name", ["circom", "masm", "move", "rust", "verus"])
 def test_bundled_manifest_includes_every_compiled_source_and_header(name: str) -> None:
     grammar = bundled_grammar(name)
@@ -51,6 +55,7 @@ def test_bundled_manifest_includes_every_compiled_source_and_header(name: str) -
     assert set(grammar.sources) == actual | {"../binding.c", "../nested_comment.h"}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("platform", ["darwin", "linux"])
 def test_build_publishes_complete_output_atomically(tmp_path: Path, platform: str) -> None:
     output = tmp_path / "binding.so"
@@ -89,6 +94,7 @@ def test_build_publishes_complete_output_atomically(tmp_path: Path, platform: st
     assert list(tmp_path.iterdir()) == [output]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "error",
     [
@@ -142,6 +148,7 @@ def test_read_only_directory_does_not_invoke_compiler(tmp_path: Path) -> None:
     compiler.assert_not_called()
 
 
+@pytest.mark.mutation_fast
 def test_missing_compiler_names_grammar_and_build_requirements(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -184,6 +191,7 @@ def grammar_sources(tmp_path: Path) -> NativeGrammar:
     return NativeGrammar(directory, bundled_grammar("verus").sources, "tree_sitter_verus")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "relative",
     [
@@ -228,6 +236,7 @@ def test_build_configuration_invalidates_binding(grammar_sources: NativeGrammar)
         assert grammar_sources.binding_path() != original
 
 
+@pytest.mark.mutation_fast
 def test_cold_warm_and_changed_source_loading(grammar_sources: NativeGrammar) -> None:
     capsule = object()
     module = SimpleNamespace(language=Mock(return_value=capsule))
@@ -259,6 +268,7 @@ def test_cold_warm_and_changed_source_loading(grammar_sources: NativeGrammar) ->
     assert module.language.call_count == 3
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("spec", [None, SimpleNamespace(loader=None)])
 def test_missing_spec_or_loader_reports_binding_path(tmp_path: Path, spec: object) -> None:
     binding = tmp_path / "cached.so"
@@ -355,6 +365,7 @@ def test_shared_scanner_nests_comments_and_has_no_serialized_state(
     subprocess.run([str(executable)], check=True, capture_output=True)  # noqa: S603
 
 
+@pytest.mark.mutation_fast
 def test_precompilation_discovers_all_generated_grammars(tmp_path: Path) -> None:
     for name in ("legacy", "shared"):
         directory = tmp_path / name / "src"

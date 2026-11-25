@@ -50,6 +50,7 @@ def test_roles_keep_specification_references_separate_from_calls() -> None:
     }
 
 
+@pytest.mark.mutation_fast
 def test_binding_interval_blocks_qualified_and_bare_uses_only_inside_scope() -> None:
     src, root = source("target()\ntarget.member()\ntarget()\n")
     src.declare(root, "target", "function")
@@ -93,6 +94,7 @@ def test_aliases_are_exact_and_opened_names_share_an_ambiguity_tier() -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_only_imported_files_participate_and_private_symbols_stay_local() -> None:
     caller, root = source("target\nsecret\n", "caller")
     owner = caller.declare(root, "caller", "function")
@@ -113,6 +115,7 @@ def test_only_imported_files_participate_and_private_symbols_stay_local() -> Non
     assert all(e.target_id in caller.graph.nodes for e in caller.graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_unresolved_and_ambiguous_references_are_not_guessed() -> None:
     src, root = source("f\nmissing\n")
     src.declare(root, "f", "function", namespace="A")
@@ -123,6 +126,7 @@ def test_unresolved_and_ambiguous_references_are_not_guessed() -> None:
     assert not any(e.kind == EdgeKind.REFERENCES for e in src.graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_ordered_declarations_do_not_capture_an_earlier_import_reference() -> None:
     src, root = source("f\npass\n", "caller")
     src.ordered_declarations()
@@ -144,6 +148,7 @@ def test_ordered_declarations_do_not_capture_an_earlier_import_reference() -> No
     assert [e.target_id for e in src.graph.edges if e.kind == EdgeKind.REFERENCES] == [expected]
 
 
+@pytest.mark.mutation_fast
 def test_signatures_correspond_without_overwriting_source_evidence() -> None:
     src, root = source("pass\n")
     implementation = src.declare(root, "f", "function", namespace="Base")
@@ -175,6 +180,7 @@ def test_empty_import_target_remains_an_explicit_proxy() -> None:
     assert src.graph.nodes[imported].kind == NodeKind.MODULE
 
 
+@pytest.mark.mutation_fast
 def test_module_import_prefers_the_importing_directory() -> None:
     caller, root = source("f\n", "local/caller")
     owner = caller.declare(root, "caller", "function")
@@ -202,6 +208,7 @@ def test_shared_loader_symbol_is_part_of_native_cache_identity(tmp_path: Path) -
     assert "-DTRAILMARK_LANGUAGE=tree_sitter_a" in a.compiler_flags()
 
 
+@pytest.mark.mutation_fast
 def test_argument_relevance_does_not_override_contract_or_proof_context() -> None:
     src, root = source("target()\n")
     target = src.declare(root, "target", "function", attributes=(("executable", True),))
@@ -359,6 +366,7 @@ def test_ghost_arguments_do_not_erase_computational_sibling_arguments() -> None:
     } == {"outer", "second"}
 
 
+@pytest.mark.mutation_fast
 def test_opaque_walk_reports_outer_boundaries_without_descending() -> None:
     _, root = source("def outer():\n def inner():\n  pass\n")
     visited = walk(root, frozenset({"function_definition"}), include_skipped=True)
@@ -383,6 +391,7 @@ def test_overlapping_names_stay_bound_until_the_last_scope_ends() -> None:
     assert refs[0].location and refs[0].location.start_line == last.start_point.row + 1
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("relative", ["../left/shared.py", "../left/./shared.py"])
 def test_file_imports_select_the_exact_inspected_path(tmp_path: Path, relative: str) -> None:
     _, root = source("target\n")
@@ -423,6 +432,7 @@ def test_missing_file_import_does_not_fall_back_to_a_module_name(tmp_path: Path)
     assert src.graph.nodes[edge.target_id].name == "Base"
 
 
+@pytest.mark.mutation_fast
 def test_exporting_an_open_does_not_create_qualified_members() -> None:
     caller, root = source("f\nB.f\n", "caller")
     owner = caller.declare(root, "caller", "function")

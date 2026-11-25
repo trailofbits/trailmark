@@ -83,6 +83,7 @@ def test_unproven_imported_construction_remains_proxy(
     assert graph.nodes[construction.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_type_only_import_cannot_bind_a_constructor(tmp_path: Path) -> None:
     (tmp_path / "widget.ts").write_text("export class Widget { constructor() {} }\n")
     (tmp_path / "make.ts").write_text(
@@ -94,6 +95,7 @@ def test_type_only_import_cannot_bind_a_constructor(tmp_path: Path) -> None:
     assert dict(construction.attributes)["binding_blocked"]
 
 
+@pytest.mark.mutation_fast
 def test_mixed_language_import_binds_after_both_frontends_merge(tmp_path: Path) -> None:
     (tmp_path / "widget.js").write_text("export class Widget { constructor() { sink(); } }\n")
     (tmp_path / "make.ts").write_text(
@@ -118,6 +120,7 @@ def test_single_file_import_retains_a_proxy_without_inspected_context(
     assert graph.nodes[construction.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 @pytest.mark.parametrize("imported", [True, False])
 def test_static_method_named_constructor_is_not_a_construction_body(

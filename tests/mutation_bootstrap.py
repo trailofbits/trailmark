@@ -81,6 +81,7 @@ def record_test_execution(directory: Path) -> None:
         def __init__(self):
             self.started = []
             self.failed = False
+            self.failures = []
             self.stopped = False
             self.limit = int(os.environ.get('TRAILMARK_PREFIX_LIMIT', '0'))
 
@@ -90,6 +91,7 @@ def record_test_execution(directory: Path) -> None:
         def pytest_runtest_logreport(self, report):
             if report.failed:
                 self.failed = True
+                self.failures.append({'test': report.nodeid, 'phase': report.when})
 
         @pytest.hookimpl(wrapper=True, tryfirst=True)
         def pytest_runtest_protocol(self, item):
@@ -111,6 +113,7 @@ def record_test_execution(directory: Path) -> None:
     if destination:
         with open(destination + '.tmp', 'w') as output:
             json.dump({'tests': execution.started, 'failed': execution.failed,
+                'failures': execution.failures,
                 'stopped': execution.stopped, 'exit_code': int(exit_code)}, output)
         os.replace(destination + '.tmp', destination)
 """

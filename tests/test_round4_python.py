@@ -17,6 +17,7 @@ def test_nested_receiver_proxy_has_no_private_owner_id(tmp_path: Path) -> None:
     assert "@" not in str(call.attributes)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("class_last", [False, True])
 def test_last_class_or_function_definition_wins(tmp_path: Path, class_last: bool) -> None:
     path = tmp_path / "app.py"
@@ -29,6 +30,7 @@ def test_last_class_or_function_definition_wins(tmp_path: Path, class_last: bool
     assert call.target_id == ("app:Token" if class_last else "app:Token@2_0")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("module", ["typing", "typing_extensions"])
 def test_overload_accepts_typing_import_alias(tmp_path: Path, module: str) -> None:
     path = tmp_path / "app.py"

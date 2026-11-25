@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -83,11 +85,13 @@ def _parse_sample() -> tuple[CParser, CodeGraph]:
 
 
 class TestCParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_functions(self) -> None:
         _, graph = _parse_sample()
         funcs = [n for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION]
@@ -96,18 +100,21 @@ class TestCParserNodes:
         assert "process" in names
         assert "run" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_struct(self) -> None:
         _, graph = _parse_sample()
         structs = [n for n in graph.nodes.values() if n.kind == NodeKind.STRUCT]
         names = {s.name for s in structs}
         assert "Color" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_enum(self) -> None:
         _, graph = _parse_sample()
         enums = [n for n in graph.nodes.values() if n.kind == NodeKind.ENUM]
         names = {e.name for e in enums}
         assert "Direction" in names
 
+    @pytest.mark.mutation_fast
     def test_function_docstring(self) -> None:
         _, graph = _parse_sample()
         dist = next(n for n in graph.nodes.values() if n.name == "distance")
@@ -116,6 +123,7 @@ class TestCParserNodes:
 
 
 class TestCParserParameters:
+    @pytest.mark.mutation_fast
     def test_function_parameters(self) -> None:
         _, graph = _parse_sample()
         dist = next(n for n in graph.nodes.values() if n.name == "distance")
@@ -133,6 +141,7 @@ class TestCParserParameters:
             assert p.type_ref is not None
             assert p.type_ref.name == "int"
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         dist = next(n for n in graph.nodes.values() if n.name == "distance")
@@ -164,6 +173,7 @@ class TestCParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_call_edges(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -178,6 +188,7 @@ class TestCParserEdges:
         assert has_distance
         assert has_process
 
+    @pytest.mark.mutation_fast
     def test_edge_confidence(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -227,6 +238,7 @@ void after_split(void) {
 
 
 class TestCParserPreprocessorRecovery:
+    @pytest.mark.mutation_fast
     def test_finds_functions_inside_ifdef_branches(self) -> None:
         parser = CParser()
         with tempfile.NamedTemporaryFile(suffix=".c", mode="w", delete=False) as f:
@@ -239,6 +251,7 @@ class TestCParserPreprocessorRecovery:
         assert "after_guard" in names
         assert "feature_a" in names or "feature_b" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_functions_after_split_signature(self) -> None:
         """Functions after a #if/#else split signature are still extracted."""
         parser = CParser()
@@ -253,6 +266,7 @@ class TestCParserPreprocessorRecovery:
 
 
 class TestCParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = CParser()
         code_a = "void fromA(void) {}\n"

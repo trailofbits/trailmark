@@ -6,6 +6,7 @@ from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 def test_protocol_references_and_query_roles() -> None:
     graph = parse_file(
         str(Path(__file__).parent / "fixtures/kat/proverif/taxonomy.pv"), strict=True
@@ -25,6 +26,7 @@ def test_protocol_references_and_query_roles() -> None:
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_input_new_let_and_query_variables_shadow_globals(tmp_path: Path) -> None:
     path = tmp_path / "scope.pv"
     path.write_text(
@@ -39,6 +41,7 @@ def test_input_new_let_and_query_variables_shadow_globals(tmp_path: Path) -> Non
     )
 
 
+@pytest.mark.mutation_fast
 def test_nested_comments_do_not_add_protocol_actions(tmp_path: Path) -> None:
     path = tmp_path / "comments.pv"
     path.write_text("(* (* fun hidden(bitstring):bitstring. *) event fake. *)\nprocess 0\n")
@@ -49,6 +52,7 @@ def test_nested_comments_do_not_add_protocol_actions(tmp_path: Path) -> None:
         parse_file(str(path), strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_table_get_binders_and_continuations(tmp_path: Path) -> None:
     path = tmp_path / "tables.pv"
     path.write_text(
@@ -61,6 +65,7 @@ def test_table_get_binders_and_continuations(tmp_path: Path) -> None:
     assert "data" in refs and refs.count("c") == 3
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
@@ -92,6 +97,7 @@ def test_process_binding_matrix(tmp_path: Path, body: str, expected: int) -> Non
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
@@ -118,6 +124,7 @@ def test_term_binding_matrix(tmp_path: Path, body: str, expected: int) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_configuration_and_security_directives(tmp_path: Path) -> None:
     path = tmp_path / "directives.pv"
     path.write_text(
@@ -132,6 +139,7 @@ def test_configuration_and_security_directives(tmp_path: Path) -> None:
     } == {"weaksecret", "noninterf", "nounif"}
 
 
+@pytest.mark.mutation_fast
 def test_deep_patterns_do_not_recurse_in_python(tmp_path: Path) -> None:
     path = tmp_path / "deep.pv"
     path.write_text(
@@ -147,6 +155,7 @@ def test_deep_patterns_do_not_recurse_in_python(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "text",
     [
@@ -190,6 +199,7 @@ def test_macros_predicates_and_bare_constants_keep_dependencies(tmp_path: Path) 
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_destructors_and_declaration_macros(tmp_path: Path) -> None:
     path = tmp_path / "library.pv"
     path.write_text(
@@ -212,6 +222,7 @@ def test_destructors_and_declaration_macros(tmp_path: Path) -> None:
     assert not any(source == target == "dec" for source, target in refs)
 
 
+@pytest.mark.mutation_fast
 def test_library_fallback_is_local_and_ambiguity_is_reported(tmp_path: Path) -> None:
     from trailmark.parse import parse_directory
 

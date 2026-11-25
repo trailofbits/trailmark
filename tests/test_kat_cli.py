@@ -98,6 +98,7 @@ def test_analyze_complexity_none_snapshot() -> None:
     _assert_or_update("analyze_complexity_none", out)
 
 
+@pytest.mark.mutation_fast
 def test_entrypoints_text_snapshot() -> None:
     out = _run_cli(["entrypoints", str(FIXTURE_DIR), "--language", "python"])
     _assert_or_update("entrypoints_text", out)

@@ -10,6 +10,7 @@ from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_component_self_calls_link_across_matching_generic_impls(tmp_path: Path) -> None:
     path = tmp_path / "Component.cairo"
     path.write_text(
@@ -29,6 +30,7 @@ def test_component_self_calls_link_across_matching_generic_impls(tmp_path: Path)
     assert QueryEngine.from_graph(graph).paths_between(calls[0].source_id, calls[0].target_id)
 
 
+@pytest.mark.mutation_fast
 def test_self_family_keeps_nongeneric_helpers(tmp_path: Path) -> None:
     path = tmp_path / "Types.cairo"
     path.write_text(
@@ -41,6 +43,7 @@ def test_self_family_keeps_nongeneric_helpers(tmp_path: Path) -> None:
     assert call.target_id == "Types:Right.check"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "declarations",
     [
@@ -83,6 +86,7 @@ def test_unproven_or_competing_self_families_remain_proxies(
     assert call.confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "method, invocation",
     [

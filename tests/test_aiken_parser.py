@@ -21,6 +21,7 @@ def _source(tmp_path: Path, text: str) -> Path:
     return path
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("owner", "expected"), [("sample", "sample:run"), ("sample:validator", "sample:validator.run")]
 )
@@ -29,6 +30,7 @@ def test_callable_ids_keep_the_module_and_lexical_owner(owner: str, expected: st
     assert extractor.child_id(owner, "run") == expected
 
 
+@pytest.mark.mutation_fast
 def test_types_signatures_imports_and_branches(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -62,6 +64,7 @@ validator payments(owner: ByteArray) {
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "purpose", ["mint", "spend", "withdraw", "publish", "vote", "propose", "else"]
 )
@@ -83,6 +86,7 @@ def test_handlers_are_reachable_entrypoints(tmp_path: Path, purpose: str) -> Non
     assert engine.entrypoint_paths_to("helper")
 
 
+@pytest.mark.mutation_fast
 def test_pipeline_calls_once_per_stage(tmp_path: Path) -> None:
     path = _source(
         tmp_path, "fn first(x) { x } fn second(x, y) { x } fn f(x) { x |> first |> second(1) }"
@@ -95,6 +99,7 @@ def test_pipeline_calls_once_per_stage(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_callback_and_import_do_not_bind_to_namesakes(tmp_path: Path) -> None:
     _source(
         tmp_path,
@@ -141,6 +146,7 @@ def test_sibling_validator_handlers_stay_distinct(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.mutation_fast
 def test_parse_errors_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = tmp_path / "broken.ak"
     path.write_text("validator broken { spend(")

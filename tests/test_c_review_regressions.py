@@ -9,6 +9,7 @@ from trailmark.parse import parse_file
 from trailmark.parsers.c import _recovery
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("branch", [b"elifdef", b"elifndef"])
 @pytest.mark.parametrize("newline", [b"\n", b"\r\n"])
 @pytest.mark.parametrize("enclosed", [False, True])
@@ -26,12 +27,14 @@ def test_c23_conditional_tokens_resume_only_outside_disabled_parents(
     ] == expected
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("branch", [b"elifdef", b"elifndef"])
 def test_c23_alternative_cannot_hide_a_brace_depth_change(branch: bytes) -> None:
     source = b"{\n#if OPTION\n{\n#" + branch + b" FEATURE\n}\n#endif\n}"
     assert _recovery._physical_end(_recovery._source_tokens(source), 0) is None
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("branch", ["elifdef", "elifndef"])
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_c23_potentially_active_calls_survive_disabled_prose(

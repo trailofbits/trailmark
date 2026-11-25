@@ -8,6 +8,7 @@ from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("prefix", ["\n", " \n\t\n", "\n\n\n"])
 @pytest.mark.parametrize("language", ["whyml", "rocq"])
 def test_recovered_declaration_and_reference_sites_use_original_source(

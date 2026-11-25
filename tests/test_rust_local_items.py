@@ -14,6 +14,7 @@ from trailmark.parsers.rust.parser import RustParser
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("macro", ["opaque", "crate::opaque"])
 def test_ordinary_macros_keep_nested_verus_opaque(tmp_path: Path, macro: str) -> None:
     path = tmp_path / "ordinary.rs"
@@ -27,6 +28,7 @@ def test_ordinary_macros_keep_nested_verus_opaque(tmp_path: Path, macro: str) ->
     }
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("wrapper", [False, True])
 @pytest.mark.parametrize(
     ("declaration", "call", "owner", "kind"),
@@ -76,6 +78,7 @@ def test_local_item_bodies_have_distinct_owners(
     assert len(calls) == (4 if call else 2)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("wrapper", [False, True])
 def test_local_types_and_modules_shadow_only_within_their_block(
     tmp_path: Path, wrapper: bool
@@ -107,6 +110,7 @@ fn outer() {
     assert "@" in outer[3].target_id
 
 
+@pytest.mark.mutation_fast
 def test_local_module_paths_and_imports_respect_rust_module_boundaries(tmp_path: Path) -> None:
     path = tmp_path / "modules.rs"
     path.write_text("""\
@@ -133,6 +137,7 @@ fn outer() {
     ]
 
 
+@pytest.mark.mutation_fast
 def test_local_enum_impls_and_trait_implementations_keep_lexical_owners(tmp_path: Path) -> None:
     path = tmp_path / "types.rs"
     path.write_text("""\
@@ -155,6 +160,7 @@ fn outer() {
     }
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("local", [False, True])
 def test_qualified_calls_resolve_known_types_without_guessing_variable_types(
     tmp_path: Path, local: bool
@@ -171,6 +177,7 @@ def test_qualified_calls_resolve_known_types_without_guessing_variable_types(
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("item", ["impl S", "trait T", "mod local"])
 def test_verus_macros_inside_function_local_items_still_remain_opaque(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, item: str
@@ -185,6 +192,7 @@ def test_verus_macros_inside_function_local_items_still_remain_opaque(
     assert caplog.text.count("inside a function body") == 1
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("wrapper", [False, True])
 @pytest.mark.parametrize("in_module", [False, True])
 def test_bodyless_local_modules_do_not_replace_their_enclosing_binding(
@@ -205,6 +213,7 @@ def test_bodyless_local_modules_do_not_replace_their_enclosing_binding(
     ]
 
 
+@pytest.mark.mutation_fast
 def test_local_impl_selects_the_named_type_among_other_local_types(tmp_path: Path) -> None:
     path = tmp_path / "types.rs"
     path.write_text("fn outer() { struct A; struct B; impl B { fn m() {} } B::m(); }")
@@ -216,6 +225,7 @@ def test_local_impl_selects_the_named_type_among_other_local_types(tmp_path: Pat
     ]
 
 
+@pytest.mark.mutation_fast
 def test_impl_in_function_for_a_nonlocal_type_retains_its_method_body(tmp_path: Path) -> None:
     path = tmp_path / "nonlocal.rs"
     path.write_text(
@@ -233,6 +243,7 @@ def test_impl_in_function_for_a_nonlocal_type_retains_its_method_body(tmp_path: 
     }
 
 
+@pytest.mark.mutation_fast
 def test_local_impl_can_refer_to_an_imported_type_and_local_trait(tmp_path: Path) -> None:
     path = tmp_path / "imported.rs"
     path.write_text("""\
@@ -271,6 +282,7 @@ fn caller() { alias::S::m(); }
     ]
 
 
+@pytest.mark.mutation_fast
 def test_local_impl_for_an_unavailable_type_preserves_its_calls(tmp_path: Path) -> None:
     path = tmp_path / "external_type.rs"
     path.write_text("""\
@@ -286,6 +298,7 @@ fn outer() { impl S { fn m() { dangerous(); } } }
     ]
 
 
+@pytest.mark.mutation_fast
 def test_impl_in_an_inner_block_does_not_narrow_its_type_visibility(tmp_path: Path) -> None:
     path = tmp_path / "visibility.rs"
     path.write_text("fn outer() { struct S(); { impl S { fn m() {} } } S(); }")
@@ -314,6 +327,7 @@ fn second() { struct Guard; impl Drop for Guard { fn drop(&mut self) { second_ef
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("wrapper", [False, True])
 @pytest.mark.parametrize(
     ("source", "caller", "target"),
@@ -380,6 +394,7 @@ def test_bare_calls_and_receivers_do_not_capture_associated_items(
     )
 
 
+@pytest.mark.mutation_fast
 def test_associated_paths_and_unit_struct_receivers_still_resolve(tmp_path: Path) -> None:
     path = tmp_path / "associated.rs"
     path.write_text("""\
@@ -399,6 +414,7 @@ fn run() { S::helper(); E::helper(); S.helper(); helper(); }
     ]
 
 
+@pytest.mark.mutation_fast
 def test_large_rust_file_resolves_calls_without_scanning_every_declaration(tmp_path: Path) -> None:
     path = tmp_path / "large.rs"
     work = []

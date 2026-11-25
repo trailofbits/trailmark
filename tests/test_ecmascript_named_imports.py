@@ -57,6 +57,7 @@ def test_local_parameter_shadows_an_import(tmp_path: Path, language: str, extens
     assert dict(call.attributes)["binding_blocked"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_export_alias_selects_the_underlying_declaration(
     tmp_path: Path, language: str, extension: str
@@ -116,6 +117,7 @@ def test_nested_function_binding_takes_precedence_over_import(
     assert call.target_id == "entry:entry.work"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_named_import_resolves_a_directory_index(
     tmp_path: Path, language: str, extension: str
@@ -131,6 +133,7 @@ def test_named_import_resolves_a_directory_index(
     assert call.target_id == "selected.index:work"
 
 
+@pytest.mark.mutation_fast
 def test_typescript_javascript_import_suffix_resolves_its_source(tmp_path: Path) -> None:
     (tmp_path / "selected.ts").write_text("export function work() {}\n")
     (tmp_path / "entry.ts").write_text(
@@ -156,6 +159,7 @@ def test_dotted_source_basename_does_not_select_a_shorter_decoy(
     assert target.location.file_path == str(tmp_path / f"selected.v1{extension}")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 @pytest.mark.parametrize("hidden", ["outside", "vendor", "directory_symlink"])
 def test_unselected_import_target_does_not_bind_to_an_inspected_same_stem(

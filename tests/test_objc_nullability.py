@@ -14,6 +14,7 @@ _BODY = (
 )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_nullability_keeps_calls_and_physical_lines(tmp_path: Path, newline: str) -> None:
     path = tmp_path / "sample.m"
@@ -29,6 +30,7 @@ def test_nullability_keeps_calls_and_physical_lines(tmp_path: Path, newline: str
     assert path.read_bytes() == source.replace("\n", newline).encode()
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "prefix,suffix",
     [
@@ -54,6 +56,7 @@ def test_unproven_annotation_regions_stay_untouched(
     assert not dict(graph.nodes["sample"].attributes).get("objc_nullability_regions")
 
 
+@pytest.mark.mutation_fast
 def test_comment_text_cannot_supply_annotation_tokens(tmp_path: Path) -> None:
     path = tmp_path / "sample.m"
     path.write_text("/*\nNS_ASSUME_NONNULL_BEGIN\n*/\n" + _BODY + "/*\nNS_ASSUME_NONNULL_END\n*/\n")

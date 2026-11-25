@@ -11,6 +11,7 @@ from trailmark.parsers.c._headers import HeaderSources
 from trailmark.parsers.c._macros import DeclarationMacros
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("resolved", [False, True], ids=["unresolved", "repeated"])
 def test_header_collection_does_not_repeat_directive_work(tmp_path: Path, resolved: bool) -> None:
     path = tmp_path / "header.h"

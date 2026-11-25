@@ -41,6 +41,7 @@ def _summary(fact: DecoratorFact) -> tuple[str | None, str, str | None, str | No
     )
 
 
+@pytest.mark.mutation_fast
 def test_patch_style_aliases_are_non_path_decorators(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -87,6 +88,7 @@ def test_patch_style_aliases_are_non_path_decorators(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.mutation_fast
 def test_unrelated_get_with_key_is_non_path(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -115,6 +117,7 @@ def test_unrelated_get_with_key_is_non_path(tmp_path: Path) -> None:
     assert cached.arguments == ('"cache-key"', "ttl=5")
 
 
+@pytest.mark.mutation_fast
 def test_constructed_external_receivers_and_aliases_are_path_decorators(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -186,6 +189,7 @@ def test_module_receivers_can_be_registrars(tmp_path: Path) -> None:
         assert _only(facts, name).disposition == "path_decorator"
 
 
+@pytest.mark.mutation_fast
 def test_factories_keep_nested_function_scope(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -215,6 +219,7 @@ def test_factories_keep_nested_function_scope(tmp_path: Path) -> None:
     assert _only(facts, "module_level").consumer_path == "neutral.server.Hub().get"
 
 
+@pytest.mark.mutation_fast
 def test_parameters_and_shadowing_do_not_inherit_global_provenance(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -262,6 +267,7 @@ def test_parameters_and_shadowing_do_not_inherit_global_provenance(tmp_path: Pat
     assert _summary(_only(facts, "default"))[:2] == (None, "parameter")
 
 
+@pytest.mark.mutation_fast
 def test_conditional_and_external_rebinding_are_ambiguous(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -304,6 +310,7 @@ def test_conditional_and_external_rebinding_are_ambiguous(tmp_path: Path) -> Non
         assert (fact.disposition, fact.reason) == ("unknown", "ambiguous_binding"), name
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [
@@ -414,6 +421,7 @@ def test_decorator_method_aliases_resolve_to_the_bound_method(tmp_path: Path) ->
     assert _summary(_only(facts, "d"))[:3] == (None, "parameter", "put")
 
 
+@pytest.mark.mutation_fast
 def test_constant_and_dynamic_paths(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -468,6 +476,7 @@ def test_constant_and_dynamic_paths(tmp_path: Path) -> None:
     assert _only(facts, "keyword").arguments == ('path="/kw"',)
 
 
+@pytest.mark.mutation_fast
 def test_local_identity_decorators_are_suppressed_even_for_slash(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -540,6 +549,7 @@ class Box:
 """
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("setup", "decorator"),
     [
@@ -617,6 +627,7 @@ def test_replaceable_identity_decorators_are_not_suppressed(
     )
 
 
+@pytest.mark.mutation_fast
 def test_identity_proofs_survive_unrelated_writes_and_earlier_star_imports(
     tmp_path: Path,
 ) -> None:
@@ -654,6 +665,7 @@ def test_identity_proofs_survive_unrelated_writes_and_earlier_star_imports(
     )
 
 
+@pytest.mark.mutation_fast
 def test_nested_classes_and_functions_own_spans_and_scopes(tmp_path: Path) -> None:
     source = """
         from vendor import Server
@@ -697,6 +709,7 @@ def test_nested_classes_and_functions_own_spans_and_scopes(tmp_path: Path) -> No
     assert prop.handler_line == inner.handler_line == inner.location.start_line + 1
 
 
+@pytest.mark.mutation_fast
 def test_argument_shapes_without_paths(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -721,6 +734,7 @@ def test_argument_shapes_without_paths(tmp_path: Path) -> None:
     assert _only(facts, "bare").reason == "not_called"
 
 
+@pytest.mark.mutation_fast
 def test_missing_and_malformed_files_are_safe(tmp_path: Path) -> None:
     assert python_decorators(str(tmp_path / "missing.py")) == []
     assert python_decorators(str(tmp_path)) == []
@@ -732,6 +746,7 @@ def test_missing_and_malformed_files_are_safe(tmp_path: Path) -> None:
     assert isinstance(python_decorators(str(binary)), list)
 
 
+@pytest.mark.mutation_fast
 def test_deep_and_cyclic_aliases_stay_bounded(tmp_path: Path) -> None:
     chain = "a." * 5000
     facts = _facts(
@@ -777,6 +792,7 @@ def test_only_function_decorators_are_reported_in_source_order(tmp_path: Path) -
     assert [(f.method, f.path) for f in python_decorators(str(path))] == [("replacement", "/new")]
 
 
+@pytest.mark.mutation_fast
 def test_parenthesized_and_compound_receivers_keep_binding_precision(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -809,6 +825,7 @@ def test_parenthesized_and_compound_receivers_keep_binding_precision(tmp_path: P
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("returned", ["lambda fn: other", "lambda fn, extra: fn"])
 def test_nonidentity_factories_are_not_suppressed(tmp_path: Path, returned: str) -> None:
     facts = _facts(
@@ -825,6 +842,7 @@ def test_nonidentity_factories_are_not_suppressed(tmp_path: Path, returned: str)
     )
 
 
+@pytest.mark.mutation_fast
 def test_nonlocal_writes_invalidate_the_enclosing_receiver(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -849,6 +867,7 @@ def test_nonlocal_writes_invalidate_the_enclosing_receiver(tmp_path: Path) -> No
     )
 
 
+@pytest.mark.mutation_fast
 def test_pattern_capture_shadows_the_global_receiver(tmp_path: Path) -> None:
     facts = _facts(
         tmp_path,
@@ -873,6 +892,7 @@ def test_pattern_capture_shadows_the_global_receiver(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("length", [118, 120, 121, 200])
 def test_long_argument_evidence_is_bounded_without_truncating_paths(
     tmp_path: Path, length: int

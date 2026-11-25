@@ -45,6 +45,7 @@ def test_inline_visibility_keeps_bodies_and_does_not_change_following_methods(
     assert (wrapped.id, "wrapped:Box.helper") in calls
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("container", ["module Helpers", "class Box\n  class << self"])
 def test_inline_private_methods_keep_module_and_singleton_ownership(
     tmp_path: Path, container: str

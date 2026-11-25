@@ -130,10 +130,13 @@ def _validate_versions(run: dict[str, Any], baseline: dict[str, Any]) -> None:
         raise ValueError("Report lacks validated pytest failure confirmation")
 
 
-def _validate_test_selection(root: Path, report: dict[str, Any], run: dict[str, Any]) -> None:
+def _validate_test_selection(
+    root: Path, report: dict[str, Any], run: dict[str, Any], report_dir: Path | None = None
+) -> None:
     if run["test_selection"] == "full":
         return
-    envelope = json.loads((root / "coverage/gremlins/coverage-plan.json").read_text())
+    directory = report_dir if report_dir is not None else root / "coverage/gremlins"
+    envelope = json.loads((directory / "coverage-plan.json").read_text())
     expected = {
         key: run[key]
         for key in (
@@ -147,6 +150,7 @@ def _validate_test_selection(root: Path, report: dict[str, Any], run: dict[str, 
         )
     }
     expected["addopts"] = envelope["context"]["addopts"]
+    expected["test_group"] = run.get("test_group", "full")
     expected["coverage_plan"] = run["selection_plan"]
     tests = envelope["plan"]["tests"]
     plan = validate_plan(envelope, expected, tests, set(run["sources"]))
@@ -238,12 +242,13 @@ def check(
     baseline: dict[str, Any],
     *,
     shard: tuple[int, int] = (1, 1),
+    report_dir: Path | None = None,
 ) -> list[str]:
     _validate_versions(run, baseline)
     if run.get("shard") != list(shard):
         raise ValueError("Mutation report shard does not match the requested partition")
     _validate_report(report, baseline, allow_empty=shard[1] > 1)
-    _validate_test_selection(root, report, run)
+    _validate_test_selection(root, report, run, report_dir)
     inconclusive = [
         {
             "path": row["file_path"],
@@ -280,13 +285,14 @@ def check(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shard", type=parse_shard, default=(1, 1))
+    parser.add_argument("--report-dir", type=Path, default=Path("coverage/gremlins"))
     args = parser.parse_args()
     root = Path.cwd()
     try:
-        report = json.loads((root / "coverage/gremlins/gremlins.json").read_text())
-        run = json.loads((root / "coverage/gremlins/run.json").read_text())
+        report = json.loads((args.report_dir / "gremlins.json").read_text())
+        run = json.loads((args.report_dir / "run.json").read_text())
         baseline = json.loads((root / "tests/mutation_baseline.json").read_text())
-        failures = check(root, report, run, baseline, shard=args.shard)
+        failures = check(root, report, run, baseline, shard=args.shard, report_dir=args.report_dir)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"Mutation gate failed: {exc}", file=sys.stderr)
         return 1

@@ -34,6 +34,7 @@ def _graph(engine: QueryEngine) -> CodeGraph:
 
 
 class TestNodeDiff:
+    @pytest.mark.mutation_fast
     def test_added_node_shows_up(self, tmp_path: Path) -> None:
         before = tmp_path / "before"
         after = tmp_path / "after"
@@ -60,6 +61,7 @@ class TestNodeDiff:
         removed_ids = {n["id"] for n in diff["nodes"]["removed"]}
         assert "app:doomed" in removed_ids
 
+    @pytest.mark.mutation_fast
     def test_complexity_change_is_flagged(self, tmp_path: Path) -> None:
         before = tmp_path / "before"
         after = tmp_path / "after"
@@ -81,6 +83,7 @@ class TestNodeDiff:
         cc = modified["app:f"]["changes"]["cyclomatic_complexity"]
         assert cc["after"] > cc["before"]
 
+    @pytest.mark.mutation_fast
     def test_parameter_change_is_flagged(self, tmp_path: Path) -> None:
         before = tmp_path / "before"
         after = tmp_path / "after"
@@ -95,6 +98,7 @@ class TestNodeDiff:
 
 
 class TestEdgeDiff:
+    @pytest.mark.mutation_fast
     def test_pipe_characters_do_not_alias_distinct_endpoints(self) -> None:
         before = CodeGraph(edges=[CodeEdge("a|b", "c", EdgeKind.CALLS)])
         after = CodeGraph(edges=[CodeEdge("a", "b|c", EdgeKind.CALLS)])
@@ -126,6 +130,7 @@ class TestEdgeDiff:
 
 
 class TestEntrypointDiff:
+    @pytest.mark.mutation_fast
     def test_new_entrypoint_tracked(self, tmp_path: Path) -> None:
         before = tmp_path / "before"
         after = tmp_path / "after"
@@ -167,6 +172,7 @@ class TestEntrypointDiff:
         removed_eps = diff["entrypoints"]["removed"]
         assert any(ep["id"] == "app:old" for ep in removed_eps), removed_eps
 
+    @pytest.mark.mutation_fast
     def test_trust_level_change_detected(self, tmp_path: Path) -> None:
         """Override file change that tightens trust level shows up as modified."""
         before = tmp_path / "before"
@@ -199,6 +205,7 @@ class TestEntrypointDiff:
 
 
 class TestQueryEngineIntegration:
+    @pytest.mark.mutation_fast
     def test_type_only_changes_are_reported(self, tmp_path: Path) -> None:
         source = tmp_path / "app.py"
         source.write_text("def f(x: int) -> int:\n    return x\n")
@@ -257,6 +264,7 @@ class TestQueryEngineIntegration:
         assert "app:b" in added_ids
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "change,field",
     [
@@ -342,6 +350,7 @@ class TestFormatDiff:
     silently survive.
     """
 
+    @pytest.mark.mutation_fast
     def test_empty_diff_returns_no_changes(self) -> None:
         assert format_diff({}) == "No structural changes."
 
@@ -354,6 +363,7 @@ class TestFormatDiff:
         }
         assert format_diff(diff) == "No structural changes."
 
+    @pytest.mark.mutation_fast
     def test_summary_header_present(self) -> None:
         diff = {
             "summary_delta": {"nodes": {"before": 1, "after": 2, "delta": 1}},
@@ -363,6 +373,7 @@ class TestFormatDiff:
         }
         assert "Summary:" in format_diff(diff)
 
+    @pytest.mark.mutation_fast
     def test_summary_renders_each_metric(self) -> None:
         diff = {
             "summary_delta": {
@@ -388,6 +399,7 @@ class TestFormatDiff:
         }
         assert "(+2)" in format_diff(diff)
 
+    @pytest.mark.mutation_fast
     def test_zero_delta_still_shown_with_plus(self) -> None:
         # `delta == 0` meets the `>= 0` guard so it gets the plus sign.
         diff = {
@@ -469,6 +481,7 @@ class TestFormatDiff:
         assert "~ mod:grew  (cyclomatic_complexity)" in out
         assert "complexity: 2 -> 9" in out
 
+    @pytest.mark.mutation_fast
     def test_modified_nodes_truncates_after_twenty(self) -> None:
         modified = [
             {"id": f"mod:n{i}", "changes": {"parameters": {"before": [], "after": []}}}
@@ -487,6 +500,7 @@ class TestFormatDiff:
         assert "~ mod:n19  " in out
         assert "~ mod:n20  " not in out
 
+    @pytest.mark.mutation_fast
     def test_added_nodes_truncates_after_twenty(self) -> None:
         added = [{"id": f"mod:a{i}", "kind": "function", "file": "f.py"} for i in range(22)]
         diff = {
@@ -499,6 +513,7 @@ class TestFormatDiff:
         assert "Added nodes (22):" in out
         assert "... and 2 more" in out
 
+    @pytest.mark.mutation_fast
     def test_entrypoint_added_section(self) -> None:
         diff = {
             "summary_delta": {},
@@ -543,6 +558,7 @@ class TestFormatDiff:
         assert "Attack surface:" in out
         assert "- entrypoint app:old  (user_input, trust=trusted_internal, asset=low)" in out
 
+    @pytest.mark.mutation_fast
     def test_entrypoint_modified_trust_change(self) -> None:
         diff = {
             "summary_delta": {},
@@ -631,6 +647,7 @@ class TestFormatDiff:
         assert out == out.rstrip()
         assert not out.endswith("\n")
 
+    @pytest.mark.mutation_fast
     def test_full_output_exact_match(self) -> None:
         """Golden output covering every section, with exact string equality.
 
@@ -734,6 +751,7 @@ class TestFormatDiff:
         assert "  ... and 5 more" in out
         assert "  ... and 5 more\n" in out + "\n"
 
+    @pytest.mark.mutation_fast
     def test_removed_nodes_truncation_message(self) -> None:
         diff = {
             "summary_delta": {},
@@ -797,6 +815,7 @@ class TestFormatDiff:
 
 
 class TestGitWorktree:
+    @pytest.mark.mutation_fast
     def test_worktree_materializes_a_ref(self, tmp_path: Path) -> None:
         """``git_worktree`` adds a detached worktree and cleans it up."""
         repo = tmp_path / "repo"
@@ -812,6 +831,7 @@ class TestGitWorktree:
             assert (worktree / "app.py").exists()
             assert (worktree / "app.py").read_text() == "def main():\n    pass\n"
 
+    @pytest.mark.mutation_fast
     def test_worktree_rejects_non_repo(self, tmp_path: Path) -> None:
         with (
             pytest.raises(ValueError, match="Not a git repository"),

@@ -20,6 +20,7 @@ def _unit(node_id: str, name: str, kind: NodeKind = NodeKind.FUNCTION) -> CodeUn
     return CodeUnit(node_id, name, kind, _LOCATION)
 
 
+@pytest.mark.mutation_fast
 def test_callable_owner_stops_before_revisiting_a_container() -> None:
     graph = CodeGraph(nodes={name: _unit(name, name, NodeKind.CLASS) for name in ("A", "B")})
     owners = Mock(spec=dict)
@@ -29,6 +30,7 @@ def test_callable_owner_stops_before_revisiting_a_container() -> None:
     assert owners.get.call_args_list == [call("work"), call("A"), call("B")]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("outer", "inner", "expected"),
     [
@@ -67,6 +69,7 @@ def test_deferred_calls_respect_explicit_non_executable_declarations(
     assert all(dict(edge.attributes).get("deferred") is True for edge in calls)
 
 
+@pytest.mark.mutation_fast
 def test_unresolved_proxy_cannot_alias_concrete_source_namespace(tmp_path: Path) -> None:
     (tmp_path / "proxy").mkdir()
     (tmp_path / "proxy" / "unresolved.py").write_text(
@@ -84,6 +87,7 @@ def test_unresolved_proxy_cannot_alias_concrete_source_namespace(tmp_path: Path)
     assert dict(graph.nodes[call.target_id].attributes)["raw_symbol"] == "obj.foo"
 
 
+@pytest.mark.mutation_fast
 def test_distinct_raw_symbols_do_not_collapse_after_escaping() -> None:
     graph = CodeGraph(
         nodes={"app:f": _unit("app:f", "f")},
@@ -107,6 +111,7 @@ def test_distinct_raw_symbols_do_not_collapse_after_escaping() -> None:
     assert graph.edges == before_edges
 
 
+@pytest.mark.mutation_fast
 def test_same_proxy_identity_reuses_node_and_retains_call_sites() -> None:
     graph = CodeGraph(
         nodes={"app:f": _unit("app:f", "f")},
@@ -125,6 +130,7 @@ def test_same_proxy_identity_reuses_node_and_retains_call_sites() -> None:
     assert {edge.location.start_line for edge in graph.edges if edge.location} == {2, 3}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("non_type_kind", [NodeKind.MODULE, NodeKind.FUNCTION, NodeKind.PROXY])
 def test_non_types_do_not_make_a_real_type_ambiguous(non_type_kind: NodeKind) -> None:
     graph = CodeGraph(
@@ -160,6 +166,7 @@ def test_non_type_targets_do_not_get_type_use_edges(kind: NodeKind) -> None:
     assert graph.edges == []
 
 
+@pytest.mark.mutation_fast
 def test_two_real_types_with_same_name_remain_ambiguous() -> None:
     graph = CodeGraph(
         nodes={

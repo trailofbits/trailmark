@@ -17,6 +17,7 @@ def _graph(tmp_path: Path, source: str) -> CodeGraph:
     return parse_file(str(path), "ruby")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "declaration",
     ["alias_method :copy, :target", 'alias_method "copy", "target"', "alias copy target"],
@@ -42,6 +43,7 @@ def test_literal_alias_reaches_body_and_records_its_source(
     assert QueryEngine.from_graph(graph).paths_between("aliases:Box.entry", "aliases:Box.target")
 
 
+@pytest.mark.mutation_fast
 def test_alias_chain_captures_prior_body(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -56,6 +58,7 @@ def test_alias_chain_captures_prior_body(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body",
     [
@@ -99,6 +102,7 @@ def test_alias_is_not_rebound_to_a_later_reopened_body(tmp_path: Path) -> None:
     assert graph.nodes[edge.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "container,owner", [("module Helpers", "Helpers"), ("class Box\n class << self", "Box.self")]
 )
@@ -118,6 +122,7 @@ def test_aliases_keep_module_and_singleton_receiver(
     )
 
 
+@pytest.mark.mutation_fast
 def test_instance_alias_does_not_resolve_a_singleton_method(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -130,6 +135,7 @@ def test_instance_alias_does_not_resolve_a_singleton_method(tmp_path: Path) -> N
     assert graph.nodes[edge.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_unknown_inherited_alias_method_override_blocks_alias_inference(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -142,6 +148,7 @@ def test_unknown_inherited_alias_method_override_blocks_alias_inference(tmp_path
     assert graph.nodes[edge.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_singleton_alias_does_not_capture_an_unrelated_explicit_receiver(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -203,6 +210,7 @@ def test_inherited_alias_does_not_bypass_unmodeled_subclass_writers(tmp_path: Pa
     assert graph.nodes[edge.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_inline_and_named_visibility_preserve_a_proven_alias(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,

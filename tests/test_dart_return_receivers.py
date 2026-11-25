@@ -17,6 +17,7 @@ def _calls(tmp_path: Path, source: str) -> tuple[QueryEngine, list[CodeEdge]]:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_final_local_uses_same_file_declared_factory_return_type(tmp_path: Path) -> None:
     engine, calls = _calls(
         tmp_path,
@@ -30,6 +31,7 @@ def test_final_local_uses_same_file_declared_factory_return_type(tmp_path: Path)
     assert {n["id"] for n in engine.callers_of("app:Value.work")} == {"app:Context.run"}
 
 
+@pytest.mark.mutation_fast
 def test_final_local_uses_direct_relative_import(tmp_path: Path) -> None:
     (tmp_path / "value.dart").write_text("class Value { void work() {} }\n")
     _, calls = _calls(
@@ -40,6 +42,7 @@ def test_final_local_uses_direct_relative_import(tmp_path: Path) -> None:
     assert any(e.target_id == "value:Value.work" for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("declaration", ["var value = make()", "final value = unknown()"])
 def test_mutable_or_unknown_factory_stays_unresolved(tmp_path: Path, declaration: str) -> None:
     _, calls = _calls(
@@ -50,6 +53,7 @@ def test_mutable_or_unknown_factory_stays_unresolved(tmp_path: Path, declaration
     assert not any(e.target_id == "app:Value.work" for e in calls)
 
 
+@pytest.mark.mutation_fast
 def test_nested_and_before_declaration_sites_stay_unresolved(tmp_path: Path) -> None:
     _, calls = _calls(
         tmp_path,
@@ -73,6 +77,7 @@ def test_import_visibility_barriers_stay_unresolved(tmp_path: Path, barrier: str
     assert not any(e.target_id == "value:Value.work" for e in calls)
 
 
+@pytest.mark.mutation_fast
 def test_generic_return_type_shadow_stays_unresolved(tmp_path: Path) -> None:
     _, calls = _calls(
         tmp_path,
@@ -102,6 +107,7 @@ def test_shadowed_factory_stays_unresolved(tmp_path: Path) -> None:
     assert not any(e.target_id == "app:Value.work" for e in calls)
 
 
+@pytest.mark.mutation_fast
 def test_reexport_and_missing_import_stay_unresolved(tmp_path: Path) -> None:
     (tmp_path / "value.dart").write_text("export 'missing.dart';\nclass Value { void work() {} }\n")
     _, calls = _calls(
@@ -112,6 +118,7 @@ def test_reexport_and_missing_import_stay_unresolved(tmp_path: Path) -> None:
     assert not any(e.target_id == "value:Value.work" for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("return_type", ["Value?", "List<Value>"])
 def test_non_simple_return_types_stay_unresolved(tmp_path: Path, return_type: str) -> None:
     _, calls = _calls(
@@ -123,6 +130,7 @@ def test_non_simple_return_types_stay_unresolved(tmp_path: Path, return_type: st
     assert not any(e.target_id == "app:Value.work" for e in calls)
 
 
+@pytest.mark.mutation_fast
 def test_typedef_return_does_not_resolve_an_unrelated_imported_class(tmp_path: Path) -> None:
     (tmp_path / "value.dart").write_text("class Value { void work() {} }\n")
     _, calls = _calls(
