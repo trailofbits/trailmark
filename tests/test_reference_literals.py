@@ -30,13 +30,6 @@ def test_yaml_flow_character_returns_the_next_unconsumed_index(
     assert _reference_literals._yaml_flow_char(text, 0, quote) == expected
 
 
-@pytest.mark.parametrize(("text", "expected"), [("\n", " "), ("\n\n", "\n")])
-def test_yaml_flow_folding_distinguishes_one_break_from_an_empty_line(
-    text: str, expected: str
-) -> None:
-    assert _reference_literals._yaml_fold(text, "") == expected
-
-
 @pytest.mark.parametrize(
     ("text", "expected"),
     [("\n  value", (3, 1)), ("\n \n\tvalue", (4, 2)), ("\n \n\t", (4, 2))],
@@ -45,6 +38,13 @@ def test_yaml_line_break_scanner_advances_to_content_or_end(
     text: str, expected: tuple[int, int]
 ) -> None:
     assert _reference_literals._yaml_skip_breaks(text, 0) == expected
+
+
+@pytest.mark.parametrize(("text", "expected"), [("\n", " "), ("\n\n", "\n")])
+def test_yaml_flow_folding_distinguishes_one_break_from_an_empty_line(
+    text: str, expected: str
+) -> None:
+    assert _reference_literals._yaml_fold(text, "") == expected
 
 
 _GRAPHQL = r'''# comment "App\\Comment::nope" App\Hidden::nope

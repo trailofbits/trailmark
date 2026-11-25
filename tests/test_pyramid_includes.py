@@ -18,7 +18,7 @@ def test_literal_includes_follow_a_proven_registrar_and_its_included_configurato
     (package / "setup.py").write_text("def includeme(config):\n    config.include('.csrf')\n")
     (package / "csrf.py").write_text("def includeme(config): pass\n")
     (package / "unrelated.py").write_text("def custom(config):\n    config.include('app.csrf')\n")
-    engine = QueryEngine.from_directory(str(tmp_path))
+    engine, _ = count_work(lambda: QueryEngine.from_directory(str(tmp_path)), max_work=100_000)
     graph = engine._store._graph
     references = [
         e for e in graph.edges if dict(e.attributes).get("reference_context") == "pyramid_include"
@@ -30,7 +30,7 @@ def test_literal_includes_follow_a_proven_registrar_and_its_included_configurato
     assert all(e.kind == EdgeKind.REFERENCES and e.location is not None for e in references)
     assert not engine.paths_between("app:main", "app.csrf:includeme")
     before = list(graph.edges)
-    discover_pyramid_includes(graph)
+    count_work(lambda: discover_pyramid_includes(graph), max_work=100_000)
     assert graph.edges == before
 
 
