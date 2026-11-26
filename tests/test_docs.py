@@ -402,7 +402,8 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "tests.benchmark_mutations --workers=4 --repeat=3"),
     ("CONTRIBUTING.md", "Mutation campaigns use the fast pool by default"),
     ("CONTRIBUTING.md", "--allow-coverage-reference"),
-    ("CONTRIBUTING.md", "Weekly on Monday at 06:00 UTC"),
+    ("CONTRIBUTING.md", "weekly on Monday at 06:00 UTC"),
+    ("CONTRIBUTING.md", "Pull requests run one mutation campaign, using the fast pool"),
     # CLI output streams
     ("docs/cli.md", "`trailmark augment --json`"),
     ("docs/cli.md", "JSON to stdout"),

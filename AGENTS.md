@@ -139,6 +139,6 @@ Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
   changing user-facing API.
 
 The `mutation_fast` pool is the default; use `--test-group=full` for the full pool.
-Mutation-harness PRs compare both pools with coverage selection. Weekly and manual
-audits use an unfiltered full-pool reference. See CONTRIBUTING.md for comparisons
+Pull requests run one mutation campaign, using the fast pool. Weekly and manual
+audits compare it with the unfiltered full pool. See CONTRIBUTING.md for comparisons
 and release audits.

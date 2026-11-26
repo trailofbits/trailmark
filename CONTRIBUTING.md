@@ -245,14 +245,14 @@ or add a small behavioral regression, then rerun the comparison. Do not expand
 equivalent-mutant exceptions or narrow the mutated application to repair parity.
 Timing measurements belong in the benchmark, never in correctness assertions.
 
-`mutation-audit.yml` compares the full and fast pools with coverage selection for
-mutation-infrastructure pull requests. Weekly on Monday at 06:00 UTC and on its
-manual trigger, it uses an unfiltered full-pool reference instead. Run that manual
-audit against each release candidate as well. Each pool uses 32 mutation shards
-and its own matching baseline. Restore every lost kill before accepting a failed
-audit. Coverage-selected references require the explicit
-`--allow-coverage-reference` comparison flag; the default comparison still requires
-an unfiltered full-pool reference.
+Pull requests run one mutation campaign, using the fast pool.
+`mutation-audit.yml` runs weekly on Monday at 06:00 UTC and on its manual trigger.
+Each audit compares the fast pool with an unfiltered full-pool reference. Run that
+manual audit against each release candidate as well. Each pool uses 32 mutation
+shards and its own matching baseline. Restore every lost kill before accepting a
+failed audit. Coverage-selected references require the explicit
+`--allow-coverage-reference` comparison flag; the default comparison requires an
+unfiltered full-pool reference.
 
 ## Audit artifacts
 

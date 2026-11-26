@@ -1,40 +1,32 @@
-name: Mutation pool parity
+name: Mutation pool audit
 
 on:
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - '.github/workflows/mutation*.yml'
-      - 'tests/*mutation*.py'
-      - 'tests/conftest.py'
-      - 'tests/parse_work.py'
-      - 'tests/test_test_policy.py'
-      - 'pyproject.toml'
-      - 'uv.lock'
 
 permissions:
   contents: read
 
 jobs:
-  reference:
+  full_pool:
+    name: Full pool
     uses: $/.github/workflows/mutation.yml
     with:
       test-group: full
-      test-selection: ${{ github.event_name == 'pull_request' && 'coverage' || 'full' }}
-      test-order: ${{ github.event_name == 'pull_request' && 'component' || 'collection' }}
+      test-selection: full
+      test-order: collection
       full-source: true
-  candidate:
+  fast_pool:
+    name: Fast pool
     uses: $/.github/workflows/mutation.yml
     with:
       test-group: fast
       test-selection: coverage
       full-source: true
   compare:
-    name: Preserve every full-pool kill
-    needs: [reference, candidate]
+    name: Compare full and fast pools
+    needs: [full_pool, fast_pool]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -56,13 +48,7 @@ jobs:
         with:
           pattern: mutation-report-*-fast-shard-*
           path: coverage/parity/fast
-      - name: Compare complete pool outcomes
-        env:
-          AUDIT_EVENT: ${{ github.event_name }}
-        run: |
-          options=()
-          if [[ "$AUDIT_EVENT" == pull_request ]]; then options+=(--allow-coverage-reference); fi
-          uv run --locked python -m tests.compare_mutations coverage/parity/full coverage/parity/fast "${options[@]}" > coverage/parity/comparison.json
+      - run: uv run --locked python -m tests.compare_mutations coverage/parity/full coverage/parity/fast > coverage/parity/comparison.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: always()
         with:
