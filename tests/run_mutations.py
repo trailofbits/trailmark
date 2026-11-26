@@ -76,7 +76,7 @@ def _arguments() -> argparse.Namespace:
     )
     parser.add_argument("--test-order", choices=["component", "collection"], default="component")
     parser.add_argument("--test-selection", choices=["coverage", "full"], default="coverage")
-    parser.add_argument("--test-group", choices=["fast", "full"], default="full")
+    parser.add_argument("--test-group", choices=["fast", "full"], default="fast")
     parser.add_argument("--report-dir", type=Path, default=Path("coverage/gremlins"))
     controls = parser.add_mutually_exclusive_group()
     controls.add_argument(

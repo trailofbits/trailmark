@@ -329,6 +329,7 @@ def test_coverage_and_full_campaigns_agree_on_opaque_killers(tmp_path: Path, cas
             [
                 sys.executable,
                 str(runner),
+                "--test-group=full",
                 "--targets=target.py",
                 "--workers=2",
                 f"--test-selection={selection}",
@@ -371,6 +372,7 @@ def test_neutral_failure_prefix_must_pass_before_scoring(tmp_path: Path, shared:
     command = [
         sys.executable,
         str(Path(__file__).with_name("run_mutations.py")),
+        "--test-group=full",
         "--targets=target.py",
         "--workers=2",
     ]

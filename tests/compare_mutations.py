@@ -114,9 +114,9 @@ def compare(
     for key in ("inputs", "sources", "targets", "tests", "runner", "pytest_gremlins", "workers"):
         if before[key] != after[key]:
             raise ValueError(f"Incomparable campaign {key}")
-    if require_full_reference and (
-        before["test_group"] != "full" or before["test_selection"] != "full"
-    ):
+    if before["test_group"] != "full" or before["test_selection"] not in {"full", "coverage"}:
+        raise ValueError("Reference must use the full test pool")
+    if require_full_reference and before["test_selection"] != "full":
         raise ValueError("Reference must use the full test pool without coverage filtering")
     if full.keys() != fast.keys() or not full:
         raise ValueError("Campaign mutation inventories differ or are empty")
@@ -159,9 +159,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("reference", type=Path)
     parser.add_argument("candidate", type=Path)
+    parser.add_argument(
+        "--allow-coverage-reference",
+        action="store_true",
+        help="Compare against coverage-selected full-pool results instead of an unfiltered audit",
+    )
     args = parser.parse_args()
     try:
-        result = compare(args.reference, args.candidate)
+        result = compare(
+            args.reference,
+            args.candidate,
+            require_full_reference=not args.allow_coverage_reference,
+        )
     except (OSError, ValueError, KeyError, TypeError) as exc:
         parser.exit(1, f"Mutation comparison failed: {exc}\n")
     print(json.dumps(result, indent=2))

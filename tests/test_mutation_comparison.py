@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from collections import Counter
@@ -109,7 +110,27 @@ def test_comparison_rejects_invalid_evidence(
         compare(full, fast, root=root)
 
 
-def test_real_pools_keep_separate_reports_and_record_actual_witnesses(tmp_path: Path) -> None:
+def test_coverage_reference_requires_opt_in_and_the_full_pool(
+    reports: tuple[Path, Path, Path],
+) -> None:
+    root, full, fast = reports
+    path = full / "run.json"
+    run = json.loads(path.read_text())
+    run.update(test_selection="coverage", kill_confirmation="failure-prefix")
+    path.write_text(json.dumps(run))
+    with pytest.raises(ValueError, match="without coverage filtering"):
+        compare(full, fast, root=root)
+    assert compare(full, fast, root=root, require_full_reference=False)["lost_kills"] == 0
+    run["test_group"] = "fast"
+    path.write_text(json.dumps(run))
+    with pytest.raises(ValueError, match="full test pool"):
+        compare(full, fast, root=root, require_full_reference=False)
+
+
+@pytest.mark.parametrize("selection", ["full", "coverage"])
+def test_real_pools_keep_separate_reports_and_record_actual_witnesses(
+    tmp_path: Path, selection: str
+) -> None:
     (tmp_path / ".gitignore").write_text(
         Path(__file__).parents[1].joinpath(".gitignore").read_text()
     )
@@ -127,8 +148,8 @@ def test_real_pools_keep_separate_reports_and_record_actual_witnesses(tmp_path: 
                 sys.executable,
                 str(runner),
                 "--targets=target.py",
-                f"--test-group={group}",
-                "--test-selection=full",
+                *(["--test-group=full"] if group == "full" else []),
+                f"--test-selection={selection}",
                 "--test-order=collection",
                 "--workers=2",
                 f"--report-dir=coverage/{group}",
@@ -141,6 +162,7 @@ def test_real_pools_keep_separate_reports_and_record_actual_witnesses(tmp_path: 
         )
         assert result.returncode == 0, result.stdout + result.stderr
         directory = tmp_path / "coverage" / group
+        assert json.loads((directory / "run.json").read_text())["test_group"] == group
         report = json.loads((directory / "gremlins.json").read_text())
         assert all(
             row["killing_test"].startswith("test_target.py::")
@@ -152,5 +174,25 @@ def test_real_pools_keep_separate_reports_and_record_actual_witnesses(tmp_path: 
                 row["selected_tests"] == ["test_target.py::test_positive"]
                 for row in report["results"]
             )
-    comparison = compare(tmp_path / "coverage/full", tmp_path / "coverage/fast", root=tmp_path)
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        filter(None, (str(Path(__file__).parents[1]), env.get("PYTHONPATH")))
+    )
+    compared = subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            "-m",
+            "tests.compare_mutations",
+            "coverage/full",
+            "coverage/fast",
+            *(["--allow-coverage-reference"] if selection == "coverage" else []),
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    comparison = json.loads(compared.stdout)
+    assert compared.returncode == 1, compared.stdout + compared.stderr
     assert comparison["lost_kills"] > 0

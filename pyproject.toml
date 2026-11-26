@@ -96,7 +96,7 @@ known-third-party = ["coverage"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "mutation_fast: candidate mutation pool; parity and performance must be audited",
+    "mutation_fast: default mutation test pool; retain full-pool parity audits",
     "mutation_infrastructure: validate the runner once in its clean baseline",
     "binary_tools: integration checks requiring the binary extra and native host tools",
 ]

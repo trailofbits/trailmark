@@ -108,10 +108,10 @@ uv run python -m tests.mutation_gate
 The runner uses real pytest subprocesses and coverage-driven test selection.
 It validates clean and instrumented baselines, expands shared-fixture coverage
 to every consumer, and retains tests whose subprocesses or tracing obscure
-coverage. Import-time and unmapped mutations run the full suite. Ordinary kills
-require a passing neutral failure-prefix check or a matching validated full-suite
-order. The control retains the full selected collection and fixture teardown. Use it
-rather than invoking the pinned plugin directly. Omit
+coverage. Import-time and unmapped mutations run the entire selected pool.
+Ordinary kills require a passing neutral failure-prefix check or a matching
+validated complete-pool order. The control retains the full selected collection
+and fixture teardown. Use it rather than invoking the pinned plugin directly. Omit
 `--reviewed` for a full repository campaign; CI runs that after merges
 and on manual dispatch. `--workers` already enables parallel execution.
 CI produces one baseline receipt and coverage plan from a single instrumented
@@ -119,9 +119,9 @@ coverage pass. Its 32 mutation jobs reuse that evidence and execute mutants
 without replaying full baselines or prevalidating selected subsets.
 Local runs validate their own baselines by default. To reproduce a partition,
 pass the same `--shard=1/32` (one-based index/total) to both commands.
-Use `--test-selection=full` for a full-suite reference campaign. Shared coverage
-preparation uses `--baseline-shard=1/1`; copy both `baseline-1-of-1.json` and
-`coverage-plan.json` together when using `--baselines=PATH`.
+Use `--test-group=full --test-selection=full` for an unfiltered full-suite reference.
+Shared coverage preparation uses `--baseline-shard=1/1`; copy both
+`baseline-1-of-1.json` and `coverage-plan.json` together when using `--baselines=PATH`.
 See `CONTRIBUTING.md` for baseline sharing and failure-prefix confirmation.
 Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
 
@@ -138,6 +138,7 @@ Do not enable `TRAILMARK_UPDATE_SNAPSHOTS` during CI or mutation testing.
 - Update `README.md` and the matching regression tests if adding or
   changing user-facing API.
 
-The candidate `mutation_fast` pool is opt-in with `--test-group=fast`; the full
-pool stays the default until complete parity and a 20% median wall-time saving
-are measured. See CONTRIBUTING.md for comparisons and weekly/release audits.
+The `mutation_fast` pool is the default; use `--test-group=full` for the full pool.
+Mutation-harness PRs compare both pools with coverage selection. Weekly and manual
+audits use an unfiltered full-pool reference. See CONTRIBUTING.md for comparisons
+and release audits.

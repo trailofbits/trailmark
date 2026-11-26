@@ -9,8 +9,8 @@ on:
     inputs:
       test-group:
         type: choice
-        options: [full, fast]
-        default: full
+        options: [fast, full]
+        default: fast
       test-selection:
         type: choice
         options: [coverage, full]
@@ -19,7 +19,7 @@ on:
     inputs:
       test-group:
         type: string
-        default: full
+        default: fast
       test-selection:
         type: string
         default: coverage
@@ -31,14 +31,14 @@ on:
         default: false
 
 concurrency:
-  group: mutation-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}-${{ inputs.test-group || 'full' }}-${{ inputs.test-selection || 'coverage' }}
+  group: mutation-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}-${{ inputs.test-group || 'fast' }}-${{ inputs.test-selection || 'coverage' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 env:
-  MUTATION_TEST_GROUP: ${{ inputs.test-group || 'full' }}
+  MUTATION_TEST_GROUP: ${{ inputs.test-group || 'fast' }}
   MUTATION_TEST_SELECTION: ${{ inputs.test-selection || 'coverage' }}
   MUTATION_TEST_ORDER: ${{ inputs.test-order || 'component' }}
   PYTHONHASHSEED: "0"

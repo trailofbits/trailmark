@@ -145,11 +145,11 @@ child processes or replace Python tracing are retained for every mutant. Known
 native GNU/LLVM tools, C compilers, and the fixed `git -C ROOT rev-parse HEAD`
 provenance query are recognized through fingerprints of their executable contents.
 Other Git commands and Python or script wrappers remain opaque. Import-time and
-unmapped locations use the full suite.
+unmapped locations use the entire selected test pool.
 
 After mutant execution, ordinary test failures receive a neutral failure-prefix
 check. The control collects the same selected tests, executes only through the
-test that failed, and includes fixture teardown. Matching full-suite orders reuse
+test that failed, and includes fixture teardown. Matching complete-pool orders reuse
 the passing baseline. For each remaining selected collection, one successful
 longest prefix also validates its shorter failure prefixes. These controls use
 the same worker budget after the mutant pool closes. A failing neutral prefix
@@ -171,14 +171,14 @@ Collection-time `SystemExit` counts as a kill only when its traceback includes
 an instrumented application source and the unmutated test selection loads
 successfully. Harness failures and unrelated internal errors remain errors.
 
-Each mutant subprocess may run for 240 seconds so the full fallback suite can
+Each mutant subprocess may run for 240 seconds so the complete fallback pool can
 finish with four workers competing for CI resources. A timeout is not counted
 as a kill unless the unmutated confirmation run establishes sufficient headroom;
 inconclusive outcomes still fail the gate.
 
 **Test ordering.** Within a coverage-selected subset, component unit tests run first,
 stopping at the first failure. Shared-helper mutants retain tests from every
-language that covers the mutation. Full-suite fallbacks keep collection order so
+language that covers the mutation. Complete-pool fallbacks keep collection order so
 they can reuse the shared neutral baseline. Tests stay in
 their existing files; `tests/mutation_order.py` defines the ordering, and
 unknown components keep collection order. Use `--test-order=collection` to
@@ -196,28 +196,33 @@ mutants prioritize binding-boundary and PHP callable tests; shared parser mutant
 prioritize directory-linking regressions after their utility tests.
 
 **Focusing a campaign.** Pass `--targets` with comma-separated source paths,
-followed by the relevant test files.
+followed by the relevant test files. Use `--test-group=full` when those tests have
+no `mutation_fast` marker.
 
 Snapshot updates (`TRAILMARK_UPDATE_SNAPSHOTS=1`) are disabled during CI and
 mutation runs; do not enable them there.
 
 ### Mutation test pools
 
-The candidate fast pool marks existing tests with `pytest.mark.mutation_fast`.
-Tests stay in their original modules and ordinary CI continues to run every test.
-The full pool remains the default until the release acceptance campaign proves
-zero lost kills and at least 20% lower median end-to-end wall time.
+Mutation campaigns use the fast pool by default. It marks existing tests with
+`pytest.mark.mutation_fast`; tests stay in their original modules and ordinary CI
+continues to run every test. Select it explicitly with `--test-group=fast`, or use
+`--test-group=full` to run mutations against the full pool.
 
 ```bash
 uv run pytest -q -m mutation_fast tests/
-uv run python -m tests.run_mutations --test-group=fast --workers=4 --report-dir=coverage/fast
+uv run python -m tests.run_mutations --workers=4 --report-dir=coverage/fast
 uv run python -m tests.mutation_gate --report-dir=coverage/fast
+
+# Full-pool comparison using the same coverage selection as routine mutation runs.
+uv run python -m tests.run_mutations --test-group=full --workers=4 --report-dir=coverage/full
+uv run python -m tests.compare_mutations coverage/full coverage/fast --allow-coverage-reference
 
 # Unfiltered reference: test pool and coverage selection are independent controls.
 uv run python -m tests.run_mutations --test-group=full --test-selection=full --test-order=collection --report-dir=coverage/reference
 uv run python -m tests.compare_mutations coverage/reference coverage/fast
 
-# Complete application inventory, three serialized repetitions per configuration.
+# Optional controlled benchmark: three serialized repetitions per configuration.
 # Configure the native tool paths listed above before starting this long benchmark.
 uv run python -m tests.benchmark_mutations --workers=4 --repeat=3 --output-dir=coverage/pool-benchmark
 ```
@@ -240,12 +245,14 @@ or add a small behavioral regression, then rerun the comparison. Do not expand
 equivalent-mutant exceptions or narrow the mutated application to repair parity.
 Timing measurements belong in the benchmark, never in correctness assertions.
 
-`mutation-audit.yml` compares an unfiltered full-pool campaign with the fast pool
-weekly on Monday at 06:00 UTC and for mutation-infrastructure pull requests.
-Run its manual trigger against each release candidate as well. Each pool uses
-32 mutation shards and its own matching baseline. Once acceptance permits the
-routine fast-pool default, retain these full-pool audits and restore every lost
-kill before accepting a failed audit.
+`mutation-audit.yml` compares the full and fast pools with coverage selection for
+mutation-infrastructure pull requests. Weekly on Monday at 06:00 UTC and on its
+manual trigger, it uses an unfiltered full-pool reference instead. Run that manual
+audit against each release candidate as well. Each pool uses 32 mutation shards
+and its own matching baseline. Restore every lost kill before accepting a failed
+audit. Coverage-selected references require the explicit
+`--allow-coverage-reference` comparison flag; the default comparison still requires
+an unfiltered full-pool reference.
 
 ## Audit artifacts
 
