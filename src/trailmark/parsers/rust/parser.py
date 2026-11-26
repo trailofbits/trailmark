@@ -35,7 +35,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 from trailmark.parsers.rust._scopes import resolve_calls
 from trailmark.parsers.rust._templates import extract_templates, finalize_templates
 from trailmark.tree_sitter_custom.rust import language as rust_language
@@ -128,7 +128,7 @@ class RustParser:
         )
         resolve_calls(graph, self._uses, module_id, self._declarations)
         finalize_templates(graph, templates)
-        collect_exception_events(tree.root_node, file_path, graph)
+        collect_source_evidence(tree.root_node, file_path, graph, source=source)
         return graph
 
     def _visit_scope(

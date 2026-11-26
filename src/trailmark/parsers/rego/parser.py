@@ -11,6 +11,7 @@ from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, NodeOrigin, Parameter
+from trailmark.parsers._call_sites import collect_call_sites
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -49,6 +50,7 @@ class RegoParser:
         graph = CodeGraph(language="rego", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_root(tree.root_node, file_path, module_id, graph)
+        collect_call_sites(tree.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

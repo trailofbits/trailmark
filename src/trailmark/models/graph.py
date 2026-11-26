@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from trailmark.models._parsing import ParseState
 from trailmark.models.annotations import Annotation, AnnotationKind, EntrypointTag
 from trailmark.models.binary import BinaryArtifact, BinaryRange, BinarySourceMapping
+from trailmark.models.constraints import CallSite, ParameterBinding
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.entrypoints import EntrypointEvidence
@@ -36,6 +37,8 @@ class CodeGraph:
     parse_diagnostics: list[ParseDiagnostic] = field(default_factory=list)
     source_policy: dict[str, object] = field(default_factory=dict)
     source_digests: dict[str, str] = field(default_factory=dict)
+    call_sites: dict[str, CallSite] = field(default_factory=dict)
+    parameter_bindings: dict[str, tuple[ParameterBinding, ...]] = field(default_factory=dict)
     entrypoint_evidence: dict[str, EntrypointEvidence] = field(default_factory=dict)
     binary_artifacts: dict[str, BinaryArtifact] = field(default_factory=dict)
     binary_ranges: dict[str, BinaryRange] = field(default_factory=dict)
@@ -105,7 +108,22 @@ class CodeGraph:
         annotation: Annotation,
     ) -> None:
         """Append an annotation to the given node."""
+        if annotation.constraint is not None:
+            from trailmark.analysis.constraints import validate_claim
+
+            validate_claim(self, node_id, annotation.constraint, require_current=True)
         self.annotations.setdefault(node_id, []).append(annotation)
+
+    def add_call_site(self, site: CallSite) -> None:
+        """Preserve source occurrences independently of target-resolution changes."""
+        if site.caller_id not in self.nodes:
+            raise ValueError("Call-site caller does not exist")
+        if self.source_digests.get(site.location.file_path) != site.source_sha256:
+            raise ValueError("Call-site source digest does not match its graph")
+        previous = self.call_sites.get(site.id)
+        if previous is not None and previous != site:
+            raise ValueError("Conflicting call-site identity")
+        self.call_sites[site.id] = site
 
     def clear_annotations(
         self,
@@ -128,6 +146,12 @@ class CodeGraph:
 
     def merge(self, other: CodeGraph) -> None:
         """Merge another graph into this one."""
+        for key, site in other.call_sites.items():
+            if key in self.call_sites and self.call_sites[key] != site:
+                raise ValueError(f"Conflicting call-site identity: {key}")
+        for key, profile in other.parameter_bindings.items():
+            if key in self.parameter_bindings and self.parameter_bindings[key] != profile:
+                raise ValueError(f"Conflicting parameter binding profile: {key}")
         for path, digest in other.source_digests.items():
             if path in self.source_digests and self.source_digests[path] != digest:
                 raise ValueError(f"Conflicting source digest: {path}")
@@ -169,6 +193,8 @@ class CodeGraph:
             )
         self.nodes.update(other.nodes)
         self.source_digests.update(other.source_digests)
+        self.call_sites.update(other.call_sites)
+        self.parameter_bindings.update(other.parameter_bindings)
         self._parse_state.merge(other._parse_state)
         self.edges.extend(other.edges)
         self.parse_diagnostics.extend(other.parse_diagnostics)

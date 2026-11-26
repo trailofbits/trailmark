@@ -11,6 +11,7 @@ from tree_sitter_language_pack import get_language
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import Attribute, CodeUnit, NodeKind
+from trailmark.parsers._call_sites import collect_call_sites
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -61,6 +62,7 @@ class LeanParser:
         module = module_id_from_path(file_path)
         add_module_node(root, file_path, module, graph)
         _Extractor(graph, module, file_path).declarations(root)
+        collect_call_sites(root, file_path, graph)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

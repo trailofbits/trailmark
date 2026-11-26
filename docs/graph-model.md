@@ -11,6 +11,8 @@ classDiagram
         root_path: str
         nodes: dict[str, CodeUnit]
         edges: list[CodeEdge]
+        call_sites: dict[str, CallSite]
+        parameter_bindings: dict[str, tuple[ParameterBinding]]
         annotations: dict[str, list[Annotation]]
         entrypoints: dict[str, EntrypointTag]
         subgraphs: dict[str, set[str]]
@@ -379,3 +381,15 @@ that a dependency is absent. Type-use edges reuse scope-checked type references 
 than rebinding raw type names globally. Syntax diagnostics coalesce nested error ranges
 and report at most 256 individual errors per file plus a summary. Declaration nesting
 beyond 128 levels produces a coverage diagnostic.
+
+## Constraint evidence (unreleased)
+
+`CodeGraph.call_sites` holds immutable `CallSite` records with source spans,
+SHA-256 fingerprints, raw operands, receivers, and execution gaps. Their IDs
+identify source occurrences independently of target lookup. `parameter_bindings`
+retains reviewed signature binding modes where available. The `constraint`
+annotation kind adds a typed payload to `Annotation`; legacy prose annotations
+retain their existing interface. Full snapshots preserve this evidence in format 2.
+
+See [Constraint annotations](constraints.md) for the versioned predicate grammar,
+source invalidation, conditional summaries, and frontend capability matrix.

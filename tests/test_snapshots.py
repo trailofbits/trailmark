@@ -162,7 +162,7 @@ def test_source_fingerprints_are_captured_before_export_and_can_be_verified(tmp_
     "change",
     [
         lambda s: s.update(format="topology"),
-        lambda s: s.update(snapshot_version=2),
+        lambda s: s.update(snapshot_version=1),
         lambda s: s.update(snapshot_version=True),
         lambda s: s.update(trailmark_version="0.0.0"),
         lambda s: s["graph"]["nodes"]["app:helper"].update(kind="unknown"),

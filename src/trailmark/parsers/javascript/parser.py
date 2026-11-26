@@ -33,7 +33,7 @@ from trailmark.parsers._ecmascript import (
     link_ecmascript_calls,
 )
 from trailmark.parsers._ecmascript_imports import import_scope
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 
 _BRANCH_NODE_TYPES = frozenset(
     {
@@ -83,7 +83,7 @@ class JavaScriptParser:
         module_id = module_id_from_path(file_path)
         with callable_scope(graph):
             _visit_module(tree.root_node, file_path, module_id, graph)
-        collect_exception_events(tree.root_node, file_path, graph)
+        collect_source_evidence(tree.root_node, file_path, graph, source=source)
         return graph
 
     @import_scope()

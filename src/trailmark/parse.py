@@ -395,6 +395,20 @@ def _finish_source_manifest(
 
 def _namespace_root(graph: CodeGraph, name: str) -> None:
     mapping = {node_id: f"{name}::{node_id}" for node_id in graph.nodes}
+    remapped_sites = {
+        key: replace(site, caller_id=mapping.get(site.caller_id, site.caller_id))
+        for key, site in graph.call_sites.items()
+    }
+    site_ids = {key: site.id for key, site in remapped_sites.items()}
+    graph.call_sites = {site.id: site for site in remapped_sites.values()}
+    graph.parameter_bindings = {
+        mapping.get(key, key): profile for key, profile in graph.parameter_bindings.items()
+    }
+    graph._parse_state.call_sites = {
+        updated.id: updated
+        for site in graph._parse_state.call_sites.values()
+        for updated in (replace(site, caller_id=mapping.get(site.caller_id, site.caller_id)),)
+    }
     graph.nodes = {mapping[k]: replace(v, id=mapping[k]) for k, v in graph.nodes.items()}
     graph.edges = [
         replace(
@@ -404,7 +418,23 @@ def _namespace_root(graph: CodeGraph, name: str) -> None:
         )
         for e in graph.edges
     ]
-    graph.annotations = {mapping.get(k, k): v for k, v in graph.annotations.items()}
+    graph.annotations = {
+        mapping.get(key, key): [
+            replace(
+                annotation,
+                constraint=replace(
+                    annotation.constraint,
+                    call_site_id=site_ids.get(
+                        annotation.constraint.call_site_id, annotation.constraint.call_site_id
+                    ),
+                ),
+            )
+            if annotation.constraint is not None
+            else annotation
+            for annotation in values
+        ]
+        for key, values in graph.annotations.items()
+    }
     graph.entrypoints = {mapping.get(k, k): v for k, v in graph.entrypoints.items()}
     evidence = [
         replace(

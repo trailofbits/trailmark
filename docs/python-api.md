@@ -259,8 +259,19 @@ engine.nodes_with_annotation(AnnotationKind.FINDING)
 
 Annotation kinds are `assumption`, `precondition`, `postcondition`,
 `invariant`, `blast_radius`, `privilege_boundary`, `taint_propagation`,
-`finding`, and `audit_note`. The import and preanalysis methods are described in
+`finding`, `audit_note`, and the structured `constraint` kind. The import and preanalysis methods are described in
 [Findings and preanalysis](augmenting.md).
+
+### Constraint evidence (unreleased)
+
+`call_sites(name)` returns source occurrences, operand expressions and labels,
+current target bindings, and explicit gaps. `annotate_constraint(...)` saves a
+source-bound predicate claim; `constraints_of(name)` includes snapshot-relative
+freshness. `constraint_summary(name, parameter, assumptions=())` returns a
+conditional or unknown summary for a zero-based parameter index.
+`constraint_support()` lists the capabilities of all registered frontends.
+See [Constraint annotations](constraints.md) for the grammar, assumptions, agent
+workflow, and the distinction between reviewed claims and proofs.
 
 ### Subgraphs
 
@@ -366,6 +377,10 @@ text is obtained again through bounded disassembly and is not stored in the
 graph. Native call edges retain call-site addresses in edge attributes.
 
 ## Reloadable analysis snapshots
+
+The unreleased constraint API uses snapshot format 2. It adds source call sites,
+parameter binding modes, and typed constraint payloads. Format-1 snapshots must
+be rebuilt; see [constraint persistence](constraints.md#identity-and-persistence).
 
 `to_snapshot()` returns a separate JSON format that preserves complete analysis
 state: every node and edge with its locations and attributes, annotations,

@@ -6,6 +6,7 @@ import dataclasses
 import re
 from hashlib import sha256
 
+from trailmark.models.constraints import CallSite
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import TYPE_KINDS as _TYPE_KINDS
@@ -47,6 +48,19 @@ def _connect_deferred_calls(graph: CodeGraph) -> None:
                     attributes=(("deferred", True),),
                 )
             )
+            digest = graph.source_digests.get(unit.location.file_path)
+            if digest is not None:
+                graph.add_call_site(
+                    CallSite(
+                        owner,
+                        graph.language,
+                        unit.location,
+                        digest,
+                        "",
+                        execution="deferred",
+                        gaps=("deferred_execution",),
+                    )
+                )
 
 
 def _deferred_callables(graph: CodeGraph) -> list[tuple[str, CodeUnit]]:

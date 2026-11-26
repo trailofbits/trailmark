@@ -49,6 +49,9 @@ that are reachable from user input.
   coarse taint) that store their results as annotations and named subgraphs.
 - **Visible gaps.** Calls that cannot be resolved become proxy nodes instead of
   disappearing, and `trailmark analyze --resolution` counts them.
+- **Constraint annotations (unreleased).** Retain source-located call arguments,
+  save typed input claims, and query conditional callee summaries with explicit
+  assumptions and gaps. See [constraint annotations](https://github.com/trailofbits/trailmark/blob/main/docs/constraints.md).
 - **Exception evidence.** Inspect source-located throws, rethrows, handlers and
   cleanup syntax with `exception_events()`; unknown thrown operands remain
   visible. See the [graph model](https://github.com/trailofbits/trailmark/blob/main/docs/graph-model.md#exception-evidence) for

@@ -20,7 +20,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 from trailmark.parsers._simple import (
     add_call_edges,
     child_text,
@@ -52,7 +52,7 @@ class SwayParser:
         graph = CodeGraph(language="sway", root_path=file_path)
         module_id = module_id_from_path(file_path)
         _visit_root(tree.root_node, file_path, module_id, graph)
-        collect_exception_events(tree.root_node, file_path, graph)
+        collect_source_evidence(tree.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

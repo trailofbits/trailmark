@@ -68,7 +68,10 @@ def _graph_st(
     return CodeGraph(nodes=nodes, edges=edges, dependencies=deps)
 
 
-_annotation_kind_st = st.sampled_from(list(AnnotationKind))
+# Structured constraints require graph-bound payloads; this strategy covers prose notes.
+_annotation_kind_st = st.sampled_from(
+    [kind for kind in AnnotationKind if kind != AnnotationKind.CONSTRAINT]
+)
 
 _annotation_st = st.builds(
     Annotation,

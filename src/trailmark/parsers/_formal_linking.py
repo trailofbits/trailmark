@@ -12,6 +12,7 @@ from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import TYPE_KINDS, CodeUnit, NodeKind, NodeOrigin
+from trailmark.parsers._call_sites import finalize_call_sites
 from trailmark.parsers._resolution import SymbolIndex, module_visibility
 
 
@@ -452,6 +453,7 @@ def link_symbols(graph: CodeGraph, *, qualified_prefixes: tuple[str, ...] = ()) 
                     attributes=(("type_name", dict(edge.attributes).get("spelling")),),
                 )
             )
+    finalize_call_sites(graph)
     graph._parse_state.clear_references()
     targets = {e.target_id for e in graph.edges}
     for ident in list(graph.nodes):

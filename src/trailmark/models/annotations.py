@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from trailmark.models.constraints import ConstraintClaim
+
 
 class AnnotationKind(Enum):
     """Categories of semantic annotations on code units."""
@@ -18,6 +20,7 @@ class AnnotationKind(Enum):
     TAINT_PROPAGATION = "taint_propagation"
     FINDING = "finding"
     AUDIT_NOTE = "audit_note"
+    CONSTRAINT = "constraint"
 
 
 @dataclass(frozen=True)
@@ -27,6 +30,13 @@ class Annotation:
     kind: AnnotationKind
     description: str
     source: str
+    constraint: ConstraintClaim | None = None
+
+    def __post_init__(self) -> None:
+        if self.constraint is not None and not isinstance(self.constraint, ConstraintClaim):
+            raise ValueError("Constraint payload must be a ConstraintClaim")
+        if (self.kind == AnnotationKind.CONSTRAINT) != (self.constraint is not None):
+            raise ValueError("Constraint annotations require a typed constraint payload")
 
 
 class AssetValue(Enum):

@@ -22,7 +22,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 from trailmark.parsers._simple import descendants, first_child_type
 
 _LOG = logging.getLogger(__name__)
@@ -289,5 +289,5 @@ class PerlParser:
                     location=make_location(call, file_path),
                 )
             )
-        collect_exception_events(root, file_path, graph)
+        collect_source_evidence(root, file_path, graph)
         return graph

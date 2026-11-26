@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from hashlib import sha256
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -11,6 +12,7 @@ from tree_sitter_language_pack import get_language
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, Parameter, TypeRef
+from trailmark.parsers._call_sites import collect_call_sites
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -38,10 +40,15 @@ class GraphQLParser:
     def parse_file(self, file_path: str) -> CodeGraph:
         source = Path(file_path).read_bytes()
         tree = self._parser.parse(mask_graphql_escapes(source))
-        graph = CodeGraph(language="graphql", root_path=file_path)
+        graph = CodeGraph(
+            language="graphql",
+            root_path=file_path,
+            source_digests={file_path: sha256(source).hexdigest()},
+        )
         module_id = module_id_from_path(file_path)
         _visit_root(tree.root_node, file_path, module_id, graph, source)
         _assign_roots(graph)
+        collect_call_sites(tree.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

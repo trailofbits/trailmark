@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Retain source-bound call-site operands across applicable frontends and add
+  typed constraint annotations, conditional parameter summaries, and an agent
+  workflow. Source gaps and unverified assumptions remain explicit.
+- Advance full analysis snapshots to format 2 for constraint evidence and
+  parameter binding modes; rebuild format-1 snapshots.
+
 ## 0.9.1 (2026-11-24)
 
 This release adds reloadable analysis snapshots, extends Python import resolution

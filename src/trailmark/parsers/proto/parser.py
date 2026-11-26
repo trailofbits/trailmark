@@ -10,6 +10,7 @@ from tree_sitter_language_pack import get_language
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, Parameter, TypeRef
+from trailmark.parsers._call_sites import collect_call_sites
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -39,6 +40,7 @@ class ProtoParser:
         graph = CodeGraph(language="proto", root_path=file_path)
         module_id = _package_id(tree.root_node) or module_id_from_path(file_path)
         _visit_root(tree.root_node, file_path, module_id, graph)
+        collect_call_sites(tree.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

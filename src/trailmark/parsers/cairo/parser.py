@@ -26,7 +26,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 from trailmark.parsers.cairo._qualified import resolve_qualified_calls
 from trailmark.parsers.cairo._self_calls import (
     bind_self_calls,
@@ -69,7 +69,7 @@ class CairoParser:
         resolve_qualified_calls(tree.root_node, graph, module_id)
         _resolve_lexical_calls(graph)
         bind_self_calls(graph)
-        collect_exception_events(tree.root_node, file_path, graph)
+        collect_source_evidence(tree.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
