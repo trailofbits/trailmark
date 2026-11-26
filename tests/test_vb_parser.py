@@ -19,6 +19,7 @@ def _file(tmp_path: Path, source: str) -> Path:
     return path
 
 
+@pytest.mark.mutation_fast
 def test_containers_signatures_case_binding_and_entrypoint(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -60,6 +61,7 @@ End Namespace
     assert parse_directory(str(tmp_path), language="vb").source_file_counts == {"vb": 1}
 
 
+@pytest.mark.mutation_fast
 def test_overloads_receivers_and_delegate_shadows_stay_uncertain(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -88,6 +90,7 @@ End Module
     assert all(e.confidence == EdgeConfidence.UNCERTAIN for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("header", "method", "expected"),
     [
@@ -107,6 +110,7 @@ def test_cli_signature_eligibility(
     assert bool(engine.attack_surface()) == expected
 
 
+@pytest.mark.mutation_fast
 def test_lambdas_accessors_constructors_and_bare_calls_have_owners(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -145,6 +149,7 @@ End Class
     assert len([e for e in calls if e.source_id == "sample:App.Run"]) == 2
 
 
+@pytest.mark.mutation_fast
 def test_namespace_receiver_and_captured_local_shadows_stay_uncertain(tmp_path: Path) -> None:
     path = _file(
         tmp_path,

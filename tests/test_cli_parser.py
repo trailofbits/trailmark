@@ -217,6 +217,7 @@ class TestAugmentSubparser:
 
 
 class TestDiagramSubparser:
+    @pytest.mark.mutation_fast
     def test_target_required_with_short_flag(
         self, subparsers_map: dict[str, argparse.ArgumentParser]
     ) -> None:
@@ -224,6 +225,7 @@ class TestDiagramSubparser:
         assert action.required is True
         assert "-t" in action.option_strings
 
+    @pytest.mark.mutation_fast
     def test_type_required_with_choices(
         self, subparsers_map: dict[str, argparse.ArgumentParser]
     ) -> None:

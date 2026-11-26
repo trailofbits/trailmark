@@ -14,8 +14,10 @@ import json
 import os
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -39,7 +41,7 @@ from tests.mutation_coverage import select_tests as coverage_tests
 from tests.mutation_order import prioritize_tests, relative_node_ids
 
 VERSION = "1.14.3"
-RUNNER = "trailmark-pytest-coverage-v9"
+RUNNER = "trailmark-pytest-coverage-v10"
 
 
 def parse_shard(value: str) -> tuple[int, int]:
@@ -74,6 +76,8 @@ def _arguments() -> argparse.Namespace:
     )
     parser.add_argument("--test-order", choices=["component", "collection"], default="component")
     parser.add_argument("--test-selection", choices=["coverage", "full"], default="coverage")
+    parser.add_argument("--test-group", choices=["fast", "full"], default="fast")
+    parser.add_argument("--report-dir", type=Path, default=Path("coverage/gremlins"))
     controls = parser.add_mutually_exclusive_group()
     controls.add_argument(
         "--baseline-shard",
@@ -87,6 +91,10 @@ def _arguments() -> argparse.Namespace:
     )
     parser.add_argument("tests", nargs="*", default=["tests"])
     args = parser.parse_args()
+    destination = args.report_dir.resolve()
+    root = Path.cwd().resolve()
+    if destination.is_relative_to(root) and not destination.is_relative_to(root / "coverage"):
+        parser.error("Report directories must be under coverage/ or outside the checkout")
     if args.workers < 1:
         parser.error("--workers must be positive")
     if version("pytest-gremlins") != VERSION:
@@ -146,6 +154,7 @@ def _check_instrumented_orders(
         "tests": args.tests,
         "test_order": args.test_order,
         "test_selection": args.test_selection,
+        "test_group": args.test_group,
         "addopts": session.preserved_addopts,
     }
     if args.test_selection == "coverage":
@@ -218,9 +227,11 @@ def _instrumented_writer(
             raise pytest.UsageError(f"Mutation instrumentation skipped files: {unwritable}")
         record_source_collection_exits(directory)
         record_test_execution(directory)
+        started = time.perf_counter()
         receipts.append(
             _check_instrumented_orders(directory, instrumented_asts, args, fingerprint, plans)
         )
+        args.timings["instrumented_preparation_seconds"] = time.perf_counter() - started
         return directory
 
     return write_and_check
@@ -230,6 +241,12 @@ class _RequireCompleteInstrumentation:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         self.empty_shard = False
+        self.inventory: list[dict[str, Any]] = []
+        self.started = time.perf_counter()
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_collection_modifyitems(self) -> None:
+        self.args.timings["collection_and_startup_seconds"] = time.perf_counter() - self.started
 
     @pytest.hookimpl(trylast=True)
     def pytest_collection_finish(self) -> None:
@@ -243,6 +260,9 @@ class _RequireCompleteInstrumentation:
             if self.args.baseline_shard:
                 session.enabled = False
             selected = select_shard(session.gremlins, self.args.shard)
+            from tests.mutation_inventory import inventory
+
+            self.inventory = inventory(selected, Path.cwd())
             self.empty_shard = bool(session.gremlins) and not selected
             session.gremlins = selected
 
@@ -266,6 +286,7 @@ def _run_campaign(
     cache_result = plugin._cache_gremlin_result
     dispatch = plugin._dispatch_mutation_run
     selections: dict[str, list[str]] = {}
+    confirmed: dict[str, plugin.GremlinResult] = {}
 
     def record_confirmed_result(
         gremlin: Gremlin,
@@ -275,6 +296,10 @@ def _run_campaign(
     ) -> None:
         # Native collection/timeout checks and our failure-prefix checks have
         # finished before a result reaches this publication point.
+        witness = controls.witnesses.get(gremlin.gremlin_id)
+        if witness is not None:
+            result = replace(result, killing_test=witness["test"])
+        confirmed[gremlin.gremlin_id] = result
         cache_result(gremlin, selected_tests, result, session)
         with (report_dir / "progress.jsonl").open("a") as progress:
             progress.write(
@@ -287,6 +312,8 @@ def _run_campaign(
                         "status": result.status.value,
                         "selected_test_count": len(result.selected_tests),
                         "execution_time_ms": result.execution_time_ms,
+                        "killing_test": result.killing_test,
+                        "failure_phase": witness["phase"] if witness else None,
                     }
                 )
                 + "\n"
@@ -304,9 +331,13 @@ def _run_campaign(
     def dispatch_and_confirm(
         session: pytest.Session, gremlin_session: plugin.GremlinSession
     ) -> list[plugin.GremlinResult]:
+        started = time.perf_counter()
         results = dispatch(session, gremlin_session)
+        args.timings["mutation_execution_seconds"] = time.perf_counter() - started
+        started = time.perf_counter()
         controls.flush(gremlin_session, record_confirmed_result)
-        return results
+        args.timings["confirmation_seconds"] = time.perf_counter() - started
+        return [confirmed.get(result.gremlin.gremlin_id, result) for result in results]
 
     def uncached_tests(gremlin: Gremlin, session: plugin.GremlinSession) -> list[str]:
         tests = list(session.test_node_ids)
@@ -333,6 +364,16 @@ def _run_campaign(
         if args.test_selection == "coverage":
             print("Reusing coverage from the validated baseline", flush=True)
 
+    def write_json(
+        score: plugin.MutationScore,
+        rootdir: Path,
+        *,
+        skipped_files: dict[str, str] | None = None,
+    ) -> Path:
+        destination = report_dir / "gremlins.json"
+        plugin.JsonReporter().write_report(score, destination, skipped_files=skipped_files)
+        return destination
+
     instrumentation = _RequireCompleteInstrumentation(args)
     with (
         patch.object(
@@ -345,13 +386,18 @@ def _run_campaign(
         patch.object(plugin, "_collect_coverage", side_effect=reuse_coverage),
         patch.object(plugin, "_cache_gremlin_result", side_effect=record_result),
         patch.object(plugin, "_dispatch_mutation_run", side_effect=dispatch_and_confirm),
+        patch.object(plugin, "_write_json_report", side_effect=write_json),
     ):
         result = pytest.main(
             [
                 "-q",
                 *args.tests,
                 "-m",
-                "not mutation_infrastructure",
+                (
+                    "mutation_fast and not mutation_infrastructure"
+                    if args.test_group == "fast"
+                    else "not mutation_infrastructure"
+                ),
                 "--gremlins",
                 "--gremlin-executor=subprocess",
                 *(["--gremlin-no-coverage-filter"] if args.test_selection == "full" else []),
@@ -362,6 +408,10 @@ def _run_campaign(
             ],
             plugins=[instrumentation],
         )
+    if result == 0 and not args.baseline_shard:
+        (report_dir / "inventory.json").write_text(
+            json.dumps(instrumentation.inventory, indent=2) + "\n"
+        )
     if result == 0 and instrumentation.empty_shard and not args.baseline_shard:
         (report_dir / "gremlins.json").write_text(
             json.dumps({"summary": {"total": 0}, "results": []}) + "\n"
@@ -370,9 +420,11 @@ def _run_campaign(
 
 
 def main() -> int:
+    started = time.perf_counter()
     args = _arguments()
+    args.timings = {}
     os.environ["TRAILMARK_MUTATION_TESTING"] = "1"
-    report_dir = Path("coverage/gremlins")
+    report_dir = args.report_dir
     report_dir.mkdir(parents=True, exist_ok=True)
     for name in (
         "run.json",
@@ -381,6 +433,7 @@ def main() -> int:
         "coverage-plan.json",
         "prefix-summary.json",
         "executions.jsonl",
+        "inventory.json",
     ):
         (report_dir / name).unlink(missing_ok=True)
     receipt_path = None
@@ -412,11 +465,15 @@ def main() -> int:
                     "inputs": fingerprint,
                     "test_order": args.test_order,
                     "test_selection": args.test_selection,
+                    "test_group": args.test_group,
+                    "workers": args.workers,
                     "selection_plan": plans[0]["digest"] if plans else None,
                     "shard": args.shard,
                     "targets": args.targets,
                     "sources": hashes,
                     "tests": args.tests,
+                    "wall_seconds": time.perf_counter() - started,
+                    "timings": args.timings,
                     "baseline_validation": "shared" if args.baselines is not None else "local",
                     "kill_confirmation": (
                         "baseline-orders" if args.test_selection == "full" else "failure-prefix"

@@ -15,6 +15,7 @@ from trailmark.query.api import QueryEngine
 from trailmark.tree_sitter_custom import verus
 
 
+@pytest.mark.mutation_fast
 def test_inline_modules_keep_distinct_nodes_and_call_provenance(tmp_path: Path) -> None:
     path = tmp_path / "scope.rs"
     path.write_text("""\
@@ -107,6 +108,7 @@ verus! {
     assert all("unsupported Verus delimiter" in r.message for r in caplog.records)
 
 
+@pytest.mark.mutation_fast
 def test_invalid_block_does_not_consume_valid_neighbors(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -132,6 +134,7 @@ def test_valid_block_without_functions_is_not_an_error(
     assert caplog.records == []
 
 
+@pytest.mark.mutation_fast
 def test_opaque_macros_are_diagnosed_without_expanding_them(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -234,6 +237,7 @@ def test_verus_locations_use_original_utf8_byte_columns(tmp_path: Path, newline:
     assert calls[0].location == SourceLocation(str(path), 3, 3, 32, 38)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("wrapper", [False, True])
 def test_doc_comment_ownership_and_plain_rust_attributes(tmp_path: Path, wrapper: bool) -> None:
     source = """\
@@ -295,6 +299,7 @@ def test_call_fixture_has_independently_specified_graph() -> None:
     assert checked.branches[0].location == SourceLocation(str(path), 9, 9, 8, 32)
 
 
+@pytest.mark.mutation_fast
 def test_declaration_fixture_has_independently_specified_metadata() -> None:
     path = Path(__file__).parent / "fixtures/kat/rust/verus_declarations.rs"
     graph = RustParser().parse_file(str(path))
@@ -404,6 +409,7 @@ def test_function_local_macros_do_not_contribute_outer_calls_or_branches(
     assert "inside a function body" in caplog.records[0].message
 
 
+@pytest.mark.mutation_fast
 def test_uninvoked_macro_definition_inside_verus_is_not_diagnosed(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -425,6 +431,7 @@ def test_external_module_declaration_does_not_create_inline_scope(tmp_path: Path
     assert len(graph.edges) == 1
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("delimiters", [("(", ")"), ("[", "]")])
 def test_unsupported_top_level_delimiters_warn_without_loading(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, delimiters: tuple[str, str]
@@ -439,6 +446,7 @@ def test_unsupported_top_level_delimiters_warn_without_loading(
     assert "unsupported Verus delimiter" in caplog.records[0].message
 
 
+@pytest.mark.mutation_fast
 def test_nested_module_unsupported_delimiter_does_not_leak(tmp_path: Path) -> None:
     path = tmp_path / "nested.rs"
     path.write_text("verus! { mod a { verus!(fn hidden() {}); fn visible() {} } }")
@@ -447,6 +455,7 @@ def test_nested_module_unsupported_delimiter_does_not_leak(tmp_path: Path) -> No
     assert len(graph.edges) == 2
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("placement", ["before", "after"])
 def test_raw_macro_definitions_stay_opaque_in_different_positions(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, placement: str
@@ -472,6 +481,7 @@ def test_qualified_verus_inside_opaque_macro_is_diagnosed(
     assert "inside an opaque macro" in caplog.text
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("wrapper", [False, True])
 def test_local_helpers_retain_calls_without_polluting_outer_metadata(
     tmp_path: Path, wrapper: bool
@@ -513,6 +523,7 @@ fn other() { fn inner() {} inner(); }
     }
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("wrapper", [False, True])
 def test_relative_imports_resolve_forward_declarations_and_keep_local_shadowing(
     tmp_path: Path, wrapper: bool
@@ -545,6 +556,7 @@ fn helper() {}
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("prefix", ["vstd::prelude::", "custom::", ""])
 def test_qualified_verus_blocks_preserve_original_coordinates(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, prefix: str
@@ -615,6 +627,7 @@ mod a {
     )
 
 
+@pytest.mark.mutation_fast
 def test_ambiguous_and_unavailable_imports_do_not_invent_targets(tmp_path: Path) -> None:
     path = tmp_path / "unresolved.rs"
     path.write_text("""\
@@ -711,6 +724,7 @@ fn outer() {
     ]
 
 
+@pytest.mark.mutation_fast
 def test_empty_absolute_import_preserves_other_declarations(tmp_path: Path) -> None:
     path = tmp_path / "empty_import.rs"
     path.write_text("use ::{}; fn visible() {}")
@@ -800,6 +814,7 @@ def test_invalid_parent_imports_never_wrap_around_to_real_nodes(
     ]
 
 
+@pytest.mark.mutation_fast
 def test_call_immediately_after_a_block_uses_the_outer_binding(tmp_path: Path) -> None:
     path = tmp_path / "adjacent.rs"
     path.write_text("fn helper() {} fn outer() { { fn helper() {} }helper(); }")
@@ -809,6 +824,7 @@ def test_call_immediately_after_a_block_uses_the_outer_binding(tmp_path: Path) -
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("branch", ["if", "while"])
 def test_masking_keeps_original_macro_names_in_branch_conditions(
     tmp_path: Path, branch: str
@@ -822,6 +838,7 @@ def test_masking_keeps_original_macro_names_in_branch_conditions(
     assert [e for e in graph.edges if e.kind == EdgeKind.CALLS] == []
 
 
+@pytest.mark.mutation_fast
 def test_masking_preserves_branches_without_condition_fields(tmp_path: Path) -> None:
     path = tmp_path / "for_condition.rs"
     path.write_text("verus! { fn checked() { for x in 0..1 { if verus!(true) {} } } }")

@@ -11,6 +11,7 @@ from trailmark.parse import parse_file
 from trailmark.parsers import _receiver_index
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body,targets",
     [
@@ -38,6 +39,7 @@ def test_receiver_assignment_order(tmp_path: Path, body: str, targets: list[str]
     assert [edge.target_id for edge in calls] == targets
 
 
+@pytest.mark.mutation_fast
 def test_many_receivers_index_each_body_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

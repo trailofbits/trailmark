@@ -23,6 +23,7 @@ def _calls(graph: CodeGraph) -> list[CodeEdge]:
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["c", "cpp"])
 def test_block_external_prototype_is_scoped(tmp_path: Path, extension: str) -> None:
     (tmp_path / f"app.{extension}").write_text(
@@ -50,6 +51,7 @@ def test_python_import_uses_final_definition(tmp_path: Path, last: str, language
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 @pytest.mark.parametrize(
     "value", ["function*(){yield helper();}", "async function*(){helper();}", "((()=>helper()))"]
@@ -73,6 +75,7 @@ def test_typescript_callable_assertions(tmp_path: Path, wrapper: str) -> None:
     assert any(edge.source_id == "app:run" and edge.target_id == "app:f" for edge in _calls(graph))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 @pytest.mark.parametrize(
     "definition,owner",
@@ -148,6 +151,7 @@ def test_move_self_is_current_module(tmp_path: Path) -> None:
     assert calls[1].confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_csharp_overload_descendants_use_final_owner(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -182,6 +186,7 @@ def test_returned_call_is_indirect(tmp_path: Path, extension: str) -> None:
     assert len({edge.target_id for edge in indirect}) == 2
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("conditional", ["if flag:", "for _ in [1]:"])
 def test_python_conditional_parameter_rebinding(tmp_path: Path, conditional: str) -> None:
     graph = _graph(
@@ -192,6 +197,7 @@ def test_python_conditional_parameter_rebinding(tmp_path: Path, conditional: str
     assert dict(edge.attributes).get("binding_blocked")
 
 
+@pytest.mark.mutation_fast
 def test_python_defining_branch_and_unconditional_binding(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -238,6 +244,7 @@ def test_parenthesized_returned_call_keeps_both_sites(tmp_path: Path, extension:
     assert sum(dict(edge.attributes).get("indirect_call") is True for edge in calls) == 1
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("suffix", ["h", "hpp"])
 @pytest.mark.parametrize("include", [False, True])
 def test_c_prototype_fallback_preserves_verified_includes(
@@ -255,6 +262,7 @@ def test_c_prototype_fallback_preserves_verified_includes(
     assert (edge.target_id == "util:helper") == include
 
 
+@pytest.mark.mutation_fast
 def test_invalid_c_static_block_prototype_stays_blocked(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -281,6 +289,7 @@ def test_ruby_numbered_names_outside_blocks_remain_calls(tmp_path: Path) -> None
     assert any(edge.target_id == "app:_1" for edge in _calls(graph))
 
 
+@pytest.mark.mutation_fast
 def test_nested_csharp_overloads_keep_ambiguous_target_under_final_owner(tmp_path: Path) -> None:
     graph = _graph(
         tmp_path,
@@ -293,6 +302,7 @@ def test_nested_csharp_overloads_keep_ambiguous_target_under_final_owner(tmp_pat
     assert ambiguous.source_id + ".L" in ambiguous.target_id
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 def test_wrapped_class_arrow_keeps_method_kind(tmp_path: Path, extension: str) -> None:
     graph = _graph(tmp_path, "function work(){} class C{f=(()=>work());}", extension)

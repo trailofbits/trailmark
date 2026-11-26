@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC = REPO_ROOT / "src"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("filename", "language", "source", "description"),
     [
@@ -51,6 +52,7 @@ def test_framework_dispatch_normalizes_only_the_extension(
     assert [ep["description"] for ep in engine.attack_surface()] == [description]
 
 
+@pytest.mark.mutation_fast
 def test_pyramid_view_detector_requires_pyramid_binding(tmp_path: Path) -> None:
     (tmp_path / "views.py").write_text(
         "from pyramid.view import view_config as view\n"
@@ -87,6 +89,7 @@ class TestSelfAnalysis:
     silently returned an empty list.
     """
 
+    @pytest.mark.mutation_fast
     def test_self_analysis_has_entrypoints(self, self_analysis_engine: QueryEngine) -> None:
         summary = self_analysis_engine.summary()
         assert summary["entrypoints"] > 0, (
@@ -107,6 +110,7 @@ class TestSelfAnalysis:
 
 
 class TestMainHeuristic:
+    @pytest.mark.mutation_fast
     def test_bare_main_function_detected(self, tmp_path: Path) -> None:
         sample = tmp_path / "tool.py"
         sample.write_text("def main():\n    return 0\n")
@@ -138,6 +142,7 @@ class TestNewLanguageEntrypoints:
         ids = {ep["node_id"] for ep in engine.attack_surface()}
         assert "m:0x1::m:main" in ids
 
+    @pytest.mark.mutation_fast
     def test_tact_receivers_detected(self, tmp_path: Path) -> None:
         (tmp_path / "wallet.tact").write_text(
             'contract Wallet { init(owner: Address) { } receive("ping") { } }\n'
@@ -147,6 +152,7 @@ class TestNewLanguageEntrypoints:
         assert "wallet:Wallet.init" in ids
         assert "wallet:Wallet.receive" in ids
 
+    @pytest.mark.mutation_fast
     def test_func_receivers_and_getters_detected(self, tmp_path: Path) -> None:
         (tmp_path / "wallet.fc").write_text(
             "() recv_internal() impure { }\nint get_balance() method_id { return 1; }\n"
@@ -156,6 +162,7 @@ class TestNewLanguageEntrypoints:
         assert "wallet:recv_internal" in ids
         assert "wallet:get_balance" in ids
 
+    @pytest.mark.mutation_fast
     def test_sway_abi_and_public_functions_detected(self, tmp_path: Path) -> None:
         (tmp_path / "wallet.sw").write_text(
             "contract;\nabi Wallet { fn deposit(amount: u64); }\n"
@@ -166,6 +173,7 @@ class TestNewLanguageEntrypoints:
         assert "wallet:Wallet.deposit" in ids
         assert "wallet:helper" in ids
 
+    @pytest.mark.mutation_fast
     def test_rego_policy_rules_detected(self, tmp_path: Path) -> None:
         (tmp_path / "policy.rego").write_text(
             'package example.auth\nallow if { true }\ndeny[msg] if { msg := "no" }\n'
@@ -175,6 +183,7 @@ class TestNewLanguageEntrypoints:
         assert "example.auth:allow" in ids
         assert "example.auth:deny" in ids
 
+    @pytest.mark.mutation_fast
     def test_schema_entrypoints_detect_operations_only(self, tmp_path: Path) -> None:
         (tmp_path / "auth.proto").write_text(
             'syntax = "proto3"; package example.auth; '
@@ -206,6 +215,7 @@ class TestNewLanguageEntrypoints:
 
 
 class TestPyprojectScripts:
+    @pytest.mark.mutation_fast
     def test_script_suffix_requires_a_module_path_boundary(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text('[project.scripts]\ndemo = "pkg.app:run"\n')
         (tmp_path / "mypkg").mkdir()
@@ -215,6 +225,7 @@ class TestPyprojectScripts:
 
         assert engine.attack_surface() == []
 
+    @pytest.mark.mutation_fast
     def test_script_suffix_can_match_below_source_root(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text('[project.scripts]\ndemo = "pkg.app:run"\n')
         package = tmp_path / "src" / "pkg"
@@ -225,6 +236,7 @@ class TestPyprojectScripts:
 
         assert {ep["node_id"] for ep in engine.attack_surface()} == {"app:run"}
 
+    @pytest.mark.mutation_fast
     def test_pyproject_script_overrides_main_heuristic(self, tmp_path: Path) -> None:
         """A pyproject.toml script target beats the generic main heuristic."""
         (tmp_path / "pyproject.toml").write_text(
@@ -278,6 +290,7 @@ class TestPyprojectScripts:
         assert surface["src.pkg.app:main"]["trust_level"] == "trusted_internal"
         assert surface["tests.pkg.app:main"]["trust_level"] == "trusted_internal"
 
+    @pytest.mark.mutation_fast
     def test_malformed_pyproject_is_tolerated(self, tmp_path: Path) -> None:
         """A broken pyproject.toml must not crash detection."""
         (tmp_path / "pyproject.toml").write_text("this is not valid toml = [")
@@ -292,6 +305,7 @@ class TestOverrideFile:
         (tmp_path / ".trailmark").mkdir()
         (tmp_path / ".trailmark" / "entrypoints.toml").write_text(body)
 
+    @pytest.mark.mutation_fast
     def test_override_adds_entrypoint(self, tmp_path: Path) -> None:
         (tmp_path / "app.py").write_text("def handle_request(req):\n    pass\n")
         self._write_override(
@@ -343,6 +357,7 @@ class TestOverrideFile:
         ids = {ep["node_id"] for ep in engine.attack_surface()}
         assert "pkg.app:serve" in ids
 
+    @pytest.mark.mutation_fast
     def test_override_ambiguous_module_reference_is_skipped(self, tmp_path: Path) -> None:
         """Ambiguous module references should not tag the first suffix match."""
         src_pkg = tmp_path / "src" / "pkg"
@@ -370,6 +385,7 @@ class TestOverrideFile:
         # Nothing matched, no main heuristic trigger either
         assert engine.attack_surface() == []
 
+    @pytest.mark.mutation_fast
     def test_override_invalid_enum_is_skipped(self, tmp_path: Path) -> None:
         (tmp_path / "app.py").write_text("def main():\n    pass\n")
         self._write_override(
@@ -381,6 +397,7 @@ class TestOverrideFile:
         (ep,) = engine.attack_surface()
         assert ep["trust_level"] == "trusted_internal"
 
+    @pytest.mark.mutation_fast
     def test_malformed_override_toml_is_tolerated(self, tmp_path: Path) -> None:
         (tmp_path / "app.py").write_text("def main():\n    pass\n")
         self._write_override(tmp_path, "this is not valid toml = [")
@@ -403,6 +420,7 @@ class TestOptOut:
 class TestDirectAPI:
     """``detect_entrypoints`` can be called directly on a prebuilt graph."""
 
+    @pytest.mark.mutation_fast
     def test_returns_mapping_of_node_id_to_tag(self, tmp_path: Path) -> None:
         from trailmark.parsers.python import PythonParser
 
@@ -418,6 +436,7 @@ class TestDirectAPI:
 
 
 class TestPythonFrameworks:
+    @pytest.mark.mutation_fast
     def test_flask_route_detected(self, tmp_path: Path) -> None:
         (tmp_path / "app.py").write_text(
             "from flask import Flask\n"
@@ -461,6 +480,7 @@ class TestPythonFrameworks:
         ids = {ep["node_id"] for ep in engine.attack_surface()}
         assert "routes:get_user" in ids
 
+    @pytest.mark.mutation_fast
     def test_click_command_detected(self, tmp_path: Path) -> None:
         (tmp_path / "tool.py").write_text(
             "import click\n\n@click.command()\ndef run():\n    pass\n",
@@ -484,6 +504,7 @@ class TestPythonFrameworks:
         ids = {ep["node_id"] for ep in engine.attack_surface()}
         assert "cli:hello" in ids
 
+    @pytest.mark.mutation_fast
     def test_celery_task_detected(self, tmp_path: Path) -> None:
         (tmp_path / "tasks.py").write_text(
             "from celery import Celery\n"
@@ -519,6 +540,7 @@ class TestRustFrameworks:
         ids = {ep["node_id"] for ep in engine.attack_surface()}
         assert any("get_user" in node_id for node_id in ids), ids
 
+    @pytest.mark.mutation_fast
     def test_no_mangle_ffi_detected(self, tmp_path: Path) -> None:
         (tmp_path / "ffi.rs").write_text(
             '#[no_mangle]\npub extern "C" fn add_one(x: i32) -> i32 {\n    x + 1\n}\n',
@@ -571,6 +593,7 @@ class TestSolidity:
         engine = QueryEngine.from_directory(str(tmp_path), language="solidity")
         assert engine.attack_surface() == []
 
+    @pytest.mark.mutation_fast
     def test_fallback_and_receive_detected_when_parser_emits_them(
         self,
         tmp_path: Path,
@@ -591,6 +614,7 @@ class TestSolidity:
 
 
 class TestJavaScriptFrameworks:
+    @pytest.mark.mutation_fast
     def test_nestjs_controller_method_detected(self, tmp_path: Path) -> None:
         (tmp_path / "users.controller.ts").write_text(
             "import { Controller, Get } from '@nestjs/common';\n"
@@ -608,6 +632,7 @@ class TestJavaScriptFrameworks:
         descriptions = {ep["description"] for ep in surface}
         assert any("NestJS" in d for d in descriptions if d), surface
 
+    @pytest.mark.mutation_fast
     def test_nextjs_app_router_detected(self, tmp_path: Path) -> None:
         # Trailmark uses file basename in node ids, so we only need a
         # `route.ts` file (the directory structure is irrelevant for the
@@ -636,6 +661,7 @@ class TestJavaScriptFrameworks:
 
 
 class TestJavaFrameworks:
+    @pytest.mark.mutation_fast
     def test_spring_get_mapping_detected(self, tmp_path: Path) -> None:
         (tmp_path / "UserController.java").write_text(
             "import org.springframework.web.bind.annotation.*;\n"
@@ -653,6 +679,7 @@ class TestJavaFrameworks:
         descriptions = [ep["description"] for ep in surface if ep.get("description")]
         assert any("Spring" in d for d in descriptions), surface
 
+    @pytest.mark.mutation_fast
     def test_jaxrs_get_detected(self, tmp_path: Path) -> None:
         (tmp_path / "Resource.java").write_text(
             "import javax.ws.rs.*;\n"
@@ -673,6 +700,7 @@ class TestJavaFrameworks:
 
 
 class TestCSharpFrameworks:
+    @pytest.mark.mutation_fast
     def test_aspnet_core_http_get_detected(self, tmp_path: Path) -> None:
         (tmp_path / "UsersController.cs").write_text(
             "using Microsoft.AspNetCore.Mvc;\n"
@@ -693,6 +721,7 @@ class TestCSharpFrameworks:
 
 
 class TestPhpFrameworks:
+    @pytest.mark.mutation_fast
     def test_symfony_route_attribute_detected(self, tmp_path: Path) -> None:
         (tmp_path / "ProductController.php").write_text(
             "<?php\n"
@@ -714,6 +743,7 @@ class TestPhpFrameworks:
 
 
 class TestErlang:
+    @pytest.mark.mutation_fast
     def test_exported_function_detected(self, tmp_path: Path) -> None:
         (tmp_path / "auth.erl").write_text(
             "-module(auth).\n"
@@ -732,6 +762,7 @@ class TestErlang:
 
 
 class TestSwift:
+    @pytest.mark.mutation_fast
     def test_at_main_attribute_detected(self, tmp_path: Path) -> None:
         (tmp_path / "app.swift").write_text(
             "@main\nstruct App {\n    static func main() {}\n}\n",
@@ -743,6 +774,7 @@ class TestSwift:
 
 
 class TestObjectiveC:
+    @pytest.mark.mutation_fast
     def test_shared_header_objc_selectors_are_detected(self, tmp_path: Path) -> None:
         (tmp_path / "AppDelegate.h").write_text(
             "@interface AppDelegate : NSObject\n"
@@ -788,6 +820,7 @@ class TestObjectiveC:
 
 
 class TestKotlin:
+    @pytest.mark.mutation_fast
     def test_spring_annotation_detected(self, tmp_path: Path) -> None:
         (tmp_path / "UserController.kt").write_text(
             "import org.springframework.web.bind.annotation.*\n"
@@ -803,6 +836,7 @@ class TestKotlin:
         descriptions = [ep.get("description") or "" for ep in surface]
         assert any("Spring" in d for d in descriptions), surface
 
+    @pytest.mark.mutation_fast
     def test_android_lifecycle_method_detected(self, tmp_path: Path) -> None:
         (tmp_path / "MainActivity.kt").write_text(
             "package com.example\n"
@@ -827,6 +861,7 @@ class TestKotlin:
 
 
 class TestDart:
+    @pytest.mark.mutation_fast
     def test_vm_entry_point_detected(self, tmp_path: Path) -> None:
         (tmp_path / "callbacks.dart").write_text(
             "@pragma('vm:entry-point')\nvoid nativeCallback(String data) {\n  print(data);\n}\n",
@@ -853,6 +888,7 @@ class TestDart:
 
 
 class TestGo:
+    @pytest.mark.mutation_fast
     def test_http_handlefunc_detected(self, tmp_path: Path) -> None:
         (tmp_path / "server.go").write_text(
             "package main\n"
@@ -888,6 +924,7 @@ class TestGo:
 
 
 class TestRuby:
+    @pytest.mark.mutation_fast
     def test_rails_controller_action_detected(self, tmp_path: Path) -> None:
         (tmp_path / "users_controller.rb").write_text(
             "class UsersController < ApplicationController\n"
@@ -905,6 +942,7 @@ class TestRuby:
         descriptions = {ep.get("description") or "" for ep in surface}
         assert any("Rails controller" in d for d in descriptions), surface
 
+    @pytest.mark.mutation_fast
     def test_non_controller_class_not_flagged(self, tmp_path: Path) -> None:
         (tmp_path / "util.rb").write_text(
             "class Util\n  def helper(x)\n    x + 1\n  end\nend\n",
@@ -912,6 +950,7 @@ class TestRuby:
         engine = QueryEngine.from_directory(str(tmp_path), language="ruby")
         assert engine.attack_surface() == []
 
+    @pytest.mark.mutation_fast
     def test_sidekiq_worker_perform_detected(self, tmp_path: Path) -> None:
         (tmp_path / "mailer.rb").write_text(
             "class EmailWorker\n"
@@ -929,6 +968,7 @@ class TestRuby:
 
 
 class TestCCpp:
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("extension", ["h", "H"])
     def test_shared_header_c_export_markers_are_detected(
         self, tmp_path: Path, extension: str
@@ -977,6 +1017,7 @@ class TestBulkOverrideRules:
         (tmp_path / ".trailmark").mkdir(exist_ok=True)
         (tmp_path / ".trailmark" / "entrypoints.toml").write_text(body)
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("root_kind", ["absolute", "relative", "dot", "subdirectory"])
     def test_file_globs_use_configuration_root_not_checkout_ancestors(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, root_kind: str
@@ -1106,6 +1147,7 @@ class TestBulkOverrideRules:
         assert any(nid.endswith(":index") for nid in ids), ids
         assert not any(nid.endswith(":deep") for nid in ids), ids
 
+    @pytest.mark.mutation_fast
     def test_param_type_matches_psr7(self, tmp_path: Path) -> None:
         (tmp_path / "handlers.py").write_text(
             "def handle_login(req: ServerRequestInterface) -> None:\n"
@@ -1233,6 +1275,7 @@ def _isolate_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("executable", [None, True, False])
 def test_main_heuristic_respects_explicit_non_executable_declarations(
     tmp_path: Path, executable: bool | None

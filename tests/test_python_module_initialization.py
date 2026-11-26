@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory
 
@@ -25,6 +27,7 @@ def test_module_calls_include_decorators_and_exclude_function_bodies(tmp_path: P
     assert module_calls == {"startup:init", "startup:hook"}
 
 
+@pytest.mark.mutation_fast
 def test_defaults_and_class_bodies_execute_in_the_enclosing_scope(tmp_path: Path) -> None:
     (tmp_path / "startup.py").write_text(
         "def eager(): pass\n"
@@ -58,6 +61,7 @@ def test_defaults_and_class_bodies_execute_in_the_enclosing_scope(tmp_path: Path
     assert not graph.parse_diagnostics
 
 
+@pytest.mark.mutation_fast
 def test_annotation_calls_have_a_coverage_diagnostic_without_assuming_a_python_version(
     tmp_path: Path,
 ) -> None:
@@ -69,6 +73,7 @@ def test_annotation_calls_have_a_coverage_diagnostic_without_assuming_a_python_v
     ]
 
 
+@pytest.mark.mutation_fast
 def test_explicitly_postponed_annotations_never_become_calls(tmp_path: Path) -> None:
     (tmp_path / "annotations.py").write_text(
         "from __future__ import annotations\ndef helper(): pass\ndef action(x: helper()): pass\n"
@@ -78,6 +83,7 @@ def test_explicitly_postponed_annotations_never_become_calls(tmp_path: Path) -> 
     assert not graph.parse_diagnostics
 
 
+@pytest.mark.mutation_fast
 def test_default_names_bind_before_the_new_parameters_exist(tmp_path: Path) -> None:
     (tmp_path / "defaults.py").write_text("def helper(): pass\ndef action(helper=helper()): pass\n")
     graph = parse_directory(str(tmp_path))

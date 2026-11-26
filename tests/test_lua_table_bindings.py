@@ -9,6 +9,7 @@ from trailmark.models.nodes import NodeOrigin
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "definition,invocation",
     [
@@ -32,6 +33,7 @@ def test_explicit_local_table_methods_bind_to_their_bodies(
     assert call.location is not None and call.location.start_line == 3
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "declaration,body",
     [
@@ -49,6 +51,7 @@ def test_local_table_receivers_respect_parameter_and_local_shadowing(
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "mutation",
     [
@@ -112,6 +115,7 @@ def test_modified_aliased_or_escaped_tables_do_not_keep_stale_targets(
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_conditional_table_method_definition_remains_uncertain(tmp_path: Path) -> None:
     source = tmp_path / "conditional.lua"
     source.write_text(
@@ -123,6 +127,7 @@ def test_conditional_table_method_definition_remains_uncertain(tmp_path: Path) -
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("iterator", ["pairs", "iter"])
 def test_source_backed_readonly_helper_preserves_table_methods(
     tmp_path: Path, iterator: str

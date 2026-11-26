@@ -10,6 +10,7 @@ from trailmark.parse import parse_directory, parse_file
 from trailmark.parsers._common import link_cross_file_calls
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extensions", [("c", "h"), ("cpp", "hpp")])
 @pytest.mark.parametrize("reverse", [False, True])
 def test_header_static_tie_uses_include_closure(
@@ -27,6 +28,7 @@ def test_header_static_tie_uses_include_closure(
     assert not dict(call.attributes).get("include_unverified")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extensions", [("c", "h"), ("cpp", "hpp")])
 def test_extern_header_prevents_unverified_static_fallback(
     tmp_path: Path, extensions: tuple[str, str]
@@ -44,6 +46,7 @@ def test_extern_header_prevents_unverified_static_fallback(
     assert call.target_id.startswith("proxy.")
 
 
+@pytest.mark.mutation_fast
 def test_unverified_header_fallback_is_marked(tmp_path: Path) -> None:
     (tmp_path / "app.c").write_text("int run(){return helper();}")
     (tmp_path / "util.h").write_text("static int helper(){return 1;}")
@@ -75,6 +78,7 @@ def test_function_pointer_still_shadows_global(tmp_path: Path) -> None:
     assert dict(call.attributes)["binding_blocked"]
 
 
+@pytest.mark.mutation_fast
 def test_same_header_raw_call_is_verified(tmp_path: Path) -> None:
     path = tmp_path / "local.h"
     path.write_text("static int helper(){return 1;} static int run(){return helper();}")

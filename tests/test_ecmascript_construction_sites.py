@@ -9,6 +9,7 @@ from trailmark.models.nodes import NodeOrigin
 from trailmark.parse import parse_directory, parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_construction_calls_a_local_constructor_and_keeps_argument_sites(
     tmp_path: Path, language: str, extension: str
@@ -40,6 +41,7 @@ def test_construction_calls_a_local_constructor_and_keeps_argument_sites(
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 @pytest.mark.parametrize("expression", ["Widget", "(Widget)"])
 def test_constructor_parameter_shadows_a_same_name_class(
@@ -58,6 +60,7 @@ def test_constructor_parameter_shadows_a_same_name_class(
     assert dict(construction.attributes)["binding_blocked"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_dynamic_constructor_keeps_inner_calls_without_guessing_the_target(
     tmp_path: Path, language: str, extension: str
@@ -77,6 +80,7 @@ def test_dynamic_constructor_keeps_inner_calls_without_guessing_the_target(
     } == {"choose", "input"}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_default_parameter_construction_belongs_to_the_callable(
     tmp_path: Path, language: str, extension: str
@@ -89,6 +93,7 @@ def test_default_parameter_construction_belongs_to_the_callable(
     assert dict(construction.attributes)["constructor_call"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_unknown_constructor_does_not_use_an_unrelated_global_name(
     tmp_path: Path, language: str, extension: str
@@ -117,6 +122,7 @@ def test_constructor_shadowing_handles_javascript_identifiers(
     assert dict(construction.attributes)["binding_blocked"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_nested_class_shadows_an_outer_same_name_constructor(
     tmp_path: Path, language: str, extension: str
@@ -143,6 +149,7 @@ def test_default_constructor_targets_its_known_class(
     assert construction.confidence == EdgeConfidence.INFERRED
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,extension", [("javascript", ".js"), ("typescript", ".ts")])
 def test_ordinary_function_used_as_a_constructor_keeps_its_body_target(
     tmp_path: Path, language: str, extension: str

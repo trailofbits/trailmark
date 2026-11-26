@@ -12,6 +12,7 @@ def _engine(tmp_path: Path, source: str, suffix: str = ".ts") -> QueryEngine:
     return QueryEngine.from_directory(str(tmp_path), language="auto")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("suffix", [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"])
 def test_named_inline_and_chained_routes(tmp_path: Path, suffix: str) -> None:
     engine = _engine(
@@ -35,6 +36,7 @@ app.put('/c', function inline() { return work(); });
     assert all(len(path) == 2 for path in paths)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("imports", "constructor"),
     [
@@ -75,6 +77,7 @@ new Elysia().{method}('/', () => 'ok');
     assert len(engine.attack_surface()) == 1
 
 
+@pytest.mark.mutation_fast
 def test_route_method_and_each_registration_evidence(tmp_path: Path) -> None:
     engine = _engine(
         tmp_path,
@@ -93,6 +96,7 @@ new Elysia().get('/one', handler).route('POST', '/two', handler);
     assert all("runtime_activation" in e["unresolved"] for e in facts)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [
@@ -119,6 +123,7 @@ def test_non_routes_and_shadowed_bindings(tmp_path: Path, source: str) -> None:
     assert _engine(tmp_path, source).attack_surface() == []
 
 
+@pytest.mark.mutation_fast
 def test_factory_routes_fluent_plugins_and_nested_callback_ownership(tmp_path: Path) -> None:
     engine = _engine(
         tmp_path,
@@ -175,6 +180,7 @@ new Elysia().get('/', handler);
     assert engine.attack_surface()[0]["trust_level"] == "trusted_internal"
 
 
+@pytest.mark.mutation_fast
 def test_dynamic_path_retains_handler_and_uncertainty(tmp_path: Path) -> None:
     engine = _engine(
         tmp_path,
@@ -202,6 +208,7 @@ function register() { return new Elysia().get('/', handler); }
     assert engine.paths_between("register", "handler") == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body",
     [
@@ -231,6 +238,7 @@ new Elysia().get('/', a);
     assert any(f["rule"] == "elysia.route" for f in engine.entrypoint_candidates())
 
 
+@pytest.mark.mutation_fast
 def test_deep_chain_is_bounded(tmp_path: Path) -> None:
     engine = _engine(
         tmp_path,
@@ -241,6 +249,7 @@ def test_deep_chain_is_bounded(tmp_path: Path) -> None:
     assert engine.attack_surface() == []
 
 
+@pytest.mark.mutation_fast
 def test_type_wrappers_and_forward_function_declaration(tmp_path: Path) -> None:
     engine = _engine(
         tmp_path,
@@ -253,6 +262,7 @@ function handler() {}
     assert [entry["node_id"] for entry in engine.attack_surface()] == ["app:handler"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body",
     [
@@ -268,6 +278,7 @@ def test_function_and_class_expression_shadowing(tmp_path: Path, body: str) -> N
     assert engine.attack_surface() == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "block",
     [
@@ -305,6 +316,7 @@ inner.get('/outside', () => 0);
     assert fact["details"]["path"] == "/real"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("operator", ["of", "in"])
 def test_loop_assignment_invalidates_handler_binding(tmp_path: Path, operator: str) -> None:
     engine = _engine(

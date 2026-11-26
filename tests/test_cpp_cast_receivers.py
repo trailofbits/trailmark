@@ -10,6 +10,7 @@ from trailmark.parse import parse_directory
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_out_of_line_member_cast_to_own_class_navigates_across_header(tmp_path: Path) -> None:
     (tmp_path / "stream.hpp").write_text(
         "namespace detail { struct Base {}; } class Stream : public detail::Base { public: "
@@ -30,6 +31,7 @@ def test_out_of_line_member_cast_to_own_class_navigates_across_header(tmp_path: 
     }
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "declarations,body",
     [
@@ -100,6 +102,7 @@ def test_later_duplicate_definition_retracts_per_file_selection(tmp_path: Path) 
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("base", ["struct Base { virtual void flush() {} };", "struct Base;"])
 def test_inherited_virtual_or_unknown_base_keeps_declared_target_uncertain(
     tmp_path: Path, base: str
@@ -141,6 +144,7 @@ def test_specialized_base_keeps_declared_member_dispatch_uncertain(tmp_path: Pat
     assert dict(call.attributes)["cpp_cast_dispatch_uncertain"] is True
 
 
+@pytest.mark.mutation_fast
 def test_member_using_declaration_keeps_family_conservative(tmp_path: Path) -> None:
     (tmp_path / "stream.cpp").write_text(
         "namespace detail { struct Base { void other(); }; } "
@@ -166,6 +170,7 @@ def test_nearer_base_alias_keeps_declared_member_dispatch_uncertain(tmp_path: Pa
     assert dict(call.attributes)["cpp_cast_dispatch_uncertain"] is True
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("virtual", [False, True])
 def test_no_base_plain_or_explicit_virtual_dispatch_confidence(
     tmp_path: Path, virtual: bool

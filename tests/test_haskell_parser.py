@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -71,11 +73,13 @@ def _parse_sample() -> tuple[HaskellParser, CodeGraph]:
 
 
 class TestHaskellParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_data_types(self) -> None:
         _, graph = _parse_sample()
         structs = [n for n in graph.nodes.values() if n.kind == NodeKind.STRUCT]
@@ -89,6 +93,7 @@ class TestHaskellParserNodes:
         names = {t.name for t in traits}
         assert "Describable" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_functions(self) -> None:
         _, graph = _parse_sample()
         funcs = [n for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION]
@@ -100,12 +105,14 @@ class TestHaskellParserNodes:
         assert "showPoint" in names
         assert "greaterThanZero" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_instance_methods(self) -> None:
         _, graph = _parse_sample()
         methods = [n for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
         names = {m.name for m in methods}
         assert "describe" in names
 
+    @pytest.mark.mutation_fast
     def test_method_id_includes_type(self) -> None:
         _, graph = _parse_sample()
         method_ids = [n.id for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
@@ -118,12 +125,14 @@ class TestHaskellParserNodes:
         factorials = [n for n in graph.nodes.values() if n.name == "factorial"]
         assert len(factorials) == 1
 
+    @pytest.mark.mutation_fast
     def test_data_type_docstring(self) -> None:
         _, graph = _parse_sample()
         point = next(n for n in graph.nodes.values() if n.name == "Point")
         assert point.docstring is not None
         assert "2D" in point.docstring
 
+    @pytest.mark.mutation_fast
     def test_class_docstring(self) -> None:
         _, graph = _parse_sample()
         desc = next(n for n in graph.nodes.values() if n.name == "Describable")
@@ -132,12 +141,14 @@ class TestHaskellParserNodes:
 
 
 class TestHaskellParserParameters:
+    @pytest.mark.mutation_fast
     def test_function_params_from_pattern(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
         assert len(greet.parameters) == 1
         assert greet.parameters[0].name == "name"
 
+    @pytest.mark.mutation_fast
     def test_param_type_from_signature(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -164,6 +175,7 @@ class TestHaskellParserComplexity:
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
         assert greet.cyclomatic_complexity == 1
 
+    @pytest.mark.mutation_fast
     def test_guarded_function_complexity(self) -> None:
         _, graph = _parse_sample()
         abs_fn = next(n for n in graph.nodes.values() if n.name == "abs'")
@@ -188,6 +200,7 @@ class TestHaskellParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_implements_edge(self) -> None:
         _, graph = _parse_sample()
         implements = [e for e in graph.edges if e.kind == EdgeKind.IMPLEMENTS]
@@ -195,11 +208,13 @@ class TestHaskellParserEdges:
         assert "Point" in implements[0].source_id
         assert "Describable" in implements[0].target_id
 
+    @pytest.mark.mutation_fast
     def test_call_edges(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
         assert len(calls) > 0
 
+    @pytest.mark.mutation_fast
     def test_call_confidence(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -216,6 +231,7 @@ class TestHaskellParserEdges:
 
 
 class TestHaskellParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "Data.List" in graph.dependencies
@@ -223,6 +239,7 @@ class TestHaskellParserDependencies:
 
 
 class TestHaskellParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = HaskellParser()
         code_a = "module A where\n\nfromA :: Int\nfromA = 1\n"

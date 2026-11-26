@@ -10,6 +10,7 @@ from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_inbounds_assignment_retains_callback_site_and_parameter_shadow(tmp_path: Path) -> None:
     path = tmp_path / "sample.jl"
     path.write_text(
@@ -40,6 +41,7 @@ def test_inbounds_body_calls_keep_their_lexical_function(tmp_path: Path, body: s
     assert (calls[0].source_id, calls[0].target_id) == ("sample:run", "sample:helper")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "prefix,suffix",
     [
@@ -62,6 +64,7 @@ def test_macro_binding_barriers_keep_inbounds_opaque(
     assert not any(e.kind == EdgeKind.CALLS and e.source_id.endswith("run") for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_macro_redefinition_in_another_module_does_not_hide_standard_wrapper(
     tmp_path: Path,
 ) -> None:
@@ -87,6 +90,7 @@ def test_quoted_wrapper_and_unknown_macro_do_not_supply_runtime_calls(tmp_path: 
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_quoted_macro_definition_does_not_change_active_wrapper_binding(tmp_path: Path) -> None:
     path = tmp_path / "sample.jl"
     path.write_text(

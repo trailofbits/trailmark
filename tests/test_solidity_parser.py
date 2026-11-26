@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -95,6 +97,7 @@ def _parse_sample() -> tuple[SolidityParser, CodeGraph]:
 
 
 class TestSolidityParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
@@ -118,18 +121,21 @@ class TestSolidityParserNodes:
         names = {lib.name for lib in libraries}
         assert "SafeMath" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_struct(self) -> None:
         _, graph = _parse_sample()
         structs = [n for n in graph.nodes.values() if n.kind == NodeKind.STRUCT]
         names = {s.name for s in structs}
         assert "Point" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_enum(self) -> None:
         _, graph = _parse_sample()
         enums = [n for n in graph.nodes.values() if n.kind == NodeKind.ENUM]
         names = {e.name for e in enums}
         assert "Status" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_methods(self) -> None:
         _, graph = _parse_sample()
         methods = [n for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
@@ -146,6 +152,7 @@ class TestSolidityParserNodes:
         names = {m.name for m in methods}
         assert "add" in names
 
+    @pytest.mark.mutation_fast
     def test_contract_docstring(self) -> None:
         _, graph = _parse_sample()
         token = next(n for n in graph.nodes.values() if n.name == "Token")
@@ -166,6 +173,7 @@ class TestSolidityParserNodes:
 
 
 class TestSolidityParserParameters:
+    @pytest.mark.mutation_fast
     def test_function_params(self) -> None:
         _, graph = _parse_sample()
         transfer = next(
@@ -189,6 +197,7 @@ class TestSolidityParserParameters:
         assert to_param.type_ref is not None
         assert "address" in to_param.type_ref.name
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         transfer = next(
@@ -245,6 +254,7 @@ class TestSolidityParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_inherits_edge(self) -> None:
         _, graph = _parse_sample()
         inherits = [e for e in graph.edges if e.kind == EdgeKind.INHERITS]
@@ -271,12 +281,14 @@ class TestSolidityParserEdges:
 
 
 class TestSolidityParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "IERC20" in graph.dependencies
 
 
 class TestSolidityParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = SolidityParser()
         code_a = """\

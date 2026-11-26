@@ -10,6 +10,7 @@ from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_fixed_arity_wrappers_keep_overload_identity_and_each_site(tmp_path: Path) -> None:
     path = tmp_path / "Logging.kt"
     path.write_text(
@@ -83,6 +84,7 @@ def test_competing_shapes_remain_uncertain(tmp_path: Path, declarations: str) ->
     assert call.confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("application", ["choose(x = 1)", "choose(1) {}"])
 def test_named_and_trailing_lambda_arguments_are_not_counted_as_plain_slots(
     tmp_path: Path, application: str
@@ -101,6 +103,7 @@ def test_named_and_trailing_lambda_arguments_are_not_counted_as_plain_slots(
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_callable_parameter_still_blocks_overload_binding(tmp_path: Path) -> None:
     path = tmp_path / "Shadow.kt"
     path.write_text(
@@ -114,6 +117,7 @@ def test_callable_parameter_still_blocks_overload_binding(tmp_path: Path) -> Non
     assert dict(call.attributes)["binding_blocked"] is True
 
 
+@pytest.mark.mutation_fast
 def test_inherited_candidates_prevent_member_family_arity_selection(tmp_path: Path) -> None:
     path = tmp_path / "Inherited.kt"
     path.write_text(
@@ -144,6 +148,7 @@ def test_implicit_any_candidates_are_not_assumed_absent(tmp_path: Path) -> None:
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_data_class_generated_candidates_are_not_assumed_absent(tmp_path: Path) -> None:
     path = tmp_path / "Generated.kt"
     path.write_text(

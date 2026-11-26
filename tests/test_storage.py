@@ -27,6 +27,7 @@ from trailmark.storage.graph_store import GraphStore
 _LOC = SourceLocation(file_path="test.py", start_line=1, end_line=10)
 
 
+@pytest.mark.mutation_fast
 def test_source_file_counts_are_copied_without_topology_rebuild() -> None:
     graph = CodeGraph(source_file_counts={"python": 1})
     store = GraphStore(graph)
@@ -36,6 +37,7 @@ def test_source_file_counts_are_copied_without_topology_rebuild() -> None:
     assert store.source_file_counts() == {"python": 1, "rust": 2}
 
 
+@pytest.mark.mutation_fast
 def test_entrypoint_evidence_validation_and_reference_edges() -> None:
     graph = CodeGraph(nodes={"a": _make_node("a", "a"), "b": _make_node("b", "b")})
     graph.edges.append(CodeEdge("a", "b", EdgeKind.REFERENCES))
@@ -102,6 +104,7 @@ def _build_contains_bridge_graph() -> tuple[CodeGraph, GraphStore]:
 
 
 class TestGraphStoreStateAccess:
+    @pytest.mark.mutation_fast
     def test_access_neighbors_validate_endpoints_and_keep_calls_separate(self) -> None:
         nodes = {name: _make_node(name, name) for name in ("f", "g", "x", "y")}
         graph = CodeGraph(
@@ -138,6 +141,7 @@ class TestGraphStoreStateAccess:
 
 
 class TestGraphStoreCallers:
+    @pytest.mark.mutation_fast
     def test_callers_of_b(self) -> None:
         _, store = _build_graph()
         callers = store.callers_of("b")
@@ -156,6 +160,7 @@ class TestGraphStoreCallers:
         callers = store.callers_of("a")
         assert len(callers) == 0
 
+    @pytest.mark.mutation_fast
     def test_callers_of_nonexistent(self) -> None:
         _, store = _build_graph()
         assert store.callers_of("zzz") == []
@@ -179,6 +184,7 @@ class TestGraphStoreCallees:
         _, store = _build_graph()
         assert store.callees_of("c") == []
 
+    @pytest.mark.mutation_fast
     def test_callees_of_nonexistent(self) -> None:
         _, store = _build_graph()
         assert store.callees_of("zzz") == []
@@ -230,6 +236,7 @@ class TestGraphStoreCallees:
 
 
 class TestGraphStorePaths:
+    @pytest.mark.mutation_fast
     def test_self_call_site_does_not_create_a_nontrivial_simple_self_path(self) -> None:
         graph = CodeGraph(
             nodes={"a": _make_node("a", "a")},
@@ -244,6 +251,7 @@ class TestGraphStorePaths:
         assert store.connect_subgraphs("shared", "shared", max_depth=1) == [["a"]]
         assert store.call_edges() == graph.edges
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("edge_count", [1, 2, 3, 20, 21])
     def test_depth_counts_edges_at_exact_chain_boundary(self, edge_count: int) -> None:
         ids = [f"f{i}" for i in range(edge_count + 1)]
@@ -264,6 +272,7 @@ class TestGraphStorePaths:
             assert store.entrypoint_paths_to(ids[-1], max_depth=edge_count - 1) == []
             assert store.connect_subgraphs("source", "sink", max_depth=edge_count - 1) == []
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("max_depth", [0, -1])
     def test_nonpositive_depth_rejected_even_without_nodes(self, max_depth: int) -> None:
         store = GraphStore(CodeGraph())
@@ -274,6 +283,7 @@ class TestGraphStorePaths:
         with pytest.raises(ValueError, match="max_depth.*at least 1"):
             store.connect_subgraphs("missing", "missing", max_depth=max_depth)
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize(
         "edge_kinds",
         [None, frozenset({EdgeKind.CALLS, EdgeKind.TYPE_USES})],
@@ -415,6 +425,7 @@ class TestGraphStoreReachability:
         _, store = _build_graph()
         assert store.reachable_from("d") == set()
 
+    @pytest.mark.mutation_fast
     def test_reachable_from_nonexistent(self) -> None:
         _, store = _build_graph()
         assert store.reachable_from("zzz") == set()
@@ -447,6 +458,7 @@ class TestGraphStoreReachability:
 
 
 class TestGraphStoreAncestors:
+    @pytest.mark.mutation_fast
     def test_ancestors_ignore_non_call_edges(self) -> None:
         _, store = _build_contains_bridge_graph()
         assert store.ancestors_of("b") == {"a"}
@@ -454,6 +466,7 @@ class TestGraphStoreAncestors:
 
 
 class TestGraphStoreSubgraphConnections:
+    @pytest.mark.mutation_fast
     def test_registration_validates_and_copies_membership(self) -> None:
         graph, store = _build_graph()
         members = {"a", "b"}
@@ -464,6 +477,7 @@ class TestGraphStoreSubgraphConnections:
             store.add_subgraph("group", {"a", "missing"})
         assert graph.subgraphs["group"] == {"a", "b"}
 
+    @pytest.mark.mutation_fast
     def test_stale_members_cannot_invent_paths_or_induced_edges(self) -> None:
         graph, store = _build_graph()
         graph.subgraphs.update(left={"ghost"}, right={"ghost"})
@@ -527,6 +541,7 @@ class TestGraphStoreSubgraphConnections:
 
 
 class TestGraphStoreAnnotations:
+    @pytest.mark.mutation_fast
     def test_nodes_with_annotation(self) -> None:
         graph, _ = _build_graph()
         graph.annotations["b"] = [
@@ -562,6 +577,7 @@ class TestGraphStoreAnnotations:
 
 
 class TestGraphStoreEntrypoints:
+    @pytest.mark.mutation_fast
     def test_all_entrypoints(self) -> None:
         graph, _ = _build_graph()
         graph.entrypoints["a"] = EntrypointTag(
@@ -659,6 +675,7 @@ class TestGraphStoreEntrypoints:
 
 
 class TestGraphStoreComplexity:
+    @pytest.mark.mutation_fast
     def test_nodes_by_complexity(self) -> None:
         graph, _ = _build_graph()
         graph.nodes["a"] = CodeUnit(
@@ -681,6 +698,7 @@ class TestGraphStoreComplexity:
         assert hot[0].id == "a"
         assert hot[0].cyclomatic_complexity == 15
 
+    @pytest.mark.mutation_fast
     def test_boundary_complexity(self) -> None:
         graph, _ = _build_graph()
         graph.nodes["a"] = CodeUnit(
@@ -717,6 +735,7 @@ class TestGraphStoreComplexity:
 
 
 class TestGraphStoreCallResolution:
+    @pytest.mark.mutation_fast
     def test_reports_validate_endpoints_and_filter_callers(self) -> None:
         source = _make_node("f", "f")
         other = _make_node("g", "g")
@@ -751,6 +770,7 @@ class TestGraphStoreCallResolution:
 
 
 class TestGraphStoreFindNode:
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("origin", [NodeOrigin.SOURCE, NodeOrigin.BINARY, NodeOrigin.SYNTHETIC])
     @pytest.mark.parametrize("reverse_order", [False, True])
     def test_declarations_precede_proxy_name_but_explicit_proxy_id_wins(
@@ -876,6 +896,7 @@ class TestGraphStoreFindNode:
 
 
 class TestGraphStoreAnnotationMutation:
+    @pytest.mark.mutation_fast
     def test_add_annotation_to_existing_node(self) -> None:
         _, store = _build_graph()
         ann = Annotation(
@@ -887,6 +908,7 @@ class TestGraphStoreAnnotationMutation:
         assert len(store.annotations_for("a")) == 1
         assert store.annotations_for("a")[0] == ann
 
+    @pytest.mark.mutation_fast
     def test_add_annotation_to_nonexistent_node(self) -> None:
         _, store = _build_graph()
         ann = Annotation(
@@ -930,6 +952,7 @@ class TestGraphStoreAnnotationMutation:
         result.clear()
         assert len(store.annotations_for("a")) == 1
 
+    @pytest.mark.mutation_fast
     def test_clear_annotations_existing_node(self) -> None:
         _, store = _build_graph()
         ann = Annotation(
@@ -941,6 +964,7 @@ class TestGraphStoreAnnotationMutation:
         assert store.clear_annotations("a") is True
         assert store.annotations_for("a") == []
 
+    @pytest.mark.mutation_fast
     def test_clear_annotations_nonexistent_node(self) -> None:
         _, store = _build_graph()
         assert store.clear_annotations("zzz") is False
@@ -969,6 +993,7 @@ class TestGraphStoreAnnotationMutation:
         assert anns[0].kind == AnnotationKind.INVARIANT
 
 
+@pytest.mark.mutation_fast
 def test_exception_evidence_preserves_unknown_operands_and_missing_nodes() -> None:
     from trailmark.models import ExceptionEvent, ExceptionEventKind
 

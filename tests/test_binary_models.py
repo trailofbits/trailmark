@@ -41,6 +41,7 @@ from trailmark.storage.binary_index import IntervalIndex
 from trailmark.storage.graph_store import GraphStore
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("field", ["objdump", "symbolizer", "debug_file", "mapping_file"])
 @pytest.mark.parametrize("value", ["", 0, False, Path("tool")])
 def test_import_options_reject_invalid_tool_paths(field: str, value: object) -> None:
@@ -48,17 +49,20 @@ def test_import_options_reject_invalid_tool_paths(field: str, value: object) -> 
         BinaryImportOptions(**{field: value})  # ty: ignore[invalid-argument-type]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("index", [None, 0, 1])
 def test_import_options_accept_explicit_slice_indices(index: int | None) -> None:
     assert BinaryImportOptions(slice_index=index).slice_index == index
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("index", [-1, -2, True, False, 0.0, "0"])
 def test_import_options_reject_invalid_slice_indices(index: object) -> None:
     with pytest.raises(ValueError, match="slice_index"):
         BinaryImportOptions(slice_index=index)  # ty: ignore[invalid-argument-type]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "mappings",
     [
@@ -76,6 +80,7 @@ def test_import_options_reject_malformed_path_mapping_pairs(mappings: object) ->
         BinaryImportOptions(path_mappings=mappings)  # ty: ignore[invalid-argument-type]
 
 
+@pytest.mark.mutation_fast
 def test_import_options_preserve_valid_paths_mappings_and_ranges() -> None:
     selected = BinarySelection(0, 1)
     options = BinaryImportOptions(
@@ -96,12 +101,14 @@ def test_import_options_preserve_valid_paths_mappings_and_ranges() -> None:
     assert options.ranges == (selected,)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("ranges", [[], [BinarySelection(0, 1)], (None,), ((0, 1),)])
 def test_import_options_reject_invalid_range_collections(ranges: object) -> None:
     with pytest.raises(ValueError, match="ranges"):
         BinaryImportOptions(ranges=ranges)  # ty: ignore[invalid-argument-type]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "model",
     [
@@ -132,6 +139,7 @@ def test_native_value_records_reject_reassignment(model: str) -> None:
         setattr(value, field, getattr(value, field))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("partial", [False, True])
 def test_binary_artifact_api_preserves_coverage_state(partial: bool) -> None:
     graph = evidence()
@@ -153,6 +161,7 @@ def test_binary_artifact_api_preserves_coverage_state(partial: bool) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "truncated,has_diagnostic,complete",
     [
@@ -186,6 +195,7 @@ def test_binary_disassembly_is_complete_only_without_truncation_or_diagnostics(
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("line", [0, -1, True, False, "1", 1.5])
 def test_binary_source_range_line_filter_requires_a_positive_integer(line: object) -> None:
     engine = QueryEngine.from_graph(evidence())
@@ -193,12 +203,14 @@ def test_binary_source_range_line_filter_requires_a_positive_integer(line: objec
         engine.binary_ranges("a:helper", line=line)  # ty: ignore[invalid-argument-type]
 
 
+@pytest.mark.mutation_fast
 def test_binary_source_range_line_one_and_missing_nodes_are_valid_queries() -> None:
     engine = QueryEngine.from_graph(evidence())
     assert engine.binary_ranges("a:helper", line=1) == []
     assert engine.binary_ranges("missing") == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "architecture,mnemonic,operands,expected",
     [
@@ -230,6 +242,7 @@ def test_tail_branch_recognition_is_conservative(
     assert symbol == ("callee" if "<callee>" in operands else None)
 
 
+@pytest.mark.mutation_fast
 def test_tail_inference_requires_another_entry_and_an_established_owner(tmp_path: Path) -> None:
     image = Image(
         None,
@@ -280,6 +293,7 @@ def test_tail_inference_requires_another_entry_and_an_established_owner(tmp_path
     ]
 
 
+@pytest.mark.mutation_fast
 def test_restored_debug_function_spans_all_ranges() -> None:
     graph = evidence()
     node = graph.nodes["bin.image:sub_1000"]
@@ -328,6 +342,7 @@ def evidence() -> CodeGraph:
     )
 
 
+@pytest.mark.mutation_fast
 def test_binary_evidence_is_frozen_and_discontiguous_source_spans_stay_separate() -> None:
     graph = evidence()
     row = graph.binary_ranges["range"]
@@ -346,6 +361,7 @@ def test_binary_evidence_is_frozen_and_discontiguous_source_spans_stay_separate(
     assert engine.source_at_address("image", 0x1009)[0]["line"] == 5
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("broken", ["range", "mapping", "artifact", "node"])
 def test_invalid_native_commit_preserves_all_existing_state(broken: str) -> None:
     engine = QueryEngine.from_graph(evidence())
@@ -384,6 +400,7 @@ def test_codegraph_merge_checks_binary_identity_before_mutating_source_nodes() -
     assert "new:node" not in graph.nodes
 
 
+@pytest.mark.mutation_fast
 def test_overlapping_interval_index_retains_nested_frames_and_exclusive_ends() -> None:
     rows = [
         BinarySelection(0, 100),
@@ -400,12 +417,14 @@ def test_overlapping_interval_index_retains_nested_frames_and_exclusive_ends() -
     assert index.containing(19, 21) == rows[:1]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("value", [0, -1, float("nan"), float("inf"), True, "10"])
 def test_binary_limits_reject_invalid_budgets(value: object) -> None:
     with pytest.raises(ValueError):
         BinaryLimits(tool_timeout=value)  # ty: ignore[invalid-argument-type]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "start,end,kind",
     [(True, 2, "va"), (-1, 2, "va"), (2, 2, "va"), (3, 2, "va"), (0, 1, "runtime")],
@@ -417,6 +436,7 @@ def test_binary_selection_rejects_ambiguous_or_invalid_addresses(
         BinarySelection(start, end, kind)
 
 
+@pytest.mark.mutation_fast
 def test_import_options_reject_mutable_or_unsupported_configuration() -> None:
     with pytest.raises(ValueError):
         BinaryImportOptions(backend="other")  # ty: ignore[invalid-argument-type]
@@ -447,6 +467,7 @@ def _host_process(monkeypatch: pytest.MonkeyPatch) -> tuple[Mock, MagicMock]:
     return process, selector
 
 
+@pytest.mark.mutation_fast
 def test_host_tool_output_budget_counts_both_pipes(monkeypatch: pytest.MonkeyPatch) -> None:
     process, selector = _host_process(monkeypatch)
     keys = [
@@ -469,6 +490,7 @@ def test_host_tool_output_budget_counts_both_pipes(monkeypatch: pytest.MonkeyPat
     process.kill.assert_called_once()
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("stage", ["pipes", "wait"])
 def test_host_tool_timeout_terminates_the_process(
     monkeypatch: pytest.MonkeyPatch, stage: str
@@ -503,6 +525,7 @@ def test_host_tool_timeout_terminates_the_process(
     assert selector.select.call_count == (0 if stage == "pipes" else 1)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "architecture,mnemonic,operands,target",
     [
@@ -526,6 +549,7 @@ def test_call_targets_use_addresses_and_do_not_depend_on_symbol_comments(
     assert call_target(architecture, mnemonic, operands.split(" <")[0])[1] == target
 
 
+@pytest.mark.mutation_fast
 def test_register_calls_and_return_jumps_are_distinct() -> None:
     assert call_target("arm", "blx", "r3")[:2] == ("indirect", None)
     assert call_target("x86_64", "callq", "*%rax")[:2] == ("indirect", None)
@@ -537,6 +561,7 @@ def test_register_calls_and_return_jumps_are_distinct() -> None:
     assert call_target("arm", "blxne", "r3")[:2] == ("indirect", None)
 
 
+@pytest.mark.mutation_fast
 def test_decoder_rows_support_word_encodings_and_tabbed_operands() -> None:
     output = (
         b"  1000: 4903        \tldr\tr1, [pc, #12]\n  1002:\tea80 00e0 \teor.w\tr0, r0\n"
@@ -549,6 +574,7 @@ def test_decoder_rows_support_word_encodings_and_tabbed_operands() -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_source_resolution_preserves_duplicate_symbol_ambiguity() -> None:
     graph = CodeGraph(
         nodes={
@@ -566,6 +592,7 @@ def test_source_resolution_preserves_duplicate_symbol_ambiguity() -> None:
     assert resolver.location("/build/a.c", 0) is None
 
 
+@pytest.mark.mutation_fast
 def test_empty_store_queries_need_no_native_dependency() -> None:
     store = GraphStore(CodeGraph())
     assert store.binary_artifacts() == []
@@ -573,6 +600,7 @@ def test_empty_store_queries_need_no_native_dependency() -> None:
     assert store.source_at_address("missing", 0) == []
 
 
+@pytest.mark.mutation_fast
 def test_automatic_tools_prefer_compatible_llvm_even_named_objdump(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -604,6 +632,7 @@ def test_automatic_tools_prefer_compatible_llvm_even_named_objdump(
         )
 
 
+@pytest.mark.mutation_fast
 def test_optional_lief_dependency_has_actionable_error(monkeypatch: pytest.MonkeyPatch) -> None:
     from trailmark.analysis.native_binary import formats
 
@@ -615,6 +644,7 @@ def test_optional_lief_dependency_has_actionable_error(monkeypatch: pytest.Monke
         formats.lief_module()
 
 
+@pytest.mark.mutation_fast
 def test_fifo_input_is_rejected_without_waiting(tmp_path: Path) -> None:
     import os
 

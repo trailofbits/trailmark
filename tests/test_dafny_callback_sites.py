@@ -2,12 +2,15 @@
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.nodes import NodeOrigin
 from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_parameter_applications_keep_each_site_and_public_navigation(tmp_path: Path) -> None:
     path = tmp_path / "Callbacks.dfy"
     path.write_text(
@@ -29,6 +32,7 @@ def test_parameter_applications_keep_each_site_and_public_navigation(tmp_path: P
     assert {n["id"] for n in engine.callers_of(calls[0].target_id)} == {"Callbacks:Search"}
 
 
+@pytest.mark.mutation_fast
 def test_callback_and_argument_calls_keep_evaluation_boundaries(tmp_path: Path) -> None:
     path = tmp_path / "Evaluation.dfy"
     path.write_text(
@@ -44,6 +48,7 @@ def test_callback_and_argument_calls_keep_evaluation_boundaries(tmp_path: Path) 
     assert sum(e.target_id == "Evaluation:consume" for e in calls) == 1
 
 
+@pytest.mark.mutation_fast
 def test_contracts_and_ghost_parameters_do_not_become_runtime_callbacks(tmp_path: Path) -> None:
     path = tmp_path / "Ghost.dfy"
     path.write_text(
@@ -60,6 +65,7 @@ def test_contracts_and_ghost_parameters_do_not_become_runtime_callbacks(tmp_path
     assert not any(e.target_id == "Ghost:f" for e in references)
 
 
+@pytest.mark.mutation_fast
 def test_inner_binders_do_not_capture_the_parameter_proxy(tmp_path: Path) -> None:
     path = tmp_path / "Shadow.dfy"
     path.write_text(

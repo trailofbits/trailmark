@@ -30,6 +30,7 @@ from trailmark.query.api import QueryEngine
 _LOC = SourceLocation(file_path="test.py", start_line=1, end_line=10)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("diagram_type", diagram._DIAGRAM_TYPES)
 def test_colliding_node_spellings_stay_distinct(diagram_type: str) -> None:
     left, right = "a-b:Work", "a_b:Work"
@@ -83,6 +84,7 @@ def test_colliding_node_spellings_stay_distinct(diagram_type: str) -> None:
         assert f"{declared[0]} --> {declared[1]}" in result
 
 
+@pytest.mark.mutation_fast
 def test_mermaid_identity_allocation_is_order_independent_and_reserves_names() -> None:
     left = "a-b"
     reserved = f"a_b__{hashlib.sha256(left.encode()).hexdigest()[:12]}"
@@ -281,32 +283,41 @@ class TestEdgeStyle:
     def test_certain(self) -> None:
         assert diagram.edge_style("certain") == "-->"
 
+    @pytest.mark.mutation_fast
     def test_inferred(self) -> None:
         assert diagram.edge_style("inferred") == "-.->"
 
+    @pytest.mark.mutation_fast
     def test_uncertain(self) -> None:
         assert diagram.edge_style("uncertain") == "-..->"
 
 
 class TestComplexityClass:
+    @pytest.mark.mutation_fast
     def test_none(self) -> None:
         assert diagram.complexity_class(None) == "low"
 
+    @pytest.mark.mutation_fast
     def test_low(self) -> None:
         assert diagram.complexity_class(3) == "low"
 
+    @pytest.mark.mutation_fast
     def test_medium(self) -> None:
         assert diagram.complexity_class(7) == "medium"
 
+    @pytest.mark.mutation_fast
     def test_high(self) -> None:
         assert diagram.complexity_class(15) == "high"
 
+    @pytest.mark.mutation_fast
     def test_boundary_5(self) -> None:
         assert diagram.complexity_class(5) == "medium"
 
+    @pytest.mark.mutation_fast
     def test_boundary_10(self) -> None:
         assert diagram.complexity_class(10) == "medium"
 
+    @pytest.mark.mutation_fast
     def test_boundary_11(self) -> None:
         assert diagram.complexity_class(11) == "high"
 
@@ -315,6 +326,7 @@ class TestComplexityClass:
 
 
 class TestEmitCallGraph:
+    @pytest.mark.mutation_fast
     def test_with_focus(self) -> None:
         engine = _build_call_graph_engine()
         result = diagram.emit_call_graph(engine, "handler", 2, "TB")
@@ -336,6 +348,7 @@ class TestEmitCallGraph:
 
 
 class TestEmitClassHierarchy:
+    @pytest.mark.mutation_fast
     def test_inherits_and_implements(self) -> None:
         engine = _build_class_hierarchy_engine()
         result = diagram.emit_class_hierarchy(engine, "TB")
@@ -343,6 +356,7 @@ class TestEmitClassHierarchy:
         assert "<|--" in result
         assert "<|.." in result
 
+    @pytest.mark.mutation_fast
     def test_no_classes(self) -> None:
         engine = _build_call_graph_engine()
         result = diagram.emit_class_hierarchy(engine, "TB")
@@ -350,6 +364,7 @@ class TestEmitClassHierarchy:
 
 
 class TestEmitModuleDeps:
+    @pytest.mark.mutation_fast
     def test_imports(self) -> None:
         engine = _build_module_deps_engine()
         result = diagram.emit_module_deps(engine, "LR")
@@ -357,6 +372,7 @@ class TestEmitModuleDeps:
         assert "mod_a" in result
         assert "mod_b" in result
 
+    @pytest.mark.mutation_fast
     def test_no_imports(self) -> None:
         engine = _build_call_graph_engine()
         result = diagram.emit_module_deps(engine, "TB")
@@ -371,6 +387,7 @@ class TestEmitContainment:
         assert "do_thing" in result
         assert "other" in result
 
+    @pytest.mark.mutation_fast
     def test_no_containment(self) -> None:
         engine = _build_module_deps_engine()
         result = diagram.emit_containment(engine, "TB")
@@ -393,6 +410,7 @@ def test_class_diagrams_honor_direction(
     assert result.splitlines()[:2] == ["classDiagram", f"    direction {direction}"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("emitter", [diagram.emit_class_hierarchy, diagram.emit_containment])
 @pytest.mark.parametrize("class_count", [100, 101])
 def test_class_diagram_size_warning_counts_rendered_classes(
@@ -426,6 +444,7 @@ class TestEmitComplexity:
         assert ":::high" in result
         assert "classDef high" in result
 
+    @pytest.mark.mutation_fast
     def test_below_threshold(self) -> None:
         engine = _build_call_graph_engine()
         result = diagram.emit_complexity(engine, 20, "TB")
@@ -433,6 +452,7 @@ class TestEmitComplexity:
 
 
 class TestEmitDataFlow:
+    @pytest.mark.mutation_fast
     def test_focus_uses_the_same_declaration_ranking_as_queries(self) -> None:
         units = [
             _make_node("mod:C.check", "C.check"),
@@ -452,6 +472,7 @@ class TestEmitDataFlow:
             assert diagram._find_focus_node(graph, reference) == expected
         assert diagram._find_focus_node(graph, "check") == "mod:check"
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("reverse_order", [False, True])
     def test_preserves_weakest_parallel_call_confidence(self, reverse_order: bool) -> None:
         nodes = {name: _make_node(name, name) for name in ("entry", "middle", "sink")}
@@ -479,11 +500,13 @@ class TestEmitDataFlow:
         assert "entry --> middle" not in result
         assert len(graph.edges) == 4
 
+    @pytest.mark.mutation_fast
     def test_depth_bounds_the_number_of_edges(self) -> None:
         engine = _build_call_graph_engine()
         assert "No paths" in diagram.emit_data_flow(engine, "db_query", 1, "TB")
         assert "mod_handler --> mod_db_query" in diagram.emit_data_flow(engine, "db_query", 2, "TB")
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("depth", [0, -1])
     def test_nonpositive_depth_rejected_even_without_entrypoints(self, depth: int) -> None:
         with pytest.raises(ValueError, match="depth.*at least 1"):
@@ -495,11 +518,13 @@ class TestEmitDataFlow:
         assert result.startswith("flowchart TB")
         assert "entrypoint" in result
 
+    @pytest.mark.mutation_fast
     def test_without_focus(self) -> None:
         engine = _build_call_graph_engine()
         result = diagram.emit_data_flow(engine, None, 5, "TB")
         assert result.startswith("flowchart TB")
 
+    @pytest.mark.mutation_fast
     def test_no_entrypoints(self) -> None:
         engine = _build_class_hierarchy_engine()
         result = diagram.emit_data_flow(engine, None, 5, "TB")
@@ -550,6 +575,7 @@ class TestQuotedNodeNames:
 
 
 class TestParseArgs:
+    @pytest.mark.mutation_fast
     def test_required_args(self) -> None:
         args = diagram.parse_args(["--target", "/some/dir", "--type", "call-graph"])
         assert args.target == "/some/dir"
@@ -589,6 +615,7 @@ class TestParseArgs:
             diagram.parse_args(["--target", "/some/dir", "--type", "invalid"])
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("subcommand", [False, True])
 @pytest.mark.parametrize(
     ("diagram_type", "depth", "edge_count", "includes_sink"),

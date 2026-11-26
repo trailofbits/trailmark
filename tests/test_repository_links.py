@@ -20,6 +20,7 @@ def _write_sources(tmp_path: Path) -> None:
     (tmp_path / ".trailmark").mkdir()
 
 
+@pytest.mark.mutation_fast
 def test_links_cross_language_nodes(tmp_path: Path) -> None:
     _write_sources(tmp_path)
     (tmp_path / ".trailmark" / "links.toml").write_text(
@@ -39,6 +40,7 @@ def test_links_cross_language_nodes(tmp_path: Path) -> None:
     assert [unit["id"] for unit in engine.callees_of("caller:invoke")] == ["callee:execute"]
 
 
+@pytest.mark.mutation_fast
 def test_external_link_requires_opt_in_and_creates_proxy(tmp_path: Path) -> None:
     _write_sources(tmp_path)
     config = tmp_path / ".trailmark" / "links.toml"
@@ -76,6 +78,7 @@ def test_source_external_creates_proxy_for_source_only(tmp_path: Path) -> None:
     assert "proxy.external:caller:invoke" not in graph.nodes
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body,match",
     [

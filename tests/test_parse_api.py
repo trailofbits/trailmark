@@ -214,6 +214,7 @@ class TestFileExtensionHelper:
         assert _file_extension("archive.tar.gz") == ".gz"
         assert _file_extension("a.b.c.d.py") == ".py"
 
+    @pytest.mark.mutation_fast
     def test_no_extension_returns_empty_string(self) -> None:
         """Kills the '' → 'XXXX' mutation."""
         from trailmark.parse import _file_extension
@@ -221,6 +222,7 @@ class TestFileExtensionHelper:
         assert _file_extension("README") == ""
         assert _file_extension("Makefile") == ""
 
+    @pytest.mark.mutation_fast
     def test_dotfile_has_extension_starting_at_zero(self) -> None:
         """Kills the `dot < 0` → `dot <= 0` and `dot < 1` mutations.
 

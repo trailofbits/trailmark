@@ -29,6 +29,7 @@ def test_redefined_bodies_keep_their_own_nested_calls(tmp_path: Path) -> None:
     assert calls == {"a:f@1_0": "a:f@1_0.inner", "a:f": "a:f.inner"}
 
 
+@pytest.mark.mutation_fast
 def test_calls_between_definitions_use_the_preceding_definition(tmp_path: Path) -> None:
     path = tmp_path / "a.py"
     path.write_text(
@@ -72,6 +73,7 @@ def test_only_known_overload_decorators_are_stubs(tmp_path: Path, decorator: str
     assert ("a:f" in graph.nodes) == (decorator == "custom.overload")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("body", ["def f(): pass\n", "@show.register\ndef _(x: T): pass\n"])
 def test_many_runtime_definitions_are_linear(tmp_path: Path, body: str) -> None:
     path = tmp_path / "a.py"
@@ -118,6 +120,7 @@ def test_python_assignment_and_definition_order(tmp_path: Path) -> None:
     assert dict(calls[6].attributes)["binding_blocked"]
 
 
+@pytest.mark.mutation_fast
 def test_same_named_type_does_not_capture_function_call(tmp_path: Path) -> None:
     path = tmp_path / "a.py"
     path.write_text("class Token: pass\ndef Token(): pass\ndef run(): return Token()\n")

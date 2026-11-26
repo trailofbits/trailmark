@@ -14,6 +14,7 @@ from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_adjacent_comments_before_a_template_do_not_repeat_the_scan(tmp_path: Path) -> None:
     path = tmp_path / "sample.cpp"
     path.write_text("#define API\nAPI\n/**//**/\ntemplate<class T> class View {};\n")
@@ -23,6 +24,7 @@ def test_adjacent_comments_before_a_template_do_not_repeat_the_scan(tmp_path: Pa
     assert [marker["role"] for marker in markers] == ["template_prefix"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_namespace_and_constexpr_constructor_owners_keep_physical_sites(
     tmp_path: Path, newline: str
@@ -69,6 +71,7 @@ def test_namespace_and_constexpr_constructor_owners_keep_physical_sites(
     assert graph.parse_diagnostics  # Original recovery evidence remains visible.
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "definitions",
     [
@@ -104,6 +107,7 @@ def test_unknown_or_conflicting_constructor_markers_are_not_removed(
     assert "cpp_declaration_markers" not in dict(graph.nodes["sample"].attributes)
 
 
+@pytest.mark.mutation_fast
 def test_regular_types_free_functions_and_namespace_aliases_are_not_annotations(
     tmp_path: Path,
 ) -> None:
@@ -118,6 +122,7 @@ def test_regular_types_free_functions_and_namespace_aliases_are_not_annotations(
     assert graph.nodes["sample:Buffer"].kind == NodeKind.FUNCTION
 
 
+@pytest.mark.mutation_fast
 def test_multiple_reopened_namespaces_do_not_capture_following_declarations(tmp_path: Path) -> None:
     path = tmp_path / "sample.cpp"
     path.write_text(
@@ -153,6 +158,7 @@ def test_literal_and_comment_directives_do_not_revoke_constructor_annotation(
     assert [m["role"] for m in markers] == ["constructor_annotation"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("initializer", ["", ": args{{0}, values...} "])
 def test_proven_annotation_chain_preserves_complete_namespace_and_class(
     tmp_path: Path, initializer: str
@@ -234,6 +240,7 @@ def test_repeated_comments_without_template_do_not_stall(tmp_path: Path, suffix:
     )
 
 
+@pytest.mark.mutation_fast
 def test_template_prefix_skips_mixed_comments_and_whitespace(tmp_path: Path) -> None:
     path = tmp_path / "sample.cpp"
     path.write_text(

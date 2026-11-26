@@ -25,6 +25,7 @@ def test_token_paste_whitespace_matches_reference(text: str) -> None:
     assert _paste_tokens(text) == re.sub(r"\s*##\s*", "", text)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extra", [-1, 0, 1], ids=["below", "at-limit", "above"])
 @pytest.mark.parametrize("case", ["replacement-growth", "replacement-shrink", "invocation"])
 def test_declaration_macro_text_budget_at_each_expansion_stage(

@@ -8,6 +8,7 @@ from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 def test_qualified_impl_calls_resolve_through_super_imports(tmp_path: Path) -> None:
     source = tmp_path / "packing.cairo"
     source.write_text(
@@ -27,6 +28,7 @@ def test_qualified_impl_calls_resolve_through_super_imports(tmp_path: Path) -> N
     assert call.location.start_line == 5
 
 
+@pytest.mark.mutation_fast
 def test_qualified_calls_respect_import_alias_shadowing(tmp_path: Path) -> None:
     source = tmp_path / "packing.cairo"
     source.write_text(
@@ -45,6 +47,7 @@ def test_qualified_calls_respect_import_alias_shadowing(tmp_path: Path) -> None:
     assert graph.nodes[call.target_id].origin.value == "proxy"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("parameters", ["StorePacking", "T, impl StorePacking: Packing<T>"])
 def test_generic_path_heads_do_not_bind_same_name_local_impl(
     tmp_path: Path, parameters: str
@@ -63,6 +66,7 @@ def test_generic_path_heads_do_not_bind_same_name_local_impl(
     assert graph.nodes[call.target_id].origin.value == "proxy"
 
 
+@pytest.mark.mutation_fast
 def test_function_local_imports_do_not_leak_to_sibling_functions(tmp_path: Path) -> None:
     source = tmp_path / "scopes.cairo"
     source.write_text(

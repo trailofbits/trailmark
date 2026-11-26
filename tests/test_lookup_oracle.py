@@ -1,5 +1,6 @@
 """Human-reference lookup obeys precedence and retains insertion order within ties."""
 
+import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
@@ -26,6 +27,7 @@ _UNITS = [
 ]
 
 
+@pytest.mark.mutation_fast
 @given(order=st.lists(st.integers(0, len(_UNITS) - 1), unique=True))
 @example(order=[])
 @example(order=[5, 4, 2, 0, 1])

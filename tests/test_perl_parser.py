@@ -19,6 +19,7 @@ def _file(tmp_path: Path, text: str) -> Path:
     return path
 
 
+@pytest.mark.mutation_fast
 def test_packages_signatures_prototypes_and_qualified_calls(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -42,6 +43,7 @@ sub after { helper(3); }
     assert "sample:Other.helper" in graph.nodes and "sample:Example.after" in graph.nodes
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("mutation", ["*helper = \\&other;", "undef &helper;", "eval $code;"])
 def test_symbol_mutation_disables_inference(tmp_path: Path, mutation: str) -> None:
     path = _file(tmp_path, f"sub helper {{}} sub main {{ helper(); }} {mutation}")
@@ -51,6 +53,7 @@ def test_symbol_mutation_disables_inference(tmp_path: Path, mutation: str) -> No
     )
 
 
+@pytest.mark.mutation_fast
 def test_coderefs_receivers_lexical_subs_and_namesakes_stay_proxies(tmp_path: Path) -> None:
     _file(
         tmp_path,
@@ -70,6 +73,7 @@ sub main { my sub helper {}; helper(); $cb->(); $obj->helper(); Missing::helper(
     assert graph.source_file_counts == {"perl": 2}
 
 
+@pytest.mark.mutation_fast
 def test_dependencies_and_anonymous_body_ownership(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -117,6 +121,7 @@ def test_parse_errors_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> 
     assert "Perl syntax errors" in caplog.text
 
 
+@pytest.mark.mutation_fast
 def test_regex_escapes_and_character_classes_preserve_surrounding_control_flow(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

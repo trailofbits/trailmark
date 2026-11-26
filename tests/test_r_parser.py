@@ -19,6 +19,7 @@ def _file(tmp_path: Path, source: str) -> Path:
     return path
 
 
+@pytest.mark.mutation_fast
 def test_assignment_forms_closures_defaults_variadics_and_native_pipe(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -42,6 +43,7 @@ main = function() { inner <- function(z) helper(z); inner(1); other(2) }
     assert QueryEngine.from_directory(str(tmp_path), language="auto").entrypoint_paths_to("helper")
 
 
+@pytest.mark.mutation_fast
 def test_callbacks_parameters_objects_and_namespaces_do_not_bind_namesakes(tmp_path: Path) -> None:
     _file(
         tmp_path,
@@ -64,6 +66,7 @@ lapply(xs, function(helper) helper())
     assert graph.source_file_counts == {"r": 2}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "setup",
     [
@@ -85,6 +88,7 @@ def test_reassignment_and_environment_mutation_prevent_inference(
     )
 
 
+@pytest.mark.mutation_fast
 def test_dependency_literals_character_only_and_shadowing(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -98,6 +102,7 @@ caller <- function(library) library(fake)
     assert parse_file(str(path)).dependencies == ["utils", "stats", "helpers.R"]
 
 
+@pytest.mark.mutation_fast
 def test_anonymous_ownership_declaration_order_and_repeated_names(tmp_path: Path) -> None:
     path = _file(
         tmp_path,

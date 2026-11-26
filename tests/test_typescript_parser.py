@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -95,6 +97,7 @@ def _parse_sample() -> tuple[TypeScriptParser, CodeGraph]:
 
 
 class TestTypeScriptParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
@@ -140,6 +143,7 @@ class TestTypeScriptParserNodes:
         assert "deserialize" in names
         assert "getId" in names
 
+    @pytest.mark.mutation_fast
     def test_class_jsdoc(self) -> None:
         _, graph = _parse_sample()
         entity = next(n for n in graph.nodes.values() if n.name == "Entity")
@@ -148,6 +152,7 @@ class TestTypeScriptParserNodes:
 
 
 class TestTypeScriptParserParameters:
+    @pytest.mark.mutation_fast
     def test_typed_parameter(self) -> None:
         _, graph = _parse_sample()
         get_name = next(n for n in graph.nodes.values() if n.name == "getName")
@@ -156,6 +161,7 @@ class TestTypeScriptParserParameters:
         assert get_name.parameters[0].type_ref is not None
         assert get_name.parameters[0].type_ref.name == "User"
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         get_name = next(n for n in graph.nodes.values() if n.name == "getName")
@@ -194,6 +200,7 @@ class TestTypeScriptParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_inherits_edge(self) -> None:
         _, graph = _parse_sample()
         inherits = [e for e in graph.edges if e.kind == EdgeKind.INHERITS]
@@ -202,6 +209,7 @@ class TestTypeScriptParserEdges:
         has_entity = any("Entity" in t for t in targets)
         assert has_entity
 
+    @pytest.mark.mutation_fast
     def test_implements_edge(self) -> None:
         _, graph = _parse_sample()
         implements = [e for e in graph.edges if e.kind == EdgeKind.IMPLEMENTS]
@@ -230,6 +238,7 @@ class TestTypeScriptParserEdges:
 
 
 class TestTypeScriptParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "rxjs" in graph.dependencies
@@ -303,6 +312,7 @@ class TestTypeScriptExtraFeatures:
         names = {n.name for n in graph.nodes.values()}
         assert "ExportedClass" in names
 
+    @pytest.mark.mutation_fast
     def test_implements_generic_interface(self) -> None:
         graph = _parse_extra()
         impl_edges = [e for e in graph.edges if e.kind == EdgeKind.IMPLEMENTS]
@@ -321,6 +331,7 @@ class TestTypeScriptExtraFeatures:
         assert box.type_parameters[0].constraints[0].name == "Entity"
         assert identity.type_parameters[0].name == "U"
 
+    @pytest.mark.mutation_fast
     def test_optional_parameter(self) -> None:
         graph = _parse_extra()
         fn = next(n for n in graph.nodes.values() if n.name == "withOptional")
@@ -328,6 +339,7 @@ class TestTypeScriptExtraFeatures:
         assert fn.parameters[0].name == "x"
         assert fn.parameters[1].name == "y"
 
+    @pytest.mark.mutation_fast
     def test_expression_assignment_function(self) -> None:
         graph = _parse_ts_snippet(ASSIGN_TS_CODE)
         names = {n.name for n in graph.nodes.values()}
@@ -335,6 +347,7 @@ class TestTypeScriptExtraFeatures:
 
 
 class TestTypeScriptParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = TypeScriptParser()
         code_a = "function fromA(): void {}\n"

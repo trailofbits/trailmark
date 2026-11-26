@@ -6,6 +6,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -13,6 +15,7 @@ from trailmark.parsers.go.parser import GoParser
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_cross_file_calls_require_both_the_same_directory_and_package(tmp_path: Path) -> None:
     files = {
         "caller.go": "package p\nfunc caller() { target() }\n",
@@ -110,17 +113,20 @@ def _parse_sample() -> tuple[GoParser, CodeGraph]:
 
 
 class TestGoParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_struct(self) -> None:
         _, graph = _parse_sample()
         structs = [n for n in graph.nodes.values() if n.kind == NodeKind.STRUCT]
         names = {s.name for s in structs}
         assert "Point" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_interface(self) -> None:
         _, graph = _parse_sample()
         interfaces = [n for n in graph.nodes.values() if n.kind == NodeKind.INTERFACE]
@@ -142,12 +148,14 @@ class TestGoParserNodes:
         assert "Translate" in names
         assert "Distance" in names
 
+    @pytest.mark.mutation_fast
     def test_method_id_includes_receiver(self) -> None:
         _, graph = _parse_sample()
         method_ids = [n.id for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
         has_point = any("Point" in mid for mid in method_ids)
         assert has_point
 
+    @pytest.mark.mutation_fast
     def test_struct_docstring(self) -> None:
         _, graph = _parse_sample()
         point = next(n for n in graph.nodes.values() if n.name == "Point")
@@ -156,12 +164,14 @@ class TestGoParserNodes:
 
 
 class TestGoParserParameters:
+    @pytest.mark.mutation_fast
     def test_function_params(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
         assert len(greet.parameters) == 1
         assert greet.parameters[0].name == "name"
 
+    @pytest.mark.mutation_fast
     def test_param_type(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -176,6 +186,7 @@ class TestGoParserParameters:
         assert "dx" in names
         assert "dy" in names
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         abs_fn = next(n for n in graph.nodes.values() if n.name == "abs")
@@ -218,12 +229,14 @@ class TestGoParserEdges:
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
         assert len(calls) > 0
 
+    @pytest.mark.mutation_fast
     def test_call_confidence_certain(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
         certain = [e for e in calls if e.confidence == EdgeConfidence.CERTAIN]
         assert len(certain) > 0
 
+    @pytest.mark.mutation_fast
     def test_call_confidence_inferred(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -232,6 +245,7 @@ class TestGoParserEdges:
 
 
 class TestGoParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "fmt" in graph.dependencies

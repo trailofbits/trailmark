@@ -25,6 +25,7 @@ def _write(root: Path, name: str, source: str = "def handler(): pass\n") -> Path
     return path
 
 
+@pytest.mark.mutation_fast
 def test_explicit_roots_deduplicate_and_bypass_parent_exclusions(tmp_path: Path) -> None:
     for name in (
         "app.py",
@@ -53,6 +54,7 @@ def test_explicit_roots_deduplicate_and_bypass_parent_exclusions(tmp_path: Path)
     assert parse_directory(str(tmp_path)).source_file_counts == {"python": 2}
 
 
+@pytest.mark.mutation_fast
 def test_explicit_includes_and_unparsed_files(tmp_path: Path) -> None:
     _write(tmp_path, "var/cache/generated.py")
     _write(tmp_path, "data.txt", "not source")
@@ -68,6 +70,7 @@ def test_explicit_includes_and_unparsed_files(tmp_path: Path) -> None:
     assert included.source_file_counts == {"python": 1}
 
 
+@pytest.mark.mutation_fast
 def test_default_exclusions_prune_directories_without_layout_assumptions(tmp_path: Path) -> None:
     _write(tmp_path, "generated/code.py")
     _write(tmp_path, "var/cache/code.py")
@@ -81,6 +84,7 @@ def test_default_exclusions_prune_directories_without_layout_assumptions(tmp_pat
     assert excluded[0]["reason"] == "default_directory"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("pattern", ["build", "build/", "build/**"])
 def test_directory_exclusions_still_apply_when_include_keeps_traversal_open(
     pattern: str, tmp_path: Path
@@ -101,6 +105,7 @@ def test_directory_exclusions_still_apply_when_include_keeps_traversal_open(
     }
 
 
+@pytest.mark.mutation_fast
 def test_single_star_include_cannot_cross_directory_segments(tmp_path: Path) -> None:
     _write(tmp_path, "selected.gen.py")
     _write(tmp_path, "node_modules/deep/ignored.gen.py")
@@ -112,6 +117,7 @@ def test_single_star_include_cannot_cross_directory_segments(tmp_path: Path) -> 
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.skipif(os.name == "nt", reason="Windows filenames cannot contain newlines")
 def test_globstar_include_matches_newlines_in_posix_paths(tmp_path: Path) -> None:
     _write(tmp_path, "build/line\nbreak/keep.py")
@@ -130,6 +136,7 @@ def test_globstar_include_matches_newlines_in_posix_paths(tmp_path: Path) -> Non
     }
 
 
+@pytest.mark.mutation_fast
 def test_symlinks_cannot_escape_or_duplicate_selected_files(tmp_path: Path) -> None:
     original = tmp_path / "original"
     _write(original, "code.py")
@@ -167,6 +174,7 @@ def test_symlinked_root_preserves_lexical_paths(tmp_path: Path) -> None:
     assert cast(list[dict], graph.source_policy["roots"])[0]["path"] == str(alias)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("names", [(), ("same", "same"), ("",), ("has:colon",)])
 def test_invalid_roots(names: tuple[str, ...], tmp_path: Path) -> None:
     with pytest.raises(ValueError):
@@ -180,6 +188,7 @@ def test_source_contract_covers_every_registered_language() -> None:
     assert set(_FIXTURES) == set(supported_languages())
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language", supported_languages())
 def test_source_contract_preserves_existing_entrypoints(language: str, tmp_path: Path) -> None:
     fixture, _ = fixture_pair(language, _FIXTURES[language])

@@ -1,10 +1,13 @@
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeKind
 from trailmark.models.nodes import NodeKind
 from trailmark.parse import parse_directory
 
 
+@pytest.mark.mutation_fast
 def test_receivers_resolve_within_the_directory_and_package(tmp_path: Path) -> None:
     (tmp_path / "types.go").write_text(
         "package demo\ntype Server struct{}\ntype Counter int\n"

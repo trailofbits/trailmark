@@ -48,6 +48,7 @@ def test_objc_header_precedence_remains_deterministic(tmp_path: Path) -> None:
         assert "shared:Base" in graph.nodes
 
 
+@pytest.mark.mutation_fast
 def test_h_alone_keeps_automatic_detection_ambiguous(tmp_path: Path) -> None:
     (tmp_path / "plain.h").write_text("int helper(void) { return 0; }\n")
     assert detect_languages(str(tmp_path)) == []
@@ -55,6 +56,7 @@ def test_h_alone_keeps_automatic_detection_ambiguous(tmp_path: Path) -> None:
         parse_directory(str(tmp_path), "auto")
 
 
+@pytest.mark.mutation_fast
 def test_cpp_source_policy_marks_h_header_inspected(tmp_path: Path) -> None:
     (tmp_path / "widget.h").write_text(HEADER)
     graph = parse_roots(SourcePolicy((SourceRoot(str(tmp_path), "app"),)), "cpp")
@@ -65,6 +67,7 @@ def test_cpp_source_policy_marks_h_header_inspected(tmp_path: Path) -> None:
     assert files[0]["status"] == "inspected"
 
 
+@pytest.mark.mutation_fast
 def test_macro_inline_pointer_return_has_a_real_identifier_in_auto_mode(tmp_path: Path) -> None:
     (tmp_path / "config.h").write_text("#define ngx_inline inline\n")
     (tmp_path / "node.h").write_text(

@@ -53,6 +53,7 @@ def _referenced(graph: CodeGraph, source: str) -> set[str]:
 # --------------------------------------------------------------------------- Python
 
 
+@pytest.mark.mutation_fast
 def test_python_argument_reference_is_not_a_call(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -118,6 +119,7 @@ def test_references_do_not_change_reachability_or_entrypoints(tmp_path: Path) ->
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("consumer", ["register", "zz_unrelated.attach", "make_thing"])
 def test_python_consumer_name_does_not_matter(tmp_path: Path, consumer: str) -> None:
     graph = _discover(
@@ -130,6 +132,7 @@ def test_python_consumer_name_does_not_matter(tmp_path: Path, consumer: str) -> 
     assert dict(fact.details)["path"] == "args[1][0]"
 
 
+@pytest.mark.mutation_fast
 def test_python_aliases_and_collections(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -157,6 +160,7 @@ def test_python_aliases_and_collections(tmp_path: Path) -> None:
     assert not any(f.symbol == "routes" for f in _evidence(graph))
 
 
+@pytest.mark.mutation_fast
 def test_python_imports_from_local_modules(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -183,6 +187,7 @@ def test_python_imports_from_local_modules(tmp_path: Path) -> None:
     assert {e.confidence for e in edges} == {EdgeConfidence.INFERRED}
 
 
+@pytest.mark.mutation_fast
 def test_python_duplicate_names_bind_by_import_not_terminal_name(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -208,6 +213,7 @@ def test_python_duplicate_names_bind_by_import_not_terminal_name(tmp_path: Path)
     }
 
 
+@pytest.mark.mutation_fast
 def test_python_parameters_and_locals_shadow_globals(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -266,6 +272,7 @@ def _bindings(graph: CodeGraph, source: str) -> set[tuple[str | None, str]]:
     return {(f.node_id, f.binding) for f in _evidence(graph) if f.source_id == source}
 
 
+@pytest.mark.mutation_fast
 def test_python_del_targets_never_fall_back_to_globals(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -294,6 +301,7 @@ def test_python_del_targets_never_fall_back_to_globals(tmp_path: Path) -> None:
     assert _bindings(graph, "nested:outer") == {("nested:outer.h", "ambiguous")}
 
 
+@pytest.mark.mutation_fast
 def test_python_comprehension_walrus_binds_the_enclosing_scope(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -318,6 +326,7 @@ def test_python_comprehension_walrus_binds_the_enclosing_scope(tmp_path: Path) -
     assert _referenced(graph, "module") == _referenced(graph, "clause") == set()
 
 
+@pytest.mark.mutation_fast
 def test_python_star_imports_never_fabricate_or_keep_resolution(tmp_path: Path) -> None:
     star = "from elsewhere import *\n\n"
     graph = _discover(
@@ -341,6 +350,7 @@ def test_python_star_imports_never_fabricate_or_keep_resolution(tmp_path: Path) 
     assert {source for source, _ in _references(graph)} == {"before"}
 
 
+@pytest.mark.mutation_fast
 def test_python_scope_writes_and_type_aliases_block_resolution(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -356,6 +366,7 @@ def test_python_scope_writes_and_type_aliases_block_resolution(tmp_path: Path) -
     assert _bindings(graph, "alias") == set()
 
 
+@pytest.mark.mutation_fast
 def test_python_nested_owners_and_methods(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -388,6 +399,7 @@ def test_python_nested_owners_and_methods(tmp_path: Path) -> None:
     assert by_symbol["Service.h"].confidence == EdgeConfidence.CERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_python_non_callable_values_are_ignored(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -405,6 +417,7 @@ def test_python_non_callable_values_are_ignored(tmp_path: Path) -> None:
     assert graph.entrypoint_evidence == {}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("body", "deferred"),
     [
@@ -431,6 +444,7 @@ def test_python_redefinition_distinguishes_eager_and_deferred_bodies(
     assert target.location.start_line == (len(source.splitlines()) if deferred else 1)
 
 
+@pytest.mark.mutation_fast
 def test_python_default_reference_belongs_to_the_defining_scope(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -450,6 +464,7 @@ def test_python_dictionary_keys_are_not_callable_values(tmp_path: Path) -> None:
     assert _evidence(graph) == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("expression", "kind"),
     [
@@ -471,6 +486,7 @@ def test_python_non_call_consumers_retain_their_syntax_kind(
     }
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("pattern", ["[*h]", "{**h}"])
 def test_python_pattern_capture_shadows_module_callable(tmp_path: Path, pattern: str) -> None:
     graph = _discover(
@@ -501,6 +517,7 @@ def test_python_annotation_name_does_not_shadow_a_module_callable(tmp_path: Path
     assert _references(graph) == {("app:setup", "app:h")}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("initializer", [False, True])
 def test_python_imports_survive_polyglot_module_collisions(
     tmp_path: Path, initializer: bool
@@ -554,6 +571,7 @@ def _php(tmp_path: Path, files: dict[str, str] | None = None) -> CodeGraph:
     return _discover(tmp_path, files or {"app.php": _PHP_APP}, language="php")
 
 
+@pytest.mark.mutation_fast
 def test_php_string_and_array_callables(tmp_path: Path) -> None:
     graph = _php(tmp_path)
     paths = {
@@ -572,6 +590,7 @@ def test_php_string_and_array_callables(tmp_path: Path) -> None:
     assert all(f.rule == "php.callable_reference" for f in _evidence(graph))
 
 
+@pytest.mark.mutation_fast
 def test_php_first_class_acquisition_is_not_execution(tmp_path: Path) -> None:
     graph = _php(tmp_path)
     assert ("app:App.setup", "app:App.Type.method") in _references(graph)
@@ -591,6 +610,7 @@ def test_php_first_class_acquisition_is_not_execution(tmp_path: Path) -> None:
     assert "app:App.Type.method" not in {u["id"] for u in engine.reachable_from("app:App.setup")}
 
 
+@pytest.mark.mutation_fast
 def test_php_missing_first_class_callable_retains_unresolved_evidence(tmp_path: Path) -> None:
     graph = _php(tmp_path, {"app.php": "<?php\n$callback = missing(...);\n"})
     assert _references(graph) == set()
@@ -601,6 +621,7 @@ def test_php_missing_first_class_callable_retains_unresolved_evidence(tmp_path: 
     assert dict(fact.details)["consumer"] == "$callback"
 
 
+@pytest.mark.mutation_fast
 def test_php_parent_callable_uses_the_base_class_not_implemented_interfaces(tmp_path: Path) -> None:
     graph = _php(
         tmp_path,
@@ -618,6 +639,7 @@ def test_php_parent_callable_uses_the_base_class_not_implemented_interfaces(tmp_
     assert (fact.node_id, fact.binding) == ("app:Base.run", "resolved")
 
 
+@pytest.mark.mutation_fast
 def test_php_dynamic_receivers_stay_unresolved(tmp_path: Path) -> None:
     graph = _php(tmp_path)
     (dynamic,) = _evidence(graph, "$obj->method(...)")
@@ -663,6 +685,7 @@ def test_php_duplicate_declarations_are_ambiguous(tmp_path: Path) -> None:
     assert _referenced(graph, "use:setup") == set()
 
 
+@pytest.mark.mutation_fast
 def test_php_namespace_imports_resolve_class_constants(tmp_path: Path) -> None:
     graph = _php(
         tmp_path,
@@ -681,6 +704,7 @@ def test_php_namespace_imports_resolve_class_constants(tmp_path: Path) -> None:
     assert {e.confidence for e in edges} == {EdgeConfidence.INFERRED}
 
 
+@pytest.mark.mutation_fast
 def test_python_method_references_are_case_sensitive(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -700,6 +724,7 @@ def test_python_method_references_are_case_sensitive(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_python_package_initializer_resolves_sibling_imports(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -731,6 +756,7 @@ def test_python_duplicate_module_suffixes_keep_all_candidates_ambiguous(tmp_path
     }
 
 
+@pytest.mark.mutation_fast
 def test_php_grouped_imports_and_absolute_callable_names(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -766,6 +792,7 @@ function setup() {
     }
 
 
+@pytest.mark.mutation_fast
 def test_php_relative_class_scopes_preserve_dispatch_uncertainty(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -794,6 +821,7 @@ class Child extends Base {
     ]
 
 
+@pytest.mark.mutation_fast
 def test_php_nested_consumers_and_data_arrays_preserve_reference_context(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.graph import CodeGraph
 from trailmark.parsers.dart import DartParser
 from trailmark.query.api import QueryEngine
@@ -15,16 +17,19 @@ def _parse(tmp_path: Path, body: str, name: str = "app.dart") -> CodeGraph:
 
 
 class TestBasicExtraction:
+    @pytest.mark.mutation_fast
     def test_module_node_created(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "void greet() {}\n")
         assert "app" in graph.nodes
         assert graph.nodes["app"].kind.value == "module"
 
+    @pytest.mark.mutation_fast
     def test_top_level_function(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "void greet() {}\n")
         assert "app:greet" in graph.nodes
         assert graph.nodes["app:greet"].kind.value == "function"
 
+    @pytest.mark.mutation_fast
     def test_parameters_and_return_type(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -41,6 +46,7 @@ class TestBasicExtraction:
         assert func.return_type is not None
         assert func.return_type.name == "void"
 
+    @pytest.mark.mutation_fast
     def test_class_with_methods(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -51,6 +57,7 @@ class TestBasicExtraction:
         assert "app:Foo.baz" in graph.nodes
         assert graph.nodes["app:Foo.bar"].kind.value == "method"
 
+    @pytest.mark.mutation_fast
     def test_abstract_method_extracted(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -60,6 +67,7 @@ class TestBasicExtraction:
 
 
 class TestControlFlow:
+    @pytest.mark.mutation_fast
     def test_complexity_counts_branches(self, tmp_path: Path) -> None:
         code = (
             "String classify(int x) {\n"
@@ -77,6 +85,7 @@ class TestControlFlow:
 
 
 class TestImports:
+    @pytest.mark.mutation_fast
     def test_package_import_captured(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -87,6 +96,7 @@ class TestImports:
 
 
 class TestCallEdges:
+    @pytest.mark.mutation_fast
     def test_call_edge_recorded(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -96,6 +106,7 @@ class TestCallEdges:
         assert "app:a" in sources
 
 
+@pytest.mark.mutation_fast
 def test_named_and_factory_constructor_navigation(tmp_path: Path) -> None:
     from trailmark.models.edges import EdgeKind
     from trailmark.query.api import QueryEngine
@@ -121,6 +132,7 @@ def test_named_and_factory_constructor_navigation(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.mutation_fast
 def test_constructor_name_shadow_stays_unresolved(tmp_path: Path) -> None:
     from trailmark.models.edges import EdgeKind
 
@@ -144,6 +156,7 @@ def test_unnamed_constructor_navigation(tmp_path: Path) -> None:
     assert (calls[0].source_id, calls[0].target_id) == ("app:make", "app:Context.Context")
 
 
+@pytest.mark.mutation_fast
 def test_explicit_this_calls_use_nearest_class_even_with_local_shadow(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -174,6 +187,7 @@ def test_this_missing_and_other_receivers_stay_uncertain(tmp_path: Path) -> None
     assert all(e.target_id != "app:Base.work" for e in calls)
 
 
+@pytest.mark.mutation_fast
 def test_super_call_site_is_retained_without_inheritance_guess(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,

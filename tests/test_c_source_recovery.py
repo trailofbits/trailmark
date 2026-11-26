@@ -87,6 +87,7 @@ def test_ordinary_nested_blocks_and_typedefs_keep_normal_calls(tmp_path: Path) -
     assert not dict(graph.nodes["sample:action"].attributes).get("parse_incomplete")
 
 
+@pytest.mark.mutation_fast
 def test_macro_signature_aliases_from_quoted_header_keep_body_owners(tmp_path: Path) -> None:
     (tmp_path / "declarations.h").write_text(
         "#ifndef DECLARATIONS_H\n#define DECLARATIONS_H\n"
@@ -112,6 +113,7 @@ def test_macro_signature_aliases_from_quoted_header_keep_body_owners(tmp_path: P
     assert not graph.parse_diagnostics
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "definition",
     [
@@ -146,6 +148,7 @@ def test_unsupported_macro_signatures_keep_distinct_owners_and_targets(
     assert any(item.kind == "unsupported_syntax" for item in graph.parse_diagnostics)
 
 
+@pytest.mark.mutation_fast
 def test_unavailable_macros_keep_colliding_declarations_and_their_own_calls(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -167,6 +170,7 @@ def test_real_function_with_unnamed_typedef_parameter_is_not_a_macro(tmp_path: P
     assert "macro_wrapper" not in dict(graph.nodes["sample:action"].attributes)
 
 
+@pytest.mark.mutation_fast
 def test_later_macro_does_not_rename_an_earlier_function(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -227,6 +231,7 @@ def test_constant_designated_tables_resolve_by_object_and_field(tmp_path: Path) 
     assert _calls(graph, "action") == {"sample:setup", "sample:alternate"}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [

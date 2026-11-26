@@ -9,6 +9,7 @@ from trailmark.models.nodes import NodeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 def test_adjacent_functions_keep_separate_spans_and_parameters(tmp_path: Path) -> None:
     source = tmp_path / "routines.sql"
     source.write_text(
@@ -38,6 +39,7 @@ def test_adjacent_functions_keep_separate_spans_and_parameters(tmp_path: Path) -
     assert all(unit.kind == NodeKind.FUNCTION for unit in routines)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("returns", [("integer", "void"), ("void", "integer")])
 def test_recovered_and_native_replacements_follow_source_order(
     tmp_path: Path, returns: tuple[str, str]
@@ -82,6 +84,7 @@ def test_recovered_function_body_does_not_create_quoted_declarations_or_call_rel
     }
 
 
+@pytest.mark.mutation_fast
 def test_recovered_function_columns_are_utf8_bytes(tmp_path: Path) -> None:
     source = tmp_path / "unicode.sql"
     prefix = "/* é */ "
@@ -96,6 +99,7 @@ def test_recovered_function_columns_are_utf8_bytes(tmp_path: Path) -> None:
     assert (location.start_col, location.end_col) == (len(prefix.encode()), len(text.encode()))
 
 
+@pytest.mark.mutation_fast
 def test_atomic_body_case_does_not_end_routine_before_later_statements(tmp_path: Path) -> None:
     source = tmp_path / "atomic.sql"
     source.write_text(

@@ -17,6 +17,7 @@ from trailmark.models import (
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_snapshot_reloads_binary_nodes_with_unknown_source_lines() -> None:
     engine = QueryEngine.from_graph(evidence())
     restored = QueryEngine.from_snapshot(engine.to_snapshot())
@@ -52,6 +53,7 @@ def test_snapshot_reloads_unlocated_synthetic_nodes() -> None:
     assert CodeGraph.from_snapshot(graph.to_snapshot()).nodes[node.id] == node
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "location",
     [

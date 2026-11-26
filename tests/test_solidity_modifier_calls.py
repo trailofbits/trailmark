@@ -2,11 +2,14 @@
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory, parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_modifier_invocations_preserve_inheritance_arguments_and_repeated_sites(
     tmp_path: Path,
 ) -> None:
@@ -44,6 +47,7 @@ def test_modifier_invocations_preserve_inheritance_arguments_and_repeated_sites(
     )
 
 
+@pytest.mark.mutation_fast
 def test_constructor_base_invocations_are_not_mistaken_for_modifiers(tmp_path: Path) -> None:
     source = tmp_path / "constructor.sol"
     source.write_text(
@@ -60,6 +64,7 @@ def test_constructor_base_invocations_are_not_mistaken_for_modifiers(tmp_path: P
     assert dict(calls[0].attributes)["solidity_call_kind"] == "modifier"
 
 
+@pytest.mark.mutation_fast
 def test_qualified_modifier_application_reaches_base_declaration(tmp_path: Path) -> None:
     source = tmp_path / "qualified.sol"
     source.write_text(
@@ -74,6 +79,7 @@ def test_qualified_modifier_application_reaches_base_declaration(tmp_path: Path)
     ] == [("qualified:Child.run", "qualified:Base.guard")]
 
 
+@pytest.mark.mutation_fast
 def test_missing_external_modifier_does_not_bind_free_function_decoy(tmp_path: Path) -> None:
     source = tmp_path / "missing.sol"
     source.write_text(

@@ -8,6 +8,7 @@ from trailmark.models import EdgeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("extension", "source"),
     [

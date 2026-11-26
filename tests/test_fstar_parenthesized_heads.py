@@ -52,6 +52,7 @@ def test_parenthesized_callback_cannot_bind_namesake(tmp_path: Path, head: str) 
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_parenthesized_qualified_head_uses_visible_module(tmp_path: Path) -> None:
     (tmp_path / "Base.fst").write_text("module Base\nlet f (x:int) : Tot int = x\n")
     (tmp_path / "Use.fst").write_text("module Use\nlet run (x:int) : Tot int = (((Base.f))) x\n")
@@ -75,6 +76,7 @@ def test_unknown_parenthesized_head_never_establishes_argument_execution(tmp_pat
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body",
     [

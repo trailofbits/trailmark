@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.analysis._callable_references import discover_callable_references
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
@@ -25,6 +27,7 @@ def _calls(graph: CodeGraph, source: str) -> list[CodeEdge]:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_pipe_chain_invokes_each_static_stage_and_inline_closure(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -55,6 +58,7 @@ function pipeline($x) {
     assert "app:leaf" in {node["id"] for node in engine.reachable_from("app:pipeline")}
 
 
+@pytest.mark.mutation_fast
 def test_partial_creation_preserves_eager_calls_without_executing_target(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -126,6 +130,7 @@ function pipeline($x) {
     assert all(edge.location is not None for edge in calls)
 
 
+@pytest.mark.mutation_fast
 def test_dynamic_pipe_targets_are_uncertain_and_factory_evaluation_is_separate(
     tmp_path: Path,
 ) -> None:
@@ -160,6 +165,7 @@ function pipeline($x, $dynamic) {
     assert all(row["location"]["file_path"] == str(tmp_path / "app.php") for row in unresolved)
 
 
+@pytest.mark.mutation_fast
 def test_partial_reference_namespace_resolution_and_dynamic_receiver_uncertainty(
     tmp_path: Path,
 ) -> None:

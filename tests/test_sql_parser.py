@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeKind
 from trailmark.models.nodes import NodeKind
 from trailmark.parse import detect_languages, parse_directory, parse_file, supported_languages
 
 
+@pytest.mark.mutation_fast
 def test_sql_schema_routines_and_dependencies(tmp_path: Path) -> None:
     source = tmp_path / "schema.sql"
     source.write_text(
@@ -52,6 +55,7 @@ def test_malformed_sql_returns_partial_graph(tmp_path: Path) -> None:
     assert any(node.kind == NodeKind.MODULE for node in graph.nodes.values())
 
 
+@pytest.mark.mutation_fast
 def test_cross_file_dependency_keeps_real_table(tmp_path: Path) -> None:
     (tmp_path / "a_table.sql").write_text("CREATE TABLE app.users (id bigint);")
     (tmp_path / "z_view.sql").write_text("CREATE VIEW app.active AS SELECT id FROM app.users;")
@@ -69,6 +73,7 @@ def test_cross_file_dependency_keeps_real_table(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_single_file_unresolved_dependency_is_materialized(tmp_path: Path) -> None:
     source = tmp_path / "views.sql"
     source.write_text("CREATE VIEW app.active AS SELECT id FROM app.users;")
@@ -84,6 +89,7 @@ def test_single_file_unresolved_dependency_is_materialized(tmp_path: Path) -> No
     assert graph.nodes[edge.target_id].kind == NodeKind.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_sql_function_invocation_is_not_relation_dependency(tmp_path: Path) -> None:
     source = tmp_path / "functions.sql"
     source.write_text(
@@ -107,6 +113,7 @@ def test_commented_out_procedure_is_not_recovered(tmp_path: Path) -> None:
     assert "comments:app.disabled" not in graph.nodes
 
 
+@pytest.mark.mutation_fast
 def test_commented_out_relation_is_not_dependency(tmp_path: Path) -> None:
     source = tmp_path / "comments.sql"
     source.write_text(
@@ -122,6 +129,7 @@ def test_commented_out_relation_is_not_dependency(tmp_path: Path) -> None:
     assert "comments:app.ignored" not in dependencies
 
 
+@pytest.mark.mutation_fast
 def test_dollar_quoted_body_dependency_is_extracted_despite_comment_markers(
     tmp_path: Path,
 ) -> None:
@@ -142,6 +150,7 @@ def test_dollar_quoted_body_dependency_is_extracted_despite_comment_markers(
     )
 
 
+@pytest.mark.mutation_fast
 def test_schema_and_unqualified_table_same_name_have_distinct_nodes(tmp_path: Path) -> None:
     source = tmp_path / "collision.sql"
     source.write_text(

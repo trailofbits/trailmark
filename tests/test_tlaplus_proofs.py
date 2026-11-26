@@ -24,6 +24,7 @@ def _sites(query: QueryEngine, spelling: str) -> list[CodeEdge]:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_nested_steps_and_citations_keep_owners_and_public_paths(tmp_path: Path) -> None:
     query = _query(
         tmp_path,
@@ -51,6 +52,7 @@ def test_nested_steps_and_citations_keep_owners_and_public_paths(tmp_path: Path)
     assert graph.parse_diagnostics  # Source retention is not proof checking.
 
 
+@pytest.mark.mutation_fast
 def test_nested_step_names_do_not_escape_or_bind_siblings(tmp_path: Path) -> None:
     query = _query(
         tmp_path,
@@ -68,6 +70,7 @@ def test_nested_step_names_do_not_escape_or_bind_siblings(tmp_path: Path) -> Non
             assert e.target_id.rsplit(".", 1)[0] == e.source_id.rsplit(".", 1)[0]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("duplicate", [False, True])
 def test_forward_duplicate_and_other_theorem_labels_stay_uncertain(
     tmp_path: Path, duplicate: bool
@@ -89,6 +92,7 @@ def test_forward_duplicate_and_other_theorem_labels_stay_uncertain(
         assert graph.nodes[backward.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "step",
     [
@@ -129,6 +133,7 @@ def test_comment_string_decoys_and_repeated_citation_positions(tmp_path: Path) -
     assert all(e.target_id == "Proof:Proof.T.<1>1" for e in edges)
 
 
+@pytest.mark.mutation_fast
 def test_unavailable_proof_citations_remain_public_uncertain_references(tmp_path: Path) -> None:
     query = _query(tmp_path, "THEOREM T == P\nBY Missing DEF Absent")
     graph = query._store._graph

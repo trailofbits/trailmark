@@ -104,6 +104,7 @@ def test_normalization_is_idempotent_and_preserves_call_sites(
     assert graph == before
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("root", ["", "/project"])
 @pytest.mark.parametrize("site", [None, SourceLocation("calls.c", 7, 7, 4, 12)])
 def test_unlocated_proxy_uses_graph_root_and_located_proxy_keeps_its_site(
@@ -121,6 +122,7 @@ def test_unlocated_proxy_uses_graph_root_and_located_proxy_keeps_its_site(
     assert graph.edges[0].location == site
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "module,target",
     [(None, "local:Thing"), ("local", "local:Thing"), ("remote", "remote:Thing"), ("absent", None)],

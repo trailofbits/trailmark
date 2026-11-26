@@ -50,6 +50,7 @@ def test_skipped_julia_macro_is_visible_to_strict_mode(tmp_path: Path) -> None:
         parse_file(str(source), "julia", strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_tsx_diagnostics_name_the_actual_grammar(tmp_path: Path) -> None:
     source = tmp_path / "broken.tsx"
     source.write_text("function broken( { <div>\n")
@@ -58,6 +59,7 @@ def test_tsx_diagnostics_name_the_actual_grammar(tmp_path: Path) -> None:
     assert all(d.language == "typescript" and d.grammar == "tsx" for d in diagnostics)
 
 
+@pytest.mark.mutation_fast
 def test_diagnostic_comparisons_do_not_grow_with_all_preceding_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -77,6 +79,7 @@ def test_diagnostic_comparisons_do_not_grow_with_all_preceding_errors(
     assert comparisons < len(graph.parse_diagnostics) * 4
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("language", "source", "expected"),
     [
@@ -117,6 +120,7 @@ def test_nested_c_macro_errors_are_reported_at_the_outer_boundary(tmp_path: Path
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("suffix", "language", "grammar", "line"),
     [

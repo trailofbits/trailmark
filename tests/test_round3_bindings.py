@@ -18,6 +18,7 @@ def test_require_is_shadowed_by_parameters(tmp_path: Path, extension: str, inner
     assert calls and all(dict(e.attributes).get("binding_blocked") for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 def test_require_destructuring_alias(tmp_path: Path, extension: str) -> None:
     (tmp_path / f"a.{extension}").write_text(
@@ -39,6 +40,7 @@ def test_whole_module_require_is_not_a_named_export(tmp_path: Path) -> None:
     assert edge.target_id.startswith("proxy.")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("symlink", [False, True])
 def test_require_directory_index_and_lexical_root(tmp_path: Path, symlink: bool) -> None:
     (tmp_path / "lib").mkdir()
@@ -95,6 +97,7 @@ def test_require_resolution_is_cached(tmp_path: Path, monkeypatch: pytest.Monkey
     assert len([e for e in graph.edges if dict(e.attributes).get("import_binding")]) == 20000
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("extension", "source"),
     [

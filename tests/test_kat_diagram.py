@@ -63,6 +63,7 @@ def _assert_or_update(name: str, actual: str) -> None:
         raise AssertionError(msg)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("direction", ["LR", "TD"])
 def test_call_graph_snapshot(direction: str) -> None:
     out = emit_call_graph(_engine(), focus=None, depth=2, direction=direction)
@@ -74,21 +75,25 @@ def test_call_graph_focused_snapshot() -> None:
     _assert_or_update("call_graph_focus_bark", out)
 
 
+@pytest.mark.mutation_fast
 def test_class_hierarchy_snapshot() -> None:
     out = emit_class_hierarchy(_engine(), direction="TB")
     _assert_or_update("class_hierarchy", out)
 
 
+@pytest.mark.mutation_fast
 def test_module_deps_snapshot() -> None:
     out = emit_module_deps(_engine(), direction="LR")
     _assert_or_update("module_deps", out)
 
 
+@pytest.mark.mutation_fast
 def test_containment_snapshot() -> None:
     out = emit_containment(_engine(), direction="LR")
     _assert_or_update("containment", out)
 
 
+@pytest.mark.mutation_fast
 def test_complexity_snapshot() -> None:
     out = emit_complexity(_engine(), threshold=2, direction="LR")
     _assert_or_update("complexity_t2", out)

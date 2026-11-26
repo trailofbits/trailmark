@@ -48,6 +48,7 @@ class TestPythonDetectorTags:
         assert ep["asset_value"] == "high"
         assert ep["description"] == "Python HTTP route decorator"
 
+    @pytest.mark.mutation_fast
     def test_click_command_tag(self, tmp_path: Path) -> None:
         (tmp_path / "cli.py").write_text(
             "import click\n@click.command()\ndef run(): pass\n",
@@ -91,6 +92,7 @@ class TestJavaDetectorTags:
         assert ep["asset_value"] == "high"
         assert ep["description"] == "Spring MVC/WebFlux handler"
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("verb", ["GET", "POST", "PUT", "DELETE", "PATCH"])
     def test_jaxrs_verb_tags(self, tmp_path: Path, verb: str) -> None:
         (tmp_path / "C.java").write_text(
@@ -100,6 +102,7 @@ class TestJavaDetectorTags:
         assert ep["kind"] == "api"
         assert ep["description"] == "JAX-RS handler"
 
+    @pytest.mark.mutation_fast
     def test_kafka_listener_tag(self, tmp_path: Path) -> None:
         (tmp_path / "C.java").write_text(
             'class C {\n    @KafkaListener(topics = "x")\n    public void consume() {}\n}\n',
@@ -110,6 +113,7 @@ class TestJavaDetectorTags:
         assert ep["asset_value"] == "medium"
         assert ep["description"] == "Kafka listener"
 
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize(
         "method",
         ["doGet", "doPost", "doPut", "doDelete", "doHead", "doOptions", "doTrace"],
@@ -155,6 +159,7 @@ class TestRustDetectorTags:
 
 
 class TestCSharpDetectorTags:
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("attr", ["HttpGet", "HttpPost", "HttpPut", "HttpDelete", "HttpPatch"])
     def test_aspnet_attribute_tags(self, tmp_path: Path, attr: str) -> None:
         (tmp_path / "Ctl.cs").write_text(
@@ -166,6 +171,7 @@ class TestCSharpDetectorTags:
         assert ep["asset_value"] == "high"
         assert ep["description"] == "ASP.NET Core HTTP handler"
 
+    @pytest.mark.mutation_fast
     def test_azure_function_tag(self, tmp_path: Path) -> None:
         (tmp_path / "Fn.cs").write_text(
             'public class Fn {\n    [Function("run")]\n    public object Run() => null;\n}\n',
@@ -176,6 +182,7 @@ class TestCSharpDetectorTags:
 
 
 class TestSolidityDetectorTags:
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("visibility", ["external", "public"])
     def test_function_visibility_tags(self, tmp_path: Path, visibility: str) -> None:
         (tmp_path / "C.sol").write_text(
@@ -198,6 +205,7 @@ class TestSolidityDetectorTags:
         engine = QueryEngine.from_directory(str(tmp_path), language="solidity")
         assert engine.attack_surface() == []
 
+    @pytest.mark.mutation_fast
     def test_mutability_is_preserved_on_entrypoint_node(self, tmp_path: Path) -> None:
         (tmp_path / "C.sol").write_text(
             "contract C { function inspect() external view returns (uint) { return 1; } }\n",
@@ -215,6 +223,7 @@ class TestSolidityDetectorTags:
         assert ("solidity_visibility", "external") in unit.attributes
         assert ("solidity_mutability", "view") in unit.attributes
 
+    @pytest.mark.mutation_fast
     def test_derived_override_annotates_base_entrypoint(self, tmp_path: Path) -> None:
         (tmp_path / "C.sol").write_text(
             "contract Base { function act(uint x) public virtual {} }\n"
@@ -230,6 +239,7 @@ class TestSolidityDetectorTags:
 
 
 class TestNextJsDetectorTags:
+    @pytest.mark.mutation_fast
     @pytest.mark.parametrize("verb", ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
     def test_app_router_verb_tags(self, tmp_path: Path, verb: str) -> None:
         (tmp_path / "route.ts").write_text(
@@ -243,6 +253,7 @@ class TestNextJsDetectorTags:
 
 
 class TestSwiftDetectorTags:
+    @pytest.mark.mutation_fast
     def test_at_main_tag(self, tmp_path: Path) -> None:
         (tmp_path / "app.swift").write_text(
             "@main\nstruct App { static func main() {} }\n",
@@ -320,6 +331,7 @@ class TestDartDetectorTags:
 
 
 class TestCCppDetectorTags:
+    @pytest.mark.mutation_fast
     def test_extern_c_tag(self, tmp_path: Path) -> None:
         (tmp_path / "api.cpp").write_text(
             'extern "C" int expose(int x) { return x; }\n',

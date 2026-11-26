@@ -7,6 +7,7 @@ from trailmark.models.edges import EdgeKind
 from trailmark.parse import detect_languages, parse_directory, parse_file
 
 
+@pytest.mark.mutation_fast
 def test_missing_import_stops_after_enclosing_namespaces(tmp_path: Path) -> None:
     source = tmp_path / "Scoped.v"
     source.write_text(
@@ -17,6 +18,7 @@ def test_missing_import_stops_after_enclosing_namespaces(tmp_path: Path) -> None
     assert dict(value.attributes)["qualified_name"] == "Scoped.Outer.value"
 
 
+@pytest.mark.mutation_fast
 def test_gallina_references_and_statement_roles() -> None:
     graph = parse_file(str(Path(__file__).parent / "fixtures/kat/rocq/taxonomy.v"), "rocq")
     names = {n.id: n.name for n in graph.nodes.values()}
@@ -34,6 +36,7 @@ def test_gallina_references_and_statement_roles() -> None:
     assert any(d.kind == "unsupported" and "tactics" in d.message for d in graph.parse_diagnostics)
 
 
+@pytest.mark.mutation_fast
 def test_nested_comments_and_lexical_binders(tmp_path: Path) -> None:
     path = tmp_path / "Scope.v"
     path.write_text(
@@ -54,6 +57,7 @@ def test_nested_comments_and_lexical_binders(tmp_path: Path) -> None:
         parse_file(str(path), "rocq", strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_imports_and_module_namespaces(tmp_path: Path) -> None:
     (tmp_path / "Base.v").write_text("Definition f := 0.\n")
     (tmp_path / "Other.v").write_text("Definition f := 1.\n")
@@ -75,6 +79,7 @@ def test_fail_commands_do_not_create_declarations(tmp_path: Path) -> None:
     assert not any(n.name == "bad" for n in graph.nodes.values())
 
 
+@pytest.mark.mutation_fast
 def test_implicit_inductive_and_mutual_binders(tmp_path: Path) -> None:
     path = tmp_path / "Bindings.v"
     path.write_text(
@@ -96,6 +101,7 @@ def test_implicit_inductive_and_mutual_binders(tmp_path: Path) -> None:
     assert not refs & {("f", "x"), ("imp", "x"), ("C", "x")}
 
 
+@pytest.mark.mutation_fast
 def test_modules_aliases_sections_and_import_restoration(tmp_path: Path) -> None:
     path = tmp_path / "Modules.v"
     path.write_text(
@@ -121,6 +127,7 @@ def test_modules_aliases_sections_and_import_restoration(tmp_path: Path) -> None
     )
 
 
+@pytest.mark.mutation_fast
 def test_from_import_uses_directory_identity(tmp_path: Path) -> None:
     (tmp_path / "P").mkdir()
     (tmp_path / "P/M.v").write_text("Definition x := 0.\n")
@@ -167,6 +174,7 @@ def test_v_extension_requires_explicit_language(tmp_path: Path) -> None:
         parse_file(str(path))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("flag", ["-Q", "-R"])
 def test_from_import_honors_explicit_project_load_paths(tmp_path: Path, flag: str) -> None:
     (tmp_path / "_CoqProject").write_text(f'{flag} "theories" P\n')
@@ -193,6 +201,7 @@ def test_reexported_constants_and_predicates(tmp_path: Path, mode: str, expected
     } == expected
 
 
+@pytest.mark.mutation_fast
 def test_exported_nested_modules_keep_their_definitions(tmp_path: Path) -> None:
     path = tmp_path / "Nested.v"
     path.write_text("Module Export Inner. Definition c := 1. End Inner. Definition use := c.\n")
@@ -204,6 +213,7 @@ def test_exported_nested_modules_keep_their_definitions(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_export_does_not_invent_qualified_members(tmp_path: Path) -> None:
     (tmp_path / "Base.v").write_text("Definition c := 1.\n")
     (tmp_path / "Middle.v").write_text("Require Export Base.\n")
@@ -212,6 +222,7 @@ def test_export_does_not_invent_qualified_members(tmp_path: Path) -> None:
     assert not any(e.kind == EdgeKind.REFERENCES for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("command", ["Require Import Base (c)", "Require Export Base (c)"])
 def test_selective_imports_do_not_open_every_name(tmp_path: Path, command: str) -> None:
     (tmp_path / "Base.v").write_text("Definition c := 1. Definition hidden := 2.\n")
@@ -250,6 +261,7 @@ def test_exports_follow_local_modules_and_module_aliases(tmp_path: Path, body: s
     assert len(refs) == 1 and refs[0].name == "c"
 
 
+@pytest.mark.mutation_fast
 def test_records_sum_types_matches_and_sections(tmp_path: Path) -> None:
     path = tmp_path / "Records.v"
     path.write_text(
@@ -275,6 +287,7 @@ def test_records_sum_types_matches_and_sections(tmp_path: Path) -> None:
     assert {("use", "after"), ("uses_h", "A"), ("uses_h", "H")} <= refs
 
 
+@pytest.mark.mutation_fast
 def test_module_types_and_term_namespaces(tmp_path: Path) -> None:
     (tmp_path / "Base.v").write_text("Inductive Z := Z0.\n")
     (tmp_path / "Use.v").write_text(
@@ -306,6 +319,7 @@ def test_module_types_and_term_namespaces(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_sentence_recovery_does_not_steal_later_declarations(tmp_path: Path) -> None:
     path = tmp_path / "Recover.v"
     path.write_text(

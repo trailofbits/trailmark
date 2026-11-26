@@ -27,6 +27,7 @@ from trailmark.parsers.solidity import SolidityParser
 from trailmark.parsers.swift import SwiftParser
 
 
+@pytest.mark.mutation_fast
 def test_recursive_calls_do_not_become_containment_cycles(tmp_path: Path) -> None:
     path = tmp_path / "recursive.ts"
     path.write_text(
@@ -137,6 +138,7 @@ def _parse(
     return parser_type().parse_file(str(path))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(("parser_type", "extension", "source"), _OVERLOADS)
 @pytest.mark.parametrize("same_line", [False, True], ids=["multiline", "same-line"])
 def test_each_overload_keeps_its_body_and_container(
@@ -195,6 +197,7 @@ def test_each_overload_keeps_its_body_and_container(
     assert all(e.source_id in graph.nodes for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("parser_type", "extension", "source"),
     [
@@ -411,6 +414,7 @@ _SHARED_NAMES = [
 ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("case", _SHARED_NAMES)
 @pytest.mark.parametrize("type_first", [True, False], ids=["type-first", "callable-first"])
 @pytest.mark.parametrize("callable_count", [1, 2], ids=["unique", "overloaded"])
@@ -495,6 +499,7 @@ def test_identical_callable_source_positions_still_raise() -> None:
         add_callable(graph, unit)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("type_first", [True, False], ids=["type-first", "factory-first"])
 def test_kotlin_class_constructor_is_not_mistaken_for_the_factory(
     tmp_path: Path, type_first: bool

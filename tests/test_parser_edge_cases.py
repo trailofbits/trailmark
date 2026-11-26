@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -28,6 +30,7 @@ def _parse_code(code: str) -> tuple[str, CodeGraph]:
 
 
 class TestLanguageProperty:
+    @pytest.mark.mutation_fast
     def test_language_returns_python(self) -> None:
         parser = PythonParser()
         assert parser.language == "python"
@@ -50,6 +53,7 @@ class TestDecoratedMethods:
 
 
 class TestDefaultParameterWithoutType:
+    @pytest.mark.mutation_fast
     def test_plain_default_param(self) -> None:
         code = "def f(x=5):\n    return x\n"
         _, graph = _parse_code(code)
@@ -202,6 +206,7 @@ class TestDocstrings:
         func = next(n for n in graph.nodes.values() if n.name == "f")
         assert func.docstring == "A triple single."
 
+    @pytest.mark.mutation_fast
     def test_single_quote_docstring(self) -> None:
         code = "def f():\n    'A short doc.'\n    pass\n"
         _, graph = _parse_code(code)
@@ -483,6 +488,7 @@ class TestExceptionFromCall:
 
 
 class TestClsParameter:
+    @pytest.mark.mutation_fast
     def test_cls_excluded(self) -> None:
         """cls parameter should be excluded like self."""
         code = "class C:\n    @classmethod\n    def create(cls, x):\n        pass\n"

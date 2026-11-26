@@ -64,6 +64,7 @@ def test_named_function_promise_chain(tmp_path: Path, extension: str) -> None:
     assert len([e for e in calls if e.target_id == "app:f"]) == 1
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("parameters", "body", "names"),
     [
@@ -103,6 +104,7 @@ def test_require_shadowing_reaches_nested_callables(
     assert not any(e.kind == EdgeKind.CALLS and e.target_id == "x:cb" for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 def test_single_arrow_parameter_shadows_require_in_nested_body(
     tmp_path: Path, extension: str
@@ -125,6 +127,7 @@ def test_require_prefers_file_before_directory(tmp_path: Path) -> None:
     assert call.target_id == "lib:cb"
 
 
+@pytest.mark.mutation_fast
 def test_ruby_block_defaults_keep_calls_but_not_parameter_names(tmp_path: Path) -> None:
     path = tmp_path / "app.rb"
     path.write_text(

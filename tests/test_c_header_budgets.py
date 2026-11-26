@@ -8,6 +8,7 @@ from trailmark.models import EdgeConfidence, EdgeKind, NodeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("dimension", ["depth", "files"])
 @pytest.mark.parametrize("extra", [-1, 0, 1], ids=["below", "at-limit", "above"])
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])

@@ -18,6 +18,7 @@ _HEADER = "#define TRY try\n#define CATCH(...) catch(__VA_ARGS__)\n"
 _BODY = "void run() {\n TRY { first(); }\n CATCH(...) { second(); }\n last();\n}\n"
 
 
+@pytest.mark.mutation_fast
 def test_catch_and_following_calls_stay_in_the_physical_function(tmp_path: Path) -> None:
     path = tmp_path / "example.cpp"
     source = (_HEADER + "void first(){} void second(){} void last(){}\n" + _BODY).encode()
@@ -38,6 +39,7 @@ def test_catch_and_following_calls_stay_in_the_physical_function(tmp_path: Path)
     assert {n["id"] for n in QueryEngine.from_graph(graph).callers_of("example:second")} == {run.id}
 
 
+@pytest.mark.mutation_fast
 def test_all_original_diagnostics_remain_available(tmp_path: Path) -> None:
     path = tmp_path / "example.cpp"
     source = ("int bad = ;\n" + _HEADER + _BODY).encode()
@@ -52,6 +54,7 @@ def test_all_original_diagnostics_remain_available(tmp_path: Path) -> None:
     assert dict(graph.nodes["example:run"].attributes)["cpp_body_recovered"] is True
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "trivia",
     [
@@ -78,6 +81,7 @@ def test_literals_comments_and_raw_directives_do_not_change_brace_ownership(
     )
 
 
+@pytest.mark.mutation_fast
 def test_balanced_preprocessor_arms_are_retained_as_source_sites(tmp_path: Path) -> None:
     path = tmp_path / "example.cpp"
     path.write_text(
@@ -90,6 +94,7 @@ def test_balanced_preprocessor_arms_are_retained_as_source_sites(tmp_path: Path)
     assert len(calls) == 3
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [
@@ -108,6 +113,7 @@ def test_unproved_or_expression_bearing_wrappers_do_not_recover(source: str) -> 
     assert recovered is original and not bodies
 
 
+@pytest.mark.mutation_fast
 def test_empty_catch_body_has_no_lost_argument_expression(tmp_path: Path) -> None:
     path = tmp_path / "example.cpp"
     path.write_text(_HEADER + "void run() { TRY { first(); } CATCH(...) {} last(); }")
@@ -117,6 +123,7 @@ def test_empty_catch_body_has_no_lost_argument_expression(tmp_path: Path) -> Non
     assert dict(graph.nodes["example:run"].attributes)["cpp_body_recovered"] is True
 
 
+@pytest.mark.mutation_fast
 def test_class_export_and_body_ranges_compose_without_changing_next_file(tmp_path: Path) -> None:
     path = tmp_path / "example.hpp"
     path.write_text(
@@ -146,6 +153,7 @@ def test_comment_prefixed_directive_fails_closed_for_unmodeled_arms() -> None:
     assert recovered is original and not bodies
 
 
+@pytest.mark.mutation_fast
 def test_nested_lambda_and_local_class_keep_their_own_call_sites(tmp_path: Path) -> None:
     path = tmp_path / "example.cpp"
     path.write_text(

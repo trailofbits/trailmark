@@ -33,6 +33,7 @@ def _run_collection_control(
         [
             sys.executable,
             str(Path(__file__).with_name("run_mutations.py")),
+            "--test-group=full",
             "--targets=target.py",
             "--workers=2",
             "test_target.py",
@@ -144,6 +145,7 @@ def test_sharded_campaigns_match_complete_campaign(tmp_path: Path) -> None:
             [
                 sys.executable,
                 str(runner),
+                "--test-group=full",
                 "--targets=first.py,second.py",
                 "--workers=2",
                 f"--shard={shard[0]}/{shard[1]}",
@@ -224,6 +226,7 @@ def test_weak(tmp_path, value):
         [
             sys.executable,
             str(runner),
+            "--test-group=full",
             "--targets=toy/__init__.py",
             "--workers=2",
             "test_toy.py",
@@ -292,6 +295,7 @@ def test_runner_rejects_order_dependent_baseline(tmp_path: Path, partition: str)
         [
             sys.executable,
             str(runner),
+            "--test-group=full",
             "--targets=target.py",
             "--test-selection=full",
             partition,
@@ -340,6 +344,7 @@ def test_shared_baselines_preserve_mutant_results_and_reject_changed_tests(
             [
                 sys.executable,
                 str(runner),
+                "--test-group=full",
                 "--targets=first.py,second.py",
                 f"--test-selection={selection}",
                 "--workers=2",
@@ -434,7 +439,14 @@ def test_checked_only_in_child(tmp_path):
 """)
     runner = Path(__file__).with_name("run_mutations.py")
     result = subprocess.run(  # noqa: S603
-        [sys.executable, str(runner), "--targets=target.py", "--workers=2", "test_spawn.py"],
+        [
+            sys.executable,
+            str(runner),
+            "--test-group=full",
+            "--targets=target.py",
+            "--workers=2",
+            "test_spawn.py",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -476,6 +488,7 @@ def test_runner_rejects_skipped_instrumentation(
         [
             sys.executable,
             str(launcher),
+            "--test-group=full",
             "--targets=target.py",
             f"--shard={shard}",
             "test_target.py",

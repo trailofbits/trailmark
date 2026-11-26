@@ -10,6 +10,7 @@ from trailmark.parse import parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_literal_function_template_has_its_own_source_dependencies(tmp_path: Path) -> None:
     source = tmp_path / "literal.rs"
     source.write_text(
@@ -48,6 +49,7 @@ def test_macro_arms_keep_distinct_declarations_and_do_not_export_functions(tmp_p
     assert graph.nodes[calls[0].target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_metavariable_impl_template_retains_method_and_global_helper(tmp_path: Path) -> None:
     source = tmp_path / "methods.rs"
     source.write_text(
@@ -64,6 +66,7 @@ def test_metavariable_impl_template_retains_method_and_global_helper(tmp_path: P
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_metavariable_callee_does_not_bind_a_literal_namesake(tmp_path: Path) -> None:
     source = tmp_path / "dynamic.rs"
     source.write_text(
@@ -119,6 +122,7 @@ def test_sibling_literal_template_functions_have_concrete_source_relationships(
     )
 
 
+@pytest.mark.mutation_fast
 def test_inline_module_owns_its_macro_and_source_dependencies(tmp_path: Path) -> None:
     source = tmp_path / "nested.rs"
     source.write_text(
@@ -140,6 +144,7 @@ def test_inline_module_owns_its_macro_and_source_dependencies(tmp_path: Path) ->
     )
 
 
+@pytest.mark.mutation_fast
 def test_metavariable_declaration_cannot_supply_a_literal_target(tmp_path: Path) -> None:
     source = tmp_path / "names.rs"
     source.write_text(
@@ -154,6 +159,7 @@ def test_metavariable_declaration_cannot_supply_a_literal_target(tmp_path: Path)
     assert graph.nodes[refs[0].target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_empty_arm_and_function_local_macro_do_not_add_runtime_edges(tmp_path: Path) -> None:
     source = tmp_path / "local.rs"
     source.write_text("fn outer() { macro_rules! empty { () => {}; } }\n")
@@ -182,6 +188,7 @@ def test_function_local_macro_can_reference_an_enclosing_helper_item(tmp_path: P
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("binding", ["helper: fn()", ""])
 def test_enclosing_values_block_unrelated_global_template_dependencies(
     tmp_path: Path, binding: str
@@ -200,6 +207,7 @@ def test_enclosing_values_block_unrelated_global_template_dependencies(
     assert ref.target_id != "shadow:helper"
 
 
+@pytest.mark.mutation_fast
 def test_literal_template_helper_precedes_an_enclosing_value_binding(tmp_path: Path) -> None:
     source = tmp_path / "inner.rs"
     source.write_text(

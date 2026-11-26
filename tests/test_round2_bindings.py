@@ -25,6 +25,7 @@ def _calls(graph: CodeGraph, owner: str) -> list[CodeEdge]:
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("relative", [False, True])
 def test_static_header_and_included_source_linkage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, relative: bool
@@ -53,6 +54,7 @@ def test_static_header_and_included_source_linkage(
     assert _calls(graph, "src.included:included")[0].target_id == "src.other:private_fn"
 
 
+@pytest.mark.mutation_fast
 def test_python_runtime_redefinitions_and_overload_stubs(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -83,6 +85,7 @@ def outer():
     assert _calls(graph, "case:outer.inner")[0].target_id.endswith(":case:second")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("extension", "source"),
     [
@@ -126,6 +129,7 @@ def test_same_line_nested_declarations_keep_their_owner(tmp_path: Path, extensio
     assert _calls(graph, "case:b")[0].target_id == "case:b.g"
 
 
+@pytest.mark.mutation_fast
 def test_ruby_explicit_method_calls_and_lambdas(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -155,6 +159,7 @@ end
     }
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 def test_arrows_inherit_this_but_function_expressions_do_not(
     tmp_path: Path, extension: str
@@ -180,6 +185,7 @@ def test_arrows_inherit_this_but_function_expressions_do_not(
     assert sum(e.target_id.startswith("proxy.unresolved:this.step") for e in edges) == 1
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("with_module", [False, True])
 def test_require_shadows_same_file_function(tmp_path: Path, with_module: bool) -> None:
     (tmp_path / "app.js").write_text(
@@ -220,6 +226,7 @@ def test_python_lambda_default_parameter_is_local(tmp_path: Path) -> None:
     assert dict(calls[0].attributes).get("binding_blocked")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["js", "ts"])
 def test_object_method_arrow_does_not_capture_surrounding_class(
     tmp_path: Path, extension: str

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from tests.mutation_controls import baseline_receipt, input_fingerprint, validate_baselines
+from trailmark.tree_sitter_custom._native import NativeGrammar
 
 pytestmark = pytest.mark.mutation_infrastructure
 
@@ -103,3 +106,31 @@ def test_input_identity_includes_native_tool_contents(
     before = input_fingerprint(project)
     tool.write_text("second tool build")
     assert input_fingerprint(project) != before
+
+
+def test_mutated_native_cache_suffix_does_not_change_git_input_identity(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)  # noqa: S603, S607
+    (tmp_path / ".gitignore").write_text(
+        Path(__file__).parents[1].joinpath(".gitignore").read_text()
+    )
+    directory = tmp_path / "src/trailmark/tree_sitter_custom/masm"
+    source = directory / "src/parser.c"
+    source.parent.mkdir(parents=True)
+    source.write_text("original grammar source\n")
+    grammar = NativeGrammar(directory, ("src/parser.c",))
+    before = input_fingerprint(tmp_path)
+
+    def compile_binding(command: list[str]) -> None:
+        Path(command[command.index("-o") + 1]).write_bytes(b"generated binding")
+
+    # A return-to-None mutant builds a cache file before its invalid suffix is rejected.
+    with (
+        patch("trailmark.tree_sitter_custom._native.extension_suffix", return_value=None),
+        patch.object(NativeGrammar, "_compile", side_effect=compile_binding),
+        pytest.raises(ImportError, match="Failed to load compiled grammar"),
+    ):
+        grammar.language()
+    assert len(list(directory.glob("_binding_*None"))) == 1
+    assert input_fingerprint(tmp_path) == before
+    source.write_text("changed grammar source\n")
+    assert input_fingerprint(tmp_path) != before

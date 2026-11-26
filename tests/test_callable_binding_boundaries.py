@@ -12,6 +12,7 @@ from trailmark.parse import parse_directory, parse_roots
 from trailmark.source_policy import SourcePolicy, SourceRoot
 
 
+@pytest.mark.mutation_fast
 def test_function_attributes_do_not_resolve_to_nested_declarations(tmp_path: Path) -> None:
     graph = _discover(tmp_path, {"app.py": "def owner():\n    def h(): pass\nconsume(owner.h)\n"})
     assert "app:owner.h" in graph.nodes
@@ -19,6 +20,7 @@ def test_function_attributes_do_not_resolve_to_nested_declarations(tmp_path: Pat
     assert _evidence(graph) == []
 
 
+@pytest.mark.mutation_fast
 def test_ambiguous_module_is_not_resolved_by_its_only_known_member(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -32,6 +34,7 @@ def test_ambiguous_module_is_not_resolved_by_its_only_known_member(tmp_path: Pat
     assert _bindings(graph, "app") == {("a.lib:h", "ambiguous")}
 
 
+@pytest.mark.mutation_fast
 def test_imports_resolve_with_explicit_source_root_prefixes(tmp_path: Path) -> None:
     _write(
         tmp_path,
@@ -54,6 +57,7 @@ def test_imports_resolve_with_explicit_source_root_prefixes(tmp_path: Path) -> N
     assert _references(graph) == {("selected::app", "selected::lib:h")}
 
 
+@pytest.mark.mutation_fast
 def test_global_reference_bypasses_an_enclosing_local(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -67,6 +71,7 @@ def test_global_reference_bypasses_an_enclosing_local(tmp_path: Path) -> None:
     assert _references(graph) == {("app:outer.inner", "app:h")}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "nested",
     [
@@ -85,6 +90,7 @@ def test_nonlocal_writes_find_the_enclosing_function_binding(tmp_path: Path, nes
     assert _bindings(graph, "app:outer") == {("app:outer.h", "ambiguous")}
 
 
+@pytest.mark.mutation_fast
 def test_multiple_imports_select_the_requested_binding(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -107,6 +113,7 @@ def test_multiple_imports_select_the_requested_binding(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.mutation_fast
 def test_relative_import_can_reach_the_selected_root(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -120,6 +127,7 @@ def test_relative_import_can_reach_the_selected_root(tmp_path: Path) -> None:
     assert _references(graph) == {("pkg", "lib:h"), ("pkg.app", "lib:h")}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(("links", "resolved"), [(7, True), (8, True), (9, False)])
 def test_alias_expansion_stops_beyond_its_budget(
     tmp_path: Path, links: int, resolved: bool
@@ -132,6 +140,7 @@ def test_alias_expansion_stops_beyond_its_budget(
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("links", "attribute", "resolved"),
     [(6, True, True), (7, True, False), (7, False, True), (8, False, False)],
@@ -152,6 +161,7 @@ def test_import_expansion_counts_module_and_attribute_steps(
     assert _bindings(graph, "app") == ({("lib:h", "resolved")} if resolved else set())
 
 
+@pytest.mark.mutation_fast
 def test_import_outside_the_inspected_package_stays_opaque(tmp_path: Path) -> None:
     _write(
         tmp_path,
@@ -168,6 +178,7 @@ def test_import_outside_the_inspected_package_stays_opaque(tmp_path: Path) -> No
     assert _evidence(graph) == []
 
 
+@pytest.mark.mutation_fast
 def test_tuple_assignment_does_not_guess_callable_unpacking(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path, {"app.py": "def h(): pass\nfirst, second = (h, None)\nconsume(first)\n"}
@@ -177,6 +188,7 @@ def test_tuple_assignment_does_not_guess_callable_unpacking(tmp_path: Path) -> N
     assert (fact.symbol, fact.node_id) == ("h", "app:h")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("missing", ["app.py", "lib.py"])
 def test_discovery_tolerates_source_removed_after_parsing(tmp_path: Path, missing: str) -> None:
     _write(
@@ -190,6 +202,7 @@ def test_discovery_tolerates_source_removed_after_parsing(tmp_path: Path, missin
     assert _evidence(graph) == []
 
 
+@pytest.mark.mutation_fast
 def test_partial_graph_retains_unresolved_function_evidence(tmp_path: Path) -> None:
     _write(tmp_path, {"app.py": "def h(): pass\nclass C: pass\nconsume(h, C)\n"})
     parsed = parse_directory(str(tmp_path), "python")
@@ -204,6 +217,7 @@ def test_partial_graph_retains_unresolved_function_evidence(tmp_path: Path) -> N
     assert (fact.symbol, fact.node_id, fact.binding) == ("h", None, "unresolved")
 
 
+@pytest.mark.mutation_fast
 def test_php_boolean_named_constant_keeps_its_callable_array_context(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -222,6 +236,7 @@ def test_php_boolean_named_constant_keeps_its_callable_array_context(tmp_path: P
     assert dict(fact.details)["form"] == "array"
 
 
+@pytest.mark.mutation_fast
 def test_php_string_references_keep_value_paths_and_skip_keys_and_interpolation(
     tmp_path: Path,
 ) -> None:
@@ -239,6 +254,7 @@ def test_php_string_references_keep_value_paths_and_skip_keys_and_interpolation(
     assert dict(fact.details)["path"] == "args[3]['key']"
 
 
+@pytest.mark.mutation_fast
 def test_php_non_assignment_consumer_keeps_its_syntax_kind(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path, {"app.php": "<?php\nfunction h() {}\n$values = [] + ['h'];\n"}, "php"
@@ -248,6 +264,7 @@ def test_php_non_assignment_consumer_keeps_its_syntax_kind(tmp_path: Path) -> No
     assert dict(fact.details)["path"] == "[0]"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "value",
     [
@@ -268,6 +285,7 @@ def test_php_data_arrays_do_not_become_callable_pairs(tmp_path: Path, value: str
     assert _evidence(graph) == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("expression", ["$fn(...)", "C::missing(...)"])
 def test_php_unknown_acquisition_retains_evidence_without_a_target(
     tmp_path: Path, expression: str
@@ -280,6 +298,7 @@ def test_php_unknown_acquisition_retains_evidence_without_a_target(
     assert (fact.symbol, fact.node_id, fact.binding) == (expression, None, "unresolved")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(("decorator", "resolved"), [("staticmethod", False), ("wrapped", True)])
 def test_python_static_method_parameter_is_not_an_implicit_receiver(
     tmp_path: Path, decorator: str, resolved: bool
@@ -296,6 +315,7 @@ def test_python_static_method_parameter_is_not_an_implicit_receiver(
     assert _references(graph) == ({("app:C.setup", "app:C.h")} if resolved else set())
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("expression", "dispatch", "target"),
     [
@@ -328,6 +348,7 @@ def test_php_receiver_dispatch_is_limited_to_dynamic_receivers(
     assert ("receiver_dispatch" in fact.unresolved) is dispatch
 
 
+@pytest.mark.mutation_fast
 def test_php_namespace_relative_first_class_callables_resolve_locally(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -344,6 +365,7 @@ def test_php_namespace_relative_first_class_callables_resolve_locally(tmp_path: 
     assert all(fact.binding == "resolved" for fact in _evidence(graph))
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("literal", [r"Ns\nh", r"Ns\th", r"Ns\rh", r"Ns\$h"])
 def test_php_escaped_data_is_not_decoded_as_a_namespace_separator(
     tmp_path: Path, literal: str
@@ -361,6 +383,7 @@ def test_php_escaped_data_is_not_decoded_as_a_namespace_separator(
     assert _evidence(graph) == []
 
 
+@pytest.mark.mutation_fast
 def test_php_callable_pair_does_not_also_reference_its_component_strings(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -377,6 +400,7 @@ def test_php_callable_pair_does_not_also_reference_its_component_strings(tmp_pat
     assert (fact.symbol, dict(fact.details)["form"]) == ("['C', 'h']", "array")
 
 
+@pytest.mark.mutation_fast
 def test_php_closure_receiver_without_a_lexical_class_stays_unresolved(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -389,6 +413,7 @@ def test_php_closure_receiver_without_a_lexical_class_stays_unresolved(tmp_path:
     assert "receiver_dispatch" in fact.unresolved
 
 
+@pytest.mark.mutation_fast
 def test_php_relative_qualified_names_keep_their_namespace_segment(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,
@@ -408,6 +433,7 @@ def test_php_relative_qualified_names_keep_their_namespace_segment(tmp_path: Pat
     assert _references(graph) == {("app", "sub:N.Sub.h"), ("app", "sub:N.Sub.C.run")}
 
 
+@pytest.mark.mutation_fast
 def test_php_quoted_static_method_has_no_dynamic_receiver(tmp_path: Path) -> None:
     graph = _discover(
         tmp_path,

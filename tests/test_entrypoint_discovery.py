@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.parse_work import count_work
 from trailmark.analysis.entrypoint_candidates import discover_entrypoint_candidates
 from trailmark.models.edges import EdgeKind
 from trailmark.parse import _LANGUAGE_EXTENSIONS, parse_directory
@@ -11,6 +12,7 @@ from trailmark.query.api import QueryEngine
 from trailmark.source_policy import SourcePolicy, SourceRoot
 
 
+@pytest.mark.mutation_fast
 def test_bare_decorators_keep_evidence_without_gaining_http_tags(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text(
         "from external import patch, get\n"
@@ -109,6 +111,7 @@ def dynamic_path(): pass
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [
@@ -123,6 +126,7 @@ def test_route_name_requires_exported_callable(source: str, tmp_path: Path) -> N
     assert not engine.attack_surface()
 
 
+@pytest.mark.mutation_fast
 def test_indirect_export_keeps_the_file_route_convention(tmp_path: Path) -> None:
     (tmp_path / "route.ts").write_text("function GET() {}\nexport { GET };\n")
     engine = QueryEngine.from_directory(str(tmp_path), "typescript")
@@ -145,6 +149,7 @@ def test_route_convention_uses_exported_alias_and_records_each_occurrence(tmp_pa
     assert len({fact["id"] for fact in facts}) == 3
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("export", ["export default wrap(handler);", "module.exports = handler;"])
 def test_default_export_keeps_existing_handler_with_export_evidence(
     tmp_path: Path, export: str
@@ -161,6 +166,7 @@ def test_default_export_keeps_existing_handler_with_export_evidence(
     assert fact["location"]["start_line"] == 2
 
 
+@pytest.mark.mutation_fast
 def test_graphql_extension_and_directive_references_preserve_execution_uncertainty(
     tmp_path: Path,
 ) -> None:
@@ -182,6 +188,7 @@ def test_graphql_extension_and_directive_references_preserve_execution_uncertain
     assert not engine.entrypoint_paths_to("Handler.run")
 
 
+@pytest.mark.mutation_fast
 def test_data_references_do_not_guess_between_qualified_matches(tmp_path: Path) -> None:
     for name in ("a", "b"):
         (tmp_path / f"{name}.php").write_text("<?php namespace App; class Handler {}")
@@ -204,6 +211,7 @@ def test_data_references_do_not_guess_between_qualified_matches(tmp_path: Path) 
     assert not any(edge.kind == EdgeKind.CALLS for edge in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_selected_roots_preserve_local_overrides(tmp_path: Path) -> None:
     for name in ("one", "two"):
         root = tmp_path / name
@@ -220,6 +228,7 @@ def test_selected_roots_preserve_local_overrides(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.mutation_fast
 def test_relative_file_references_do_not_bind_to_other_directories(tmp_path: Path) -> None:
     for name in ("a", "b"):
         (tmp_path / name).mkdir()
@@ -255,6 +264,7 @@ def test_shared_handler_script_entries_have_distinct_provenance(tmp_path: Path) 
     assert {fact["node_id"] for fact in facts} == {"cli:run"}
 
 
+@pytest.mark.mutation_fast
 def test_merged_graph_retains_configuration_for_unmanifested_nodes(tmp_path: Path) -> None:
     from trailmark.analysis.entrypoints import detect_entrypoints
     from trailmark.parse import parse_file
@@ -281,6 +291,7 @@ def test_shared_configuration_does_not_choose_between_selected_roots(tmp_path: P
     assert fact["binding"] == "unresolved"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "language,extension",
     [(lang, ext) for lang, exts in _LANGUAGE_EXTENSIONS.items() for ext in exts],
@@ -293,6 +304,11 @@ def test_every_registered_extension_reaches_its_frontend(
 
     fixture, _ = fixture_pair(language, dict(reversed(PARSER_FIXTURES))[language])
     (tmp_path / (fixture.stem + extension)).write_bytes(fixture.read_bytes())
-    graph = parse_directory(str(tmp_path), language)
+    if language in {"fstar", "lean", "rego"}:
+        # Collection order reaches these fixtures before the focused loop regressions.
+        # Bound their traversal work so malformed loops fail instead of hanging the suite.
+        graph, _ = count_work(lambda: parse_directory(str(tmp_path), language), max_work=1_000_000)
+    else:
+        graph = parse_directory(str(tmp_path), language)
     assert graph.source_file_counts == {language: 1}
     assert graph.nodes

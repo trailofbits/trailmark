@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind, NodeOrigin
@@ -79,11 +81,13 @@ def _parse_sample() -> tuple[MasmParser, CodeGraph]:
 
 
 class TestMasmParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_procedures(self) -> None:
         _, graph = _parse_sample()
         funcs = [
@@ -106,6 +110,7 @@ class TestMasmParserNodes:
         assert begin.kind == NodeKind.FUNCTION
         assert begin.origin == NodeOrigin.SYNTHETIC
 
+    @pytest.mark.mutation_fast
     def test_finds_constants(self) -> None:
         _, graph = _parse_sample()
         names = {n.name for n in graph.nodes.values()}
@@ -118,12 +123,14 @@ class TestMasmParserNodes:
         for func in funcs:
             assert ":" in func.id
 
+    @pytest.mark.mutation_fast
     def test_procedure_docstring(self) -> None:
         _, graph = _parse_sample()
         add_vals = next(n for n in graph.nodes.values() if n.name == "add_values")
         assert add_vals.docstring is not None
         assert "Adds two field elements" in add_vals.docstring
 
+    @pytest.mark.mutation_fast
     def test_export_visibility_in_docstring(self) -> None:
         _, graph = _parse_sample()
         add_vals = next(n for n in graph.nodes.values() if n.name == "add_values")
@@ -144,11 +151,13 @@ class TestMasmParserNodes:
 
 
 class TestMasmParserComplexity:
+    @pytest.mark.mutation_fast
     def test_simple_proc_complexity(self) -> None:
         _, graph = _parse_sample()
         add_vals = next(n for n in graph.nodes.values() if n.name == "add_values")
         assert add_vals.cyclomatic_complexity == 1
 
+    @pytest.mark.mutation_fast
     def test_branching_proc_complexity(self) -> None:
         _, graph = _parse_sample()
         cond = next(n for n in graph.nodes.values() if n.name == "conditional_branch")
@@ -156,6 +165,7 @@ class TestMasmParserComplexity:
         # if + while + repeat = 3 branches, so complexity = 4
         assert cond.cyclomatic_complexity >= 4
 
+    @pytest.mark.mutation_fast
     def test_branches_tracked(self) -> None:
         _, graph = _parse_sample()
         cond = next(n for n in graph.nodes.values() if n.name == "conditional_branch")
@@ -164,6 +174,7 @@ class TestMasmParserComplexity:
         assert "if.true" in conditions
         assert "while.true" in conditions
 
+    @pytest.mark.mutation_fast
     def test_repeat_branch_has_count(self) -> None:
         _, graph = _parse_sample()
         cond = next(n for n in graph.nodes.values() if n.name == "conditional_branch")
@@ -178,6 +189,7 @@ class TestMasmParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_call_edges_from_entrypoint(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -185,6 +197,7 @@ class TestMasmParserEdges:
         # exec.add_values, call.std::math::u64::checked_add, exec.helper_proc
         assert len(begin_calls) == 3
 
+    @pytest.mark.mutation_fast
     def test_local_call_is_certain(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -207,6 +220,7 @@ class TestMasmParserDependencies:
 
 
 class TestMasmParserNumLocals:
+    @pytest.mark.mutation_fast
     def test_num_locals_as_parameter(self) -> None:
         _, graph = _parse_sample()
         helper = next(n for n in graph.nodes.values() if n.name == "helper_proc")
@@ -216,6 +230,7 @@ class TestMasmParserNumLocals:
 
 
 class TestMasmParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = MasmParser()
         code_a = "pub proc foo\n    nop\nend\n"

@@ -19,6 +19,7 @@ def _file(tmp_path: Path, source: str) -> Path:
     return path
 
 
+@pytest.mark.mutation_fast
 def test_script_functions_substitutions_and_ownership(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -36,6 +37,7 @@ def test_script_functions_substitutions_and_ownership(tmp_path: Path) -> None:
     assert any(e.source_id == "sample:<script>" and e.target_id == "sample:main" for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [
@@ -61,6 +63,7 @@ def test_runtime_bindings_stay_uncertain(tmp_path: Path, source: str) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_dynamic_and_external_commands_do_not_bind_across_files(tmp_path: Path) -> None:
     _file(
         tmp_path,
@@ -76,6 +79,7 @@ def test_dynamic_and_external_commands_do_not_bind_across_files(tmp_path: Path) 
     assert detect_languages(str(tmp_path)) == ["bash"]
 
 
+@pytest.mark.mutation_fast
 def test_literal_source_dependencies_and_query_paths(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -101,6 +105,7 @@ def test_function_body_can_be_a_conditional_and_own_redirects(tmp_path: Path) ->
     assert [e.target_id for e in calls if e.source_id == "sample:<script>"] == ["sample:main"]
 
 
+@pytest.mark.mutation_fast
 def test_builtin_inspection_does_not_execute_and_shadowed_source_is_not_import(
     tmp_path: Path,
 ) -> None:

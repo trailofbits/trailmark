@@ -43,6 +43,7 @@ def test_duplicate_python_bodies_keep_free_function_calls(tmp_path: Path) -> Non
     assert all(e.target_id == "app:add" and e.confidence == EdgeConfidence.CERTAIN for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["ts", "tsx"])
 @pytest.mark.parametrize(
     "signature",
@@ -109,6 +110,7 @@ def test_ruby_double_splat_parameters_are_bindings(
     assert not any(e.kind == EdgeKind.CALLS and e.target_id == "app:C.opts" for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("declaration", ["std::function<int(int)> cb(fnp)", "Functor cb(fnp)"])
 def test_cpp_object_initialization_shadows_free_function(tmp_path: Path, declaration: str) -> None:
     path = tmp_path / "app.cpp"
@@ -120,6 +122,7 @@ def test_cpp_object_initialization_shadows_free_function(tmp_path: Path, declara
     assert dict(call.attributes).get("binding_blocked")
 
 
+@pytest.mark.mutation_fast
 def test_dart_local_closure_shadows_function(tmp_path: Path) -> None:
     path = tmp_path / "app.dart"
     path.write_text("int helper(int x)=>x; int run(){var helper=(int x)=>x+1;return helper(1);}")

@@ -77,13 +77,16 @@ def _write_json(tmp_path: Any, name: str, data: dict[str, Any]) -> str:
 
 
 class TestNormalizePath:
+    @pytest.mark.mutation_fast
     def test_relative_path(self) -> None:
         assert _normalize_path("src/handler.py", _ROOT) == "src/handler.py"
 
+    @pytest.mark.mutation_fast
     def test_absolute_path(self) -> None:
         result = _normalize_path("/project/src/handler.py", _ROOT)
         assert result == "src/handler.py"
 
+    @pytest.mark.mutation_fast
     def test_file_uri(self) -> None:
         result = _normalize_path(
             "file:///project/src/handler.py",
@@ -105,6 +108,7 @@ class TestNormalizePath:
 
 
 class TestFindOverlappingNodes:
+    @pytest.mark.mutation_fast
     def test_exact_match(self) -> None:
         graph = _build_graph()
         nodes = _find_overlapping_nodes(graph, "src/handler.py", 10, 30)
@@ -116,6 +120,7 @@ class TestFindOverlappingNodes:
         assert "mod:func_a" in nodes
         assert "mod:func_b" in nodes
 
+    @pytest.mark.mutation_fast
     def test_no_overlap(self) -> None:
         graph = _build_graph()
         nodes = _find_overlapping_nodes(graph, "src/handler.py", 51, 60)
@@ -123,6 +128,7 @@ class TestFindOverlappingNodes:
         ids = [n for n in nodes if "func" in n]
         assert ids == []
 
+    @pytest.mark.mutation_fast
     def test_wrong_file(self) -> None:
         graph = _build_graph()
         nodes = _find_overlapping_nodes(graph, "src/other.py", 10, 30)
@@ -186,6 +192,7 @@ def _sarif_result(
 
 
 class TestAugmentFromSarif:
+    @pytest.mark.mutation_fast
     def test_matches_finding_to_node(self, tmp_path: Any) -> None:
         graph = _build_graph()
         store = GraphStore(graph)
@@ -205,6 +212,7 @@ class TestAugmentFromSarif:
         assert result["matched_findings"] == 1
         assert result["unmatched_findings"] == 0
 
+    @pytest.mark.mutation_fast
     def test_annotation_format(self, tmp_path: Any) -> None:
         graph = _build_graph()
         store = GraphStore(graph)
@@ -361,6 +369,7 @@ def _weaudit_entry(
 
 
 class TestAugmentFromWeaudit:
+    @pytest.mark.mutation_fast
     def test_matches_finding_with_line_conversion(
         self,
         tmp_path: Any,
@@ -379,6 +388,7 @@ class TestAugmentFromWeaudit:
         result = augment_from_weaudit(store, path)
         assert result["matched_findings"] == 1
 
+    @pytest.mark.mutation_fast
     def test_finding_annotation_kind(self, tmp_path: Any) -> None:
         graph = _build_graph()
         store = GraphStore(graph)
@@ -393,6 +403,7 @@ class TestAugmentFromWeaudit:
         anns = graph.annotations.get("mod:func_a", [])
         assert any(a.kind == AnnotationKind.FINDING for a in anns)
 
+    @pytest.mark.mutation_fast
     def test_note_annotation_kind(self, tmp_path: Any) -> None:
         graph = _build_graph()
         store = GraphStore(graph)
@@ -427,6 +438,7 @@ class TestAugmentFromWeaudit:
         anns = graph.annotations.get("mod:func_a", [])
         assert any(a.source == "weaudit:alice" for a in anns)
 
+    @pytest.mark.mutation_fast
     def test_severity_subgraphs(self, tmp_path: Any) -> None:
         graph = _build_graph()
         store = GraphStore(graph)
@@ -455,6 +467,7 @@ class TestAugmentFromWeaudit:
         assert "weaudit:low" in result["subgraphs_created"]
         assert "weaudit:findings" in result["subgraphs_created"]
 
+    @pytest.mark.mutation_fast
     def test_description_format(self, tmp_path: Any) -> None:
         graph = _build_graph()
         store = GraphStore(graph)
@@ -489,6 +502,7 @@ class TestAugmentFromWeaudit:
 
 
 class TestClearAugmented:
+    @pytest.mark.mutation_fast
     def test_clear_sarif(self, tmp_path: Any) -> None:
         graph = _build_graph()
         store = GraphStore(graph)
@@ -524,6 +538,7 @@ class TestClearAugmented:
         clear_augmented(store, "sarif")
         assert not any(k.startswith("sarif:") for k in graph.subgraphs)
 
+    @pytest.mark.mutation_fast
     def test_reaugment_idempotent(self, tmp_path: Any) -> None:
         graph = _build_graph()
         store = GraphStore(graph)
@@ -546,6 +561,7 @@ class TestClearAugmented:
 # ── QueryEngine integration ──────────────────────────────────────────
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("source", ["sarif", "weaudit"])
 @pytest.mark.parametrize("replace_existing", [None, False, True])
 def test_multiple_finding_imports_apply_replacement_policy(
@@ -574,6 +590,7 @@ def test_multiple_finding_imports_apply_replacement_policy(
     assert set(graph["subgraphs"][severity_subgraph]) == expected
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("source", ["sarif", "weaudit"])
 @pytest.mark.parametrize("replace_existing", [False, True])
 @pytest.mark.parametrize("failure", ["missing", "malformed_json", "invalid_record"])
@@ -614,6 +631,7 @@ def test_failed_finding_import_preserves_existing_graph(
     assert engine.findings() == findings_before
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("source", ["sarif", "weaudit"])
 @pytest.mark.parametrize("root_kind", ["dot", "relative", "absolute"])
 @pytest.mark.parametrize("language", ["python", "auto"])
@@ -741,6 +759,7 @@ class TestQueryEngineAugment:
         assert "findings" in findings[0]
         assert findings[0]["findings"][0]["kind"] == "finding"
 
+    @pytest.mark.mutation_fast
     def test_findings_filter_by_kind(self, tmp_path: Any) -> None:
         graph = _build_graph()
         engine = QueryEngine.from_graph(graph)

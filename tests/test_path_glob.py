@@ -11,6 +11,7 @@ from hypothesis import strategies as st
 from trailmark._path_glob import compile_path_glob
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "pattern,path,expected",
     [
@@ -103,6 +104,7 @@ def _matches_segments(pattern: list[str], path: list[str]) -> bool:
     )
 
 
+@pytest.mark.mutation_fast
 @given(
     pattern=st.sampled_from(
         ["", "*", "?", "a*", "*.py", "a/*/b", "a/**/b", "**/a", "**/*.py", "**/**/b"]

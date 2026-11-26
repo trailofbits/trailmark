@@ -27,6 +27,7 @@ def _accesses(graph: CodeGraph, function: str = "f") -> set[tuple[str, str]]:
     }
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("statement", "expected"),
     [
@@ -68,6 +69,7 @@ def test_direct_accesses(tmp_path: Path, statement: str, expected: set[tuple[str
     assert _accesses(graph) == expected
 
 
+@pytest.mark.mutation_fast
 def test_state_declarations_are_persistent_owned_and_order_independent(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -90,6 +92,7 @@ def test_state_declarations_are_persistent_owned_and_order_independent(tmp_path:
     assert _accesses(graph) == {("x", "writes")}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("signature", "body", "expected"),
     [
@@ -112,6 +115,7 @@ def test_lexical_shadowing(
     assert _accesses(graph) == expected
 
 
+@pytest.mark.mutation_fast
 def test_named_returns_and_catch_parameters_shadow_state(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -134,6 +138,7 @@ def test_named_returns_and_catch_parameters_shadow_state(tmp_path: Path) -> None
     }
 
 
+@pytest.mark.mutation_fast
 def test_constructor_modifier_and_modifier_arguments_keep_direct_ownership(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -193,6 +198,7 @@ def test_access_sites_survive_export_and_queries_deduplicate(tmp_path: Path) -> 
     assert {e["location"]["start_line"] for e in exported_accesses} == {4, 5}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("statement", "owner"),
     [
@@ -277,6 +283,7 @@ def test_library_push_pop_methods_do_not_imply_builtin_mutations(tmp_path: Path)
     }
 
 
+@pytest.mark.mutation_fast
 def test_nested_struct_fields_keep_their_declaring_type_scope(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,

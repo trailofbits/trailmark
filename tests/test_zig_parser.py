@@ -19,6 +19,7 @@ def _source(tmp_path: Path, text: str) -> Path:
     return path
 
 
+@pytest.mark.mutation_fast
 def test_signatures_containers_calls_and_imports(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -56,6 +57,7 @@ fn caller() void { S.run(); dep.run(); }
     ] == ["dep.run"]
 
 
+@pytest.mark.mutation_fast
 def test_dynamic_calls_do_not_bind_to_namesakes(tmp_path: Path) -> None:
     _source(
         tmp_path,
@@ -74,6 +76,7 @@ fn local() void { const helper = unknown; helper(); }
     assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
 
 
+@pytest.mark.mutation_fast
 def test_entrypoints_and_auto_directory(tmp_path: Path) -> None:
     _source(
         tmp_path,
@@ -138,6 +141,7 @@ def test_each_destructured_binding_shadows_free_functions(tmp_path: Path) -> Non
     assert dict(calls[0].attributes)["binding_blocked"] is True
 
 
+@pytest.mark.mutation_fast
 def test_loop_capture_does_not_bind_to_free_function(tmp_path: Path) -> None:
     path = _source(
         tmp_path, "fn helper() void {} fn f(xs: []u8) void { for (xs) |helper| { helper(); } }"
@@ -149,6 +153,7 @@ def test_loop_capture_does_not_bind_to_free_function(tmp_path: Path) -> None:
     assert graph.nodes[calls[0].target_id].kind == NodeKind.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_container_constant_alias_does_not_bind_across_files(tmp_path: Path) -> None:
     _source(tmp_path, "const alias = callback; fn caller() void { alias(); }")
     (tmp_path / "other.zig").write_text("fn alias() void {}")
@@ -159,6 +164,7 @@ def test_container_constant_alias_does_not_bind_across_files(tmp_path: Path) -> 
     assert graph.nodes[calls[0].target_id].kind == NodeKind.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_explicit_local_type_binds_methods_and_inferred_constructor(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -183,6 +189,7 @@ def test_explicit_local_type_binds_methods_and_inferred_constructor(tmp_path: Pa
     assert {n["id"] for n in engine.callers_of("sample:Iterator.next")} == {"sample:run"}
 
 
+@pytest.mark.mutation_fast
 def test_typed_receiver_inference_respects_scope_and_shadowing(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -213,6 +220,7 @@ def test_typed_pointer_receiver_and_type_name_shadow(tmp_path: Path) -> None:
     assert graph.nodes[calls[1].target_id].kind == NodeKind.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_capture_blocks_typed_local_receiver_inference(tmp_path: Path) -> None:
     path = _source(
         tmp_path,

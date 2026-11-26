@@ -34,6 +34,7 @@ def _references(graph: CodeGraph, source: str) -> list[CodeEdge]:
     return [e for e in graph.edges if e.kind == EdgeKind.REFERENCES and e.source_id == source]
 
 
+@pytest.mark.mutation_fast
 def test_application_returns_the_head_and_arguments_in_source_order() -> None:
     root = Parser(get_language("lean")).parse(b"def use := combine first second\n").root_node
     declaration = root.named_children[0].named_children[0]
@@ -44,6 +45,7 @@ def test_application_returns_the_head_and_arguments_in_source_order() -> None:
     assert [argument.text for argument in arguments] == [b"first", b"second"]
 
 
+@pytest.mark.mutation_fast
 def test_reference_fixture_and_opt_in_queries(tmp_path: Path) -> None:
     source = (Path(__file__).parent / "fixtures/lean/references.lean").read_text()
     graph = _parse(tmp_path, source)
@@ -105,6 +107,7 @@ def test_reference_fixture_and_opt_in_queries(tmp_path: Path) -> None:
     assert {location["start_line"] for location in locations} >= {8, 11, 17, 19}
 
 
+@pytest.mark.mutation_fast
 def test_registration_and_public_apis(tmp_path: Path) -> None:
     assert "lean" in supported_languages()
     assert LeanParser().language == "lean"
@@ -122,6 +125,7 @@ def test_registration_and_public_apis(tmp_path: Path) -> None:
     assert {"Sample:main", "other:other"} <= merged.nodes.keys()
 
 
+@pytest.mark.mutation_fast
 def test_declarations_parameters_and_docs(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -169,6 +173,7 @@ def defaulted (n : Nat := 1) : Nat := n
     assert not _calls(graph, "Sample:Demo.identity")
 
 
+@pytest.mark.mutation_fast
 def test_namespace_sections_and_reopening(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -199,6 +204,7 @@ def _root_.root (n : Nat) := Outer.Inner.c n
     )
 
 
+@pytest.mark.mutation_fast
 def test_types_fields_and_constructors(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -230,6 +236,7 @@ def singleton (n : Nat) := Listy.cons n Listy.nil
     assert calls[0].target_id == "Sample:Listy.cons"
 
 
+@pytest.mark.mutation_fast
 def test_applications_and_branches_exclude_signatures_and_tactics(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -259,6 +266,7 @@ def quoted := `(inc 1)
     assert not _references(graph, "Sample:quoted")
 
 
+@pytest.mark.mutation_fast
 def test_reference_shadowing_in_signatures_and_nested_scopes(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -299,6 +307,7 @@ theorem afterSection : predicate 0 := by sorry
     assert not _references(graph, lambda_id)
 
 
+@pytest.mark.mutation_fast
 def test_typed_projections_are_lexical_and_type_specific(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -355,6 +364,7 @@ def afterSection := d.width
         assert deferred.confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_signatures_of_types_fields_and_helpers_retain_references(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -445,6 +455,7 @@ def nameOnly := `sample
     assert [e.target_id for e in _references(graph, "Sample:anonymous")] == ["Sample:Dimensions"]
 
 
+@pytest.mark.mutation_fast
 def test_nested_callable_ownership_and_lexical_blocking(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -476,6 +487,7 @@ where
     assert all(e.target_id == "Sample:auxiliary.go" for e in _calls(graph, "Sample:auxiliary"))
 
 
+@pytest.mark.mutation_fast
 def test_import_resolution_is_scoped_and_transitive(tmp_path: Path) -> None:
     (tmp_path / "Lib").mkdir()
     (tmp_path / "Lib" / "Base.lean").write_text("""\
@@ -537,6 +549,7 @@ def explicit (n : Nat) := _root_.A.f n
         assert not _references(graph, f"Sample:{name}")
 
 
+@pytest.mark.mutation_fast
 def test_reference_linking_waits_for_imported_types_and_rejects_ambiguity(tmp_path: Path) -> None:
     (tmp_path / "Types.lean").write_text("""\
 namespace Shape
@@ -623,6 +636,7 @@ def hypothesis (n : Nat) := if helper : n > 0 then helper n else helper n
         assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls)
 
 
+@pytest.mark.mutation_fast
 def test_restricted_opens_do_not_guess_namespaces(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -638,6 +652,7 @@ def f (n : Nat) := hidden n
     assert graph.nodes[call.target_id].kind == NodeKind.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_command_wrappers_preserve_declarations_without_leaking_scope(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,

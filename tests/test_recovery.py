@@ -85,6 +85,7 @@ def test_unsafe_conditional_spans_are_rejected(body: bytes) -> None:
     assert _recovery._physical_end(_recovery._source_tokens(body), 0) is None
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 @pytest.mark.parametrize(
     "endif", ["#endif // WRAPPER", "#endif /* WRAPPER */", "# endif", "#\tendif"]
@@ -250,6 +251,7 @@ def test_disabled_masks_preserve_directives_offsets_and_continued_line_breaks() 
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "opaque",
     [
@@ -308,6 +310,7 @@ def test_provisional_masks_are_discarded_without_a_block_macro_candidate(opaque:
     assert recovered.root_node.text == source
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [
@@ -323,6 +326,7 @@ def test_discovery_excludes_clean_functions_and_other_syntax_errors(source: byte
     assert not _recovery._recovery_functions(tree.root_node, source)
 
 
+@pytest.mark.mutation_fast
 def test_candidates_reject_a_body_inside_disabled_tokens() -> None:
     source = b"#if 0\nvoid action(void) { BLOCK { helper(); } }\n#endif\n"
     parser = Parser(get_language("c"))
@@ -332,6 +336,7 @@ def test_candidates_reject_a_body_inside_disabled_tokens() -> None:
     assert _recovery._candidates(functions, _recovery._source_tokens(source)) == {}
 
 
+@pytest.mark.mutation_fast
 def test_identifier_in_a_declaration_is_not_masked_as_a_block_macro() -> None:
     source = b"void action(void) { struct Item { int field; }; BLOCK { helper(); } }\n"
     parser = Parser(get_language("c"))

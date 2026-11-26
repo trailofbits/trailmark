@@ -28,6 +28,7 @@ def _campaign(
         [
             sys.executable,
             str(Path(__file__).with_name("run_mutations.py")),
+            "--test-group=full",
             "--targets=target.py",
             "--workers=2",
             f"--test-selection={selection}",

@@ -10,6 +10,7 @@ from trailmark.parse import parse_directory, parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_header_property_backing_ivars_prefer_implementation_methods(tmp_path: Path) -> None:
     (tmp_path / "Owner.h").write_text(
         "@interface Worker\n- (void)reset;\n@end\n"
@@ -43,6 +44,7 @@ def test_explicit_typed_ivar_and_selector_labels_are_retained(tmp_path: Path) ->
     assert call.target_id == "Declared:Worker.send:next:"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "implementation",
     [
@@ -70,6 +72,7 @@ def test_shadowed_or_class_context_receivers_remain_proxies(
     assert all(graph.nodes[e.target_id].origin == NodeOrigin.PROXY for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "customization",
     [
@@ -95,6 +98,7 @@ def test_custom_property_implementations_do_not_invent_backing_ivars(
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_conflicting_class_implementations_do_not_supply_arbitrary_targets(tmp_path: Path) -> None:
     (tmp_path / "Owner.m").write_text(
         "@interface Owner { Worker *_worker; }\n@end\n"
@@ -108,6 +112,7 @@ def test_conflicting_class_implementations_do_not_supply_arbitrary_targets(tmp_p
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_class_property_does_not_create_an_instance_backing_ivar(tmp_path: Path) -> None:
     path = tmp_path / "ClassProperty.m"
     path.write_text(
@@ -135,6 +140,7 @@ def test_unshadowed_backing_ivar_is_available_inside_a_block(tmp_path: Path) -> 
     assert call.target_id == "Capture:Worker.reset"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("parent_property", ["Worker *worker", "id worker", "int worker"])
 def test_inherited_property_redeclaration_does_not_synthesize_a_new_ivar(
     tmp_path: Path, parent_property: str
@@ -153,6 +159,7 @@ def test_inherited_property_redeclaration_does_not_synthesize_a_new_ivar(
     assert not graph.parse_diagnostics
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("base", "property_name", "expected_source"),
     [("Missing", "worker", False), ("NSObject", "worker", True), ("NSObject", "hash", False)],

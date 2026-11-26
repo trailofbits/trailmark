@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -76,11 +78,13 @@ def _parse_sample() -> tuple[RubyParser, CodeGraph]:
 
 
 class TestRubyParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_classes(self) -> None:
         _, graph = _parse_sample()
         classes = [n for n in graph.nodes.values() if n.kind == NodeKind.CLASS]
@@ -95,6 +99,7 @@ class TestRubyParserNodes:
         assert "greet" in names
         assert "process" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_methods(self) -> None:
         _, graph = _parse_sample()
         methods = [n for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
@@ -102,6 +107,7 @@ class TestRubyParserNodes:
         assert "speak" in names
         assert "fetch" in names
 
+    @pytest.mark.mutation_fast
     def test_class_docstring(self) -> None:
         _, graph = _parse_sample()
         animal = next(n for n in graph.nodes.values() if n.name == "Animal")
@@ -110,12 +116,14 @@ class TestRubyParserNodes:
 
 
 class TestRubyParserParameters:
+    @pytest.mark.mutation_fast
     def test_simple_parameter(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "fetch")
         assert len(fetch.parameters) == 1
         assert fetch.parameters[0].name == "item"
 
+    @pytest.mark.mutation_fast
     def test_default_parameter(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -139,6 +147,7 @@ class TestRubyParserComplexity:
         )
         assert speak.cyclomatic_complexity == 1
 
+    @pytest.mark.mutation_fast
     def test_branching_function_complexity(self) -> None:
         _, graph = _parse_sample()
         process = next(n for n in graph.nodes.values() if n.name == "process")
@@ -157,12 +166,14 @@ class TestRubyParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_inherits_edge(self) -> None:
         _, graph = _parse_sample()
         inherits = [e for e in graph.edges if e.kind == EdgeKind.INHERITS]
         assert len(inherits) == 1
         assert inherits[0].target_id.endswith(":Animal")
 
+    @pytest.mark.mutation_fast
     def test_call_edges(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -177,6 +188,7 @@ class TestRubyParserEdges:
 
 
 class TestRubyParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "json" in graph.dependencies
@@ -226,6 +238,7 @@ class TestRubyModule:
         names = {m.name for m in methods}
         assert "helper" in names
 
+    @pytest.mark.mutation_fast
     def test_class_inside_module(self) -> None:
         graph = _parse_module()
         classes = [n for n in graph.nodes.values() if n.kind == NodeKind.CLASS]
@@ -234,6 +247,7 @@ class TestRubyModule:
 
 
 class TestRubyParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = RubyParser()
         code_a = "def from_a\n  1\nend\n"

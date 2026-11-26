@@ -18,6 +18,7 @@ def _parse(tmp_path: Path, caller: str, target: str = "") -> CodeGraph:
     return parse_directory(str(tmp_path), "c_sharp", strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_cross_file_namespace_static_call_navigates_to_partial_class(tmp_path: Path) -> None:
     (tmp_path / "OtherPart.cs").write_text("namespace N { static partial class Target {} }")
     graph = _parse(
@@ -32,6 +33,7 @@ def test_cross_file_namespace_static_call_navigates_to_partial_class(tmp_path: P
     }
 
 
+@pytest.mark.mutation_fast
 def test_inspected_interface_base_does_not_hide_namespace_type(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -44,6 +46,7 @@ def test_inspected_interface_base_does_not_hide_namespace_type(tmp_path: Path) -
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("declaration", ["dynamic Target", "System.Action Target"])
 def test_parameter_receiver_does_not_bind_type(tmp_path: Path, declaration: str) -> None:
     graph = _parse(
@@ -55,6 +58,7 @@ def test_parameter_receiver_does_not_bind_type(tmp_path: Path, declaration: str)
     assert calls and all(graph.nodes[e.target_id].origin == NodeOrigin.PROXY for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("prefix", ["using Target = Other;", "using Other;"])
 def test_alias_or_imported_outer_type_does_not_receive_guess(tmp_path: Path, prefix: str) -> None:
     graph = _parse(
@@ -69,6 +73,7 @@ def test_alias_or_imported_outer_type_does_not_receive_guess(tmp_path: Path, pre
     )
 
 
+@pytest.mark.mutation_fast
 def test_global_qualification_bypasses_alias_and_value_names(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -81,6 +86,7 @@ def test_global_qualification_bypasses_alias_and_value_names(tmp_path: Path) -> 
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "caller",
     [
@@ -116,6 +122,7 @@ def test_instance_and_overloaded_methods_remain_proxies(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_later_global_alias_retracts_per_file_binding(tmp_path: Path) -> None:
     (tmp_path / "Alias.cs").write_text("global using Target = Other;")
     graph = _parse(
@@ -130,6 +137,7 @@ def test_later_global_alias_retracts_per_file_binding(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body",
     [
@@ -171,6 +179,7 @@ def test_later_partial_value_member_retracts_per_file_type_guess(tmp_path: Path)
     )
 
 
+@pytest.mark.mutation_fast
 def test_nearer_namespace_head_blocks_outer_type_fallback(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,

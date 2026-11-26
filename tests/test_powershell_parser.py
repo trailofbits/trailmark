@@ -19,6 +19,7 @@ def _file(tmp_path: Path, source: str) -> Path:
     return path
 
 
+@pytest.mark.mutation_fast
 def test_parameters_filters_classes_and_case_insensitive_calls(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -51,6 +52,7 @@ main
     assert engine.entrypoint_paths_to("Get-Value")
 
 
+@pytest.mark.mutation_fast
 def test_empty_functions_and_nested_script_blocks_have_own_bodies(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -74,6 +76,7 @@ function main {
     assert len(calls) == 2 and {e.source_id for e in calls} == {"sample:main", anonymous[0].id}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "setup",
     [
@@ -92,6 +95,7 @@ def test_runtime_mutation_prevents_inference(tmp_path: Path, setup: str) -> None
     )
 
 
+@pytest.mark.mutation_fast
 def test_ambiguous_receivers_callbacks_and_cross_file_namesakes(tmp_path: Path) -> None:
     _file(
         tmp_path,
@@ -123,6 +127,7 @@ function main { helper; & $helper; $obj.helper(); [Other]::helper() }
     )
 
 
+@pytest.mark.mutation_fast
 def test_literal_dependencies(tmp_path: Path) -> None:
     path = _file(
         tmp_path, "using module ./One.psm1\nImport-Module -Name 'Two'\nImport-Module $dynamic\n"

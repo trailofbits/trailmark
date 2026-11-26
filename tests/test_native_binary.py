@@ -87,6 +87,7 @@ def test_fixture_manifest_hashes() -> None:
         assert hashlib.sha256((FIXTURES / filename).read_bytes()).hexdigest() == digest, filename
 
 
+@pytest.mark.mutation_fast
 def test_folded_functions_keep_each_source_alias(options: BinaryImportOptions) -> None:
     engine = source_engine()
     report = engine.augment_binary_file(str(FIXTURES / "elf-folded"), options=options)
@@ -117,6 +118,7 @@ def test_folded_functions_keep_each_source_alias(options: BinaryImportOptions) -
         ) == engine.source_at_address(row["artifact_id"], row["rva"], address_kind="rva")
 
 
+@pytest.mark.mutation_fast
 def test_folded_aliases_respect_explicit_priority_and_ambiguity(
     options: BinaryImportOptions, tmp_path: Path
 ) -> None:
@@ -178,6 +180,7 @@ def test_folded_aliases_respect_explicit_priority_and_ambiguity(
     assert engine.binary_ranges("folded_right")
 
 
+@pytest.mark.mutation_fast
 def test_nonzero_base_and_fat_offsets_match_independent_metadata(
     options: BinaryImportOptions,
 ) -> None:
@@ -199,6 +202,7 @@ def test_nonzero_base_and_fat_offsets_match_independent_metadata(
         )
 
 
+@pytest.mark.mutation_fast
 def test_fat_offsets_match_thin_image_metadata() -> None:
     readobj, nm = _tool("llvm", "readobj"), _tool("llvm", "nm")
     engine = source_engine()
@@ -221,6 +225,7 @@ def test_fat_offsets_match_thin_image_metadata() -> None:
         )
 
 
+@pytest.mark.mutation_fast
 def test_gcc_hot_cold_fragment_transfer_is_not_a_tail_call() -> None:
     image = FIXTURES / "macho-cold.dylib"
     oracle = inspect_image(image, _tool("llvm", "readobj"), _tool("llvm", "nm"))
@@ -238,6 +243,7 @@ def test_gcc_hot_cold_fragment_transfer_is_not_a_tail_call() -> None:
     assert not any(dict(e.attributes).get("kind") == "tail" for e in engine._store._graph.edges)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "options,filename",
     [
@@ -286,6 +292,7 @@ def test_linker_entries_and_inferred_tail_transfers_are_distinct(
     assert any(i["call_kind"] == "tail" for i in instructions)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("profile", ELF_IMAGES, ids=lambda row: row["file"])
 def test_all_architectures_link_source_calls_and_instruction_bytes(
     options: BinaryImportOptions,
@@ -328,6 +335,7 @@ def test_all_architectures_link_source_calls_and_instruction_bytes(
     assert all(not node["id"].startswith("bin.") for node in engine.callees_of("entry"))
 
 
+@pytest.mark.mutation_fast
 def test_bidirectional_inline_lines_and_half_open_addresses(options: BinaryImportOptions) -> None:
     engine = source_engine()
     engine.augment_binary_file(str(FIXTURES / "elf-x86_64"), options=options)
@@ -370,6 +378,7 @@ def test_reimport_is_idempotent_and_export_contains_evidence(options: BinaryImpo
     assert exported["binary_source_mappings"]
 
 
+@pytest.mark.mutation_fast
 def test_query_limits_and_instruction_boundaries(options: BinaryImportOptions) -> None:
     engine = source_engine()
     engine.augment_binary_file(str(FIXTURES / "elf-x86_64"), options=options)
@@ -399,6 +408,7 @@ def test_changed_artifact_is_rejected(options: BinaryImportOptions, tmp_path: Pa
         engine.disassemble_binary(row["artifact_id"], row["start"], row["end"])
 
 
+@pytest.mark.mutation_fast
 def test_stripped_debug_companion_and_identity_failure(options: BinaryImportOptions) -> None:
     engine = source_engine()
     image = str(FIXTURES / "elf-x86_64-stripped")
@@ -416,6 +426,7 @@ def test_stripped_debug_companion_and_identity_failure(options: BinaryImportOpti
     assert engine.to_json() == before
 
 
+@pytest.mark.mutation_fast
 def test_debuglink_checksum_fallback(options: BinaryImportOptions, tmp_path: Path) -> None:
     engine = source_engine()
     image = str(FIXTURES / "elf-x86_64-debuglink")
@@ -431,6 +442,7 @@ def test_debuglink_checksum_fallback(options: BinaryImportOptions, tmp_path: Pat
     assert engine.to_json() == before
 
 
+@pytest.mark.mutation_fast
 def test_verified_debug_can_add_function_ownership_to_a_selected_stripped_region(
     options: BinaryImportOptions,
 ) -> None:
@@ -452,6 +464,7 @@ def test_verified_debug_can_add_function_ownership_to_a_selected_stripped_region
     assert len({item.node_id for item in graph.binary_ranges.values()}) == 2
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("filename", ["elf-x86_64-stripped", "elf-x86_64-sectionless"])
 def test_explicit_file_offset_mapping_of_stripped_regions(
     options: BinaryImportOptions,
@@ -498,6 +511,7 @@ def test_explicit_file_offset_mapping_of_stripped_regions(
     assert engine.to_json() == before
 
 
+@pytest.mark.mutation_fast
 def test_incomplete_import_is_atomic_in_strict_mode(options: BinaryImportOptions) -> None:
     engine = source_engine()
     before = engine.to_json()
@@ -512,6 +526,7 @@ def test_incomplete_import_is_atomic_in_strict_mode(options: BinaryImportOptions
     assert any(item["code"] == "instruction_limit" for item in report["diagnostics"])
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "filename,debug_file",
     [
@@ -545,6 +560,7 @@ def test_macho_and_pe_debug_identity_and_source_ranges(filename: str, debug_file
         assert engine.to_json() == before
 
 
+@pytest.mark.mutation_fast
 def test_universal_slices_and_container_offsets() -> None:
     engine = source_engine()
     options = BinaryImportOptions(
@@ -565,6 +581,7 @@ def test_universal_slices_and_container_offsets() -> None:
             assert data[offset : offset + instruction["size"]].hex() == instruction["bytes"]
 
 
+@pytest.mark.mutation_fast
 def test_unsupported_mips_mode_does_not_guess(options: BinaryImportOptions, tmp_path: Path) -> None:
     payload = bytearray((FIXTURES / "elf-mipsel").read_bytes())
     flags = struct.unpack_from("<I", payload, 36)[0]
@@ -578,6 +595,7 @@ def test_unsupported_mips_mode_does_not_guess(options: BinaryImportOptions, tmp_
     assert not engine.binary_artifacts()[0]["scanned_ranges"]
 
 
+@pytest.mark.mutation_fast
 def test_binary_cli_json_and_augment(options: BinaryImportOptions) -> None:
     assert options.objdump and options.symbolizer
     common = [
@@ -637,6 +655,7 @@ def test_binary_cli_json_and_augment(options: BinaryImportOptions) -> None:
     assert "Binary" in result.stderr
 
 
+@pytest.mark.mutation_fast
 def test_mixed_arm_thumb_instruction_modes(options: BinaryImportOptions) -> None:
     engine = source_engine()
     report = engine.augment_binary_file(str(FIXTURES / "elf-mixed-arm"), options=options)
@@ -651,6 +670,7 @@ def test_mixed_arm_thumb_instruction_modes(options: BinaryImportOptions) -> None
     assert any(node["name"] == "thumb_callee" for node in engine.callees_of(caller))
 
 
+@pytest.mark.mutation_fast
 def test_powerpc64_descriptor_addresses_are_code_addresses(options: BinaryImportOptions) -> None:
     engine = source_engine()
     engine.augment_binary_file(str(FIXTURES / "elf-ppc64-descriptors"), options=options)
@@ -661,6 +681,7 @@ def test_powerpc64_descriptor_addresses_are_code_addresses(options: BinaryImport
     assert any(node["name"] == "descriptor_helper" for node in engine.callees_of(row["node_id"]))
 
 
+@pytest.mark.mutation_fast
 def test_shared_library_and_discontiguous_selections(options: BinaryImportOptions) -> None:
     engine = source_engine()
     engine.augment_binary_file(str(FIXTURES / "elf-x86_64.so"), options=options)
@@ -704,6 +725,7 @@ def test_same_cpu_universal_slices_are_selected_exactly() -> None:
     assert all(item["file_offset"] >= artifact["slice_offset"] for item in result["instructions"])
 
 
+@pytest.mark.mutation_fast
 def test_universal_cpu_metadata_mismatch_is_atomic(tmp_path: Path) -> None:
     payload = bytearray((FIXTURES / "macho-same-cpu").read_bytes())
     struct.pack_into(">I", payload, 12, 99)
@@ -716,6 +738,7 @@ def test_universal_cpu_metadata_mismatch_is_atomic(tmp_path: Path) -> None:
     assert engine.to_json() == before
 
 
+@pytest.mark.mutation_fast
 def test_pdb_guid_age_mismatch_is_atomic(tmp_path: Path) -> None:
     import uuid
 

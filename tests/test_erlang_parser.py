@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -65,12 +67,14 @@ def _parse_sample() -> tuple[ErlangParser, CodeGraph]:
 
 
 class TestErlangParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
         assert modules[0].name == "example"
 
+    @pytest.mark.mutation_fast
     def test_finds_functions(self) -> None:
         _, graph = _parse_sample()
         funcs = [n for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION]
@@ -81,12 +85,14 @@ class TestErlangParserNodes:
         assert "handle_call" in names
         assert "simple" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_record(self) -> None:
         _, graph = _parse_sample()
         structs = [n for n in graph.nodes.values() if n.kind == NodeKind.STRUCT]
         names = {s.name for s in structs}
         assert "point" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_type_alias(self) -> None:
         _, graph = _parse_sample()
         structs = [n for n in graph.nodes.values() if n.kind == NodeKind.STRUCT]
@@ -105,6 +111,7 @@ class TestErlangParserNodes:
         module = next(n for n in graph.nodes.values() if n.kind == NodeKind.MODULE)
         assert module.id == "example"
 
+    @pytest.mark.mutation_fast
     def test_function_ids_use_module_name(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -112,12 +119,14 @@ class TestErlangParserNodes:
 
 
 class TestErlangParserParameters:
+    @pytest.mark.mutation_fast
     def test_function_params_from_pattern(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
         assert len(greet.parameters) >= 1
         assert greet.parameters[0].name == "Name"
 
+    @pytest.mark.mutation_fast
     def test_param_type_from_spec(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -142,6 +151,7 @@ class TestErlangParserComplexity:
         simple = next(n for n in graph.nodes.values() if n.name == "simple")
         assert simple.cyclomatic_complexity == 1
 
+    @pytest.mark.mutation_fast
     def test_guarded_clause_complexity(self) -> None:
         """factorial's guarded clause should add complexity."""
         _, graph = _parse_sample()
@@ -149,6 +159,7 @@ class TestErlangParserComplexity:
         assert factorial.cyclomatic_complexity is not None
         assert factorial.cyclomatic_complexity >= 2
 
+    @pytest.mark.mutation_fast
     def test_case_expression_complexity(self) -> None:
         _, graph = _parse_sample()
         process = next(n for n in graph.nodes.values() if n.name == "process")
@@ -173,11 +184,13 @@ class TestErlangParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_call_edges(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
         assert len(calls) > 0
 
+    @pytest.mark.mutation_fast
     def test_remote_call_edge(self) -> None:
         """io:format should create a call edge."""
         _, graph = _parse_sample()
@@ -185,6 +198,7 @@ class TestErlangParserEdges:
         targets = {e.target_id for e in calls}
         assert "io:format/2" in targets
 
+    @pytest.mark.mutation_fast
     def test_local_call_edge(self) -> None:
         """factorial calling itself should create a call edge."""
         _, graph = _parse_sample()
@@ -206,16 +220,19 @@ class TestErlangParserEdges:
 
 
 class TestErlangParserDependencies:
+    @pytest.mark.mutation_fast
     def test_behaviour_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "gen_server" in graph.dependencies
 
+    @pytest.mark.mutation_fast
     def test_import_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "lists" in graph.dependencies
 
 
 class TestErlangParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = ErlangParser()
         code_a = "-module(mod_a).\n-export([from_a/0]).\nfrom_a() -> ok.\n"

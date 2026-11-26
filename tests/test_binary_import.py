@@ -28,6 +28,7 @@ def _source_engine() -> QueryEngine:
     return QueryEngine.from_graph(graph)
 
 
+@pytest.mark.mutation_fast
 def test_augment_binary_imports_nodes_calls_and_correspondence(tmp_path: Path) -> None:
     binary_graph = {
         "artifact": {
@@ -71,6 +72,7 @@ def test_augment_binary_imports_nodes_calls_and_correspondence(tmp_path: Path) -
     assert any(edge["kind"] == "corresponds_to" for edge in data["edges"])
 
 
+@pytest.mark.mutation_fast
 def test_duplicate_binary_symbols_fall_back_to_rva_ids(tmp_path: Path) -> None:
     binary_graph = {
         "artifact": {"key": "dup"},
@@ -91,6 +93,7 @@ def test_duplicate_binary_symbols_fall_back_to_rva_ids(tmp_path: Path) -> None:
     assert "bin.dup:sub_20" in data["nodes"]
 
 
+@pytest.mark.mutation_fast
 def test_duplicate_binary_symbols_do_not_resolve_by_ambiguous_name(tmp_path: Path) -> None:
     binary_graph = {
         "artifact": {"key": "dup"},
@@ -143,6 +146,7 @@ def test_duplicate_binary_aliases_do_not_resolve_by_ambiguous_name(tmp_path: Pat
     ]
 
 
+@pytest.mark.mutation_fast
 def test_binary_file_line_source_mapping_prefers_tightest_node(tmp_path: Path) -> None:
     graph = CodeGraph(
         nodes={
@@ -243,6 +247,7 @@ def test_binary_symbol_source_mapping_prefers_function_over_container(
     assert correspondences[0]["source"] == "src.main:main"
 
 
+@pytest.mark.mutation_fast
 def test_binary_symbol_source_mapping_skips_ambiguous_functions(
     tmp_path: Path,
 ) -> None:
@@ -356,6 +361,7 @@ def test_binary_sanitized_symbol_collisions_preserve_existing_graph(
     assert engine.callees_of("main") == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("collision", ["function", "artifact", "external"])
 def test_binary_collisions_with_prior_import_preserve_graph(tmp_path: Path, collision: str) -> None:
     engine = _source_engine()
@@ -382,6 +388,7 @@ def test_binary_collisions_with_prior_import_preserve_graph(tmp_path: Path, coll
     assert engine.to_json() == before
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("field", "conflicting"), [("architecture", "arm64"), ("hash", "new-build")]
 )
@@ -419,6 +426,7 @@ def test_conflicting_binary_build_metadata_preserves_prior_build(
     assert {node["id"] for node in engine.callees_of("bin.lib:f")} == {"bin.lib:old_helper"}
 
 
+@pytest.mark.mutation_fast
 def test_binary_metadata_can_be_enriched_and_survives_omission(tmp_path: Path) -> None:
     engine = _source_engine()
     path = tmp_path / "binary.json"
@@ -460,6 +468,7 @@ def test_binary_namespaces_cannot_overwrite_source_nodes(tmp_path: Path, node_id
     assert engine.to_json() == before
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("reference", [{"name": "printf"}, {"symbol": "printf"}, {"id": "printf"}])
 def test_dict_external_references_share_the_scalar_proxy(tmp_path: Path, reference: object) -> None:
     engine = _source_engine()
@@ -487,6 +496,7 @@ def test_dict_external_references_share_the_scalar_proxy(tmp_path: Path, referen
     assert {edge["target"] for edge in calls} == {"proxy.external:printf"}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("reference", [[], True, {"name": []}, {"address": {}}])
 def test_invalid_call_reference_shapes_are_contextual_and_atomic(
     tmp_path: Path, reference: object

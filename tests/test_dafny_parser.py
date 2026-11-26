@@ -15,6 +15,7 @@ from trailmark.tree_sitter_custom import _native
 FIXTURE = Path(__file__).parent / "fixtures/kat/dafny/taxonomy.dfy"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("length", [63, 64, 70, 256])
 @pytest.mark.parametrize("qualified", [False, True])
 def test_generic_calls_accept_long_type_identifiers(
@@ -40,6 +41,7 @@ def test_generic_calls_accept_long_type_identifiers(
     )
 
 
+@pytest.mark.mutation_fast
 def test_computational_and_specification_contexts() -> None:
     graph = parse_file(str(FIXTURE), strict=True)
     names = {n.id: n.name for n in graph.nodes.values()}
@@ -67,6 +69,7 @@ def test_computational_and_specification_contexts() -> None:
     assert dict(trusted.attributes)["assumed"] is True
 
 
+@pytest.mark.mutation_fast
 def test_named_ghost_fields_and_allocation_arguments(tmp_path: Path) -> None:
     path = tmp_path / "Fields.dfy"
     path.write_text(
@@ -80,6 +83,7 @@ def test_named_ghost_fields_and_allocation_arguments(tmp_path: Path) -> None:
     assert not graph.parse_diagnostics
 
 
+@pytest.mark.mutation_fast
 def test_explicit_aliases_resolve_only_selected_modules(tmp_path: Path) -> None:
     (tmp_path / "Base.dfy").write_text("module Base { function F(x:int):int { x } }\n")
     (tmp_path / "Other.dfy").write_text("module Other { function F(x:int):int { x } }\n")
@@ -92,6 +96,7 @@ def test_explicit_aliases_resolve_only_selected_modules(tmp_path: Path) -> None:
     assert dict(graph.nodes[calls[0].target_id].attributes)["qualified_name"] == "Base.F"
 
 
+@pytest.mark.mutation_fast
 def test_local_bindings_quantifiers_and_comments_do_not_capture_globals(tmp_path: Path) -> None:
     path = tmp_path / "Scopes.dfy"
     path.write_text(
@@ -104,6 +109,7 @@ def test_local_bindings_quantifiers_and_comments_do_not_capture_globals(tmp_path
     assert not any(e.kind in {EdgeKind.CALLS, EdgeKind.REFERENCES} for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_lemma_argument_evaluation_is_not_a_runtime_call(tmp_path: Path) -> None:
     path = tmp_path / "Erase.dfy"
     path.write_text("function f(x:int):int {x}\nlemma L(x:int) {}\nmethod Run() { L(f(0)); }\n")
@@ -122,6 +128,7 @@ def _targets(graph: CodeGraph, kind: EdgeKind, owner: str) -> set[str]:
     }
 
 
+@pytest.mark.mutation_fast
 def test_nested_computations_and_ghost_argument_positions(tmp_path: Path) -> None:
     path = tmp_path / "Arguments.dfy"
     path.write_text(
@@ -135,6 +142,7 @@ def test_nested_computations_and_ghost_argument_positions(tmp_path: Path) -> Non
     assert _targets(graph, EdgeKind.REFERENCES, "Run") == {"F", "G", "H"}
 
 
+@pytest.mark.mutation_fast
 def test_nested_calls_and_executable_forall_updates(tmp_path: Path) -> None:
     path = tmp_path / "Nested.dfy"
     path.write_text(
@@ -174,6 +182,7 @@ def test_quantifier_guards_keep_free_dependencies(tmp_path: Path) -> None:
     assert _targets(graph, EdgeKind.REFERENCES, "P") == {"Len"}
 
 
+@pytest.mark.mutation_fast
 def test_import_aliases_apply_before_the_import_statement(tmp_path: Path) -> None:
     (tmp_path / "Base.dfy").write_text("module Base {function F(x:int):int{x}}\n")
     (tmp_path / "Use.dfy").write_text(
@@ -183,6 +192,7 @@ def test_import_aliases_apply_before_the_import_statement(tmp_path: Path) -> Non
     assert _targets(graph, EdgeKind.CALLS, "Run") == {"F"}
 
 
+@pytest.mark.mutation_fast
 def test_parameters_preserve_input_order_and_types(tmp_path: Path) -> None:
     path = tmp_path / "Parameters.dfy"
     path.write_text(
@@ -212,6 +222,7 @@ def test_anonymous_constructor_identity_is_stable(tmp_path: Path) -> None:
     assert dict(new.attributes)["declaration_role"] == "constructor"
 
 
+@pytest.mark.mutation_fast
 def test_datatype_constructor_aliases_and_constant_initializers(tmp_path: Path) -> None:
     path = tmp_path / "Constructors.dfy"
     path.write_text(
@@ -224,6 +235,7 @@ def test_datatype_constructor_aliases_and_constant_initializers(tmp_path: Path) 
     assert "Some" in _targets(graph, EdgeKind.REFERENCES, "initial")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "body",
     [
@@ -277,6 +289,7 @@ def test_deep_generic_lookahead_is_bounded_in_native_scanner(tmp_path: Path) -> 
     )
 
 
+@pytest.mark.mutation_fast
 def test_ghost_constructor_arguments_remain_erased(tmp_path: Path) -> None:
     path = tmp_path / "GhostConstructor.dfy"
     path.write_text(
@@ -291,6 +304,7 @@ def test_ghost_constructor_arguments_remain_erased(tmp_path: Path) -> None:
     assert calls[0].location and calls[0].location.start_col == 32
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("included", ["left/Base.dfy", "missing/Base.dfy"])
 def test_include_paths_do_not_select_an_unrelated_same_named_file(
     tmp_path: Path, included: str
@@ -328,6 +342,7 @@ def test_postfix_precedence_and_long_additive_chains(tmp_path: Path) -> None:
     assert {("A", "F"), ("B", "P"), ("Cat", "H"), ("S", "G")} <= calls
 
 
+@pytest.mark.mutation_fast
 def test_patterns_loop_specs_and_ghost_assignments(tmp_path: Path) -> None:
     path = tmp_path / "Scopes.dfy"
     path.write_text(
@@ -362,6 +377,7 @@ def test_patterns_loop_specs_and_ghost_assignments(tmp_path: Path) -> None:
     assert len(by_method) == 1
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "language,extension,code", [("dafny", "dfy", "module M {" * 140 + "}" * 140)]
 )
@@ -376,6 +392,7 @@ def test_deep_declarations_have_a_bounded_diagnostic(
     assert any("depth of 128" in d.message for d in graph.parse_diagnostics)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("language", "suffix", "declarations"),
     [("dafny", ".dfy", "type T = int\nclass C<T> { function F(x:T): T { x } }\n")],

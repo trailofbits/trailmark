@@ -84,6 +84,7 @@ def test_suite_has_no_test_timeouts_or_wall_clock_assertions() -> None:
     # These are opt-in measurement tools or the mutation executor, not tests.
     measurement_tools = {
         "benchmark_analysis.py",
+        "benchmark_mutations.py",
         "smoke_binary_projects.py",
         "run_mutations.py",
         "mutation_confirmation.py",

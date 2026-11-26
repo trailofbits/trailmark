@@ -8,6 +8,7 @@ from trailmark.models import EdgeConfidence, EdgeKind
 from trailmark.parse import parse_directory, parse_file
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("directory", [False, True])
 @pytest.mark.parametrize(
     "body",
@@ -55,6 +56,7 @@ def test_walrus_local_does_not_block_other_functions(tmp_path: Path) -> None:
     assert not dict(call.attributes).get("binding_blocked")
 
 
+@pytest.mark.mutation_fast
 def test_default_walrus_does_not_create_a_function_local(tmp_path: Path) -> None:
     path = tmp_path / "app.py"
     path.write_text(

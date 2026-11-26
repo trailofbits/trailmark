@@ -31,6 +31,7 @@ def _lambda(exports: dict[str, list[tuple[str, bool]]]) -> list[tuple[str, bool]
     return facts
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("suffix", _SUFFIXES)
 def test_alias_exports_the_alias_not_the_local_name(tmp_path: Path, suffix: str) -> None:
     exports = _exports(
@@ -42,6 +43,7 @@ def test_alias_exports_the_alias_not_the_local_name(tmp_path: Path, suffix: str)
     assert exports["GET"] == [("other", False)]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("suffix", _SUFFIXES)
 def test_direct_export_declarations(tmp_path: Path, suffix: str) -> None:
     exports = _exports(
@@ -72,6 +74,7 @@ def test_default_export_of_identifier_restores_legacy_api_handler(
     assert exports["handler"] == [("default", False)]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("source", "unit_id"),
     [
@@ -84,6 +87,7 @@ def test_default_exported_functions(tmp_path: Path, source: str, unit_id: str) -
     assert _exports(tmp_path, "mod.ts", source)[unit_id] == [("default", False)]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source", ["export default async () => {};\n", "export default (async (req) => req);\n"]
 )
@@ -91,6 +95,7 @@ def test_default_exported_arrow(tmp_path: Path, source: str) -> None:
     assert _exports(tmp_path, "mod.js", source) == {"default": [("default", False)]}
 
 
+@pytest.mark.mutation_fast
 def test_string_export_name(tmp_path: Path) -> None:
     exports = _exports(
         tmp_path, "mod.mjs", 'function internal() {}\nexport { internal as "GET" };\n'
@@ -98,6 +103,7 @@ def test_string_export_name(tmp_path: Path) -> None:
     assert exports["internal"] == [("GET", False)]
 
 
+@pytest.mark.mutation_fast
 def test_nested_functions_and_methods_do_not_inherit_exports(tmp_path: Path) -> None:
     exports = _exports(
         tmp_path,
@@ -151,6 +157,7 @@ def test_wrapped_reference_is_indirect(tmp_path: Path, source: str) -> None:
     assert exports["handler"] == [("default", True)]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [
@@ -164,6 +171,7 @@ def test_wrapped_callable_expression_is_indirect(tmp_path: Path, source: str) ->
     assert _lambda(_exports(tmp_path, "pages/api/user.ts", source)) == [(name, True)]
 
 
+@pytest.mark.mutation_fast
 def test_commonjs_direct_bindings(tmp_path: Path) -> None:
     exports = _exports(
         tmp_path,
@@ -182,6 +190,7 @@ def test_commonjs_direct_bindings(tmp_path: Path) -> None:
     assert exports["PUT"] == [("PUT", False)]
 
 
+@pytest.mark.mutation_fast
 def test_commonjs_object_literal(tmp_path: Path) -> None:
     exports = _exports(
         tmp_path,
@@ -204,6 +213,7 @@ def test_typescript_export_assignment(tmp_path: Path) -> None:
     assert exports["handler"] == [("default", False)]
 
 
+@pytest.mark.mutation_fast
 def test_reexports_do_not_export_unrelated_local_function(tmp_path: Path) -> None:
     exports = _exports(
         tmp_path,
@@ -219,6 +229,7 @@ def test_reexports_do_not_export_unrelated_local_function(tmp_path: Path) -> Non
     assert exports["handler"] == []
 
 
+@pytest.mark.mutation_fast
 def test_type_only_exports_do_not_expose_runtime_function(tmp_path: Path) -> None:
     exports = _exports(
         tmp_path,
@@ -247,6 +258,7 @@ def test_tsx_jsx_does_not_disturb_export_lookup(tmp_path: Path) -> None:
     assert exports["view"] == []
 
 
+@pytest.mark.mutation_fast
 def test_fact_location_is_export_site_and_bool_wrapper(tmp_path: Path) -> None:
     path = tmp_path / "route.js"
     path.write_text("function internal() {}\n\nexport { internal as GET };\n")

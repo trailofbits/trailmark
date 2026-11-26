@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.parse import parse_file
 
 
+@pytest.mark.mutation_fast
 def test_constructor_assigned_interface_dispatch_resolves(tmp_path: Path) -> None:
     source = tmp_path / "handler.ts"
     source.write_text(

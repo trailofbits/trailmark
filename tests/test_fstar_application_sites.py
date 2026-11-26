@@ -10,6 +10,7 @@ from trailmark.parse import parse_directory, parse_file
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_bound_callback_never_links_namesake_and_keeps_each_site(tmp_path: Path) -> None:
     path = tmp_path / "Callbacks.fst"
     path.write_text(
@@ -35,6 +36,7 @@ def test_bound_callback_never_links_namesake_and_keeps_each_site(tmp_path: Path)
     assert len(engine.reachable_from(owner.id, edge_kinds=("references",))) == 1
 
 
+@pytest.mark.mutation_fast
 def test_unavailable_nested_application_stays_uncertain_reference(tmp_path: Path) -> None:
     path = tmp_path / "Unavailable.fst"
     path.write_text(
@@ -146,6 +148,7 @@ def test_projection_receiver_is_not_mistaken_for_application_head(
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_global_record_value_retains_reference_without_receiver_call(tmp_path: Path) -> None:
     path = tmp_path / "Record.fst"
     path.write_text(

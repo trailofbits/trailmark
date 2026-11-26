@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.nodes import NodeOrigin
 from trailmark.parse import parse_directory, parse_file
@@ -49,6 +51,7 @@ def test_known_ghost_arguments_block_unknown_and_known_nested_calls(tmp_path: Pa
     ]
 
 
+@pytest.mark.mutation_fast
 def test_unknown_contract_and_proof_applications_do_not_become_calls(tmp_path: Path) -> None:
     path = tmp_path / "Proof.mlw"
     path.write_text(

@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -64,11 +66,13 @@ def _parse_sample() -> tuple[PythonParser, CodeGraph]:
 
 
 class TestPythonParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_exactly_two_classes(self) -> None:
         _, graph = _parse_sample()
         classes = [n for n in graph.nodes.values() if n.kind == NodeKind.CLASS]
@@ -76,6 +80,7 @@ class TestPythonParserNodes:
         names = {c.name for c in classes}
         assert names == {"Animal", "Dog"}
 
+    @pytest.mark.mutation_fast
     def test_finds_exactly_two_functions(self) -> None:
         _, graph = _parse_sample()
         funcs = [n for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION]
@@ -83,6 +88,7 @@ class TestPythonParserNodes:
         names = {f.name for f in funcs}
         assert names == {"greet", "process"}
 
+    @pytest.mark.mutation_fast
     def test_finds_methods(self) -> None:
         _, graph = _parse_sample()
         methods = [n for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
@@ -101,6 +107,7 @@ class TestPythonParserNodes:
         fetch = next(n for n in graph.nodes.values() if n.name == "fetch")
         assert ".fetch" in fetch.id
 
+    @pytest.mark.mutation_fast
     def test_class_docstring_exact(self) -> None:
         _, graph = _parse_sample()
         animal = next(n for n in graph.nodes.values() if n.name == "Animal")
@@ -121,6 +128,7 @@ class TestPythonParserNodes:
 
 
 class TestPythonParserParameters:
+    @pytest.mark.mutation_fast
     def test_typed_parameter(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "fetch")
@@ -129,6 +137,7 @@ class TestPythonParserParameters:
         assert fetch.parameters[0].type_ref is not None
         assert fetch.parameters[0].type_ref.name == "str"
 
+    @pytest.mark.mutation_fast
     def test_typed_default_parameter(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -142,6 +151,7 @@ class TestPythonParserParameters:
         assert params["name"].type_ref is not None
         assert params["name"].type_ref.name == "str"
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -154,6 +164,7 @@ class TestPythonParserParameters:
         assert process.return_type is not None
         assert process.return_type.name == "int"
 
+    @pytest.mark.mutation_fast
     def test_generic_parameter_type(self) -> None:
         _, graph = _parse_sample()
         process = next(n for n in graph.nodes.values() if n.name == "process")
@@ -206,6 +217,7 @@ class TestPythonParserEdges:
         # Animal->speak, Dog->speak, Dog->fetch = 7
         assert len(contains) == 7
 
+    @pytest.mark.mutation_fast
     def test_inherits_edge_exact(self) -> None:
         _, graph = _parse_sample()
         inherits = [e for e in graph.edges if e.kind == EdgeKind.INHERITS]
@@ -225,6 +237,7 @@ class TestPythonParserEdges:
         assert len(fetch.exception_types) == 1
         assert fetch.exception_types[0].name == "ValueError"
 
+    @pytest.mark.mutation_fast
     def test_attribute_call_is_inferred_confidence(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -238,6 +251,7 @@ class TestPythonParserEdges:
 
 
 class TestPythonParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked_exact(self) -> None:
         _, graph = _parse_sample()
         assert "os" in graph.dependencies
@@ -246,6 +260,7 @@ class TestPythonParserDependencies:
 
 
 class TestPythonParserDirectory:
+    @pytest.mark.mutation_fast
     def test_parse_directory(self) -> None:
         parser = PythonParser()
         graph = parser.parse_directory("src/trailmark/models")

@@ -1,10 +1,13 @@
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 def test_literal_callback_dependencies_are_references_not_calls(tmp_path: Path) -> None:
     (tmp_path / "callbacks.c").write_text(
         "void protected_work(void) {}\n"
@@ -31,6 +34,7 @@ def test_literal_callback_dependencies_are_references_not_calls(tmp_path: Path) 
     }
 
 
+@pytest.mark.mutation_fast
 def test_references_respect_cross_file_visibility_and_variable_shadowing(tmp_path: Path) -> None:
     (tmp_path / "target.c").write_text("void exported(void) {}\nstatic void hidden(void) {}\n")
     (tmp_path / "main.c").write_text(
@@ -43,6 +47,7 @@ def test_references_respect_cross_file_visibility_and_variable_shadowing(tmp_pat
     assert [(e.source_id, e.target_id) for e in references] == [("main:install", "target:exported")]
 
 
+@pytest.mark.mutation_fast
 def test_declared_external_callback_is_retained_without_its_implementation(tmp_path: Path) -> None:
     (tmp_path / "main.c").write_text(
         "void external(void);\nvoid consume(void (*callback)(void));\n"

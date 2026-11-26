@@ -6,6 +6,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -82,6 +84,7 @@ def _parse_sample() -> tuple[JavaScriptParser, CodeGraph]:
 
 
 class TestJavaScriptParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
@@ -115,6 +118,7 @@ class TestJavaScriptParserNodes:
         assert "constructor" in names
         assert "area" in names
 
+    @pytest.mark.mutation_fast
     def test_class_jsdoc(self) -> None:
         _, graph = _parse_sample()
         shape = next(n for n in graph.nodes.values() if n.name == "Shape")
@@ -123,6 +127,7 @@ class TestJavaScriptParserNodes:
 
 
 class TestJavaScriptParserParameters:
+    @pytest.mark.mutation_fast
     def test_simple_parameter(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -167,6 +172,7 @@ class TestJavaScriptParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_inherits_edge(self) -> None:
         _, graph = _parse_sample()
         inherits = [e for e in graph.edges if e.kind == EdgeKind.INHERITS]
@@ -195,6 +201,7 @@ class TestJavaScriptParserEdges:
 
 
 class TestJavaScriptParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "events" in graph.dependencies
@@ -261,6 +268,7 @@ class TestJavaScriptExtraFeatures:
 
 
 class TestJavaScriptParserExtensions:
+    @pytest.mark.mutation_fast
     def test_parse_directory_includes_mjs_and_cjs(self, tmp_path: Path) -> None:
         (tmp_path / "alpha.mjs").write_text("export function alpha() { return 1; }\n")
         (tmp_path / "beta.cjs").write_text("function beta() { return 2; }\n")
@@ -271,12 +279,14 @@ class TestJavaScriptParserExtensions:
         assert "alpha" in names
         assert "beta" in names
 
+    @pytest.mark.mutation_fast
     def test_rest_parameter(self) -> None:
         graph = _parse_extra()
         fn = next(n for n in graph.nodes.values() if n.name == "withRest")
         assert len(fn.parameters) == 1
         assert fn.parameters[0].name == "...args"
 
+    @pytest.mark.mutation_fast
     def test_expression_assignment_function(self) -> None:
         graph = _parse_js_snippet(ASSIGN_JS_CODE)
         names = {n.name for n in graph.nodes.values()}

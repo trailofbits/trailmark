@@ -9,6 +9,7 @@ from trailmark.parse import parse_file
 from trailmark.parsers.c import _recovery
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("newline", [b"\n", b"\r\n"])
 @pytest.mark.parametrize(
     "block",

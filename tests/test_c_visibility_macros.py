@@ -42,6 +42,7 @@ def _assert_environment_links(graph: CodeGraph) -> None:
     assert target.return_type is None or target.return_type.name != target.name
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("declarations", ["plain", "inline", "header"])
 def test_visibility_prefix_preserves_function_and_body(tmp_path: Path, declarations: str) -> None:
     if declarations == "header":
@@ -99,6 +100,7 @@ def test_genuine_wrapper_with_type_named_argument(tmp_path: Path, alias: bool) -
     )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("argument", ["action", "void"])
 @pytest.mark.parametrize("conditional", [False, True])
 def test_ambiguous_wrapper_keeps_uncertain_signature(

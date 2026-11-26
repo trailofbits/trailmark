@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.annotations import AnnotationKind
 from trailmark.query.api import QueryEngine
 
@@ -82,6 +84,7 @@ class TestEntrypointPathsTo:
 
 
 class TestNodesWithAnnotation:
+    @pytest.mark.mutation_fast
     def test_manual_annotation_retrievable(self, tmp_path: Path) -> None:
         (tmp_path / "app.py").write_text("def risky():\n    pass\n")
         engine = QueryEngine.from_directory(str(tmp_path))
@@ -102,6 +105,7 @@ class TestNodesWithAnnotation:
 
 
 class TestFunctionsThatRaise:
+    @pytest.mark.mutation_fast
     def test_raises_detected_from_python_source(self, tmp_path: Path) -> None:
         """Python parser populates exception_types from `raise` statements."""
         (tmp_path / "app.py").write_text(

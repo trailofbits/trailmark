@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from trailmark.models import (
     AnnotationKind,
     CodeEdge,
@@ -109,6 +111,7 @@ def _build_no_entrypoints_graph() -> QueryEngine:
 
 
 class TestPreanalysisReturnsSummary:
+    @pytest.mark.mutation_fast
     def test_returns_all_keys(self) -> None:
         engine = _build_chain_graph()
         result = engine.preanalysis()
@@ -119,11 +122,13 @@ class TestPreanalysisReturnsSummary:
 
 
 class TestBlastRadius:
+    @pytest.mark.mutation_fast
     def test_annotates_all_nodes(self) -> None:
         engine = _build_chain_graph()
         result = engine.preanalysis()
         assert result["blast_radius"]["annotated_nodes"] == 4
 
+    @pytest.mark.mutation_fast
     def test_high_blast_radius_subgraph(self) -> None:
         """Nodes with many descendants should be in subgraph."""
         # Build a wider graph so ep has >= 10 descendants
@@ -166,6 +171,7 @@ class TestBlastRadius:
         assert "downstream" in anns[0]["description"]
         assert "upstream" in anns[0]["description"]
 
+    @pytest.mark.mutation_fast
     def test_critical_descendants_in_annotation(self) -> None:
         engine = _build_chain_graph()
         engine.preanalysis()
@@ -217,6 +223,7 @@ class TestEntrypointEnumeration:
         assert len(untrusted) == 1
         assert untrusted[0]["id"] == "ep_untrusted"
 
+    @pytest.mark.mutation_fast
     def test_summary_counts(self) -> None:
         engine = _build_mixed_trust_graph()
         result = engine.preanalysis()
@@ -232,6 +239,7 @@ class TestEntrypointEnumeration:
 
 
 class TestPrivilegeBoundary:
+    @pytest.mark.mutation_fast
     def test_detects_boundary_in_mixed_trust(self) -> None:
         engine = _build_mixed_trust_graph()
         result = engine.preanalysis()
@@ -246,6 +254,7 @@ class TestPrivilegeBoundary:
         # trust levels, so they should be at the boundary
         assert len(boundary_ids) > 0
 
+    @pytest.mark.mutation_fast
     def test_no_boundary_with_single_trust(self) -> None:
         engine = _build_chain_graph()
         result = engine.preanalysis()
@@ -266,6 +275,7 @@ class TestPrivilegeBoundary:
 
 
 class TestTaintPropagation:
+    @pytest.mark.mutation_fast
     def test_tainted_subgraph(self) -> None:
         engine = _build_chain_graph()
         engine.preanalysis()
@@ -285,6 +295,7 @@ class TestTaintPropagation:
         assert len(anns) == 1
         assert "ep_untrusted" in anns[0]["description"]
 
+    @pytest.mark.mutation_fast
     def test_trusted_entrypoint_not_taint_source(self) -> None:
         """Trusted entrypoints should not propagate taint."""
         nodes = {

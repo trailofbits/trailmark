@@ -10,6 +10,7 @@ from trailmark.models.nodes import NodeKind, NodeOrigin
 from trailmark.parse import parse_directory
 
 
+@pytest.mark.mutation_fast
 def test_same_language_extensions_and_init_modules_do_not_overwrite(tmp_path: Path) -> None:
     (tmp_path / "route.js").write_text("function first() {}")
     (tmp_path / "route.mjs").write_text("function second() {}")
@@ -60,6 +61,7 @@ def test_shared_headers_have_one_owner_without_losing_other_files(
         )
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("language", "suffix", "caller", "other"),
     [
@@ -100,6 +102,7 @@ def test_imported_free_call_does_not_bind_an_unrelated_method(tmp_path: Path) ->
     assert not calls[0].target_id.endswith("B.helper")
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("language", "base_file", "base_source", "child_file", "child_source", "kind", "target"),
     [
@@ -151,6 +154,7 @@ def test_cross_file_type_relationships_resolve_before_analysis(
     assert edges[0].confidence == EdgeConfidence.INFERRED
 
 
+@pytest.mark.mutation_fast
 def test_ambiguous_base_types_stay_unresolved(tmp_path: Path) -> None:
     (tmp_path / "one.py").write_text("class Base: pass")
     (tmp_path / "two.py").write_text("class Base: pass")
@@ -228,6 +232,7 @@ def test_header_call_does_not_bind_a_same_named_module(tmp_path: Path, language:
     assert calls[0].confidence == EdgeConfidence.CERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_root_initializer_preserves_escaped_package_identity(tmp_path: Path) -> None:
     root = tmp_path / "root.pkg"
     root.mkdir()
@@ -237,6 +242,7 @@ def test_root_initializer_preserves_escaped_package_identity(tmp_path: Path) -> 
     assert "root.pkg" not in graph.nodes
 
 
+@pytest.mark.mutation_fast
 def test_qualified_cpp_call_does_not_bind_unqualified_free_function(tmp_path: Path) -> None:
     (tmp_path / "caller.cpp").write_text(
         "namespace external { void helper(); }\nvoid run() { external::helper(); }"
@@ -249,6 +255,7 @@ def test_qualified_cpp_call_does_not_bind_unqualified_free_function(tmp_path: Pa
     assert dict(calls[0].attributes)["raw_target"] == "external::helper"
 
 
+@pytest.mark.mutation_fast
 def test_java_method_name_does_not_shadow_type_namespace(tmp_path: Path) -> None:
     (tmp_path / "Types.java").write_text(
         "class Base {}\nclass Outer { void Base() {} class Inner extends Base {} }"

@@ -46,6 +46,7 @@ def test_python_generic_declaration_parameters(tmp_path: Path) -> None:
     assert [p.name for p in graph.nodes["app:C"].type_parameters] == ["T"]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("module", ["typing", "typing_extensions"])
 def test_overload_from_import_alias(tmp_path: Path, module: str) -> None:
     path = tmp_path / "app.py"

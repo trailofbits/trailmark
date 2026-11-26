@@ -6,6 +6,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -95,11 +97,13 @@ def _parse_sample() -> tuple[CppParser, CodeGraph]:
 
 
 class TestCppParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_namespace(self) -> None:
         _, graph = _parse_sample()
         nss = [n for n in graph.nodes.values() if n.kind == NodeKind.NAMESPACE]
@@ -125,6 +129,7 @@ class TestCppParserNodes:
         names = {e.name for e in enums}
         assert "Shape" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_functions(self) -> None:
         _, graph = _parse_sample()
         funcs = [n for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION]
@@ -132,6 +137,7 @@ class TestCppParserNodes:
         assert "compute" in names
         assert "run_all" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_methods(self) -> None:
         _, graph = _parse_sample()
         methods = [n for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
@@ -139,6 +145,7 @@ class TestCppParserNodes:
         assert "speak" in names
         assert "fetch" in names
 
+    @pytest.mark.mutation_fast
     def test_class_docstring(self) -> None:
         _, graph = _parse_sample()
         animal = next(n for n in graph.nodes.values() if n.name == "Animal")
@@ -147,6 +154,7 @@ class TestCppParserNodes:
 
 
 class TestCppParserParameters:
+    @pytest.mark.mutation_fast
     def test_function_parameters(self) -> None:
         _, graph = _parse_sample()
         comp = next(n for n in graph.nodes.values() if n.name == "compute")
@@ -162,6 +170,7 @@ class TestCppParserParameters:
             assert p.type_ref is not None
             assert p.type_ref.name == "int"
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         comp = next(n for n in graph.nodes.values() if n.name == "compute")
@@ -199,6 +208,7 @@ class TestCppParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_inherits_edge(self) -> None:
         _, graph = _parse_sample()
         inherits = [e for e in graph.edges if e.kind == EdgeKind.INHERITS]
@@ -217,6 +227,7 @@ class TestCppParserEdges:
         fetch = next(n for n in graph.nodes.values() if n.name == "fetch")
         assert len(fetch.exception_types) >= 1
 
+    @pytest.mark.mutation_fast
     def test_edge_confidence(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -278,11 +289,13 @@ def _parse_extra() -> CodeGraph:
 
 
 class TestCppExtraFeatures:
+    @pytest.mark.mutation_fast
     def test_template_function_extracted(self) -> None:
         graph = _parse_extra()
         names = {n.name for n in graph.nodes.values()}
         assert "identity" in names
 
+    @pytest.mark.mutation_fast
     def test_template_class_extracted(self) -> None:
         graph = _parse_extra()
         names = {n.name for n in graph.nodes.values()}
@@ -293,12 +306,14 @@ class TestCppExtraFeatures:
         names = {n.name for n in graph.nodes.values()}
         assert "get" in names
 
+    @pytest.mark.mutation_fast
     def test_typedef_struct_extracted(self) -> None:
         graph = _parse_extra()
         structs = [n for n in graph.nodes.values() if n.kind == NodeKind.STRUCT]
         names = {s.name for s in structs}
         assert "TypedefPoint" in names
 
+    @pytest.mark.mutation_fast
     def test_typedef_enum_extracted(self) -> None:
         graph = _parse_extra()
         enums = [n for n in graph.nodes.values() if n.kind == NodeKind.ENUM]
@@ -312,6 +327,7 @@ class TestCppExtraFeatures:
 
 
 class TestCppParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = CppParser()
         code_a = "void fromA() {}\n"
@@ -338,6 +354,7 @@ class TestCppParseDirectory:
         assert len(graph.nodes) == 0
 
 
+@pytest.mark.mutation_fast
 def test_out_of_line_methods_bind_same_class_calls(tmp_path: Path) -> None:
     source = tmp_path / "stream.cpp"
     source.write_text(
@@ -364,6 +381,7 @@ def test_out_of_line_methods_bind_same_class_calls(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_cross_file_out_of_line_method_owner_is_unique(tmp_path: Path) -> None:
     (tmp_path / "stream.hpp").write_text(
         "namespace io { class Stream { public: void flush() {} void run(); }; }\n"
@@ -398,6 +416,7 @@ def test_ambiguous_cross_file_class_owner_remains_unbound(tmp_path: Path) -> Non
     )
 
 
+@pytest.mark.mutation_fast
 def test_out_of_line_method_keeps_nested_namespace_and_value_barriers(tmp_path: Path) -> None:
     source = tmp_path / "app.cpp"
     source.write_text(
@@ -434,6 +453,7 @@ def test_out_of_line_method_overloads_remain_uncertain(tmp_path: Path) -> None:
     assert calls[0].confidence == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_out_of_line_method_callback_parameter_stays_blocked(tmp_path: Path) -> None:
     source = tmp_path / "app.cpp"
     source.write_text(

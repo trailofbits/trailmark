@@ -18,6 +18,7 @@ def _unit(ident: str, name: str, kind: NodeKind = NodeKind.FUNCTION) -> CodeUnit
     return CodeUnit(ident, name, kind, SourceLocation(f"{ident}.fst", 1, 2))
 
 
+@pytest.mark.mutation_fast
 def test_ambiguity_in_a_nearer_tier_stops_lookup() -> None:
     units = [_unit(name, name) for name in ("a", "b", "fallback")]
     index = SymbolIndex(CodeGraph(nodes={unit.id: unit for unit in units}), "unused")
@@ -33,6 +34,7 @@ def test_ambiguity_in_a_nearer_tier_stops_lookup() -> None:
     assert index.resolve((("missing",),), lambda found: (u for _, u in found)) == (False, None)
 
 
+@pytest.mark.mutation_fast
 def test_visibility_terminates_cycles_and_keeps_disconnected_modules_separate() -> None:
     assert module_visibility({"a": {"b"}, "b": {"a", "c"}, "c": set(), "d": set()}) == {
         "a": {"a", "b", "c"},
@@ -51,6 +53,7 @@ class _CountedNodes(dict[str, CodeUnit]):
             yield unit
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("suffix", ["fst", "fsti"])
 @pytest.mark.parametrize("size", [40, 80, 160])
 def test_import_and_interface_indexes_have_linear_declaration_visits(

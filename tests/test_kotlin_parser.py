@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.graph import CodeGraph
 from trailmark.parsers.kotlin import KotlinParser
 
@@ -14,16 +16,19 @@ def _parse(tmp_path: Path, body: str, name: str = "App.kt") -> CodeGraph:
 
 
 class TestBasicExtraction:
+    @pytest.mark.mutation_fast
     def test_module_node_created(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "fun greet() {}\n")
         assert "App" in graph.nodes
         assert graph.nodes["App"].kind.value == "module"
 
+    @pytest.mark.mutation_fast
     def test_top_level_function(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "fun greet() {}\n")
         assert "App:greet" in graph.nodes
         assert graph.nodes["App:greet"].kind.value == "function"
 
+    @pytest.mark.mutation_fast
     def test_parameters_and_return_type(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -43,6 +48,7 @@ class TestBasicExtraction:
         assert func.return_type is not None
         assert func.return_type.name == "User?"
 
+    @pytest.mark.mutation_fast
     def test_class_with_methods(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -53,6 +59,7 @@ class TestBasicExtraction:
         assert "App:Foo.baz" in graph.nodes
         assert graph.nodes["App:Foo.bar"].kind.value == "method"
 
+    @pytest.mark.mutation_fast
     def test_interface_detected(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,
@@ -61,12 +68,14 @@ class TestBasicExtraction:
         assert graph.nodes["App:Repository"].kind.value == "interface"
         assert "App:Repository.find" in graph.nodes
 
+    @pytest.mark.mutation_fast
     def test_data_class_detected(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "data class User(val id: Long)\n")
         assert graph.nodes["App:User"].kind.value == "class"
 
 
 class TestControlFlow:
+    @pytest.mark.mutation_fast
     def test_complexity_counts_when_and_if(self, tmp_path: Path) -> None:
         code = (
             "fun classify(x: Int): String {\n"
@@ -84,6 +93,7 @@ class TestControlFlow:
 
 
 class TestImports:
+    @pytest.mark.mutation_fast
     def test_import_captured(self, tmp_path: Path) -> None:
         graph = _parse(
             tmp_path,

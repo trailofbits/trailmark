@@ -91,6 +91,7 @@ def _native_evidence(draw: st.DrawFn) -> CodeGraph:
     return graph
 
 
+@pytest.mark.mutation_fast
 @given(graph=_native_evidence())
 @settings(max_examples=150, deadline=None)
 def test_address_queries_match_byte_coverage_in_each_address_space(graph: CodeGraph) -> None:
@@ -117,6 +118,7 @@ def test_address_queries_match_byte_coverage_in_each_address_space(graph: CodeGr
     assert store.source_at_address("missing", 0) == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("address", [-1, True, False, 1.5, "1", None])
 @pytest.mark.parametrize("artifact", ["image", "missing"])
 def test_address_queries_reject_invalid_addresses_even_for_missing_artifacts(
@@ -126,6 +128,7 @@ def test_address_queries_reject_invalid_addresses_even_for_missing_artifacts(
         GraphStore(evidence()).source_at_address(artifact, address)  # ty: ignore[invalid-argument-type]
 
 
+@pytest.mark.mutation_fast
 def test_source_ranges_clip_offsets_merge_adjacent_evidence_and_filter_artifacts() -> None:
     graph = evidence()
     first = graph.binary_source_mappings["first"]

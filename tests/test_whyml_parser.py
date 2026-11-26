@@ -6,6 +6,7 @@ from trailmark.models.edges import EdgeKind
 from trailmark.parse import parse_directory, parse_file
 
 
+@pytest.mark.mutation_fast
 def test_program_contract_and_proof_references() -> None:
     graph = parse_file(str(Path(__file__).parent / "fixtures/kat/whyml/taxonomy.mlw"), strict=True)
     names = {n.id: n.name for n in graph.nodes.values()}
@@ -25,6 +26,7 @@ def test_program_contract_and_proof_references() -> None:
     } <= refs
 
 
+@pytest.mark.mutation_fast
 def test_lexical_binders_types_and_nested_comments(tmp_path: Path) -> None:
     path = tmp_path / "scope.mlw"
     path.write_text(
@@ -52,6 +54,7 @@ def test_lexical_binders_types_and_nested_comments(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.mutation_fast
 def test_use_visibility_aliases_and_clone_boundary(tmp_path: Path) -> None:
     (tmp_path / "base.mlw").write_text("module Base\nlet f (x:int):int = x\nend\n")
     (tmp_path / "other.mlw").write_text("module Other\nlet f (x:int):int = x\nend\n")
@@ -67,6 +70,7 @@ def test_use_visibility_aliases_and_clone_boundary(tmp_path: Path) -> None:
         parse_file(str(path), strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_ghost_arguments_do_not_create_runtime_calls(tmp_path: Path) -> None:
     path = tmp_path / "ghost.mlw"
     path.write_text(
@@ -80,6 +84,7 @@ def test_ghost_arguments_do_not_create_runtime_calls(tmp_path: Path) -> None:
     assert not any(e.kind == EdgeKind.CALLS for e in graph.edges)
 
 
+@pytest.mark.mutation_fast
 def test_unsupported_syntax_and_unfinished_comments_are_diagnostics(tmp_path: Path) -> None:
     path = tmp_path / "unsupported.mlw"
     for text in ("module M\nmeta unknown\nend\n", "module M\n(* unterminated (* nested *)\nend\n"):
@@ -89,6 +94,7 @@ def test_unsupported_syntax_and_unfinished_comments_are_diagnostics(tmp_path: Pa
             parse_file(str(path), strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_nested_calls_ghost_initializers_and_ordered_parameters(tmp_path: Path) -> None:
     path = tmp_path / "Calls.mlw"
     path.write_text(
@@ -106,6 +112,7 @@ def test_nested_calls_ghost_initializers_and_ordered_parameters(tmp_path: Path) 
     assert all(e.location and e.location.start_line == 4 for e in calls)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
@@ -136,6 +143,7 @@ def test_binder_scope_matrix(tmp_path: Path, expression: str, expected: int) -> 
     )
 
 
+@pytest.mark.mutation_fast
 def test_scope_import_opens_members(tmp_path: Path) -> None:
     path = tmp_path / "Scopes.mlw"
     path.write_text("module M\nscope import S\nlet x = 0\nend\nlet run () = x\nend\n")
@@ -160,6 +168,7 @@ def test_mutual_recursion_keeps_each_owner(tmp_path: Path) -> None:
     assert calls == {("f", "g"), ("g", "f")}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("mode,expected", [("export", {"c", "p"}), ("import", set())])
 def test_use_export_retains_constants_and_predicates(
     tmp_path: Path, mode: str, expected: set[str]
@@ -212,6 +221,7 @@ def test_trailing_sequences_preserve_modules_and_calls(tmp_path: Path) -> None:
     assert calls == {("f", "g"), ("k", "g")}
 
 
+@pytest.mark.mutation_fast
 def test_implicit_module_labels_arrays_and_constructor_arguments(tmp_path: Path) -> None:
     path = tmp_path / "program.mlw"
     path.write_text(
@@ -232,6 +242,7 @@ def test_implicit_module_labels_arrays_and_constructor_arguments(tmp_path: Path)
     } == {"h", "k"}
 
 
+@pytest.mark.mutation_fast
 def test_later_module_survives_unsupported_body(tmp_path: Path) -> None:
     path = tmp_path / "recover.mlw"
     path.write_text(

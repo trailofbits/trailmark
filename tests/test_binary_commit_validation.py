@@ -38,6 +38,7 @@ def _independent_image() -> CodeGraph:
     return graph
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "collection,key,changes",
     [
@@ -89,6 +90,7 @@ def test_invalid_new_records_are_rejected_without_partial_commit(
     assert store.binary_ranges_for_artifact("second") == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("source,target", [("missing", "a:helper"), ("a:helper", "missing")])
 def test_invalid_edge_endpoints_are_rejected_without_partial_commit(
     source: str, target: str
@@ -113,6 +115,7 @@ def test_binary_range_requires_a_binary_node(origin: NodeOrigin) -> None:
         GraphStore(graph).add_binary_graph(incoming)
 
 
+@pytest.mark.mutation_fast
 def test_valid_independent_image_is_committed_and_reimported_once() -> None:
     graph = evidence()
     store = GraphStore(graph)
@@ -133,6 +136,7 @@ def test_valid_independent_image_is_committed_and_reimported_once() -> None:
     assert graph.binary_source_mappings == before.binary_source_mappings
 
 
+@pytest.mark.mutation_fast
 def test_exact_slice_and_mapping_boundaries_are_valid() -> None:
     incoming = _independent_image()
     incoming.binary_artifacts["second"] = replace(
@@ -154,6 +158,7 @@ def test_exact_slice_and_mapping_boundaries_are_valid() -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_reimport_merges_symbols_diagnostics_and_scanned_ranges() -> None:
     graph = evidence()
     store = GraphStore(graph)
@@ -182,6 +187,7 @@ def test_reimport_merges_symbols_diagnostics_and_scanned_ranges() -> None:
     assert graph == before
 
 
+@pytest.mark.mutation_fast
 def test_empty_binary_range_without_mappings_is_invalid() -> None:
     incoming = _independent_image()
     incoming.binary_source_mappings.clear()

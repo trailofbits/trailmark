@@ -11,6 +11,7 @@ from trailmark.parse import parse_directory, parse_file
 from trailmark.parsers.php import parser as php_parser
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("extension", ["php", "java"])
 @pytest.mark.parametrize("depth", [4, 12, 20, 100])
 def test_expression_lambdas_are_extracted_once(tmp_path: Path, extension: str, depth: int) -> None:
@@ -113,6 +114,7 @@ def test_unbound_constructor_proxies_use_each_overload_id(tmp_path: Path) -> Non
     )
 
 
+@pytest.mark.mutation_fast
 def test_move_address_block_import_registers_module_aliases(tmp_path: Path) -> None:
     path = tmp_path / "a.move"
     path.write_text(

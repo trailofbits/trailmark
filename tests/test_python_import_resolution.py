@@ -1,11 +1,14 @@
 from pathlib import Path
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.parse import parse_directory, parse_roots
 from trailmark.query.api import QueryEngine
 from trailmark.source_policy import SourcePolicy, SourceRoot
 
 
+@pytest.mark.mutation_fast
 def test_package_import_edges_and_lexical_aliases(tmp_path: Path) -> None:
     (tmp_path / "pkg").mkdir()
     (tmp_path / "pkg" / "__init__.py").write_text("loaded = True\n")
@@ -28,6 +31,7 @@ def test_package_import_edges_and_lexical_aliases(tmp_path: Path) -> None:
     assert (EdgeKind.CALLS, "pkg.app:shadow", "pkg.service:start") not in edges
 
 
+@pytest.mark.mutation_fast
 def test_cross_file_fallback_only_matches_module_level_callables(tmp_path: Path) -> None:
     (tmp_path / "library.py").write_text(
         "def public(): pass\n"
@@ -86,6 +90,7 @@ def test_unavailable_conditional_and_shadowed_bases_never_use_name_fallback(tmp_
     assert QueryEngine.from_graph(graph).callees_of("child:factory") == []
 
 
+@pytest.mark.mutation_fast
 def test_explicit_roots_link_python_import_and_call_aliases(tmp_path: Path) -> None:
     app, dependency = tmp_path / "app", tmp_path / "dependency"
     app.mkdir()
@@ -127,6 +132,7 @@ def test_explicit_roots_link_python_import_and_call_aliases(tmp_path: Path) -> N
     ]
 
 
+@pytest.mark.mutation_fast
 def test_python_imports_with_ambiguous_cross_root_modules_stay_unresolved(tmp_path: Path) -> None:
     app, first, second = (tmp_path / name for name in ("app", "first", "second"))
     for root in (app, first, second):
@@ -180,6 +186,7 @@ def test_cross_root_linking_preserves_local_shadowing_and_relative_imports(tmp_p
     ] == [1]
 
 
+@pytest.mark.mutation_fast
 def test_local_python_package_keeps_its_imports_within_the_root(tmp_path: Path) -> None:
     app, dependency = tmp_path / "app", tmp_path / "dep"
     for root in (app, dependency):

@@ -11,6 +11,7 @@ from trailmark.models.annotations import AssetValue, TrustLevel
 from trailmark.query.api import QueryEngine
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("language", "extension", "source", "expected"),
     [
@@ -140,6 +141,7 @@ def test_php_legacy_route_doccomment_belongs_to_next_method(tmp_path: Path, comm
     assert {entry["node_id"] for entry in engine.attack_surface()} == {"app:X.route"}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(("kind", "modifier"), [("struct", "static"), ("class", "class")])
 def test_swift_main_uses_owning_type_not_line_distance(
     tmp_path: Path, kind: str, modifier: str
@@ -156,6 +158,7 @@ def test_swift_main_uses_owning_type_not_line_distance(
     assert surface["app:Other.main"]["trust_level"] == TrustLevel.TRUSTED_INTERNAL.value
 
 
+@pytest.mark.mutation_fast
 def test_circom_main_is_an_untrusted_taint_source(tmp_path: Path) -> None:
     (tmp_path / "circuit.circom").write_text(
         dedent("""\
@@ -178,6 +181,7 @@ def test_circom_main_is_an_untrusted_taint_source(tmp_path: Path) -> None:
     assert {node["id"] for node in engine.subgraph("tainted")} == {"circuit:main", "circuit:Check"}
 
 
+@pytest.mark.mutation_fast
 def test_circom_plain_main_function_is_not_a_circuit(tmp_path: Path) -> None:
     (tmp_path / "helper.circom").write_text("function main() { return 1; }\n")
     engine = QueryEngine.from_directory(str(tmp_path), language="circom")
@@ -186,6 +190,7 @@ def test_circom_plain_main_function_is_not_a_circuit(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("language", "extension", "source"),
     [
@@ -239,6 +244,7 @@ def test_export_markers_belong_to_the_declaration(
     assert {entry["node_id"] for entry in engine.attack_surface()} == {"app:exposed"}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("macro", ["verus", "verus::verus"])
 @pytest.mark.parametrize("marker", ["#[no_mangle]", '#[get("/")]'])
 def test_rust_attributes_inside_verus_blocks(tmp_path: Path, macro: str, marker: str) -> None:
@@ -257,6 +263,7 @@ def test_rust_ffi_signature_inside_verus_block(tmp_path: Path) -> None:
     assert {entry["node_id"] for entry in engine.attack_surface()} == {"app:exposed"}
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "field",
     [

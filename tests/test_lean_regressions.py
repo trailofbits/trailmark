@@ -83,6 +83,7 @@ def g (n : Nat) := after n
     assert not _targets(graph, "Sample:g")
 
 
+@pytest.mark.mutation_fast
 def test_simple_do_loop_binds_its_variable(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -99,6 +100,7 @@ def loop : IO Unit := do
     assert calls == ["IO.println"]
 
 
+@pytest.mark.mutation_fast
 def test_unpreserved_loop_shape_is_reported_instead_of_guessed(tmp_path: Path) -> None:
     path = tmp_path / "Sample.lean"
     path.write_text("""\
@@ -118,6 +120,7 @@ def loop : IO Unit := do
         parse_file(str(path), strict=True)
 
 
+@pytest.mark.mutation_fast
 def test_blocked_call_name_cannot_become_a_module_target(tmp_path: Path) -> None:
     graph = _parse(tmp_path, "def apply (f : Nat → Nat) (x : Nat) := f x\n", filename="f.lean")
     (target,) = _targets(graph, "f:apply", EdgeKind.CALLS)
@@ -140,6 +143,7 @@ def test_unknown_qualified_call_cannot_become_a_directory_module_target(tmp_path
     assert graph.nodes["Foo.Bar"].kind == NodeKind.MODULE
 
 
+@pytest.mark.mutation_fast
 def test_type_uses_obey_namespace_order_and_shadowing(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -179,6 +183,7 @@ def test_type_uses_cannot_rebind_unimported_private_or_ambiguous_types(tmp_path:
         assert not _targets(graph, name, EdgeKind.TYPE_USES)
 
 
+@pytest.mark.mutation_fast
 def test_later_declarations_do_not_capture_earlier_uses(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -215,6 +220,7 @@ def test_call_exports_contain_no_temporary_lookup_or_import_flags(tmp_path: Path
     assert _targets(graph, "Sample:g", EdgeKind.CALLS) == ["Sample:f"]
 
 
+@pytest.mark.mutation_fast
 def test_protected_names_require_qualification(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,
@@ -253,6 +259,7 @@ def exact := _root_.x
     assert _targets(graph, "Sample:exact") == ["Sample:x"]
 
 
+@pytest.mark.mutation_fast
 def test_field_defaults_have_references_without_state_variable_callers(tmp_path: Path) -> None:
     graph = _parse(
         tmp_path,

@@ -36,6 +36,7 @@ def _parse(
     return graph, calls[0]
 
 
+@pytest.mark.mutation_fast
 def test_exact_supplied_signature_wins_over_default_substitution(tmp_path: Path) -> None:
     graph, call = _parse(tmp_path, "void Add(string x) {} void Add(string x, int n = 0) {}")
     target = graph.nodes[call.target_id]
@@ -51,6 +52,7 @@ def test_zero_arguments_selects_declared_zero_parameter_method(tmp_path: Path) -
     assert not graph.nodes[call.target_id].parameters
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "methods,call",
     [
@@ -73,6 +75,7 @@ def test_unmodeled_overload_comparisons_stay_uncertain(
     assert graph.nodes[edge.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_unseen_or_class_base_can_supply_the_applicable_overload(tmp_path: Path) -> None:
     graph, call = _parse(
         tmp_path,
@@ -83,6 +86,7 @@ def test_unseen_or_class_base_can_supply_the_applicable_overload(tmp_path: Path)
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_inspected_interface_base_allows_own_method_family(tmp_path: Path) -> None:
     graph, call = _parse(
         tmp_path,
@@ -94,6 +98,7 @@ def test_inspected_interface_base_allows_own_method_family(tmp_path: Path) -> No
     assert len(graph.nodes[call.target_id].parameters) == 1
 
 
+@pytest.mark.mutation_fast
 def test_base_alias_cannot_masquerade_as_inspected_interface(tmp_path: Path) -> None:
     graph, call = _parse(
         tmp_path,
@@ -141,6 +146,7 @@ def test_same_file_partial_fragments_with_different_type_alias_contexts_stay_unc
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_nested_class_base_prevents_outer_family_fallback(tmp_path: Path) -> None:
     (tmp_path / "A.cs").write_text(
         "class Base { public void Add(string x) {} } "
@@ -152,6 +158,7 @@ def test_nested_class_base_prevents_outer_family_fallback(tmp_path: Path) -> Non
     assert graph.nodes[call.target_id].origin == NodeOrigin.PROXY
 
 
+@pytest.mark.mutation_fast
 def test_explicit_interface_implementation_is_not_a_bare_name_candidate(tmp_path: Path) -> None:
     (tmp_path / "A.cs").write_text(
         "interface I { void M(int x); } class C : I { void I.M(int x) {} "

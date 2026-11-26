@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 
+import pytest
+
 from trailmark.models.edges import EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
@@ -71,11 +73,13 @@ def _parse_sample() -> tuple[PHPParser, CodeGraph]:
 
 
 class TestPHPParserNodes:
+    @pytest.mark.mutation_fast
     def test_finds_module(self) -> None:
         _, graph = _parse_sample()
         modules = [n for n in graph.nodes.values() if n.kind == NodeKind.MODULE]
         assert len(modules) == 1
 
+    @pytest.mark.mutation_fast
     def test_finds_classes(self) -> None:
         _, graph = _parse_sample()
         classes = [n for n in graph.nodes.values() if n.kind == NodeKind.CLASS]
@@ -83,6 +87,7 @@ class TestPHPParserNodes:
         assert "Animal" in names
         assert "Dog" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_functions(self) -> None:
         _, graph = _parse_sample()
         funcs = [n for n in graph.nodes.values() if n.kind == NodeKind.FUNCTION]
@@ -90,6 +95,7 @@ class TestPHPParserNodes:
         assert "greet" in names
         assert "process" in names
 
+    @pytest.mark.mutation_fast
     def test_finds_methods(self) -> None:
         _, graph = _parse_sample()
         methods = [n for n in graph.nodes.values() if n.kind == NodeKind.METHOD]
@@ -97,6 +103,7 @@ class TestPHPParserNodes:
         assert "speak" in names
         assert "fetch" in names
 
+    @pytest.mark.mutation_fast
     def test_class_docstring(self) -> None:
         _, graph = _parse_sample()
         animal = next(n for n in graph.nodes.values() if n.name == "Animal")
@@ -105,6 +112,7 @@ class TestPHPParserNodes:
 
 
 class TestPHPParserParameters:
+    @pytest.mark.mutation_fast
     def test_typed_parameter(self) -> None:
         _, graph = _parse_sample()
         fetch = next(n for n in graph.nodes.values() if n.name == "fetch")
@@ -113,6 +121,7 @@ class TestPHPParserParameters:
         assert fetch.parameters[0].type_ref is not None
         assert fetch.parameters[0].type_ref.name == "string"
 
+    @pytest.mark.mutation_fast
     def test_default_parameter(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -121,6 +130,7 @@ class TestPHPParserParameters:
         assert "loud" in params
         assert params["loud"].default == "false"
 
+    @pytest.mark.mutation_fast
     def test_return_type(self) -> None:
         _, graph = _parse_sample()
         greet = next(n for n in graph.nodes.values() if n.name == "greet")
@@ -154,6 +164,7 @@ class TestPHPParserEdges:
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
         assert len(contains) > 0
 
+    @pytest.mark.mutation_fast
     def test_inherits_edge(self) -> None:
         _, graph = _parse_sample()
         inherits = [e for e in graph.edges if e.kind == EdgeKind.INHERITS]
@@ -163,6 +174,7 @@ class TestPHPParserEdges:
         has_animal = any("Animal" in t for t in targets)
         assert has_base or has_animal
 
+    @pytest.mark.mutation_fast
     def test_implements_edge(self) -> None:
         _, graph = _parse_sample()
         implements = [e for e in graph.edges if e.kind == EdgeKind.IMPLEMENTS]
@@ -170,6 +182,7 @@ class TestPHPParserEdges:
         targets = {e.target_id for e in implements}
         assert any("Speakable" in t for t in targets)
 
+    @pytest.mark.mutation_fast
     def test_call_edges(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -181,6 +194,7 @@ class TestPHPParserEdges:
         assert len(fetch.exception_types) == 1
         assert fetch.exception_types[0].name == "ValueError"
 
+    @pytest.mark.mutation_fast
     def test_edge_confidence(self) -> None:
         _, graph = _parse_sample()
         calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
@@ -190,6 +204,7 @@ class TestPHPParserEdges:
 
 
 class TestPHPParserDependencies:
+    @pytest.mark.mutation_fast
     def test_imports_tracked(self) -> None:
         _, graph = _parse_sample()
         assert "App" in graph.dependencies
@@ -232,6 +247,7 @@ class TestPHPNamespace:
         names = {n.name for n in nss}
         assert "App\\Services" in names
 
+    @pytest.mark.mutation_fast
     def test_namespace_contains_edge(self) -> None:
         graph = _parse_namespace()
         contains = [e for e in graph.edges if e.kind == EdgeKind.CONTAINS]
@@ -248,6 +264,7 @@ class TestPHPNamespace:
 
 
 class TestPHPParseDirectory:
+    @pytest.mark.mutation_fast
     def test_parses_multiple_files(self) -> None:
         parser = PHPParser()
         code_a = "<?php\nfunction fromA(): void {}\n"

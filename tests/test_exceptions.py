@@ -43,6 +43,7 @@ def test_audit_corpus_covers_every_registered_frontend() -> None:
     assert set(_PROFILES) == set(supported_languages())
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,filename,kinds,diagnostic", EXCEPTION_CASES)
 def test_every_frontend_has_an_explicit_exception_audit_disposition(
     language: str,
@@ -96,6 +97,7 @@ def test_call_based_error_candidates_do_not_claim_builtin_dispatch() -> None:
         assert event.expression
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "source",
     [
@@ -110,6 +112,7 @@ def test_known_shadowed_failure_names_are_not_exception_events(tmp_path: Path, s
     assert not any(unit.exception_events for unit in graph.nodes.values())
 
 
+@pytest.mark.mutation_fast
 def test_embedded_verus_body_is_an_explicit_exception_coverage_gap(tmp_path: Path) -> None:
     path = tmp_path / "app.rs"
     path.write_text('verus! { fn f() { panic!("failed"); } }')
@@ -119,6 +122,7 @@ def test_embedded_verus_body_is_an_explicit_exception_coverage_gap(tmp_path: Pat
     assert "Verus macro bodies and unmodeled closures" in graph.exception_support()[0].notes
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     "language,suffix,source",
     [
@@ -155,6 +159,7 @@ def test_support_profiles_merge_languages_and_keep_unknown_languages_unverified(
     assert QueryEngine.from_graph(CodeGraph()).exception_support() == []
 
 
+@pytest.mark.mutation_fast
 def test_dart_on_only_handler_keeps_type_body_and_protected_region(tmp_path: Path) -> None:
     path = tmp_path / "app.dart"
     path.write_text("void f() { try { work(); } on Bad { observe(); } }")
@@ -172,6 +177,7 @@ def test_dart_on_only_handler_keeps_type_body_and_protected_region(tmp_path: Pat
     )
 
 
+@pytest.mark.mutation_fast
 def test_swift_try_variants_do_not_conflate_propagation_suppression_and_trap(
     tmp_path: Path,
 ) -> None:
@@ -184,6 +190,7 @@ def test_swift_try_variants_do_not_conflate_propagation_suppression_and_trap(
     assert variants[1].protected_region is not None
 
 
+@pytest.mark.mutation_fast
 def test_cpp_exception_specifications_are_distinct_from_direct_throws(tmp_path: Path) -> None:
     path = tmp_path / "app.cpp"
     path.write_text("void f() noexcept(false) { throw 1; } void g() throw(Bad) { work(); }")
@@ -198,6 +205,7 @@ def test_cpp_exception_specifications_are_distinct_from_direct_throws(tmp_path: 
     assert g.exception_types == ()
 
 
+@pytest.mark.mutation_fast
 def test_csharp_using_declarations_do_not_mark_ordinary_locals_as_cleanup(tmp_path: Path) -> None:
     path = tmp_path / "app.cs"
     path.write_text(
@@ -210,6 +218,7 @@ def test_csharp_using_declarations_do_not_mark_ordinary_locals_as_cleanup(tmp_pa
     assert all(event.kind == ExceptionEventKind.CLEANUP for event in unit.exception_events)
 
 
+@pytest.mark.mutation_fast
 def test_func_handler_has_a_lexical_region_and_events_follow_source_order() -> None:
     graph = parse_file(str(_FIXTURES / "func.fc"), strict=True)
     unit = next(unit for unit in graph.nodes.values() if unit.name == "f")
@@ -221,6 +230,7 @@ def test_func_handler_has_a_lexical_region_and_events_follow_source_order() -> N
     assert raised.location.start_line < handler.location.start_line
 
 
+@pytest.mark.mutation_fast
 def test_solidity_catch_protects_attempt_not_success_block() -> None:
     graph = parse_file(str(_FIXTURES / "solidity.sol"), strict=True)
     unit = next(unit for unit in graph.nodes.values() if unit.name == "f")
@@ -233,6 +243,7 @@ def test_solidity_catch_protects_attempt_not_success_block() -> None:
     assert source[location.start_col : location.end_col] == "this.helper()"
 
 
+@pytest.mark.mutation_fast
 def test_ruby_bare_raise_and_rescue_header_are_preserved() -> None:
     graph = parse_file(str(_FIXTURES / "ruby.rb"), strict=True)
     unit = next(unit for unit in graph.nodes.values() if unit.name == "f")
@@ -245,6 +256,7 @@ def test_ruby_bare_raise_and_rescue_header_are_preserved() -> None:
     assert "observe" not in (handler.expression or "")
 
 
+@pytest.mark.mutation_fast
 def test_php_interruption_research_cases_keep_separate_owners_and_failure_branches() -> None:
     graph = parse_file(str(_FIXTURES / "php_interruptions.php"), strict=True)
     methods = {unit.name: unit for unit in graph.nodes.values() if unit.kind.value == "method"}
@@ -282,6 +294,7 @@ def test_php_interruption_research_cases_keep_separate_owners_and_failure_branch
     assert support["implicit_execution"] == "unsupported"
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize("language,filename,raised,caught", _CASES)
 def test_exception_corpus(
     language: str,
@@ -314,6 +327,7 @@ def test_exception_corpus(
     assert all(event["location"]["file_path"].endswith(filename) for event in queried)
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("language", "suffix", "source"),
     [
@@ -354,6 +368,7 @@ def test_unknown_thrown_value_is_evidence_without_a_type(tmp_path: Path) -> None
     assert unit.exception_events[0].kind == ExceptionEventKind.RAISE
 
 
+@pytest.mark.mutation_fast
 def test_exception_diff_ignores_movement_but_detects_changed_handlers() -> None:
     graph = parse_file(str(_FIXTURES / "python.py"))
     unit = next(unit for unit in graph.nodes.values() if unit.name == "f")
@@ -387,6 +402,7 @@ def _events(tmp_path: Path, name: str, source: str) -> dict[str, list[str]]:
     }
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("name", "source", "expected"),
     [
@@ -434,6 +450,7 @@ def test_declarations_come_only_from_the_owners_signature(
     assert _events(tmp_path, name, source) == expected
 
 
+@pytest.mark.mutation_fast
 def test_raises_outside_callables_are_evidence_without_raising_functions(tmp_path: Path) -> None:
     path = tmp_path / "app.py"
     path.write_text(
@@ -449,6 +466,7 @@ def test_raises_outside_callables_are_evidence_without_raising_functions(tmp_pat
     assert [unit["name"] for unit in engine.functions_that_raise("ValueError")] == ["f"]
 
 
+@pytest.mark.mutation_fast
 def test_python_bare_class_raises_keep_type_hints(tmp_path: Path) -> None:
     path = tmp_path / "app.py"
     path.write_text(
@@ -463,6 +481,7 @@ def test_python_bare_class_raises_keep_type_hints(tmp_path: Path) -> None:
     assert types["rebound"] == []
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
@@ -579,6 +598,7 @@ def test_callable_owns_events_when_its_span_equals_the_file_body(
     assert units[synthetic].exception_events == ()
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("statement", "expected"),
     [
@@ -599,6 +619,7 @@ def test_swift_enum_payload_cases_name_their_containing_type(
     assert [ref.name for ref in unit.exception_types] == expected
 
 
+@pytest.mark.mutation_fast
 def test_solidity_revert_reasons_are_not_error_types(tmp_path: Path) -> None:
     path = tmp_path / "app.sol"
     path.write_text(
@@ -612,6 +633,7 @@ def test_solidity_revert_reasons_are_not_error_types(tmp_path: Path) -> None:
     assert (types["f"], types["g"], types["h"]) == (["Bad"], [], [])
 
 
+@pytest.mark.mutation_fast
 @pytest.mark.parametrize(
     ("name", "source", "expression"),
     [
@@ -638,6 +660,7 @@ def test_call_based_wrappers_omit_their_protected_body(
     assert event.expression == expression
 
 
+@pytest.mark.mutation_fast
 def test_ruby_bare_raises_are_rethrows_in_every_statement_position(tmp_path: Path) -> None:
     source = (
         "def f\n  begin\n    work\n  rescue Bad\n    raise\n  else\n    raise\n"

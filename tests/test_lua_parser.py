@@ -28,6 +28,7 @@ def _calls(graph: CodeGraph, caller: str) -> list[tuple[str, EdgeConfidence]]:
     ]
 
 
+@pytest.mark.mutation_fast
 def test_functions_methods_signatures_and_chunk(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -53,6 +54,7 @@ helper(1)
     assert graph.nodes["sample:<chunk>"].cyclomatic_complexity == 1
 
 
+@pytest.mark.mutation_fast
 def test_local_recursion_and_closure_binding(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -69,6 +71,7 @@ end
     assert _calls(graph, "sample:outer.inner") == [("sample:recurse", EdgeConfidence.CERTAIN)]
 
 
+@pytest.mark.mutation_fast
 def test_parameters_receivers_and_aliases_do_not_bind_to_namesakes(tmp_path: Path) -> None:
     _source(
         tmp_path,
@@ -92,6 +95,7 @@ alias()
     assert all(graph.nodes[e.target_id].kind == NodeKind.PROXY for e in calls if e not in methods)
 
 
+@pytest.mark.mutation_fast
 def test_reassignments_including_closures_invalidate_binding(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -127,6 +131,7 @@ helper()
     ]
 
 
+@pytest.mark.mutation_fast
 def test_declaration_order_and_initializer_scope(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -147,6 +152,7 @@ local selfref = function() return selfref() end
     assert _calls(graph, "sample:selfref")[0][1] == EdgeConfidence.UNCERTAIN
 
 
+@pytest.mark.mutation_fast
 def test_loop_and_repeat_scopes(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -164,6 +170,7 @@ helper()
     assert calls[-1] == ("sample:helper", EdgeConfidence.CERTAIN)
 
 
+@pytest.mark.mutation_fast
 def test_require_literals_and_shadowing(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -180,6 +187,7 @@ do local require = custom require("also_fake") end
     assert imports == ["one", "two"]
 
 
+@pytest.mark.mutation_fast
 def test_anonymous_bodies_are_owned_and_table_fields_are_named(tmp_path: Path) -> None:
     path = _source(
         tmp_path,
@@ -196,6 +204,7 @@ register(function() if flag then helper() end end)
     assert len(_calls(graph, "sample:<chunk>")) == 1
 
 
+@pytest.mark.mutation_fast
 def test_global_inference_and_mutation(tmp_path: Path) -> None:
     path = _source(tmp_path, "function global() end function main() global() end")
     graph = parse_file(str(path))
