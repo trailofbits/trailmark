@@ -18,6 +18,11 @@ from trailmark.analysis.preanalysis import run_preanalysis
 from trailmark.analysis.proxies import ensure_proxy_nodes, unit_type_refs
 from trailmark.models.annotations import Annotation, AnnotationKind
 from trailmark.models.binary import BinaryImportOptions
+from trailmark.models.constraints import (
+    ConstraintClaim,
+    ConstraintEvidence,
+    ConstraintExpr,
+)
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.entrypoints import EntrypointEvidence
 from trailmark.models.exceptions import ExceptionEvent
@@ -353,6 +358,82 @@ class QueryEngine:
             source=source,
         )
         return self._store.add_annotation(node_id, annotation)
+
+    def call_sites(self, name: str) -> list[dict[str, Any]]:
+        """Return owned source calls with operand syntax, current bindings, and explicit gaps."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        return [
+            {
+                "id": site.id,
+                **asdict(site),
+                "bindings": [
+                    {"target_id": edge.target_id, "confidence": edge.confidence.value}
+                    for edge in self._store.call_site_edges(site.id)
+                ],
+            }
+            for site in self._store.call_sites(node_id)
+        ]
+
+    def constraint_support(self) -> list[dict[str, Any]]:
+        """Return every registered frontend profile and any unverified imported languages."""
+        return [asdict(profile) for profile in self._store.constraint_support()]
+
+    def annotate_constraint(
+        self,
+        name: str,
+        call_site_id: str,
+        predicate: ConstraintExpr,
+        *,
+        semantics: str,
+        evidence: tuple[ConstraintEvidence, ...],
+        assumptions: tuple[str, ...] = (),
+        source: str = "manual",
+        reviewed: bool = False,
+        description: str = "Call-site input constraint",
+    ) -> bool:
+        """Save an operand claim; validation checks provenance rather than semantic truth."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return False
+        if type(reviewed) is not bool:
+            raise ValueError("Reviewed must be a Boolean attestation")
+        claim = ConstraintClaim(
+            call_site_id,
+            predicate,
+            self._store.graph_fingerprint(),
+            semantics,
+            evidence,
+            assumptions,
+            "reviewed" if reviewed else "asserted",
+        )
+        return self._store.add_annotation(
+            node_id, Annotation(AnnotationKind.CONSTRAINT, description, source, claim)
+        )
+
+    def constraints_of(self, name: str) -> list[dict[str, Any]]:
+        """Return claims with snapshot-relative freshness, including stale claims."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return []
+        return [
+            {
+                **_annotation_to_dict(annotation),
+                "active": active,
+            }
+            for annotation, active in self._store.constraint_states(node_id)
+        ]
+
+    def constraint_summary(
+        self, name: str, parameter: int, *, assumptions: tuple[str, ...] = ()
+    ) -> dict[str, Any]:
+        """Summarize one callee parameter conditionally; no closed-world default is assumed."""
+        node_id = self._store.find_node_id(name)
+        if node_id is None:
+            return {}
+        result = self._store.constraint_summary(node_id, parameter, assumptions=assumptions)
+        return asdict(result) if result is not None else {}
 
     def annotations_of(
         self,
@@ -709,11 +790,14 @@ class QueryEngine:
 
 def _annotation_to_dict(ann: Annotation) -> dict[str, Any]:
     """Convert an Annotation to a serializable dict."""
-    return {
+    result: dict[str, Any] = {
         "kind": ann.kind.value,
         "description": ann.description,
         "source": ann.source,
     }
+    if ann.constraint is not None:
+        result["constraint"] = asdict(ann.constraint)
+    return result
 
 
 def _unit_to_dict(unit: CodeUnit) -> dict[str, Any]:

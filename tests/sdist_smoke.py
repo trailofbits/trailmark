@@ -19,6 +19,7 @@ PUBLIC_GUIDES = {
     "docs/binaries.md",
     "docs/call-resolution.md",
     "docs/cli.md",
+    "docs/constraints.md",
     "docs/entrypoint-patterns.md",
     "docs/entrypoints.md",
     "docs/exceptions.md",

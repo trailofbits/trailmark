@@ -21,6 +21,7 @@ from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import Attribute, CodeUnit, NodeKind, NodeOrigin, Parameter
+from trailmark.parsers._call_sites import collect_call_sites
 from trailmark.parsers._common import (
     add_module_node,
     make_location,
@@ -394,6 +395,7 @@ class FormalParser:
                 return source.graph
             pending.extend((child, depth) for child in node.named_children)
         self.extract(root, source)
+        collect_call_sites(root, path, source.graph, source=data)
         return source.graph
 
     def parse_file(self, file_path: str) -> CodeGraph:

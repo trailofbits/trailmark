@@ -20,7 +20,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 from trailmark.parsers._simple import first_child_type
 from trailmark.parsers._walk import walk_owned
 from trailmark.tree_sitter_custom._native import bundled_language
@@ -391,7 +391,7 @@ class VisualBasicParser:
                     location=make_location(site, file_path),
                 )
             )
-        collect_exception_events(root, file_path, graph)
+        collect_source_evidence(root, file_path, graph)
         for caller, site, annotation in constructions:
             raw = node_text(annotation)
             # Generic arguments identify instantiation, not a different type body.

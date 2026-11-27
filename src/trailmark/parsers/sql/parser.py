@@ -20,6 +20,7 @@ from trailmark.models.nodes import (
     SourceLocation,
     TypeRef,
 )
+from trailmark.parsers._call_sites import collect_call_sites
 from trailmark.parsers._common import (
     add_contains_edge,
     add_module_node,
@@ -85,6 +86,7 @@ class SQLParser:
         _link_cross_file_sql_dependencies(graph)
         if materialize_dependencies:
             _materialize_sql_dependency_targets(graph, file_path)
+        collect_call_sites(tree.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

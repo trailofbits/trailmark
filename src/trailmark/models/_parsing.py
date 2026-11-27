@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from itertools import count
 
+from trailmark.models.constraints import CallSite
 from trailmark.models.edges import CodeEdge
 
 _REFERENCE_IDS = count()
@@ -41,6 +42,7 @@ class ParseState:
     references: dict[str, PendingReference] = field(default_factory=dict)
     arguments: dict[str, dict[str, ArgumentScope]] = field(default_factory=dict)
     resolved_type_files: set[str] = field(default_factory=set)
+    call_sites: dict[str, CallSite] = field(default_factory=dict)
 
     def stage(self, edge: CodeEdge, reference: PendingReference) -> CodeEdge:
         key = str(next(_REFERENCE_IDS))
@@ -56,6 +58,7 @@ class ParseState:
         for owner, scopes in other.arguments.items():
             self.arguments.setdefault(owner, {}).update(scopes)
         self.resolved_type_files.update(other.resolved_type_files)
+        self.call_sites.update(other.call_sites)
 
     def clear_references(self) -> None:
         self.references.clear()

@@ -142,6 +142,15 @@ def planned_source(file_path: str) -> tuple[str, str] | None:
     return (sources.module_ids[path], owner) if owner is not None else None
 
 
+def source_path_key(file_path: str, root_path: str) -> tuple[str, str]:
+    """Identify a file independently of its checkout's absolute location."""
+    path = _absolute_lexical_path(Path(file_path))
+    sources = _DIRECTORY_SOURCES.get()
+    root = sources.root if sources is not None else _absolute_lexical_path(Path(root_path))
+    relative = path.name if path == root else path.relative_to(root).as_posix()
+    return "root", relative
+
+
 def _absolute_lexical_path(path: Path) -> Path:
     """Return an absolute path without resolving symlink targets."""
     return Path(os.path.abspath(path))

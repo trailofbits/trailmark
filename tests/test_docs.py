@@ -405,6 +405,28 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("CONTRIBUTING.md", "weekly on Monday at 06:00 UTC"),
     ("CONTRIBUTING.md", "Pull requests run one mutation campaign, using the fast pool"),
     # CLI output streams
+    ("README.md", "Constraint annotations (unreleased)"),
+    ("docs/constraints.md", "ConstraintClaim.grammar_version"),
+    ("docs/constraints.md", "Schema and provenance validation"),
+    ("docs/constraints.md", "unsatisfiable_incoming_constraint"),
+    ("docs/constraints.md", "semantic contradictions such as `length == 35`"),
+    ("docs/constraints.md", "portable `source_key`"),
+    ("docs/constraints.md", "Portable IDs do not transfer"),
+    ("docs/constraints.md", "direct graph edits also invalidate the cache"),
+    ("docs/constraints.md", "Sliced subjects remain sequences"),
+    ("docs/constraints.md", "Changing the check to `strlen($bar)`"),
+    ("docs/constraints.md", "An unconstrained possible incoming path yields an unknown"),
+    (
+        "docs/constraints.md",
+        "Claims must use the same semantics profile across all incoming sites.",
+    ),
+    ("docs/constraints.md", "snapshot format 2"),
+    ("docs/constraints.md", "Reloading preserves that evidence and keeps its claim inactive."),
+    (
+        "docs/skills-compatibility.md",
+        "Feature-detect all five methods before enabling this workflow",
+    ),
+    ("docs/python-api.md", "constraint_summary(name, parameter, assumptions=())"),
     ("docs/cli.md", "`trailmark augment --json`"),
     ("docs/cli.md", "JSON to stdout"),
     ("docs/cli.md", "import summaries to stderr"),
@@ -1262,3 +1284,34 @@ def test_cpp_physical_block_macro_recovery_contract() -> None:
     assert "`cpp_body_recovered` and `cpp_block_macro_spans` provenance" in guide
     assert "physical source ownership without expanding the macros" in guide
     assert "raw syntax diagnostics" in guide
+
+
+@pytest.mark.mutation_fast
+def test_constraint_guide_example_saves_only_conditional_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    demo = tmp_path / "demo"
+    demo.mkdir()
+    (demo / "app.php").write_text(_code_block_after("docs/constraints.md", "Save this as", "php"))
+    monkeypatch.chdir(tmp_path)
+    namespace: dict = {}
+    snippet = _code_block_after("docs/constraints.md", "agent can record", "python")
+    exec(compile(snippet, "constraint-guide", "exec"), namespace)  # noqa: S102
+    assert namespace["claims"][0]["active"]
+    assert namespace["claims"][0]["constraint"]["justification"] == "asserted"
+    assert namespace["summary"]["status"] == "conditional"
+    assert len(namespace["summary"]["predicate"]["terms"]) == 3
+    assert namespace["optional_summary"]["status"] == "unknown"
+
+
+@pytest.mark.mutation_fast
+def test_constraint_matrix_matches_every_frontend_profile() -> None:
+    from trailmark.models.constraint_support import constraint_support_for
+
+    guide = _raw("docs/constraints.md")
+    for language in supported_languages():
+        profile = constraint_support_for(language)
+        assert (
+            f"| {language} | {profile.call_sites} | {profile.argument_syntax} | "
+            f"{profile.parameter_binding} |" in guide
+        )

@@ -129,7 +129,9 @@ engine.clear_annotations("Vault.withdraw", AnnotationKind.INVARIANT)
 
 Kinds: `assumption`, `precondition`, `postcondition`, `invariant`,
 `blast_radius`, `privilege_boundary`, `taint_propagation`, `finding`, and
-`audit_note`. The `source` string is free-form. By convention it is `manual`,
+`audit_note`. The structured `constraint` kind requires a typed payload; use
+[`annotate_constraint()`](constraints.md), rather than the prose-only `annotate()`
+method, to create it. The `source` string is free-form. By convention it is `manual`,
 `llm`, or `docstring` for annotations you add; Trailmark itself uses
 `preanalysis`, `sarif:<tool>`, and `weaudit:<author>`.
 

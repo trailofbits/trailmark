@@ -30,7 +30,7 @@ from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeOrigin, SourceLocation
 
 _FORMAT = "trailmark.analysis"
-_VERSION = 1
+_VERSION = 2
 
 
 def _encode(value: object) -> object:
@@ -304,11 +304,29 @@ def load_snapshot(snapshot: dict[str, object], *, verify_sources: bool) -> CodeG
 
 
 def _validate_graph(graph: CodeGraph) -> None:
+    from trailmark.analysis.constraints import validate_claim
+
     if any(
         len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest)
         for digest in graph.source_digests.values()
     ):
         raise ValueError("Invalid source file digest")
+    for node_id, profile in graph.parameter_bindings.items():
+        if node_id not in graph.nodes or tuple(slot.name for slot in profile) != tuple(
+            slot.name for slot in graph.nodes[node_id].parameters
+        ):
+            raise ValueError("Invalid parameter binding profile")
+    for key, site in graph.call_sites.items():
+        if (
+            key != site.id
+            or site.caller_id not in graph.nodes
+            or graph.source_digests.get(site.location.file_path) != site.source_sha256
+        ):
+            raise ValueError("Invalid call-site identity, caller, or source")
+    for node_id, node_annotations in graph.annotations.items():
+        for annotation in node_annotations:
+            if annotation.constraint is not None:
+                validate_claim(graph, node_id, annotation.constraint, require_current=False)
     if any(count < 0 for count in graph.source_file_counts.values()):
         raise ValueError("Invalid source file count")
     for key, unit in graph.nodes.items():

@@ -19,7 +19,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 from trailmark.parsers._simple import (
     child_text,
     extract_parameters,
@@ -53,7 +53,7 @@ class ThriftParser:
             graph.nodes[module_id] = replace(
                 graph.nodes[module_id], attributes=(("target_namespace", namespace),)
             )
-        collect_exception_events(tree.root_node, file_path, graph)
+        collect_source_evidence(tree.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

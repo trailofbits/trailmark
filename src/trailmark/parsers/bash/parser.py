@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
+from hashlib import sha256
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -21,7 +22,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 
 _LOG = logging.getLogger(__name__)
 _BRANCHES = {
@@ -146,7 +147,11 @@ class BashParser:
         if root.has_error:
             _LOG.warning("Bash syntax errors in %s; graph may be incomplete", file_path)
         module = module_id_from_path(file_path)
-        graph = CodeGraph(language="bash", root_path=file_path)
+        graph = CodeGraph(
+            language="bash",
+            root_path=file_path,
+            source_digests={file_path: sha256(source).hexdigest()},
+        )
         add_module_node(root, file_path, module, graph)
         names: dict[str, list[tuple[str, int, bool, str | None]]] = defaultdict(list)
         commands: list[tuple[str, Node]] = []
@@ -307,5 +312,5 @@ class BashParser:
                     location=make_location(command, file_path),
                 )
             )
-        collect_exception_events(root, file_path, graph)
+        collect_source_evidence(root, file_path, graph, source=source)
         return graph

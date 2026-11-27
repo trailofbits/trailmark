@@ -10,6 +10,7 @@ from typing import cast
 
 from trailmark.analysis.links import apply_repository_links
 from trailmark.analysis.proxies import ensure_proxy_nodes, materialize_type_use_edges
+from trailmark.models.constraints import CallSite
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import NodeKind
 from trailmark.parsers._common import (
@@ -355,8 +356,7 @@ def parse_roots(
             sub = _parse_and_merge(path, languages, paths)
         if len(policy.roots) == 1:
             merged.language = sub.language
-        if len(policy.roots) > 1:
-            _namespace_root(sub, selected.name)
+        _assign_root_identity(sub, selected.name, len(policy.roots))
         merged.merge(sub)
         _finish_source_manifest(manifest, languages, root_name=selected.name)
     merged.source_policy = manifest
@@ -393,18 +393,64 @@ def _finish_source_manifest(
         root["counts"] = counts
 
 
+def _assign_root_identity(graph: CodeGraph, name: str, root_count: int) -> None:
+    if root_count > 1:
+        _namespace_root(graph, name)
+    else:
+        _remap_call_sites(graph, name, {})
+
+
+def _remap_call_sites(graph: CodeGraph, name: str, mapping: dict[str, str]) -> None:
+    def remap(site: CallSite) -> CallSite:
+        return replace(
+            site,
+            caller_id=mapping.get(site.caller_id, site.caller_id),
+            source_key=(name, site.source_key[1]),
+        )
+
+    remapped_sites = {key: remap(site) for key, site in graph.call_sites.items()}
+    site_ids = {key: site.id for key, site in remapped_sites.items()}
+    graph.call_sites = {site.id: site for site in remapped_sites.values()}
+    graph._parse_state.call_sites = {
+        updated.id: updated
+        for site in graph._parse_state.call_sites.values()
+        for updated in (remap(site),)
+    }
+    graph.annotations = {
+        key: [
+            replace(
+                annotation,
+                constraint=replace(
+                    annotation.constraint,
+                    call_site_id=site_ids.get(
+                        annotation.constraint.call_site_id, annotation.constraint.call_site_id
+                    ),
+                ),
+            )
+            if annotation.constraint is not None
+            else annotation
+            for annotation in values
+        ]
+        for key, values in graph.annotations.items()
+    }
+
+
 def _namespace_root(graph: CodeGraph, name: str) -> None:
     mapping = {node_id: f"{name}::{node_id}" for node_id in graph.nodes}
+    _remap_call_sites(graph, name, mapping)
+    graph.parameter_bindings = {
+        mapping.get(key, key): profile for key, profile in graph.parameter_bindings.items()
+    }
     graph.nodes = {mapping[k]: replace(v, id=mapping[k]) for k, v in graph.nodes.items()}
     graph.edges = [
         replace(
-            e,
-            source_id=mapping.get(e.source_id, e.source_id),
-            target_id=mapping.get(e.target_id, e.target_id),
+            edge,
+            source_id=mapping.get(edge.source_id, edge.source_id),
+            target_id=mapping.get(edge.target_id, edge.target_id),
         )
-        for e in graph.edges
+        for edge in graph.edges
     ]
-    graph.annotations = {mapping.get(k, k): v for k, v in graph.annotations.items()}
+    graph.annotations = {mapping.get(key, key): values for key, values in graph.annotations.items()}
     graph.entrypoints = {mapping.get(k, k): v for k, v in graph.entrypoints.items()}
     evidence = [
         replace(

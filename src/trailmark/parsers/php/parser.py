@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextvars import ContextVar
+from hashlib import sha256
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -27,7 +28,7 @@ from trailmark.parsers._common import (
     node_text,
     parse_directory,
 )
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._php_linking import link_php_functions
 from trailmark.parsers._walk import walk_owned
@@ -102,11 +103,15 @@ class PHPParser:
         """Parse a single PHP file into a CodeGraph."""
         source = Path(file_path).read_bytes()
         tree = parse_php(self._parser, source)
-        graph = CodeGraph(language="php", root_path=file_path)
+        graph = CodeGraph(
+            language="php",
+            root_path=file_path,
+            source_digests={file_path: sha256(source).hexdigest()},
+        )
         module_id = module_id_from_path(file_path)
         _visit_module(tree.root_node, file_path, module_id, graph)
         link_php_functions(graph)
-        collect_exception_events(tree.root_node, file_path, graph)
+        collect_source_evidence(tree.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

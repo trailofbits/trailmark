@@ -40,7 +40,7 @@ from trailmark.parsers._declarations import (
     callable_scope,
     resolve_local_method_calls,
 )
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 from trailmark.parsers._nesting import bounded_nesting
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c._references import collect_function_references
@@ -133,7 +133,7 @@ class CppParser:
         bind_lexical_calls(graph)
         bind_cast_calls(graph)
         collect_function_references(recovered.root_node, module_id, graph)
-        collect_exception_events(recovered.root_node, file_path, graph)
+        collect_source_evidence(recovered.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:

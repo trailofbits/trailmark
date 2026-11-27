@@ -19,6 +19,22 @@ from trailmark.models.binary import (
     BinarySelection,
     BinarySourceMapping,
 )
+from trailmark.models.constraint_support import ConstraintSupport
+from trailmark.models.constraints import (
+    ArgumentRef,
+    CallArgument,
+    CallSite,
+    ConstraintBoolean,
+    ConstraintClaim,
+    ConstraintEvidence,
+    ConstraintExpr,
+    ConstraintLiteral,
+    ConstraintPredicate,
+    ConstraintSlice,
+    ConstraintSummary,
+    ParameterBinding,
+    ParameterRef,
+)
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeConfidence, EdgeKind
 from trailmark.models.exception_support import ExceptionSupport, ExceptionSupportStatus
@@ -40,6 +56,7 @@ from trailmark.models.nodes import (
 __all__ = [
     "Annotation",
     "AnnotationKind",
+    "ArgumentRef",
     "AssetValue",
     "Attribute",
     "AttributeValue",
@@ -56,6 +73,19 @@ __all__ = [
     "CodeEdge",
     "CodeGraph",
     "CodeUnit",
+    "CallArgument",
+    "CallSite",
+    "ConstraintBoolean",
+    "ConstraintClaim",
+    "ConstraintEvidence",
+    "ConstraintExpr",
+    "ConstraintLiteral",
+    "ConstraintPredicate",
+    "ConstraintSlice",
+    "ConstraintSummary",
+    "ConstraintSupport",
+    "ParameterRef",
+    "ParameterBinding",
     "EdgeConfidence",
     "EdgeKind",
     "EntrypointKind",

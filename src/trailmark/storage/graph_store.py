@@ -13,6 +13,12 @@ from trailmark.models.annotations import (
     EntrypointTag,
 )
 from trailmark.models.binary import BinaryArtifact, BinaryRange, BinarySourceMapping
+from trailmark.models.constraint_support import (
+    CONSTRAINT_LANGUAGES,
+    ConstraintSupport,
+    constraint_support_for,
+)
+from trailmark.models.constraints import CallSite, ConstraintSummary
 from trailmark.models.diagnostics import ParseDiagnostic
 from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.entrypoints import EntrypointEvidence
@@ -41,6 +47,11 @@ class GraphStore:
 
     def __init__(self, graph: CodeGraph) -> None:
         self._graph = graph
+        self._fingerprint_cache: tuple[dict[str, object], str] | None = None
+        for key, site in graph.call_sites.items():
+            if key != site.id:
+                raise ValueError("Call-site key does not match its source identity")
+            graph.add_call_site(site)
         for fact in tuple(graph.entrypoint_evidence.values()):
             self.add_entrypoint_evidence(fact)
         self.rebuild_index()
@@ -48,6 +59,78 @@ class GraphStore:
     def source_file_counts(self) -> dict[str, int]:
         """Return inspected source-file counts by selected parser language."""
         return dict(self._graph.source_file_counts)
+
+    def call_sites(self, node_id: str) -> list[CallSite]:
+        """Return source occurrences owned by this node, independently of target lookup."""
+        if node_id not in self._graph.nodes:
+            return []
+        return sorted(
+            (site for site in self._graph.call_sites.values() if site.caller_id == node_id),
+            key=lambda site: (
+                site.location.file_path,
+                site.location.start_line,
+                site.location.start_col or 0,
+                site.id,
+            ),
+        )
+
+    def constraint_support(self) -> tuple[ConstraintSupport, ...]:
+        languages = set(CONSTRAINT_LANGUAGES) | set(self._graph.source_file_counts)
+        if not self._graph.source_file_counts:
+            languages.update(filter(None, self._graph.language.split(",")))
+        languages.difference_update({"polyglot", "auto"})
+        languages.discard("csharp")
+        return tuple(constraint_support_for(language) for language in sorted(languages))
+
+    def call_site_edges(self, site_id: str) -> list[CodeEdge]:
+        from trailmark.analysis.constraints import site_edges
+
+        site = self._graph.call_sites.get(site_id)
+        return site_edges(self._graph, site) if site is not None else []
+
+    def constraints_for(self, node_id: str) -> list[Annotation]:
+        return (
+            [
+                annotation
+                for annotation in self.annotations_for(node_id)
+                if annotation.constraint is not None
+            ]
+            if node_id in self._graph.nodes
+            else []
+        )
+
+    def graph_fingerprint(self) -> str:
+        """Reuse the hash while detecting edits to every fingerprinted container."""
+        from trailmark.analysis.constraints import graph_context, graph_fingerprint
+
+        context = graph_context(self._graph)
+        if self._fingerprint_cache is None or self._fingerprint_cache[0] != context:
+            self._fingerprint_cache = (context, graph_fingerprint(self._graph, context=context))
+        return self._fingerprint_cache[1]
+
+    def constraint_states(self, node_id: str) -> list[tuple[Annotation, bool]]:
+        from trailmark.analysis.constraints import current_claim
+
+        annotations = self.constraints_for(node_id)
+        if not annotations:
+            return []
+        fingerprint = self.graph_fingerprint()
+        return [
+            (annotation, current_claim(self._graph, annotation.constraint, fingerprint))
+            for annotation in annotations
+            if annotation.constraint is not None
+        ]
+
+    def constraint_summary(
+        self, node_id: str, parameter: int, *, assumptions: tuple[str, ...] = ()
+    ) -> ConstraintSummary | None:
+        from trailmark.analysis.constraints import summarize
+
+        if node_id not in self._graph.nodes:
+            return None
+        return summarize(
+            self._graph, node_id, parameter, assumptions, fingerprint=self.graph_fingerprint()
+        )
 
     def to_snapshot(
         self,
@@ -91,6 +174,7 @@ class GraphStore:
             if node_id is not None and node_id not in self._graph.nodes:
                 raise ValueError(f"Unknown entrypoint evidence node: {node_id}")
         self._graph.add_entrypoint_evidence(evidence)
+        self._fingerprint_cache = None
 
     def parse_diagnostics(self) -> list[ParseDiagnostic]:
         """Return source analysis diagnostics as immutable model objects."""
@@ -102,6 +186,7 @@ class GraphStore:
 
     def rebuild_index(self) -> None:
         """Rebuild all rustworkx indexes after graph nodes or edges change."""
+        self._fingerprint_cache = None
         self._digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()
         self._id_to_idx: dict[str, int] = {}
         self._idx_to_id: dict[int, str] = {}
@@ -587,7 +672,11 @@ class GraphStore:
         """
         if self._node(node_id) is None:
             return False
-        self._graph.add_annotation(node_id, annotation)
+        self._graph.add_annotation(
+            node_id,
+            annotation,
+            _fingerprint=self.graph_fingerprint() if annotation.constraint is not None else None,
+        )
         return True
 
     def annotations_for(self, node_id: str) -> list[Annotation]:

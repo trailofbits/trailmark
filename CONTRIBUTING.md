@@ -325,6 +325,7 @@ lives in `docs/`:
 | --- | --- |
 | `docs/cli.md` | Subcommands, flags, output formats |
 | `docs/python-api.md` | `QueryEngine` and `trailmark.parse` |
+| `docs/constraints.md` | Constraint grammar, source evidence, agent workflow, conditional summaries |
 | `docs/graph-model.md` | Node/edge kinds, IDs, proxies, directory parsing, linking |
 | `docs/entrypoints.md` | Detection layers and `.trailmark/entrypoints.toml` |
 | `docs/links.md` | `.trailmark/links.toml` |

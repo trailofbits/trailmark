@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, replace
+from hashlib import sha256
 from pathlib import Path
 
 from tree_sitter import Node, Parser
@@ -34,7 +35,7 @@ from trailmark.parsers._common import (
     parse_directory,
 )
 from trailmark.parsers._declarations import add_callable, add_type, callable_scope
-from trailmark.parsers._exceptions import collect_exception_events
+from trailmark.parsers._evidence import collect_source_evidence
 from trailmark.parsers._walk import walk_owned
 from trailmark.parsers.c._callbacks import resolve_constant_callbacks
 from trailmark.parsers.c._calls import syntax_error_context, typedef_cast
@@ -90,7 +91,11 @@ class CParser:
         original = tree.root_node
         tree, recovered = recover_bodies(source, tree, self._parser)
         macros = DeclarationMacros(original, file_path, headers)
-        graph = CodeGraph(language="c", root_path=file_path)
+        graph = CodeGraph(
+            language="c",
+            root_path=file_path,
+            source_digests={file_path: sha256(source).hexdigest()},
+        )
         module_id = module_id_from_path(file_path)
         resolve_casts = _has_resolved_preprocessing(source, original, headers, Path(file_path))
         with callable_scope(graph):
@@ -112,7 +117,7 @@ class CParser:
                 source, file_path, module_id, graph, macros, self._parser
             )
         collect_function_references(tree.root_node, module_id, graph)
-        collect_exception_events(tree.root_node, file_path, graph)
+        collect_source_evidence(tree.root_node, file_path, graph, source=source)
         return graph
 
     def parse_directory(self, dir_path: str) -> CodeGraph:
