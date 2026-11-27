@@ -51,10 +51,10 @@ def test_shared_headers_have_one_owner_without_losing_other_files(
     (tmp_path / "plain.h").write_text("struct Record { int value; };\n")
     (tmp_path / "objects.h").write_text("@interface Thing\n- (void)work;\n@end")
     graph = parse_directory(str(tmp_path), languages)
-    assert graph.nodes["plain:Record"].kind == NodeKind.STRUCT
-    assert graph.nodes["objects:Thing"].kind == NodeKind.CLASS
+    assert graph.nodes["plain\\.h:Record"].kind == NodeKind.STRUCT
+    assert graph.nodes["objects\\.h:Thing"].kind == NodeKind.CLASS
     assert {r"app\.c:run", r"app\.m:App.run"} <= graph.nodes.keys()
-    for module in ("plain", "objects"):
+    for module in ("plain\\.h", "objects\\.h"):
         assert (
             sum(unit.kind == NodeKind.MODULE and unit.id == module for unit in graph.nodes.values())
             == 1
@@ -87,8 +87,9 @@ def test_bare_method_call_prefers_callers_container(
     graph = parse_directory(str(tmp_path), language)
     calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
     assert len(calls) == 1
-    assert calls[0].source_id == "caller:A.run"
-    assert calls[0].target_id == "caller:A.helper"
+    module = r"caller\.cpp" if language == "cpp" else "caller"
+    assert calls[0].source_id == f"{module}:A.run"
+    assert calls[0].target_id == f"{module}:A.helper"
     assert calls[0].confidence == EdgeConfidence.CERTAIN
 
 
@@ -190,8 +191,8 @@ def test_mixed_headers_preserve_c_types_and_objc_classes(tmp_path: Path, languag
         "// @interface is mentioned in a comment\nstruct Plain { int value; };"
     )
     graph = parse_directory(str(tmp_path), language)
-    assert {"mixed:Record", "mixed:Thing", "plain:Plain"} <= graph.nodes.keys()
-    for name in ("mixed:Record", "plain:Plain"):
+    assert {"mixed\\.h:Record", "mixed\\.h:Thing", "plain\\.h:Plain"} <= graph.nodes.keys()
+    for name in ("mixed\\.h:Record", "plain\\.h:Plain"):
         assert graph.nodes[name].kind == NodeKind.STRUCT
 
 
@@ -205,10 +206,12 @@ def test_header_free_functions_link_across_c_family_frontends(
     (tmp_path / "other.py").write_text("def helper(): pass")
     graph = parse_directory(str(tmp_path), language)
     calls = [
-        edge for edge in graph.edges if edge.source_id == "app:run" and edge.kind == EdgeKind.CALLS
+        edge
+        for edge in graph.edges
+        if edge.source_id == "app\\.m:run" and edge.kind == EdgeKind.CALLS
     ]
     assert len(calls) == 1
-    assert calls[0].target_id == "util:helper"
+    assert calls[0].target_id == "util\\.h:helper"
     assert calls[0].confidence == EdgeConfidence.INFERRED
 
 
@@ -227,8 +230,8 @@ def test_header_call_does_not_bind_a_same_named_module(tmp_path: Path, language:
     graph = parse_directory(str(tmp_path), language)
     calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
     assert len(calls) == 1
-    assert calls[0].source_id == "helper:run"
-    assert calls[0].target_id == "helper:helper"
+    assert calls[0].source_id == "helper\\.h:run"
+    assert calls[0].target_id == "helper\\.h:helper"
     assert calls[0].confidence == EdgeConfidence.CERTAIN
 
 

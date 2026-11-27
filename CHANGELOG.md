@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Resolve C++ same-class calls despite forward declarations and through anonymous
+  namespace owners in the same file. Prefer type definitions to later forward
+  declarations through shared insertion, including C and C++ enums.
+- Extract C++ struct inheritance. Stabilize C-family directory module IDs by always
+  including escaped filename extensions, and use `.` in qualified declaration IDs.
+  Rebuild C-family graphs and refresh IDs in configs, queries, and annotations after upgrading.
+- Document C-family preprocessing limitations and an agent workflow for trailing
+  annotation macros, macro-defined signatures, and conditional branches that split braces.
 - Retain source-bound call-site operands across applicable frontends and add
   typed constraint annotations, conditional parameter summaries, and an agent
   workflow. Source gaps and unverified assumptions remain explicit.

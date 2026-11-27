@@ -85,13 +85,13 @@ def test_extern_definition_remains_visible_to_other_translation_units(tmp_path: 
         "void action(void) { exported(); exported(); local(); }\n"
     )
     graph = parse_directory(str(tmp_path), "c")
-    assert dict(graph.nodes["implementation:exported"].attributes)["internal_linkage"] is False
-    assert dict(graph.nodes["implementation:local"].attributes)["internal_linkage"] is True
+    assert dict(graph.nodes["implementation\\.c:exported"].attributes)["internal_linkage"] is False
+    assert dict(graph.nodes["implementation\\.c:local"].attributes)["internal_linkage"] is True
     calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
-    assert [edge.source_id for edge in calls] == ["caller:action"] * 3
-    assert [edge.target_id for edge in calls[:2]] == ["implementation:exported"] * 2
+    assert [edge.source_id for edge in calls] == ["caller\\.c:action"] * 3
+    assert [edge.target_id for edge in calls[:2]] == ["implementation\\.c:exported"] * 2
     assert graph.nodes[calls[2].target_id].kind == NodeKind.PROXY
-    assert graph.nodes[calls[2].target_id].name == "caller:local"
+    assert graph.nodes[calls[2].target_id].name == "caller\\.c:local"
     assert [edge.confidence for edge in calls] == [
         EdgeConfidence.INFERRED,
         EdgeConfidence.INFERRED,

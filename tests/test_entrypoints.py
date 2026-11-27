@@ -979,7 +979,9 @@ class TestCCpp:
 
         engine = QueryEngine.from_directory(str(tmp_path), language="c")
 
-        assert {ep["node_id"] for ep in engine.attack_surface()} == {"Public:exported"}
+        assert {ep["node_id"] for ep in engine.attack_surface()} == {
+            rf"Public\.{extension}:exported"
+        }
 
     def test_extern_c_detected(self, tmp_path: Path) -> None:
         (tmp_path / "api.cpp").write_text(

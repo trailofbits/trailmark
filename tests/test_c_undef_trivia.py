@@ -39,13 +39,16 @@ def test_undef_trivia_does_not_keep_a_stale_declaration_macro(
     path = tmp_path / "sample.c"
     path.write_bytes(source.replace("\n", newline).encode())
     line = definitions.count("\n") + 2
-    for graph in (parse_file(str(path), "c"), parse_directory(str(tmp_path), "c")):
+    for module, graph in (
+        ("sample", parse_file(str(path), "c")),
+        (r"sample\.c", parse_directory(str(tmp_path), "c")),
+    ):
         assert {node.id for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION} == {
-            "sample:helper",
-            f"sample:{macro}(left)",
-            "sample:after",
+            f"{module}:helper",
+            f"{module}:{macro}(left)",
+            f"{module}:after",
         }
-        unit = graph.nodes[f"sample:{macro}(left)"]
+        unit = graph.nodes[f"{module}:{macro}(left)"]
         assert dict(unit.attributes) == {
             "internal_linkage": False,
             "macro_wrapper": macro,
@@ -56,9 +59,9 @@ def test_undef_trivia_does_not_keep_a_stale_declaration_macro(
         assert unit.parameters == ()
         calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
         assert [(edge.source_id, edge.target_id, edge.confidence) for edge in calls] == [
-            (unit.id, "sample:helper", EdgeConfidence.CERTAIN),
-            (unit.id, "sample:helper", EdgeConfidence.CERTAIN),
-            ("sample:after", "sample:helper", EdgeConfidence.CERTAIN),
+            (unit.id, f"{module}:helper", EdgeConfidence.CERTAIN),
+            (unit.id, f"{module}:helper", EdgeConfidence.CERTAIN),
+            (f"{module}:after", f"{module}:helper", EdgeConfidence.CERTAIN),
         ]
         assert [dict(edge.attributes) for edge in calls] == [
             {"macro_signature_unresolved": True},

@@ -231,6 +231,25 @@ def test_module_id_from_path_preserves_single_file_stem_behavior(tmp_path: Path)
 
 
 @pytest.mark.mutation_fast
+@pytest.mark.parametrize("language,extension", [("c", "c"), ("cpp", "cpp"), ("objc", "m")])
+def test_c_family_directory_ids_do_not_change_when_a_header_is_added(
+    tmp_path: Path, language: str, extension: str
+) -> None:
+    from trailmark.parse import parse_directory as parse_sources
+
+    source = tmp_path / f"lib.{extension}"
+    source.write_text("void Run(void) {}\n")
+    before = parse_sources(str(tmp_path), language)
+    expected = rf"lib\.{extension}:Run"
+    assert expected in before.nodes
+    (tmp_path / "lib.h").write_text("")
+    after = parse_sources(str(tmp_path), language)
+    assert {n.id for n in after.nodes.values() if n.location.file_path == str(source)} == set(
+        before.nodes
+    )
+
+
+@pytest.mark.mutation_fast
 def test_directory_recursion_failure_retains_diagnostics_and_later_files(tmp_path: Path) -> None:
     deep = tmp_path / "a_deep.py"
     deep.write_text("deep source")

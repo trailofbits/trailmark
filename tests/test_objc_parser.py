@@ -20,15 +20,15 @@ class TestCFunctions:
     @pytest.mark.mutation_fast
     def test_main_extracted(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "int main(int argc, char **argv) { return 0; }\n")
-        assert "Foo:main" in graph.nodes
-        func = graph.nodes["Foo:main"]
+        assert "Foo\\.m:main" in graph.nodes
+        func = graph.nodes["Foo\\.m:main"]
         assert func.kind.value == "function"
         assert [p.name for p in func.parameters] == ["argc", "argv"]
 
     @pytest.mark.mutation_fast
     def test_return_type_captured(self, tmp_path: Path) -> None:
         graph = _parse(tmp_path, "void hello(void) { }\n")
-        func = graph.nodes["Foo:hello"]
+        func = graph.nodes["Foo\\.m:hello"]
         assert func.return_type is not None
         assert func.return_type.name == "void"
 
@@ -40,8 +40,8 @@ class TestClasses:
             tmp_path,
             "@interface Thing : NSObject\n- (void)doStuff;\n@end\n",
         )
-        assert "Foo:Thing" in graph.nodes
-        assert graph.nodes["Foo:Thing"].kind.value == "class"
+        assert "Foo\\.m:Thing" in graph.nodes
+        assert graph.nodes["Foo\\.m:Thing"].kind.value == "class"
 
     @pytest.mark.mutation_fast
     def test_zero_arg_method_selector(self, tmp_path: Path) -> None:
@@ -49,8 +49,8 @@ class TestClasses:
             tmp_path,
             "@interface T : NSObject\n- (void)reset;\n@end\n",
         )
-        assert "Foo:T.reset" in graph.nodes
-        assert graph.nodes["Foo:T.reset"].name == "reset"
+        assert "Foo\\.m:T.reset" in graph.nodes
+        assert graph.nodes["Foo\\.m:T.reset"].name == "reset"
 
     @pytest.mark.mutation_fast
     def test_multi_arg_method_selector_has_colons(self, tmp_path: Path) -> None:
@@ -60,8 +60,8 @@ class TestClasses:
             "- (BOOL)login:(NSString *)user password:(NSString *)pw;\n"
             "@end\n",
         )
-        assert "Foo:T.login:password:" in graph.nodes
-        method = graph.nodes["Foo:T.login:password:"]
+        assert "Foo\\.m:T.login:password:" in graph.nodes
+        method = graph.nodes["Foo\\.m:T.login:password:"]
         assert method.name == "login:password:"
         assert [p.name for p in method.parameters] == ["user", "pw"]
 
@@ -82,7 +82,7 @@ class TestClasses:
             "@end\n"
         )
         graph = _parse(tmp_path, code)
-        method = graph.nodes["Foo:T.count"]
+        method = graph.nodes["Foo\\.m:T.count"]
         # Body was observed; complexity > 1.
         assert method.cyclomatic_complexity is not None
         assert method.cyclomatic_complexity >= 2
@@ -121,13 +121,13 @@ def test_conditional_implementation_methods_keep_owners_and_sites(tmp_path: Path
     assert not graph.parse_diagnostics
     engine = QueryEngine.from_graph(graph)
     for selector, line in (("finalize", 4), ("nested", 7), ("alternative", 10)):
-        source = f"Foo:Result.{selector}"
-        assert {n["id"] for n in engine.callees_of(source)} == {"Foo:Result.close"}
+        source = f"Foo\\.m:Result.{selector}"
+        assert {n["id"] for n in engine.callees_of(source)} == {"Foo\\.m:Result.close"}
         sites = [e for e in graph.edges if e.source_id == source and e.kind.value == "calls"]
         assert len(sites) == 1
         assert sites[0].location is not None and sites[0].location.start_line == line
-    assert {n["id"] for n in engine.callers_of("Foo:Result.close")} == {
-        "Foo:Result.finalize",
-        "Foo:Result.nested",
-        "Foo:Result.alternative",
+    assert {n["id"] for n in engine.callers_of("Foo\\.m:Result.close")} == {
+        "Foo\\.m:Result.finalize",
+        "Foo\\.m:Result.nested",
+        "Foo\\.m:Result.alternative",
     }

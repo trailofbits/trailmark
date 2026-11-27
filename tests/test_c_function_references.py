@@ -22,15 +22,17 @@ def test_literal_callback_dependencies_are_references_not_calls(tmp_path: Path) 
         (e.source_id, e.target_id, e.location.start_line if e.location else None)
         for e in references
     ] == [
-        ("callbacks", "callbacks:protected_work", 2),
-        ("callbacks:install", "callbacks:protected_work", 4),
-        ("callbacks:install", "callbacks:protected_work", 4),
+        ("callbacks\\.c", "callbacks\\.c:protected_work", 2),
+        ("callbacks\\.c:install", "callbacks\\.c:protected_work", 4),
+        ("callbacks\\.c:install", "callbacks\\.c:protected_work", 4),
     ]
     engine = QueryEngine.from_graph(graph)
-    assert {n["id"] for n in engine.reachable_from("callbacks:install")} == {"callbacks:consume"}
-    assert "callbacks:protected_work" in {
+    assert {n["id"] for n in engine.reachable_from("callbacks\\.c:install")} == {
+        "callbacks\\.c:consume"
+    }
+    assert "callbacks\\.c:protected_work" in {
         n["id"]
-        for n in engine.reachable_from("callbacks:install", edge_kinds=("calls", "references"))
+        for n in engine.reachable_from("callbacks\\.c:install", edge_kinds=("calls", "references"))
     }
 
 
@@ -44,7 +46,9 @@ def test_references_respect_cross_file_visibility_and_variable_shadowing(tmp_pat
     )
     graph = parse_directory(str(tmp_path), "c")
     references = [e for e in graph.edges if e.kind == EdgeKind.REFERENCES]
-    assert [(e.source_id, e.target_id) for e in references] == [("main:install", "target:exported")]
+    assert [(e.source_id, e.target_id) for e in references] == [
+        ("main\\.c:install", "target\\.c:exported")
+    ]
 
 
 @pytest.mark.mutation_fast
@@ -55,8 +59,8 @@ def test_declared_external_callback_is_retained_without_its_implementation(tmp_p
     )
     graph = parse_directory(str(tmp_path), "c")
     (reference,) = [edge for edge in graph.edges if edge.kind == EdgeKind.REFERENCES]
-    assert reference.source_id == "main:install"
-    assert reference.target_id == "main:external"
+    assert reference.source_id == "main\\.c:install"
+    assert reference.target_id == "main\\.c:external"
     assert reference.target_id not in graph.nodes
     assert dict(reference.attributes)["literal_callable_declared"] is True
     assert reference in graph.unresolved_relationships()

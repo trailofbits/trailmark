@@ -23,8 +23,8 @@ from trailmark.parsers.c._headers import HeaderSources
                 "a.cpp": '#include "b.hpp"\nint run(){return helper();}',
                 "b.hpp": "static inline int helper(){return 1;}",
             },
-            "a:run",
-            "b:helper",
+            r"a\.cpp:run",
+            r"b\.hpp:helper",
         ),
         (
             "c,cpp",
@@ -32,14 +32,14 @@ from trailmark.parsers.c._headers import HeaderSources
                 "a.cpp": '#include "b.h"\nint run(){return helper();}',
                 "b.h": "static inline int helper(){return 1;}",
             },
-            "a:run",
-            "b:helper",
+            r"a\.cpp:run",
+            r"b\.h:helper",
         ),
         (
             "c",
             {"a.h": "int run(){return helper();}", "b.h": "static inline int helper(){return 1;}"},
-            "a:run",
-            "b:helper",
+            r"a\.h:run",
+            r"b\.h:helper",
         ),
         (
             "c",
@@ -48,8 +48,8 @@ from trailmark.parsers.c._headers import HeaderSources
                 "mid.h": '#include "b.h"',
                 "b.h": "int run(){return helper();}",
             },
-            "b:run",
-            "a:helper",
+            r"b\.h:run",
+            r"a\.c:helper",
         ),
         (
             "cpp",
@@ -58,8 +58,8 @@ from trailmark.parsers.c._headers import HeaderSources
                 "mid.hpp": '#include "b.hpp"',
                 "b.hpp": "int run(){return helper();}",
             },
-            "b:run",
-            "a:helper",
+            r"b\.hpp:run",
+            r"a\.cpp:helper",
         ),
     ],
 )
@@ -79,7 +79,10 @@ def test_unrelated_source_statics_are_private(tmp_path: Path, extension: str) ->
     (tmp_path / f"a.{extension}").write_text("int run(){return helper();}")
     (tmp_path / f"b.{extension}").write_text("static int helper(){return 1;}")
     graph = parse_directory(str(tmp_path), "auto")
-    edge = next(e for e in graph.edges if e.source_id == "a:run" and e.kind == EdgeKind.CALLS)
+    module = rf"a\.{extension}"
+    edge = next(
+        e for e in graph.edges if e.source_id == f"{module}:run" and e.kind == EdgeKind.CALLS
+    )
     assert edge.target_id.startswith("proxy.")
 
 
@@ -88,7 +91,7 @@ def test_duplicate_header_statics_stay_ambiguous(tmp_path: Path) -> None:
     for name in ("b.h", "c.h"):
         (tmp_path / name).write_text("static int helper(){return 1;}")
     graph = parse_directory(str(tmp_path), "c")
-    edge = next(e for e in graph.edges if e.source_id == "a:run" and e.kind == EdgeKind.CALLS)
+    edge = next(e for e in graph.edges if e.source_id == r"a\.c:run" and e.kind == EdgeKind.CALLS)
     assert edge.target_id.startswith("proxy.")
     assert edge.confidence == EdgeConfidence.UNCERTAIN
 
@@ -157,7 +160,7 @@ def test_anonymous_namespace_in_header_does_not_leak(tmp_path: Path) -> None:
     (tmp_path / "a.cpp").write_text("int run(){return helper();}")
     (tmp_path / "b.hpp").write_text("namespace { int helper(){return 1;} }")
     graph = parse_directory(str(tmp_path), "cpp")
-    edge = next(e for e in graph.edges if e.source_id == "a:run" and e.kind == EdgeKind.CALLS)
+    edge = next(e for e in graph.edges if e.source_id == r"a\.cpp:run" and e.kind == EdgeKind.CALLS)
     assert edge.target_id.startswith("proxy.")
 
 
@@ -182,8 +185,8 @@ def test_same_file_anonymous_namespace_is_visible(tmp_path: Path) -> None:
         "namespace { int helper(){return 1;} } int run(){return helper();}"
     )
     graph = parse_directory(str(tmp_path), "cpp")
-    edge = next(e for e in graph.edges if e.source_id == "a:run" and e.kind == EdgeKind.CALLS)
-    assert edge.target_id == "a:$anonymous.helper"
+    edge = next(e for e in graph.edges if e.source_id == r"a\.cpp:run" and e.kind == EdgeKind.CALLS)
+    assert edge.target_id == r"a\.cpp:$anonymous.helper"
     assert edge.confidence == EdgeConfidence.INFERRED
 
 

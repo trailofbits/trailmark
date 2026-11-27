@@ -1222,8 +1222,37 @@ def test_objc_conditional_implementation_contract() -> None:
 def test_cpp_out_of_line_method_contract() -> None:
     guide = (DOCS / "call-resolution.md").read_text()
     assert "Simple qualified definitions such as `Stream::flush` and `Stream::~Stream`" in guide
-    assert "Existing definition IDs are preserved" in guide
+    assert "Forward declarations do" in guide
+    assert "not compete with definitions" in guide
+    assert "Qualified declaration IDs use `.` instead of `::`" in guide
     assert "Overloads and shadowing local values remain uncertain" in guide
+
+
+def test_cpp_identity_and_preprocessing_contracts() -> None:
+    identities = _flat("docs/graph-model.md")
+    assert "C-family directory module IDs** always include the escaped file extension" in identities
+    assert "Single-file parsing retains the file stem" in identities
+    assert "Old IDs are not aliases for the new IDs" in identities
+    languages = _flat("docs/languages.md")
+    assert "C++ structs retain `inherits` edges" in languages
+    guide = _flat("docs/parser-coverage.md")
+    for text in (
+        "## C-family preprocessing limitations",
+        "REQUIRES(!mu)",
+        "#define APP_MAIN int main(...)",
+        "compile_commands.json",
+        "clang++ -E -P -x c++",
+        "graph locations refer to the generated view",
+        "Analyze each relevant configuration in its own graph",
+        "report the missing graph coverage explicitly",
+        "C++ and Objective-C do not currently share that recovery",
+        "Java record declarations are currently skipped",
+        "Swift class inheritance and protocol-conformance edges are not extracted",
+    ):
+        assert text in guide
+    assert (
+        "preprocessing limitations and agent workarounds" in (REPO_ROOT / "AGENTS.md").read_text()
+    )
 
 
 def test_dart_constructor_resolution_contract() -> None:

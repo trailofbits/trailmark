@@ -189,7 +189,7 @@ def test_unresolved_wrapper_links_across_files(tmp_path: Path) -> None:
     (tmp_path / "peer.c").write_text("void helper(void) {}")
     graph = parse_directory(str(tmp_path), "c")
     (edge,) = _calls(graph, "UNAVAILABLE(left)")
-    assert edge.target_id == "peer:helper"
+    assert edge.target_id == "peer\\.c:helper"
     assert edge.confidence == EdgeConfidence.INFERRED
     assert dict(edge.attributes)["macro_signature_unresolved"]
 
@@ -241,7 +241,7 @@ def test_headers_outside_analysis_root_are_not_read(tmp_path: Path, kind: str) -
 
     with patch.object(Path, "read_bytes", read):
         graph = parse_directory(str(root), "c")
-    assert "sample:DECL(first)" in graph.nodes
+    assert r"sample\.c:DECL(first)" in graph.nodes
     assert not any("outside_only" in node_id for node_id in graph.nodes)
     assert outside not in reads
     assert "sample:DECL(first)" in parse_file(str(path), "c").nodes
@@ -270,10 +270,10 @@ def test_in_root_parent_header_is_cached_for_one_directory_parse(tmp_path: Path)
     parser = CParser()
     with patch.object(Path, "read_bytes", read):
         graph = parser.parse_directory(str(tmp_path))
-    assert {"source.first:wired_first", "source.second:wired_second"} <= graph.nodes.keys()
+    assert {"source.first\\.c:wired_first", "source.second\\.c:wired_second"} <= graph.nodes.keys()
     assert reads == [header]
     header.write_text("#define DECL(n) void changed_ ## n(void)\n")
-    assert "source.first:changed_first" in parser.parse_directory(str(tmp_path)).nodes
+    assert "source.first\\.c:changed_first" in parser.parse_directory(str(tmp_path)).nodes
     assert "first:DECL(first)" in parse_file(str(source / "first.c"), "c").nodes
 
 
@@ -293,7 +293,7 @@ def test_unavailable_wrapper_argument_does_not_create_a_false_name_match(tmp_pat
     _source(tmp_path, "UNAVAILABLE(printf) { helper(); }")
     (tmp_path / "caller.c").write_text('void main(void) { printf("hello"); }')
     graph = parse_directory(str(tmp_path), "c")
-    assert "sample:UNAVAILABLE(printf)" in graph.nodes
+    assert "sample\\.c:UNAVAILABLE(printf)" in graph.nodes
     (edge,) = _calls(graph, "main")
     assert graph.nodes[edge.target_id].kind == NodeKind.PROXY
 

@@ -41,17 +41,25 @@ def test_factory_parameters_own_callback_binding_in_nested_declarators(
     path = tmp_path / "sample.c"
     path.write_bytes(source.replace("\n", newline).encode())
     start = prefix.count("\n") + 1
-    for graph in (parse_file(str(path), "c"), parse_directory(str(tmp_path), "c")):
-        expected = {"sample:callback", "sample:target", "sample:factory", "sample:after"}
+    for module, graph in (
+        ("sample", parse_file(str(path), "c")),
+        (r"sample\.c", parse_directory(str(tmp_path), "c")),
+    ):
+        expected = {
+            f"{module}:callback",
+            f"{module}:target",
+            f"{module}:factory",
+            f"{module}:after",
+        }
         if bridge:
-            expected.add("sample:bridge")
+            expected.add(f"{module}:bridge")
         assert {
             node.id for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION
         } == expected
-        unit = graph.nodes["sample:factory"]
+        unit = graph.nodes[f"{module}:factory"]
         assert (unit.location.start_line, unit.location.end_line) == (start, start + 4)
         calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
-        assert [edge.source_id for edge in calls] == [unit.id, unit.id, "sample:after"]
+        assert [edge.source_id for edge in calls] == [unit.id, unit.id, f"{module}:after"]
         assert [edge.confidence for edge in calls] == [
             EdgeConfidence.UNCERTAIN,
             EdgeConfidence.UNCERTAIN,
@@ -62,16 +70,16 @@ def test_factory_parameters_own_callback_binding_in_nested_declarators(
         assert (target.kind, target.origin, target.name) == (
             NodeKind.PROXY,
             NodeOrigin.PROXY,
-            "sample:factory.$binding.callback",
+            f"{module}:factory.$binding.callback",
         )
         assert [dict(edge.attributes) for edge in calls[:2]] == [
             {
                 "binding_blocked": True,
                 "binding_reason": "lexical_callable",
-                "raw_target": "sample:factory.$binding.callback",
+                "raw_target": f"{module}:factory.$binding.callback",
             }
         ] * 2
-        assert calls[2].target_id == "sample:callback"
+        assert calls[2].target_id == f"{module}:callback"
         assert [
             (edge.location.start_line, edge.location.start_col, edge.location.end_col)
             for edge in calls

@@ -159,9 +159,20 @@ def _bind_out_of_line_methods(graph: CodeGraph) -> None:
     """Attach simple qualified definitions to an identifiable class owner."""
     owners = {e.target_id: e.source_id for e in graph.edges if e.kind == EdgeKind.CONTAINS}
     types: dict[str, list[CodeUnit]] = {}
+    local_types: dict[tuple[str, str], list[CodeUnit]] = {}
     for unit in graph.nodes.values():
-        if unit.kind in {NodeKind.CLASS, NodeKind.STRUCT, NodeKind.NAMESPACE}:
-            types.setdefault(unit.id.split(":", 1)[-1], []).append(unit)
+        if unit.kind not in {NodeKind.CLASS, NodeKind.STRUCT, NodeKind.NAMESPACE}:
+            continue
+        if dict(unit.attributes).get("declaration_only"):
+            continue
+        qualified_name = unit.id.split(":", 1)[-1]
+        types.setdefault(qualified_name, []).append(unit)
+        local_types.setdefault((unit.location.file_path, qualified_name), []).append(unit)
+        # An unnamed namespace injects its names into the enclosing namespace,
+        # but those names must never identify an owner in another source file.
+        if "$anonymous" in qualified_name.split("."):
+            visible_name = ".".join(p for p in qualified_name.split(".") if p != "$anonymous")
+            local_types.setdefault((unit.location.file_path, visible_name), []).append(unit)
     replacements: dict[str, str] = {}
     for unit in list(graph.nodes.values()):
         if unit.kind != NodeKind.FUNCTION or "::" not in unit.name:
@@ -178,9 +189,10 @@ def _bind_out_of_line_methods(graph: CodeGraph) -> None:
         prefix = (
             container.id.split(":", 1)[-1] + "." if container.kind == NodeKind.NAMESPACE else ""
         )
-        candidates = types.get(prefix + qualifier.replace("::", "."), [])
-        local = [c for c in candidates if c.location.file_path == unit.location.file_path]
-        candidates = local or candidates
+        owner_name = prefix + qualifier.replace("::", ".")
+        candidates = local_types.get((unit.location.file_path, owner_name)) or types.get(
+            owner_name, []
+        )
         if len(candidates) != 1 or candidates[0].kind not in {NodeKind.CLASS, NodeKind.STRUCT}:
             continue
         replacements[unit.id] = candidates[0].id
@@ -391,6 +403,7 @@ def _extract_class(
     owner = _owner(node, module_id, graph)
     class_id = _owned_id(owner, class_name)
     location = make_location(node, file_path)
+    declaration_only = node.child_by_field_name("body") is None
 
     unit = CodeUnit(
         id=class_id,
@@ -398,7 +411,8 @@ def _extract_class(
         kind=NodeKind.CLASS,
         location=location,
         type_parameters=extract_type_parameters(generic_node or node),
-        attributes=class_attributes(node),
+        attributes=class_attributes(node)
+        + ((("declaration_only", True),) if declaration_only else ()),
         docstring=_extract_docstring(node),
     )
     add_type(graph, unit)
@@ -525,6 +539,7 @@ def _extract_struct(
     owner = _owner(node, module_id, graph)
     struct_id = _owned_id(owner, struct_name)
     location = make_location(node, file_path)
+    declaration_only = node.child_by_field_name("body") is None
 
     unit = CodeUnit(
         id=struct_id,
@@ -532,10 +547,12 @@ def _extract_struct(
         kind=NodeKind.STRUCT,
         location=location,
         type_parameters=extract_type_parameters(generic_node or node),
-        attributes=class_attributes(node),
+        attributes=class_attributes(node)
+        + ((("declaration_only", True),) if declaration_only else ()),
     )
     add_type(graph, unit)
     add_contains_edge(graph, owner, struct_id)
+    _extract_base_classes(node, struct_id, module_id, graph)
     _visit_class_body(node, file_path, module_id, struct_id, graph)
 
 
@@ -559,6 +576,9 @@ def _extract_enum(
         name=enum_name,
         kind=NodeKind.ENUM,
         location=location,
+        attributes=(
+            (("declaration_only", True),) if node.child_by_field_name("body") is None else ()
+        ),
     )
     add_type(graph, unit)
     add_contains_edge(graph, owner, enum_id)
@@ -586,7 +606,7 @@ def _extract_function(
         container_id = class_id
     else:
         container_id = _owner(node, module_id, graph)
-        func_id = _owned_id(container_id, func_name)
+        func_id = _owned_id(container_id, func_name.replace("::", "."))
         kind = NodeKind.FUNCTION
 
     unit, calls = _function_unit(

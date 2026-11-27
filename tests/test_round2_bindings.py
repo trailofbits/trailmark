@@ -47,11 +47,11 @@ def test_static_header_and_included_source_linkage(
     monkeypatch.chdir(tmp_path.parent)
     root = tmp_path.name if relative else str(tmp_path)
     graph = parse_directory(root, "c")
-    assert [(e.target_id, e.confidence) for e in _calls(graph, "src.api:api")] == [
-        ("include.util:helper", EdgeConfidence.INFERRED)
+    assert [(e.target_id, e.confidence) for e in _calls(graph, "src.api\\.c:api")] == [
+        ("include.util\\.h:helper", EdgeConfidence.INFERRED)
     ]
-    assert _calls(graph, "src.user:user")[0].target_id.startswith("proxy.")
-    assert _calls(graph, "src.included:included")[0].target_id == "src.other:private_fn"
+    assert _calls(graph, "src.user\\.c:user")[0].target_id.startswith("proxy.")
+    assert _calls(graph, "src.included\\.c:included")[0].target_id == "src.other\\.c:private_fn"
 
 
 @pytest.mark.mutation_fast

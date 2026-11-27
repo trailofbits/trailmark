@@ -16,11 +16,11 @@ def _parse(tmp_path: Path, source: str) -> CodeGraph:
     return parse_file(str(path), "c")
 
 
-def _calls(graph: CodeGraph, source: str) -> set[str]:
+def _calls(graph: CodeGraph, source: str, *, module: str = "sample") -> set[str]:
     return {
         edge.target_id
         for edge in graph.edges
-        if edge.source_id == f"sample:{source}" and edge.kind == EdgeKind.CALLS
+        if edge.source_id == f"{module}:{source}" and edge.kind == EdgeKind.CALLS
     }
 
 
@@ -228,7 +228,10 @@ def test_constant_designated_tables_resolve_by_object_and_field(tmp_path: Path) 
     assert all(edge.confidence == EdgeConfidence.INFERRED for edge in edges)
     assert {dict(edge.attributes)["callback_table"] for edge in edges} == {"hooks", "other"}
     graph = parse_directory(str(tmp_path), "c")
-    assert _calls(graph, "action") == {"sample:setup", "sample:alternate"}
+    assert _calls(graph, "action", module=r"sample\.c") == {
+        r"sample\.c:setup",
+        r"sample\.c:alternate",
+    }
 
 
 @pytest.mark.mutation_fast

@@ -283,6 +283,13 @@ Pass `--language auto` to detect languages, or a comma-separated list such as
 covers Rust and Verus scoping, Solidity storage access, header handling, and
 other per-language behavior.
 
+C, C++, and Objective-C directory node IDs always retain escaped filename
+extensions, and C++ qualified declaration IDs use `.`; see the
+[ID migration notes](https://github.com/trailofbits/trailmark/blob/main/docs/graph-model.md#node-ids).
+For macro-heavy C/C++ code, follow the
+[preprocessing workarounds](https://github.com/trailofbits/trailmark/blob/main/docs/parser-coverage.md#c-family-preprocessing-limitations)
+before treating a graph as complete.
+
 ## Documentation
 
 | Guide | What it covers |

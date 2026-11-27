@@ -23,8 +23,10 @@ def test_header_static_tie_uses_include_closure(
         prefix = f'#include "app.{source}"\n' if reverse and name == "first" else ""
         (tmp_path / f"{name}.{header}").write_text(prefix + "static int helper(){return 1;}")
     graph = parse_directory(str(tmp_path), "auto")
-    call = next(e for e in graph.edges if e.kind == EdgeKind.CALLS and e.source_id == "app:run")
-    assert call.target_id == "first:helper"
+    app = rf"app\.{source}"
+    first = rf"first\.{header}"
+    call = next(e for e in graph.edges if e.kind == EdgeKind.CALLS and e.source_id == f"{app}:run")
+    assert call.target_id == f"{first}:helper"
     assert not dict(call.attributes).get("include_unverified")
 
 
@@ -42,7 +44,10 @@ def test_extern_header_prevents_unverified_static_fallback(
         f'#include "ext.{header}"\nint run(){{return helper(1);}}'
     )
     graph = parse_directory(str(tmp_path), "auto")
-    call = next(e for e in graph.edges if e.kind == EdgeKind.CALLS and e.source_id == "b.main:run")
+    module = rf"b.main\.{source}"
+    call = next(
+        e for e in graph.edges if e.kind == EdgeKind.CALLS and e.source_id == f"{module}:run"
+    )
     assert call.target_id.startswith("proxy.")
 
 
@@ -52,7 +57,7 @@ def test_unverified_header_fallback_is_marked(tmp_path: Path) -> None:
     (tmp_path / "util.h").write_text("static int helper(){return 1;}")
     graph = parse_directory(str(tmp_path), "c")
     call = next(e for e in graph.edges if e.kind == EdgeKind.CALLS)
-    assert call.target_id == "util:helper"
+    assert call.target_id == r"util\.h:helper"
     assert dict(call.attributes)["include_unverified"] is True
 
 

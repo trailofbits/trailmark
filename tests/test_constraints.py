@@ -1070,7 +1070,7 @@ def test_unverified_bindings_require_one_explicit_mapping(tmp_path: Path) -> Non
         "int target(int x) { return x; }\nint caller() { return target(7); }\n"
     )
     engine = QueryEngine.from_directory(str(tmp_path), language="c")
-    site = engine._store.call_sites("app:caller")[0]
+    site = engine._store.call_sites("app\\.c:caller")[0]
     engine.annotate_constraint(
         "caller",
         site.id,

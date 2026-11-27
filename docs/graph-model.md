@@ -245,10 +245,18 @@ IDs have the form `module:function`, `module:Class`, or `module:Class.method`.
   parsing uses the file stem instead (`token`); `__init__.py` uses its parent
   directory's name. Languages with declared packages or namespaces can use
   those identities instead, as described below.
+- **C-family directory module IDs** always include the escaped file extension:
+  `src/lib.cpp` becomes `src.lib\.cpp`, and `src/lib.h` becomes `src.lib\.h`.
+  The same rule applies to C (`src.lib\.c`) and Objective-C (`src.lib\.m`).
+  Adding a header or another file with the same stem does not rename existing
+  C-family nodes. Single-file parsing retains the file stem. C++ qualified declaration
+  IDs use `.` for both inline and out-of-line members, such as
+  `src.lib\.cpp:lib.Box.run`; the source spelling remains available in names
+  for definitions whose owner cannot be identified.
 - **Colliding module IDs** include an escaped file extension. If `app.py` and
   `app.rs` both exist, their modules are `app\.py` and `app\.rs`. If `pkg.py`
   and `pkg/__init__.py` both exist, they are `pkg\.py` and `pkg.__init__\.py`.
-  Module IDs that do not collide keep the plain form.
+  Other module IDs that do not collide keep the plain form.
 - **Nested declarations** include their owners: Java nested classes are
   `module:Outer.Inner`, and Solidity contract-level structs and enums are
   `module:Contract.Name`.
@@ -269,6 +277,15 @@ IDs have the form `module:function`, `module:Class`, or `module:Class.method`.
 
 Position-based suffixes change when code above the declaration changes, so
 `trailmark diff` reports the declaration as removed and added.
+
+When upgrading from 0.9.1, rebuild C-family graphs and snapshots, then refresh node IDs
+in `links.toml`, `entrypoints.toml`, saved queries, and annotations. Previously
+uncolliding C-family directory modules gain their extensions, and C++ qualified
+declaration IDs replace `::` with `.`. Old IDs are not aliases for the new IDs.
+Other file-based frontends retain the collision-dependent rule above: keep their
+selected source scope fixed while reusing saved IDs, or regenerate configs and
+queries after adding colliding filenames. A graph's IDs describe its selected
+source scope, not a permanent global symbol registry.
 
 ## Proxy nodes
 

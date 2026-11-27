@@ -342,12 +342,6 @@ def _extract_struct(
         return
     struct_id = f"{module_id}:{struct_name}"
     existing = graph.nodes.get(struct_id)
-    if (
-        existing is not None
-        and existing.kind == NodeKind.STRUCT
-        and node.child_by_field_name("body") is None
-    ):
-        return
     location = make_location(node, file_path)
 
     unit = CodeUnit(
@@ -355,6 +349,9 @@ def _extract_struct(
         name=struct_name,
         kind=NodeKind.STRUCT,
         location=location,
+        attributes=(
+            (("declaration_only", True),) if node.child_by_field_name("body") is None else ()
+        ),
     )
     add_type(graph, unit)
     if existing is None or existing.kind != NodeKind.STRUCT:
@@ -381,6 +378,9 @@ def _extract_enum(
         name=enum_name,
         kind=NodeKind.ENUM,
         location=location,
+        attributes=(
+            (("declaration_only", True),) if node.child_by_field_name("body") is None else ()
+        ),
     )
     add_type(graph, unit)
     add_contains_edge(graph, module_id, enum_id)

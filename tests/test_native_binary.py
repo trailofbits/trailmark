@@ -102,8 +102,8 @@ def test_folded_functions_keep_each_source_alias(options: BinaryImportOptions) -
     assert node is not None and node.name.startswith("sub_")
     at = engine.source_at_address(left[0]["artifact_id"], left[0]["start"])
     assert {m["source_node_id"] for m in at if m["source_node_id"]} == {
-        "folded:folded_left",
-        "folded:folded_right",
+        "folded\\.c:folded_left",
+        "folded\\.c:folded_right",
     }
     assert all(
         e.confidence.value == "inferred"
@@ -131,7 +131,11 @@ def test_folded_aliases_respect_explicit_priority_and_ambiguity(
             {
                 "sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
                 "mappings": [
-                    {"source_node_id": "folded:folded_left", "start": address, "end": address + 4}
+                    {
+                        "source_node_id": "folded\\.c:folded_left",
+                        "start": address,
+                        "end": address + 4,
+                    }
                 ],
             }
         )
@@ -152,7 +156,7 @@ def test_folded_aliases_respect_explicit_priority_and_ambiguity(
                 "sha256": hashlib.sha256(stripped.read_bytes()).hexdigest(),
                 "mappings": [
                     {
-                        "source_node_id": "folded:folded_left",
+                        "source_node_id": "folded\\.c:folded_left",
                         "start": address + 1,
                         "end": address + 2,
                     }
@@ -165,11 +169,11 @@ def test_folded_aliases_respect_explicit_priority_and_ambiguity(
     artifact = partial.binary_artifacts()[0]["id"]
     for point in (address, address + 2, address + 3):
         assert {m["source_node_id"] for m in partial.source_at_address(artifact, point)} == {
-            "folded:folded_left",
-            "folded:folded_right",
+            "folded\\.c:folded_left",
+            "folded\\.c:folded_right",
         }
     assert {m["source_node_id"] for m in partial.source_at_address(artifact, address + 1)} == {
-        "folded:folded_left"
+        "folded\\.c:folded_left"
     }
     for name in ("a", "b"):
         (tmp_path / f"{name}.c").write_text("int folded_left(int v) { return v; }")
