@@ -19,7 +19,16 @@
     "src/trailmark/parsers/_call_sites.py": "*",
     "src/trailmark/parsers/_evidence.py": "*",
     "src/trailmark/models/graph.py": "*",
-    "src/trailmark/storage/graph_store.py": "*"
+    "src/trailmark/storage/graph_store.py": "*",
+    "src/trailmark/parse.py": [
+      "_assign_root_identity",
+      "_namespace_root",
+      "_remap_call_sites",
+      "_remap_call_sites.remap"
+    ],
+    "src/trailmark/analysis/proxies.py": [
+      "_connect_deferred_calls"
+    ]
   },
   "exceptions": [
     {
@@ -45,15 +54,15 @@
       "reason": "Equivalent in the parser workflow: this helper only recurses into itself or supplies _extract_import. A no-match result is propagated unchanged through recursion and tested for truthiness before appending a dependency. Both an empty string and None suppress that append. Nonempty identifier returns and import deduplication have behavioral regressions and are not exempted."
     },
     {
-      "fingerprint": "7b06fb3a8469d93bc50d3dbc72a947b22b112e89ae26df63d566288461dc3aee",
+      "fingerprint": "8568d2d85ed6b3e5851498e1af964b3e02878cef293d9a5afe69116f59dbe425",
       "function": "<module>",
       "line": 59,
       "mutated": "False",
       "operator": "boolean",
       "original": "True",
       "path": "src/trailmark/parsers/_common.py",
-      "source_hash": "e572e504a4eb705f8f3236bd01fbcbc79e7d67980be1f2cf7312b3630d0a4fa4",
-      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, stored in a private ContextVar, read by directory parsing and module ID planning, and reset in finally. directory_sources yields None rather than exposing the record. No consumer rebinds its fields or hashes, serializes, or compares the record. Mutable nested maps remain equally mutable under either decorator. Re-reviewed against the current source and graph callers during exception-evidence review preparation; public NativeGrammar immutability remains separately tested and is not exempted. Re-reviewed after syntax-diagnostic coalescing and capping: those changes do not alter this private record or its readers; the module-level fingerprint changed because it includes the whole source file. Re-reviewed after planned_source was added: it reads the same private record maps without rebinding or exposing record fields; simplifying its redundant membership check does not change this mutability equivalence. Re-reviewed when merging the Thrift exact-target guard with planned_source: both source changes leave this private record, its consumers and its mutability behavior unchanged. Only the existing decorator exception fingerprint is refreshed; no exception or scope is added. Re-reviewed after source fingerprints and literal function-reference linking: neither change modifies the private planning record or exposes it through analysis snapshots. The existing mutability equivalence remains unchanged; only its whole-module fingerprint is refreshed."
+      "source_hash": "864971e7ae6979b8d6098400c0676993ab08797ca5f52baf85a387cbe91cd6aa",
+      "reason": "Equivalent private planning-record mutability: _DirectorySources is constructed with all fields, stored in a private ContextVar, read by directory parsing and module ID planning, and reset in finally. directory_sources yields None rather than exposing the record. No consumer rebinds its fields or hashes, serializes, or compares the record. Mutable nested maps remain equally mutable under either decorator. Re-reviewed against the current source and graph callers during exception-evidence review preparation; public NativeGrammar immutability remains separately tested and is not exempted. Re-reviewed after syntax-diagnostic coalescing and capping: those changes do not alter this private record or its readers; the module-level fingerprint changed because it includes the whole source file. Re-reviewed after planned_source was added: it reads the same private record maps without rebinding or exposing record fields; simplifying its redundant membership check does not change this mutability equivalence. Re-reviewed when merging the Thrift exact-target guard with planned_source: both source changes leave this private record, its consumers and its mutability behavior unchanged. Only the existing decorator exception fingerprint is refreshed; no exception or scope is added. Re-reviewed after source fingerprints and literal function-reference linking: neither change modifies the private planning record or exposes it through analysis snapshots. The existing mutability equivalence remains unchanged; only its whole-module fingerprint is refreshed. Re-reviewed for PR #220 review fixes: helper extraction and fingerprint caching preserve this equivalence and its stated producer invariants."
     },
     {
       "fingerprint": "9383335aec94247d07f2737ee8ecb4f67e119d4122dbc909c45bfba7d6ce49e9",
@@ -89,33 +98,33 @@
       "reason": "Equivalent after the explicit fixed-tuple length check immediately above: both input and type lists have equal lengths before zip runs. strict=True and strict=False therefore visit the same pairs and raise the same item-validation errors for every supported snapshot input. Wrong tuple lengths remain rejected before this iterator; malformed tuples and element types are covered by snapshot regressions. No other decoder mutation is exempted. Origin-aware node-location validation leaves this equal-length precondition unchanged. Re-reviewed after adding recursive constraint aliases: fixed tuple lengths are still checked before zip; aliases do not bypass that guard."
     },
     {
-      "fingerprint": "c4a10c16d7f6a40b3c3cc6c61f764e13f3bee2c46cfec03532b73df76cdedde2",
-      "source_hash": "6f68e142c400f4aaa21c93c4dc4ddc29d87baa1926980ecff0676f93833a9fb6",
+      "fingerprint": "57c7ccafed50b126e8c628d4fefc4f01528b07f4121465988bbe0dcdcdbac2f1",
+      "source_hash": "c3bce48443477c62f6e5b80a55ce672717ade810229e42a9894fc2bd26344add",
       "path": "src/trailmark/models/graph.py",
       "function": "<module>",
       "line": 46,
       "operator": "boolean",
       "original": "False",
       "mutated": "True",
-      "reason": "Representation-only private-cache change: this flag controls whether ParseState or saved revision receipts appear in the generated CodeGraph debug repr. Queries, equality, graph fingerprints and both JSON serializers read explicit data fields and never consume repr(CodeGraph). The private cache has no published repr contract. Equality exclusion is separately tested and is not exempted; no public model immutability or constraint metadata is exempted."
+      "reason": "Representation-only private-cache change: this flag controls whether ParseState or saved revision receipts appear in the generated CodeGraph debug repr. Queries, equality, graph fingerprints and both JSON serializers read explicit data fields and never consume repr(CodeGraph). The private cache has no published repr contract. Equality exclusion is separately tested and is not exempted; no public model immutability or constraint metadata is exempted. Re-reviewed for PR #220 review fixes: helper extraction and fingerprint caching preserve this equivalence and its stated producer invariants."
     },
     {
-      "fingerprint": "e11fb75a413bee02fb417dccc335aac6c0b5e3742d8debc3469d2e6f859f860f",
-      "source_hash": "6f68e142c400f4aaa21c93c4dc4ddc29d87baa1926980ecff0676f93833a9fb6",
+      "fingerprint": "871e057d420bdec3a82b3c582cfda3dced50bfd616ecbf1114aa69fb4f66cdc6",
+      "source_hash": "c3bce48443477c62f6e5b80a55ce672717ade810229e42a9894fc2bd26344add",
       "path": "src/trailmark/models/graph.py",
       "function": "<module>",
       "line": 47,
       "operator": "boolean",
       "original": "False",
       "mutated": "True",
-      "reason": "Representation-only private-cache change: this flag controls whether ParseState or saved revision receipts appear in the generated CodeGraph debug repr. Queries, equality, graph fingerprints and both JSON serializers read explicit data fields and never consume repr(CodeGraph). The private cache has no published repr contract. Equality exclusion is separately tested and is not exempted; no public model immutability or constraint metadata is exempted."
+      "reason": "Representation-only private-cache change: this flag controls whether ParseState or saved revision receipts appear in the generated CodeGraph debug repr. Queries, equality, graph fingerprints and both JSON serializers read explicit data fields and never consume repr(CodeGraph). The private cache has no published repr contract. Equality exclusion is separately tested and is not exempted; no public model immutability or constraint metadata is exempted. Re-reviewed for PR #220 review fixes: helper extraction and fingerprint caching preserve this equivalence and its stated producer invariants."
     },
     {
       "fingerprint": "9a661ba7c87dd2776bbe554476eb702662fd5f0b1ae5f7c6e70962226b6d3673",
       "source_hash": "2115c5f54659e769cc066db8ae2f9e7eb79cbe453505577c11c57c0ab5360abd",
       "path": "src/trailmark/storage/graph_store.py",
       "function": "GraphStore.binary_ranges_for_node",
-      "line": 347,
+      "line": 374,
       "operator": "comparison",
       "original": "mapping.start < end",
       "mutated": "mapping.start <= end",
@@ -126,7 +135,7 @@
       "source_hash": "2115c5f54659e769cc066db8ae2f9e7eb79cbe453505577c11c57c0ab5360abd",
       "path": "src/trailmark/storage/graph_store.py",
       "function": "GraphStore.binary_ranges_for_node",
-      "line": 347,
+      "line": 374,
       "operator": "comparison",
       "original": "start < mapping.end",
       "mutated": "start <= mapping.end",
@@ -137,62 +146,62 @@
       "source_hash": "44ba7c7b7d7a2cf2de0d6ff2ecf0336eea8eb1609dde8780497d770b26af0316",
       "path": "src/trailmark/storage/graph_store.py",
       "function": "GraphStore.connect_subgraphs",
-      "line": 735,
+      "line": 766,
       "operator": "boolean",
       "original": "not source_ids or not target_ids",
       "mutated": "not source_ids and (not target_ids)",
       "reason": "Equivalent empty-input shortcut: if either named subgraph is empty, the following nested source/target loops emit no paths and return the same empty list even when this early return does not run. max_depth validation remains before the guard. Nonempty traversal, trivial shared-node paths and deduplication remain gated."
     },
     {
-      "fingerprint": "c61bd651f419d91670b4efb97452e1156521eff952db373372ea6ca78a852c08",
-      "source_hash": "26fa29e34f733d1de7c69abe7444cdb684651f769b01bef03baefd84fe1722f2",
+      "fingerprint": "560c16ee9ac0b823ab254506165916d3c2b3815b9b6cd15a813e627a7df0ea10",
+      "source_hash": "db7f5da00a882f5d42f9857bc51b5649714c5ad58740380ac1c6d286e00abab2",
       "path": "src/trailmark/parsers/_call_sites.py",
-      "function": "_operands",
-      "line": 175,
+      "function": "_direct_operands",
+      "line": 198,
       "operator": "boundary",
-      "original": "len(parts) >= 2",
-      "mutated": "len(parts) >= 1",
-      "reason": "Equivalent for published application forms: these registered grammar application nodes contain a callee and at least one operand/suffix when they produce a CALLS edge. A lone identifier is a reference rather than such an application. The lower bound change cannot change extraction for an admitted application; malformed parse paths retain source_parse_errors and cannot establish a summary. Other arity and operand mutations remain gated."
+      "original": "len(node.named_children) >= 2",
+      "mutated": "len(node.named_children) >= 1",
+      "reason": "Equivalent for published application forms: these registered grammar application nodes contain a callee and at least one operand/suffix when they produce a CALLS edge. A lone identifier is a reference rather than such an application. The lower bound change cannot change extraction for an admitted application; malformed parse paths retain source_parse_errors and cannot establish a summary. Other arity and operand mutations remain gated. Re-reviewed for PR #220 review fixes: helper extraction and fingerprint caching preserve this equivalence and its stated producer invariants."
     },
     {
-      "fingerprint": "199d3d784ce9a4692131046cf3bb077c6b9e44606d4773de164ad43fad7aad98",
-      "source_hash": "26fa29e34f733d1de7c69abe7444cdb684651f769b01bef03baefd84fe1722f2",
+      "fingerprint": "8ec2f92e9690583b16ce4895763894e5ce08d0592c0e04b40ddde9cd66d8fbfe",
+      "source_hash": "b27af79e0e4a1ffbb16fcbfa5442cb185a7452066d407fe6a9100c5317df664b",
       "path": "src/trailmark/parsers/_call_sites.py",
-      "function": "_operands",
-      "line": 180,
+      "function": "_parenthesized_operands",
+      "line": 179,
       "operator": "comparison",
       "original": "opening < closing",
       "mutated": "opening <= closing",
-      "reason": "Equivalent token identity boundary: opening and closing are indices of different children whose types are '(' and ')'. One child cannot have both types, so the indices can never be equal. Both comparisons admit exactly the same token ranges. Reversed/missing bounds and punctuation filtering remain gated."
+      "reason": "Equivalent token identity boundary: opening and closing are indices of different children whose types are '(' and ')'. One child cannot have both types, so the indices can never be equal. Both comparisons admit exactly the same token ranges. Reversed/missing bounds and punctuation filtering remain gated. Re-reviewed for PR #220 review fixes: helper extraction and fingerprint caching preserve this equivalence and its stated producer invariants."
     },
     {
-      "fingerprint": "4d3647e5e92dbd8b11a787c45c791fac49ebad58563923f0745770bb7e408a1e",
-      "source_hash": "ab29eac8cfff2a856db943630ed9f0c747c6ff77d0c7950d2de3c8d9bbe2a9b2",
+      "fingerprint": "169cb50d6270fba6ec7c60da6e0fbdf2095c0cc8f726f73f6ce0e29176ce2490",
+      "source_hash": "9def65c5ac997581f2d94857a98d82b5ac5896ae4abfb827c0e50b7b5833a222",
       "path": "src/trailmark/parsers/_call_sites.py",
-      "function": "_argument",
-      "line": 214,
+      "function": "_labelled_argument",
+      "line": 249,
       "operator": "boolean",
       "original": "node.child_by_field_name('name') or node.child_by_field_name('label')",
       "mutated": "node.child_by_field_name('name') and node.child_by_field_name('label')",
-      "reason": "Equivalent label lookup for the registered labelled-argument grammars: if this field lookup no longer supplies the label, the immediately following separator or label/name_colon/value_argument_label wrapper path recovers that same source node. Exact labels, value bytes, comments and units have frontend regressions. This exception covers only the redundant lookup, not either fallback or operand selection."
+      "reason": "Equivalent label lookup for the registered labelled-argument grammars: if this field lookup no longer supplies the label, the immediately following separator or label/name_colon/value_argument_label wrapper path recovers that same source node. Exact labels, value bytes, comments and units have frontend regressions. This exception covers only the redundant lookup, not either fallback or operand selection. Re-reviewed for PR #220 review fixes: helper extraction and fingerprint caching preserve this equivalence and its stated producer invariants."
     },
     {
-      "fingerprint": "2f8534c32c0db2891605fc9c95f5393bbe28220e95ec09cf1424e8b524f5b803",
-      "source_hash": "ab29eac8cfff2a856db943630ed9f0c747c6ff77d0c7950d2de3c8d9bbe2a9b2",
+      "fingerprint": "21ea876fd4226d91e229ba53856d41e9b65463eff21501ecdc7115cd7604ab88",
+      "source_hash": "9def65c5ac997581f2d94857a98d82b5ac5896ae4abfb827c0e50b7b5833a222",
       "path": "src/trailmark/parsers/_call_sites.py",
-      "function": "_argument",
-      "line": 224,
+      "function": "_labelled_argument",
+      "line": 259,
       "operator": "boolean",
       "original": "child.is_named and 'comment' not in child.type",
       "mutated": "child.is_named or 'comment' not in child.type",
-      "reason": "Equivalent pre-separator fallback for registered named-argument forms: the first child before the separator is the named label; other forms supply an explicit label field or wrapper. Leading argument-list comments belong outside that label node, and comments after the label do not change the first selected child. Value-side comment filtering remains independently tested and is not exempted. Re-review when adding a grammar with a different label production."
+      "reason": "Equivalent pre-separator fallback for registered named-argument forms: the first child before the separator is the named label; other forms supply an explicit label field or wrapper. Leading argument-list comments belong outside that label node, and comments after the label do not change the first selected child. Value-side comment filtering remains independently tested and is not exempted. Re-review when adding a grammar with a different label production. Re-reviewed for PR #220 review fixes: helper extraction and fingerprint caching preserve this equivalence and its stated producer invariants."
     },
     {
       "fingerprint": "f2f4517fd8d9d3dc387074f9dce6ba56b7cb163b27dc46bfbdc341cfccec1951",
       "source_hash": "2f2034d027695c3cd23362047c68f7601f6fb4fa33097fa045d23319d9827a50",
       "path": "src/trailmark/parsers/_call_sites.py",
       "function": "_dart_prefix",
-      "line": 317,
+      "line": 350,
       "operator": "boolean",
       "original": "not prefix or prefix[0].type in selectors",
       "mutated": "not prefix and prefix[0].type in selectors",
@@ -203,33 +212,33 @@
       "source_hash": "2f2034d027695c3cd23362047c68f7601f6fb4fa33097fa045d23319d9827a50",
       "path": "src/trailmark/parsers/_call_sites.py",
       "function": "_dart_prefix",
-      "line": 318,
+      "line": 351,
       "operator": "return",
       "original": "return (node.start_byte, None)",
       "mutated": "return",
       "reason": "Unreachable defensive fallback through the registered Dart frontend: it emits an argument-selector call edge only after _resolve_dart_callee or the detached-arrow resolver found its adjacent callee prefix. After selector normalization, this helper therefore receives a prefix containing a named primary expression, not an empty or selector-only sequence. Exact bare/member/chained/parenthesized/literal receivers are tested. Arbitrary unbound CST fragments passed directly to this private helper are outside this exception; re-review if the Dart call producer changes."
     },
     {
-      "fingerprint": "6c43a335157429b1e11ec0b56f7a2f305746c898620a92853b70cb238b0bbd0d",
-      "source_hash": "4e1cf3114d4b7d145383af7ee9ce6f14656bf877a1989e422062399fed45804a",
+      "fingerprint": "8dd64771f9f3b03d7a2152efa803288bdc48a4138d85463b06d74f48cfaab55b",
+      "source_hash": "d2247b7614b20de87e7d6e3a12bf8f1330e11ba52ce10c3c855647bfa5eb4b13",
       "path": "src/trailmark/parsers/_call_sites.py",
-      "function": "collect_call_sites",
-      "line": 464,
+      "function": "_collect_syntax",
+      "line": 501,
       "operator": "comparison",
       "original": "len(node.named_children) > len(syntax[position].named_children)",
       "mutated": "len(node.named_children) >= len(syntax[position].named_children)",
-      "reason": "Equivalent tie choice for the registered occurrence shapes: equal-span, equal-child-count candidates are transparent CST wrappers that yield the same normalized invocation, operands and gaps. Nodes with more named children still win under both comparisons; Dart argument wrappers normalize to their selector before extraction. Exact syntax, receiver and byte-span regressions cover the admitted forms. Re-review this tie exception when adding a new wrapper grammar."
+      "reason": "Equivalent tie choice for the registered occurrence shapes: equal-span, equal-child-count candidates are transparent CST wrappers that yield the same normalized invocation, operands and gaps. Nodes with more named children still win under both comparisons; Dart argument wrappers normalize to their selector before extraction. Exact syntax, receiver and byte-span regressions cover the admitted forms. Re-review this tie exception when adding a new wrapper grammar. Re-reviewed for PR #220 review fixes: helper extraction and fingerprint caching preserve this equivalence and its stated producer invariants."
     },
     {
-      "fingerprint": "77fd2467089404d2e8dd08617dcd846c9d1935d632ffb18559d7c4cf33988c91",
-      "source_hash": "4e1cf3114d4b7d145383af7ee9ce6f14656bf877a1989e422062399fed45804a",
+      "fingerprint": "08014e1930edac9cc4ab63fe5e3a3c95492ac89a24ea2579c8b1cc5720d073a0",
+      "source_hash": "0726387d1e0e4adb01adcb832d8a2f8835af2d20a208313619e62ff6087deb96",
       "path": "src/trailmark/parsers/_call_sites.py",
-      "function": "collect_call_sites",
-      "line": 489,
+      "function": "_invocation_prefix",
+      "line": 517,
       "operator": "boolean",
       "original": "language == 'dart' and invocation.type == 'selector'",
       "mutated": "language == 'dart' or invocation.type == 'selector'",
-      "reason": "Equivalent producer invariant: current Dart call occurrences normalize to selector nodes, and other registered frontends do not supply selector invocation nodes to this branch. Both operands therefore have the same truth value for admitted occurrences. Missing syntax is handled before this branch, with an unknown execution/gap. Re-review if a frontend begins emitting a different Dart call shape or uses selector as its invocation kind."
+      "reason": "Equivalent producer invariant: current Dart call occurrences normalize to selector nodes, and other registered frontends do not supply selector invocation nodes to this branch. Both operands therefore have the same truth value for admitted occurrences. Missing syntax is handled before this branch, with an unknown execution/gap. Re-review if a frontend begins emitting a different Dart call shape or uses selector as its invocation kind. Re-reviewed for PR #220 review fixes: helper extraction and fingerprint caching preserve this equivalence and its stated producer invariants."
     }
   ]
 }

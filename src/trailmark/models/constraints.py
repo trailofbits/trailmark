@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
+from pathlib import PurePosixPath
 from typing import Literal
 
 from trailmark.models.nodes import SourceLocation
@@ -149,58 +150,104 @@ class ConstraintPredicate:
     unit: ConstraintUnit | None = None
 
     def __post_init__(self) -> None:
-        arities = {
-            "type": (1,),
-            "equals": (1,),
-            "range": (2,),
-            "length": (1, 2),
-            "prefix": (1,),
-            "suffix": (1,),
-            "charset": (1,),
-        }
         if (
             not isinstance(self.subject, (ArgumentRef, ParameterRef))
             or not isinstance(self.values, tuple)
             or any(not isinstance(item, ConstraintLiteral) for item in self.values)
         ):
             raise ValueError("Invalid constraint subject or operands")
-        if (
-            self.operation != "one_of"
-            and (self.operation not in arities or len(self.values) not in arities[self.operation])
-            or not self.values
-        ):
+        if self.operation not in _PREDICATE_ARITIES:
+            raise ValueError("Invalid constraint operation or operand count")
+        arities = _PREDICATE_ARITIES[self.operation]
+        if not self.values or (arities and len(self.values) not in arities):
             raise ValueError("Invalid constraint operation or operand count")
         if len({item.sort for item in self.values}) != 1:
             raise ValueError("Constraint operands must have one sort")
-        sort = self.values[0].sort
-        if self.operation == "type" and (
-            sort != "text"
-            or self.values[0].value
-            not in {"bytes", "text", "integer", "real", "boolean", "null", "sequence", "mapping"}
-        ):
-            raise ValueError("Unknown constrained type")
-        if self.operation in {"range", "length"}:
-            if sort not in ({"integer"} if self.operation == "length" else {"integer", "real"}):
-                raise ValueError("Bounds require numeric operands")
-            bounds = [item.value for item in self.values if isinstance(item.value, (int, float))]
-            if len(bounds) == 2 and bounds[0] > bounds[1]:
-                raise ValueError("Constraint bounds are reversed")
-            if self.operation == "length" and any(value < 0 for value in bounds):
-                raise ValueError("Lengths cannot be negative")
-        if self.operation in {"prefix", "suffix", "charset"} and sort not in {"bytes", "text"}:
-            raise ValueError("Sequence predicates require byte or text operands")
-        needs_unit = self.operation in {"length", "prefix", "suffix", "charset"}
-        slice_units = {item.unit for item in self.subject.slices}
-        if len(slice_units) > 1 or (slice_units and needs_unit and slice_units != {self.unit}):
-            raise ValueError("Constraint slice and predicate units differ")
-        if needs_unit and self.unit not in {"bytes", "codepoints", "utf16_code_units", "elements"}:
-            raise ValueError("Sequence predicates require an explicit unit")
-        if not needs_unit and self.unit is not None:
-            raise ValueError("This predicate does not take a unit")
-        if self.operation in {"prefix", "suffix", "charset"} and (
-            sort == "bytes" and self.unit != "bytes" or sort == "text" and self.unit != "codepoints"
-        ):
-            raise ValueError("Sequence literal and predicate units differ")
+        for validate in _PREDICATE_VALIDATORS[self.operation]:
+            validate(self)
+        _validate_predicate_units(self)
+        _validate_sliced_predicate(self)
+
+
+def _validate_type_predicate(predicate: ConstraintPredicate) -> None:
+    value = predicate.values[0]
+    if value.sort != "text" or value.value not in {
+        "bytes",
+        "text",
+        "integer",
+        "real",
+        "boolean",
+        "null",
+        "sequence",
+        "mapping",
+    }:
+        raise ValueError("Unknown constrained type")
+
+
+def _validate_bounds(predicate: ConstraintPredicate) -> None:
+    sort = predicate.values[0].sort
+    allowed = {"integer"} if predicate.operation == "length" else {"integer", "real"}
+    if sort not in allowed:
+        raise ValueError("Bounds require numeric operands")
+    bounds = [item.value for item in predicate.values if isinstance(item.value, (int, float))]
+    if len(bounds) == 2 and bounds[0] > bounds[1]:
+        raise ValueError("Constraint bounds are reversed")
+    if predicate.operation == "length" and any(value < 0 for value in bounds):
+        raise ValueError("Lengths cannot be negative")
+
+
+def _validate_sequence_predicate(predicate: ConstraintPredicate) -> None:
+    sort = predicate.values[0].sort
+    if sort not in {"bytes", "text"}:
+        raise ValueError("Sequence predicates require byte or text operands")
+    if predicate.unit != {"bytes": "bytes", "text": "codepoints"}[sort]:
+        raise ValueError("Sequence literal and predicate units differ")
+
+
+def _validate_predicate_units(predicate: ConstraintPredicate) -> None:
+    needs_unit = predicate.operation in {"length", "prefix", "suffix", "charset"}
+    slice_units = {item.unit for item in predicate.subject.slices}
+    if len(slice_units) > 1 or (slice_units and needs_unit and slice_units != {predicate.unit}):
+        raise ValueError("Constraint slice and predicate units differ")
+    if needs_unit and predicate.unit not in {"bytes", "codepoints", "utf16_code_units", "elements"}:
+        raise ValueError("Sequence predicates require an explicit unit")
+    if not needs_unit and predicate.unit is not None:
+        raise ValueError("This predicate does not take a unit")
+
+
+def _validate_sliced_predicate(predicate: ConstraintPredicate) -> None:
+    if not predicate.subject.slices:
+        return
+    unit = predicate.subject.slices[0].unit
+    sort = {"bytes": "bytes", "codepoints": "text", "utf16_code_units": "text"}.get(unit)
+    if predicate.operation == "range":
+        raise ValueError("Numeric ranges cannot constrain a sequence slice")
+    if predicate.operation in {"equals", "one_of"} and predicate.values[0].sort != sort:
+        raise ValueError("Constraint literal sort cannot describe this sequence slice")
+    if predicate.operation == "type" and predicate.values[0].value not in {sort, "sequence"}:
+        raise ValueError("Constrained type cannot describe this sequence slice")
+
+
+_PREDICATE_ARITIES = {
+    "type": (1,),
+    "equals": (1,),
+    "one_of": (),
+    "range": (2,),
+    "length": (1, 2),
+    "prefix": (1,),
+    "suffix": (1,),
+    "charset": (1,),
+}
+_PREDICATE_VALIDATORS = {
+    "type": (_validate_type_predicate,),
+    "equals": (),
+    "one_of": (),
+    "range": (_validate_bounds,),
+    "length": (_validate_bounds,),
+    "prefix": (_validate_sequence_predicate,),
+    "suffix": (_validate_sequence_predicate,),
+    "charset": (_validate_sequence_predicate,),
+}
 
 
 @dataclass(frozen=True)
@@ -289,11 +336,13 @@ class CallSite:
     execution: Literal["call", "deferred", "unknown"] = "call"
     gaps: tuple[str, ...] = ()
     syntax_bytes: str | None = None
+    source_key: tuple[str, str] = field(kw_only=True)
 
     def __post_init__(self) -> None:
         _source_span(self.location)
         _source_text(self.syntax, self.syntax_bytes)
         validate_digest(self.source_sha256)
+        _validate_source_key(self.source_key)
         if (
             not _named(self.caller_id)
             or not _named(self.language)
@@ -314,15 +363,34 @@ class CallSite:
 
     @cached_property
     def id(self) -> str:
+        caller = self.caller_id.removeprefix(f"{self.source_key[0]}::")
+        caller = caller.partition(":")[2] or caller
         payload = {
-            "caller": self.caller_id,
+            "caller": caller,
             "language": self.language,
-            "location": asdict(self.location),
+            "source_key": self.source_key,
+            "location": (
+                self.location.start_line,
+                self.location.end_line,
+                self.location.start_col,
+                self.location.end_col,
+            ),
             "source_sha256": self.source_sha256,
         }
         return (
             "call:" + hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:24]
         )
+
+
+def _validate_source_key(key: tuple[str, str]) -> None:
+    if not isinstance(key, tuple) or len(key) != 2 or any(not _named(part) for part in key):
+        raise ValueError("Call-site source key requires a root name and relative file")
+    root, path = key
+    relative = PurePosixPath(path)
+    if ":" in root or relative.is_absolute() or ".." in relative.parts or path == ".":
+        raise ValueError("Call-site source key must be relative to its named root")
+    if relative.as_posix() != path:
+        raise ValueError("Call-site source key must use a normalized relative path")
 
 
 @dataclass(frozen=True)

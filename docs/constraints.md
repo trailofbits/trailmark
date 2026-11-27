@@ -93,6 +93,8 @@ Byte literals use lowercase hexadecimal. Text literals use Unicode code points.
 Real constants must be finite. Booleans do not count as integer literals.
 Sequence units are `bytes`, `codepoints`, `utf16_code_units`, or `elements`;
 slice and predicate units must agree. The grammar performs no encoding conversion.
+Sliced subjects remain sequences: byte slices require byte literals, text slices
+require text literals, and numeric ranges or mapping types cannot describe a slice.
 
 Predicate operations are:
 
@@ -130,7 +132,11 @@ Summaries conjoin accepted facts at each call site and disjoin alternative
 incoming sites. They preserve argument correlations conservatively when projecting
 onto one parameter. Negating a fact about another argument supplies no fact about
 the selected argument. An unconstrained possible incoming path yields an unknown
-summary. Contradictory claims do not prove dead code or justify dismissing findings.
+summary. An incoming predicate that simplifies to Boolean `false` produces the gap
+`unsatisfiable_incoming_constraint` and an unknown summary. Summaries do not detect
+semantic contradictions such as `length == 35` together with `length == 36`; those
+claims may remain conditional. Claims cannot establish dead code or justify
+dismissing findings.
 Claims must use the same semantics profile across all incoming sites. Trailmark
 does not translate between profiles; a mixture yields an unknown summary with a
 `conflicting_semantics_profiles` gap, while retaining the original claims.
@@ -175,8 +181,14 @@ unconditional proof status. No automatic inference pass runs in this milestone.
 
 ## Identity and persistence
 
-Call-site identity includes caller, language, source span, and the source-file
-SHA-256 digest. Repeated calls to one callee remain distinct. Target rebinding
+Call-site identity includes caller, language, source span, source-file SHA-256
+digest, and a portable `source_key`: the selected root name and its relative POSIX
+file path. The caller's within-file name identifies its scope; the source key
+identifies the file, independently of checkout-derived module prefixes.
+Single-file analyses use the root name `root` and the file's basename.
+Identical trees with the same root names retain their IDs across checkout paths;
+differently named roots remain distinct. Locations keep absolute paths for display
+and digest lookup. Repeated calls to one callee remain distinct. Target rebinding
 does not rename a source occurrence, but invalidates dependent claims.
 
 `active` means the claim's context matches this graph snapshot, including source
@@ -185,6 +197,11 @@ dependency and binary evidence, diagnostics, and operand evidence. It does not
 check the current filesystem. Use
 `QueryEngine.from_snapshot(snapshot, verify_sources=True)` when claims must match
 current source files. Historical snapshots remain usable without those files.
+
+Storage reuses graph fingerprints while the context is unchanged. Before reuse,
+it compares the fingerprinted containers, including nested source-policy data,
+so direct graph edits also invalidate the cache. Ordinary annotations and named
+subgraphs do not change the constraint context.
 
 Full analysis snapshots use **snapshot format 2** and preserve call sites,
 parameter binding modes, and typed annotations. Format-1 snapshots are rejected;
@@ -197,7 +214,8 @@ Changing context makes stored claims stale rather than deleting them.
 Historical supporting evidence can refer to a changed or excluded source file.
 Reloading preserves that evidence and keeps its claim inactive. New claims require
 current evidence. Reparsing a changed call creates a new occurrence ID; annotations
-are not migrated to that occurrence automatically.
+are not migrated to that occurrence automatically. Portable IDs do not transfer
+claims between parses; a fresh parse has no claims until an agent supplies them.
 Missing-node reads return empty results. Invalid subjects, ownership, grammar,
 evidence references, and conflicting source identities raise `ValueError`.
 

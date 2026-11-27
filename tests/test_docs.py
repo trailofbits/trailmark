@@ -408,6 +408,12 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("README.md", "Constraint annotations (unreleased)"),
     ("docs/constraints.md", "ConstraintClaim.grammar_version"),
     ("docs/constraints.md", "Schema and provenance validation"),
+    ("docs/constraints.md", "unsatisfiable_incoming_constraint"),
+    ("docs/constraints.md", "semantic contradictions such as `length == 35`"),
+    ("docs/constraints.md", "portable `source_key`"),
+    ("docs/constraints.md", "Portable IDs do not transfer"),
+    ("docs/constraints.md", "direct graph edits also invalidate the cache"),
+    ("docs/constraints.md", "Sliced subjects remain sequences"),
     ("docs/constraints.md", "Changing the check to `strlen($bar)`"),
     ("docs/constraints.md", "An unconstrained possible incoming path yields an unknown"),
     (

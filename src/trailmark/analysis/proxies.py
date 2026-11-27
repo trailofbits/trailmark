@@ -30,6 +30,8 @@ def ensure_proxy_nodes(graph: CodeGraph) -> CodeGraph:
 
 def _connect_deferred_calls(graph: CodeGraph) -> None:
     """Expose nested callable bodies without claiming they execute eagerly."""
+    from trailmark.parsers._common import source_path_key
+
     nested = _deferred_callables(graph)
     if not nested:
         return
@@ -59,6 +61,7 @@ def _connect_deferred_calls(graph: CodeGraph) -> None:
                         "",
                         execution="deferred",
                         gaps=("deferred_execution",),
+                        source_key=source_path_key(unit.location.file_path, graph.root_path),
                     )
                 )
 

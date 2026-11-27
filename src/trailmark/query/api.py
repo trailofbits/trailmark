@@ -394,8 +394,6 @@ class QueryEngine:
         description: str = "Call-site input constraint",
     ) -> bool:
         """Save an operand claim; validation checks provenance rather than semantic truth."""
-        from trailmark.analysis.constraints import graph_fingerprint
-
         node_id = self._store.find_node_id(name)
         if node_id is None:
             return False
@@ -404,7 +402,7 @@ class QueryEngine:
         claim = ConstraintClaim(
             call_site_id,
             predicate,
-            graph_fingerprint(self._store._graph),
+            self._store.graph_fingerprint(),
             semantics,
             evidence,
             assumptions,
@@ -416,22 +414,15 @@ class QueryEngine:
 
     def constraints_of(self, name: str) -> list[dict[str, Any]]:
         """Return claims with snapshot-relative freshness, including stale claims."""
-        from trailmark.analysis.constraints import current_claim, graph_fingerprint
-
         node_id = self._store.find_node_id(name)
         if node_id is None:
             return []
-        annotations = self._store.constraints_for(node_id)
-        if not annotations:
-            return []
-        fingerprint = graph_fingerprint(self._store._graph)
         return [
             {
                 **_annotation_to_dict(annotation),
-                "active": current_claim(self._store._graph, annotation.constraint, fingerprint),
+                "active": active,
             }
-            for annotation in annotations
-            if annotation.constraint is not None
+            for annotation, active in self._store.constraint_states(node_id)
         ]
 
     def constraint_summary(

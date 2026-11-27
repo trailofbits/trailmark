@@ -5,14 +5,15 @@ from __future__ import annotations
 import hashlib
 from dataclasses import replace
 from pathlib import Path
+from typing import Literal, NamedTuple
 
 from tree_sitter import Node
 
 from trailmark.models.constraints import CallArgument, CallSite, ParameterBinding
-from trailmark.models.edges import EdgeKind
+from trailmark.models.edges import CodeEdge, EdgeKind
 from trailmark.models.graph import CodeGraph
 from trailmark.models.nodes import CodeUnit, NodeKind, SourceLocation
-from trailmark.parsers._common import make_location
+from trailmark.parsers._common import make_location, source_path_key
 
 _LISTS = frozenset(
     {
@@ -78,8 +79,7 @@ _IMPLICIT = frozenset(
 )
 
 
-def _operands(node: Node) -> tuple[Node, list[Node], bool]:
-    """Return the invocation, explicit operand nodes, and whether arity is known."""
+def _normalize_invocation(node: Node) -> Node:
     if (
         node.type in _LISTS
         and node.parent is not None
@@ -93,88 +93,87 @@ def _operands(node: Node) -> tuple[Node, list[Node], bool]:
         and node.parent.named_children[0] == node
     ):
         node = node.parent
-    invocation = node
-    if (
-        node.type == "expression_statement"
-        and len(node.named_children) == 1
-        and node.named_children[0].type
-        in {"function_call_expression", "call_expression", "method_call_expression"}
-    ):
+    return node
+
+
+def _statement_operands(node: Node) -> tuple[Node, list[Node], bool] | None:
+    if len(node.named_children) == 1 and node.named_children[0].type in {
+        "function_call_expression",
+        "call_expression",
+        "method_call_expression",
+    }:
         _, arguments, known = _operands(node.named_children[0])
-        return invocation, arguments, known
-    if node.type == "message_expression":
-        return (
-            node,
-            [
-                child
-                for index, child in enumerate(node.children)
-                if child.is_named
-                and node.field_name_for_child(index) not in {"receiver", "method"}
-                and "comment" not in child.type
-            ],
-            True,
-        )
-    if node.type == "remote":
-        inner = node.child_by_field_name("fun")
-        if inner is not None:
-            node = inner
+        return node, arguments, known
+    return None
+
+
+def _message_operands(node: Node) -> tuple[Node, list[Node], bool]:
+    return (
+        node,
+        [
+            child
+            for index, child in enumerate(node.children)
+            if child.is_named
+            and node.field_name_for_child(index) not in {"receiver", "method"}
+            and "comment" not in child.type
+        ],
+        True,
+    )
+
+
+_OPERAND_HANDLERS = {
+    "expression_statement": _statement_operands,
+    "message_expression": _message_operands,
+}
+
+
+def _operand_container(node: Node) -> Node | None:
     container = (
         node.child_by_field_name("arguments")
         or node.child_by_field_name("args")
         or node.child_by_field_name("func_arguments")
     )
-    if container is None:
-        container = next((child for child in node.named_children if child.type in _LISTS), None)
-    if container is None:
-        wrappers = [
-            child for child in node.named_children if child.type in {"call_suffix", "argument_part"}
-        ]
-        while wrappers and container is None:
-            wrapper = wrappers.pop()
-            container = next(
-                (child for child in wrapper.named_children if child.type in _LISTS), None
-            )
-            wrappers.extend(
-                child
-                for child in wrapper.named_children
-                if child.type in {"call_suffix", "argument_part"}
-            )
     if container is not None:
-        if node.type in {"function_application", "method_call"} and container.type in {
-            "unit_literal",
-            "parenthesized_expression",
-            "tensor_expression",
-        }:
-            return (
-                invocation,
-                [child for child in container.named_children if "comment" not in child.type],
-                True,
-            )
-        if container.type not in _LISTS:
-            operands = []
-            for field in ("arguments", "args", "func_arguments"):
-                operands.extend(node.children_by_field_name(field))
-            return invocation, operands, True
-        return (
-            invocation,
-            [child for child in container.named_children if "comment" not in child.type],
-            True,
+        return container
+    container = next((child for child in node.named_children if child.type in _LISTS), None)
+    wrappers = [
+        child for child in node.named_children if child.type in {"call_suffix", "argument_part"}
+    ]
+    while wrappers and container is None:
+        wrapper = wrappers.pop()
+        container = next((child for child in wrapper.named_children if child.type in _LISTS), None)
+        wrappers.extend(
+            child
+            for child in wrapper.named_children
+            if child.type in {"call_suffix", "argument_part"}
         )
-    arguments = list(node.children_by_field_name("argument"))
-    if node.type == "apply":
-        arguments = []
-        current = node
-        while current.type == "apply":
-            arguments[0:0] = current.children_by_field_name("argument")
-            current = current.children_by_field_name("function")[0]
-        return invocation, arguments, True
-    if arguments:
-        return node, arguments, True
-    if node.type in _APPLICATIONS:
-        parts = list(node.named_children)
-        if len(parts) >= 2:
-            return node, parts[1:], True
-    # Some grammars put the operands directly between parenthesis tokens.
+    return container
+
+
+def _container_operands(node: Node, container: Node) -> list[Node]:
+    grouped = node.type in {"function_application", "method_call"} and container.type in {
+        "unit_literal",
+        "parenthesized_expression",
+        "tensor_expression",
+    }
+    if grouped or container.type in _LISTS:
+        return [child for child in container.named_children if "comment" not in child.type]
+    return [
+        child
+        for field in ("arguments", "args", "func_arguments")
+        for child in node.children_by_field_name(field)
+    ]
+
+
+def _curried_operands(node: Node) -> list[Node]:
+    arguments = []
+    while node.type == "apply":
+        arguments[0:0] = node.children_by_field_name("argument")
+        node = node.children_by_field_name("function")[0]
+    return arguments
+
+
+def _parenthesized_operands(node: Node) -> tuple[Node, list[Node], bool]:
     opening = next((index for index, child in enumerate(node.children) if child.type == "("), None)
     closing = next((index for index, child in enumerate(node.children) if child.type == ")"), None)
     if opening is not None and closing is not None and opening < closing:
@@ -190,6 +189,32 @@ def _operands(node: Node) -> tuple[Node, list[Node], bool]:
     return node, [], False
 
 
+def _direct_operands(node: Node) -> tuple[Node, list[Node], bool]:
+    if node.type == "apply":
+        return node, _curried_operands(node), True
+    arguments = list(node.children_by_field_name("argument"))
+    if arguments:
+        return node, arguments, True
+    if node.type in _APPLICATIONS and len(node.named_children) >= 2:
+        return node, list(node.named_children)[1:], True
+    return _parenthesized_operands(node)
+
+
+def _operands(node: Node) -> tuple[Node, list[Node], bool]:
+    """Return the invocation, explicit operand nodes, and whether arity is known."""
+    node = _normalize_invocation(node)
+    handler = _OPERAND_HANDLERS.get(node.type)
+    if handler is not None and (result := handler(node)) is not None:
+        return result
+    invocation = node
+    if node.type == "remote":
+        node = node.child_by_field_name("fun") or node
+    container = _operand_container(node)
+    if container is not None:
+        return invocation, _container_operands(node, container), True
+    return _direct_operands(node)
+
+
 def _source_text(data: bytes) -> tuple[str, str | None]:
     try:
         return data.decode(), None
@@ -197,61 +222,76 @@ def _source_text(data: bytes) -> tuple[str, str | None]:
         return data.decode(errors="backslashreplace"), data.hex()
 
 
+def _label_wrapper(node: Node) -> tuple[Node | None, Node | None]:
+    wrapper = next(
+        (
+            child
+            for child in node.named_children
+            if child.type in {"label", "name_colon", "value_argument_label"}
+        ),
+        None,
+    )
+    if wrapper is None:
+        return None, None
+    label = wrapper.named_children[0] if wrapper.named_children else wrapper
+    operand = next(
+        (
+            child
+            for child in node.named_children
+            if child != wrapper and "comment" not in child.type
+        ),
+        None,
+    )
+    return label, operand
+
+
+def _labelled_argument(node: Node) -> tuple[Node | None, Node | None]:
+    label = node.child_by_field_name("name") or node.child_by_field_name("label")
+    operand = node.child_by_field_name("value")
+    separator = next(
+        (index for index, child in enumerate(node.children) if child.type in {":", "="}), None
+    )
+    if separator is not None:
+        label = label or next(
+            (
+                child
+                for child in node.children[:separator]
+                if child.is_named and "comment" not in child.type
+            ),
+            None,
+        )
+        operand = operand or next(
+            (
+                child
+                for child in node.children[separator + 1 :]
+                if child.is_named and "comment" not in child.type
+            ),
+            None,
+        )
+    if label is None:
+        label, wrapped_operand = _label_wrapper(node)
+        operand = operand or wrapped_operand
+    return label, operand
+
+
+def _argument_label(node: Node) -> tuple[Node | None, Node | None]:
+    if node.type in _LABELLED:
+        return _labelled_argument(node)
+    if node.type == "pair":
+        key = node.child_by_field_name("key")
+        if key is not None and key.type == "hash_key_symbol":
+            return key, node.child_by_field_name("value")
+    return None, None
+
+
 def _argument(node: Node, index: int, path: str, data: bytes) -> CallArgument:
-    kind = "positional"
+    kind: Literal["positional", "named", "unpacked"] = "positional"
     name = None
     value = node
     if node.type in _UNPACKED or any(child.type in _UNPACKED for child in node.named_children):
         kind = "unpacked"
-    elif (
-        node.type == "pair"
-        and (key := node.child_by_field_name("key")) is not None
-        and key.type == "hash_key_symbol"
-        and (operand := node.child_by_field_name("value")) is not None
-    ):
-        kind, name, value = "named", _source_text(data[key.start_byte : key.end_byte])[0], operand
-    elif node.type in _LABELLED:
-        label = node.child_by_field_name("name") or node.child_by_field_name("label")
-        operand = node.child_by_field_name("value")
-        separator = next(
-            (index for index, child in enumerate(node.children) if child.type in {":", "="}), None
-        )
-        if separator is not None:
-            label = label or next(
-                (
-                    child
-                    for child in node.children[:separator]
-                    if child.is_named and "comment" not in child.type
-                ),
-                None,
-            )
-            operand = operand or next(
-                (
-                    child
-                    for child in node.children[separator + 1 :]
-                    if child.is_named and "comment" not in child.type
-                ),
-                None,
-            )
-        if label is None:
-            wrapper = next(
-                (
-                    child
-                    for child in node.named_children
-                    if child.type in {"label", "name_colon", "value_argument_label"}
-                ),
-                None,
-            )
-            if wrapper is not None:
-                label = wrapper.named_children[0] if wrapper.named_children else wrapper
-                operand = operand or next(
-                    (
-                        child
-                        for child in node.named_children
-                        if child != wrapper and "comment" not in child.type
-                    ),
-                    None,
-                )
+    else:
+        label, operand = _argument_label(node)
         if label is not None and operand is not None:
             kind, name, value = (
                 "named",
@@ -259,14 +299,7 @@ def _argument(node: Node, index: int, path: str, data: bytes) -> CallArgument:
                 operand,
             )
     expression, raw = _source_text(data[value.start_byte : value.end_byte])
-    return CallArgument(
-        index,
-        expression,
-        make_location(value, path),
-        kind,
-        name,
-        raw,
-    )
+    return CallArgument(index, expression, make_location(value, path), kind, name, raw)
 
 
 def _receiver(node: Node, path: str, data: bytes) -> CallArgument | None:
@@ -337,6 +370,48 @@ def _dart_prefix(node: Node, path: str, data: bytes) -> tuple[int, CallArgument 
     return prefix[0].start_byte, receiver
 
 
+def _parameter_name(parameter: Node) -> Node | None:
+    if parameter.type == "identifier":
+        return parameter
+    return parameter.child_by_field_name("name") or next(
+        (
+            child
+            for child in parameter.named_children
+            if child.type
+            in {"identifier", "variable_name", "list_splat_pattern", "dictionary_splat_pattern"}
+        ),
+        None,
+    )
+
+
+def _parameter_binding(
+    parameter: Node, unit: CodeUnit, data: bytes, language: str, *, keyword_only: bool
+) -> ParameterBinding | None:
+    name = _parameter_name(parameter)
+    if name is None:
+        return None
+    raw_name = data[name.start_byte : name.end_byte].decode().lstrip("*$")
+    formal = next((slot for slot in unit.parameters if slot.name == raw_name), None)
+    if formal is None:
+        return None
+    raw = data[parameter.start_byte : parameter.end_byte].lstrip()
+    if raw.startswith(b"**"):
+        mode = "var_keyword"
+    elif raw.startswith(b"*") or parameter.type == "variadic_parameter":
+        mode = "var_positional"
+    else:
+        mode = "keyword_only" if keyword_only else "positional_or_keyword"
+    preserving = mode not in {"var_positional", "var_keyword"} and (
+        language == "python" or formal.type_ref is None or formal.type_ref.name == "mixed"
+    )
+    return ParameterBinding(raw_name, mode, preserving)
+
+
+def _decorated_binding(slot: ParameterBinding) -> ParameterBinding:
+    mode = slot.kind if slot.kind in {"var_positional", "var_keyword"} else "unknown"
+    return replace(slot, kind=mode, value_preserving=False)
+
+
 def _signature(
     node: Node, unit: CodeUnit, data: bytes, language: str
 ) -> tuple[ParameterBinding, ...] | None:
@@ -345,57 +420,178 @@ def _signature(
         return None
     slots = []
     keyword_only = False
+    decorated = node.parent is not None and node.parent.type == "decorated_definition"
     for parameter in parameters.named_children:
         if parameter.type == "positional_separator":
             slots = [replace(slot, kind="positional_only") for slot in slots]
-            continue
-        if parameter.type == "keyword_separator":
+        elif parameter.type == "keyword_separator":
             keyword_only = True
-            continue
-        name = (
-            parameter if parameter.type == "identifier" else parameter.child_by_field_name("name")
-        )
-        if name is None:
-            name = next(
-                (
-                    child
-                    for child in parameter.named_children
-                    if child.type
-                    in {
-                        "identifier",
-                        "variable_name",
-                        "list_splat_pattern",
-                        "dictionary_splat_pattern",
-                    }
-                ),
-                None,
-            )
-        if name is None:
-            continue
-        raw_name = data[name.start_byte : name.end_byte].decode().lstrip("*$")
-        if raw_name not in {slot.name for slot in unit.parameters}:
-            continue
-        raw = data[parameter.start_byte : parameter.end_byte].lstrip()
-        if raw.startswith(b"**"):
-            mode = "var_keyword"
-        elif raw.startswith(b"*") or parameter.type == "variadic_parameter":
-            mode = "var_positional"
-            keyword_only = True
-        else:
-            mode = "keyword_only" if keyword_only else "positional_or_keyword"
-        formal = next(slot for slot in unit.parameters if slot.name == raw_name)
-        preserving = mode not in {"var_positional", "var_keyword"} and (
-            language == "python" or formal.type_ref is None or formal.type_ref.name == "mixed"
-        )
-        if node.parent is not None and node.parent.type == "decorated_definition":
-            if mode not in {"var_positional", "var_keyword"}:
-                mode = "unknown"
-            preserving = False
-        slots.append(ParameterBinding(raw_name, mode, preserving))
+        elif (
+            slot := _parameter_binding(parameter, unit, data, language, keyword_only=keyword_only)
+        ) is not None:
+            keyword_only = keyword_only or slot.kind == "var_positional"
+            slots.append(_decorated_binding(slot) if decorated else slot)
     return (
         tuple(slots)
         if tuple(slot.name for slot in slots) == tuple(slot.name for slot in unit.parameters)
         else None
+    )
+
+
+type _Position = tuple[int, int | None, int, int | None]
+
+
+def _position(location: SourceLocation) -> _Position:
+    return location.start_line - 1, location.start_col, location.end_line - 1, location.end_col
+
+
+def _application_edge(edge: CodeEdge, graph: CodeGraph) -> bool:
+    return edge.kind == EdgeKind.CALLS or (
+        edge.kind == EdgeKind.REFERENCES
+        and (reference := graph._parse_state.reference(edge)) is not None
+        and reference.application
+    )
+
+
+def _source_edges(graph: CodeGraph, path: str) -> list[CodeEdge]:
+    return [
+        edge
+        for edge in graph.edges
+        if _application_edge(edge, graph)
+        and (
+            edge.location is not None
+            and edge.location.file_path == path
+            or edge.location is None
+            and edge.source_id in graph.nodes
+            and graph.nodes[edge.source_id].location.file_path == path
+        )
+    ]
+
+
+def _signature_declarations(graph: CodeGraph, path: str) -> dict[_Position, CodeUnit]:
+    if graph.language not in {"python", "php"}:
+        return {}
+    return {
+        _position(unit.location): unit
+        for unit in graph.nodes.values()
+        if unit.location.file_path == path and unit.kind in {NodeKind.FUNCTION, NodeKind.METHOD}
+    }
+
+
+def _collect_syntax(
+    root: Node,
+    graph: CodeGraph,
+    declarations: dict[_Position, CodeUnit],
+    wanted: set[_Position],
+    data: bytes,
+) -> dict[_Position, Node]:
+    syntax: dict[_Position, Node] = {}
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        start, end = node.start_point, node.end_point
+        position = start.row, start.column, end.row, end.column
+        if position in declarations:
+            unit = declarations[position]
+            profile = _signature(node, unit, data, graph.language)
+            if profile is not None:
+                graph.parameter_bindings[unit.id] = profile
+        if position in wanted and (
+            position not in syntax
+            or len(node.named_children) > len(syntax[position].named_children)
+        ):
+            syntax[position] = node
+        pending.extend(node.named_children)
+    return syntax
+
+
+def _dart_selector(node: Node) -> Node:
+    while node.parent is not None and node.parent.type in {"argument_part", "selector"}:
+        node = node.parent
+    return node
+
+
+def _invocation_prefix(
+    invocation: Node, language: str, path: str, data: bytes
+) -> tuple[int, CallArgument | None, list[str]]:
+    if language == "dart" and invocation.type == "selector":
+        start, receiver = _dart_prefix(invocation, path, data)
+        gaps = ["call_prefix_unavailable"] if start == invocation.start_byte else []
+        return start, receiver, gaps
+    return invocation.start_byte, _receiver(invocation, path, data), []
+
+
+class _Invocation(NamedTuple):
+    text: str = ""
+    raw: str | None = None
+    arguments: tuple[CallArgument, ...] = ()
+    receiver: CallArgument | None = None
+    gaps: tuple[str, ...] = ()
+
+
+def _invocation_site(node: Node, language: str, path: str, data: bytes) -> _Invocation:
+    node = _dart_selector(node) if language == "dart" else node
+    invocation, operands, known = _operands(node)
+    start, receiver, gaps = _invocation_prefix(invocation, language, path, data)
+    text, raw = _source_text(data[start : invocation.end_byte])
+    if raw is not None:
+        gaps.append("source_encoding_unverified")
+    if not known:
+        gaps.append("argument_syntax_unavailable")
+    return _Invocation(
+        text,
+        raw,
+        tuple(_argument(operand, index, path, data) for index, operand in enumerate(operands)),
+        receiver,
+        tuple(gaps),
+    )
+
+
+def _call_site(
+    edge: CodeEdge,
+    graph: CodeGraph,
+    syntax: dict[_Position, Node],
+    data: bytes,
+    *,
+    root: Node,
+    path: str,
+    digest: str,
+    source_key: tuple[str, str],
+) -> CallSite:
+    language = "c_sharp" if graph.language == "csharp" else graph.language
+    deferred = bool(dict(edge.attributes).get("deferred"))
+    location = edge.location or graph.nodes[edge.source_id].location
+    execution = "deferred" if deferred else "call"
+    node = syntax.get(_position(location))
+    if node is None:
+        details = _Invocation(gaps=("call_syntax_unavailable",))
+        execution = "deferred" if deferred else "unknown"
+    else:
+        details = _invocation_site(node, language, path, data)
+    extra_gaps = [
+        gap
+        for present, gap in (
+            (language in _IMPLICIT, "parameter_mapping_unverified"),
+            (
+                any(arg.kind == "unpacked" for arg in details.arguments),
+                "unpacked_argument_mapping_unknown",
+            ),
+            (root.has_error, "source_parse_errors"),
+        )
+        if present
+    ]
+    return CallSite(
+        edge.source_id,
+        language,
+        location,
+        digest,
+        details.text,
+        details.arguments,
+        details.receiver,
+        execution,
+        details.gaps + tuple(extra_gaps),
+        details.raw,
+        source_key=source_key,
     )
 
 
@@ -415,106 +611,16 @@ def collect_call_sites(
     if previous is not None and previous != digest:
         raise ValueError("Conflicting source bytes during call-site collection")
     graph.source_digests[path] = digest
-    edges = [
-        edge
-        for edge in graph.edges
-        if (
-            edge.kind == EdgeKind.CALLS
-            or (
-                edge.kind == EdgeKind.REFERENCES
-                and (reference := graph._parse_state.reference(edge)) is not None
-                and reference.application
-            )
-        )
-        and (
-            edge.location is not None
-            and edge.location.file_path == path
-            or edge.location is None
-            and graph.nodes.get(edge.source_id) is not None
-            and graph.nodes[edge.source_id].location.file_path == path
-        )
-    ]
-
-    def key(location: SourceLocation) -> tuple[int, int | None, int, int | None]:
-        return location.start_line - 1, location.start_col, location.end_line - 1, location.end_col
-
-    declarations = {
-        key(unit.location): unit
-        for unit in graph.nodes.values()
-        if graph.language in {"python", "php"}
-        and unit.location.file_path == path
-        and unit.kind in {NodeKind.FUNCTION, NodeKind.METHOD}
-    }
+    edges = _source_edges(graph, path)
+    declarations = _signature_declarations(graph, path)
     if not edges and not declarations:
         return
-    wanted = {key(edge.location) for edge in edges if edge.location is not None}
-    syntax: dict[tuple[int, int | None, int, int | None], Node] = {}
-    pending = [root]
-    while pending:
-        node = pending.pop()
-        start, end = node.start_point, node.end_point
-        position = start.row, start.column, end.row, end.column
-        if position in declarations:
-            unit = declarations[position]
-            profile = _signature(node, unit, data, graph.language)
-            if profile is not None:
-                graph.parameter_bindings[unit.id] = profile
-        if position in wanted and (
-            position not in syntax
-            or len(node.named_children) > len(syntax[position].named_children)
-        ):
-            syntax[position] = node
-        pending.extend(node.named_children)
-    language = "c_sharp" if graph.language == "csharp" else graph.language
+    wanted = {_position(edge.location) for edge in edges if edge.location is not None}
+    syntax = _collect_syntax(root, graph, declarations, wanted, data)
+    source_key = source_path_key(path, graph.root_path)
     for edge in edges:
-        gaps = []
-        deferred = bool(dict(edge.attributes).get("deferred"))
-        execution = "deferred" if deferred else "call"
-        location = edge.location or graph.nodes[edge.source_id].location
-        node = syntax.get(key(location))
-        arguments = ()
-        receiver = None
-        text = ""
-        raw = None
-        if node is None:
-            gaps.append("call_syntax_unavailable")
-            execution = "deferred" if deferred else "unknown"
-        else:
-            if language == "dart":
-                while node.parent is not None and node.parent.type in {"argument_part", "selector"}:
-                    node = node.parent
-            invocation, operands, known = _operands(node)
-            start = invocation.start_byte
-            receiver = _receiver(invocation, path, data)
-            if language == "dart" and invocation.type == "selector":
-                start, receiver = _dart_prefix(invocation, path, data)
-                if start == invocation.start_byte:
-                    gaps.append("call_prefix_unavailable")
-            text, raw = _source_text(data[start : invocation.end_byte])
-            if raw is not None:
-                gaps.append("source_encoding_unverified")
-            arguments = tuple(
-                _argument(operand, index, path, data) for index, operand in enumerate(operands)
-            )
-            if not known:
-                gaps.append("argument_syntax_unavailable")
-        if language in _IMPLICIT:
-            gaps.append("parameter_mapping_unverified")
-        if any(argument.kind == "unpacked" for argument in arguments):
-            gaps.append("unpacked_argument_mapping_unknown")
-        if root.has_error:
-            gaps.append("source_parse_errors")
-        site = CallSite(
-            edge.source_id,
-            language,
-            location,
-            digest,
-            text,
-            arguments,
-            receiver,
-            execution,
-            tuple(gaps),
-            raw,
+        site = _call_site(
+            edge, graph, syntax, data, root=root, path=path, digest=digest, source_key=source_key
         )
         if edge.kind == EdgeKind.REFERENCES:
             graph._parse_state.call_sites[site.id] = site

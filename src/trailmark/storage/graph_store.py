@@ -47,6 +47,7 @@ class GraphStore:
 
     def __init__(self, graph: CodeGraph) -> None:
         self._graph = graph
+        self._fingerprint_cache: tuple[dict[str, object], str] | None = None
         for key, site in graph.call_sites.items():
             if key != site.id:
                 raise ValueError("Call-site key does not match its source identity")
@@ -98,6 +99,28 @@ class GraphStore:
             else []
         )
 
+    def graph_fingerprint(self) -> str:
+        """Reuse the hash while detecting edits to every fingerprinted container."""
+        from trailmark.analysis.constraints import graph_context, graph_fingerprint
+
+        context = graph_context(self._graph)
+        if self._fingerprint_cache is None or self._fingerprint_cache[0] != context:
+            self._fingerprint_cache = (context, graph_fingerprint(self._graph, context=context))
+        return self._fingerprint_cache[1]
+
+    def constraint_states(self, node_id: str) -> list[tuple[Annotation, bool]]:
+        from trailmark.analysis.constraints import current_claim
+
+        annotations = self.constraints_for(node_id)
+        if not annotations:
+            return []
+        fingerprint = self.graph_fingerprint()
+        return [
+            (annotation, current_claim(self._graph, annotation.constraint, fingerprint))
+            for annotation in annotations
+            if annotation.constraint is not None
+        ]
+
     def constraint_summary(
         self, node_id: str, parameter: int, *, assumptions: tuple[str, ...] = ()
     ) -> ConstraintSummary | None:
@@ -105,7 +128,9 @@ class GraphStore:
 
         if node_id not in self._graph.nodes:
             return None
-        return summarize(self._graph, node_id, parameter, assumptions)
+        return summarize(
+            self._graph, node_id, parameter, assumptions, fingerprint=self.graph_fingerprint()
+        )
 
     def to_snapshot(
         self,
@@ -149,6 +174,7 @@ class GraphStore:
             if node_id is not None and node_id not in self._graph.nodes:
                 raise ValueError(f"Unknown entrypoint evidence node: {node_id}")
         self._graph.add_entrypoint_evidence(evidence)
+        self._fingerprint_cache = None
 
     def parse_diagnostics(self) -> list[ParseDiagnostic]:
         """Return source analysis diagnostics as immutable model objects."""
@@ -160,6 +186,7 @@ class GraphStore:
 
     def rebuild_index(self) -> None:
         """Rebuild all rustworkx indexes after graph nodes or edges change."""
+        self._fingerprint_cache = None
         self._digraph: rx.PyDiGraph[str, CodeEdge] = rx.PyDiGraph()
         self._id_to_idx: dict[str, int] = {}
         self._idx_to_id: dict[int, str] = {}
@@ -645,7 +672,11 @@ class GraphStore:
         """
         if self._node(node_id) is None:
             return False
-        self._graph.add_annotation(node_id, annotation)
+        self._graph.add_annotation(
+            node_id,
+            annotation,
+            _fingerprint=self.graph_fingerprint() if annotation.constraint is not None else None,
+        )
         return True
 
     def annotations_for(self, node_id: str) -> list[Annotation]:

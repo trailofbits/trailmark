@@ -29,7 +29,15 @@ pytestmark = pytest.mark.mutation_fast
 _LOCATION = SourceLocation("app.py", 1, 1, 0, 6)
 _DIGEST = "0123456789abcdef" * 4
 _ARGUMENT = CallArgument(0, "value", _LOCATION)
-_SITE = CallSite("app:caller", "python", _LOCATION, _DIGEST, "target(value)", (_ARGUMENT,))
+_SITE = CallSite(
+    "app:caller",
+    "python",
+    _LOCATION,
+    _DIGEST,
+    "target(value)",
+    (_ARGUMENT,),
+    source_key=("root", "app.py"),
+)
 _VALUE = ConstraintLiteral("integer", 0)
 _PREDICATE = ConstraintPredicate(ArgumentRef(0), "equals", (_VALUE,))
 _EVIDENCE = ConstraintEvidence(_LOCATION, _DIGEST)
@@ -127,6 +135,23 @@ def test_sequence_predicates_preserve_literal_and_slice_units(
     assert predicate.values == (literal,)
     with pytest.raises(ValueError):
         replace(predicate, unit="elements")
+
+
+@pytest.mark.parametrize(
+    ("operation", "values"),
+    [
+        ("equals", (ConstraintLiteral("text", "abc"),)),
+        ("one_of", (ConstraintLiteral("integer", 1),)),
+        ("range", (ConstraintLiteral("integer", 1), ConstraintLiteral("integer", 3))),
+        ("type", (ConstraintLiteral("text", "mapping"),)),
+    ],
+)
+def test_sliced_bytes_reject_predicates_with_incompatible_sorts(
+    operation: Any, values: tuple[ConstraintLiteral, ...]
+) -> None:
+    subject = ArgumentRef(0, slices=(ConstraintSlice(0, 3, "bytes"),))
+    with pytest.raises(ValueError):
+        ConstraintPredicate(subject, operation, values)
 
 
 @pytest.mark.parametrize(
@@ -263,15 +288,79 @@ def test_source_display_is_lossless_for_non_utf8_bytes() -> None:
 
 
 def test_call_identity_is_canonical_and_changes_with_source_context() -> None:
-    assert _SITE.id == "call:d6751336ada2918147ed968b"
+    assert _SITE.id == "call:32e463655b8b2cacb1c6701f"
     variants = (
         replace(_SITE, caller_id="app:other"),
         replace(_SITE, language="php"),
         replace(_SITE, location=replace(_LOCATION, start_col=1)),
         replace(_SITE, source_sha256="f" * 64),
+        replace(_SITE, source_key=("dependency", "app.py")),
+        replace(_SITE, source_key=("root", "nested/app.py")),
     )
-    assert len({_SITE.id, *(site.id for site in variants)}) == 5
+    assert len({_SITE.id, *(site.id for site in variants)}) == 7
     assert replace(_SITE, syntax="another display").id == _SITE.id
+    assert replace(_SITE, caller_id="root::elsewhere:caller").id == _SITE.id
+    assert (
+        replace(_SITE, location=replace(_LOCATION, file_path="/other/checkout/app.py")).id
+        == _SITE.id
+    )
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        None,
+        [],
+        ("root",),
+        ("root", "app.py", "extra"),
+        ("", "app.py"),
+        ("root", 1),
+        ("bad:root", "app.py"),
+        ("root", "/app.py"),
+        ("root", "../app.py"),
+        ("root", "."),
+        ("root", "nested//app.py"),
+    ],
+)
+def test_call_site_source_keys_require_a_named_root_and_normalized_relative_file(key: Any) -> None:
+    with pytest.raises(ValueError):
+        replace(_SITE, source_key=key)
+
+
+@pytest.mark.parametrize(
+    ("unit", "sort", "value"),
+    [
+        ("bytes", "bytes", "616263"),
+        ("codepoints", "text", "abc"),
+        ("utf16_code_units", "text", "abc"),
+    ],
+)
+@pytest.mark.parametrize("operation", ["equals", "one_of"])
+def test_sliced_sequence_literals_keep_the_corresponding_sort(
+    unit: Any, sort: Any, value: str, operation: Any
+) -> None:
+    subject = ParameterRef(0, slices=(ConstraintSlice(0, 3, unit),))
+    predicate = ConstraintPredicate(subject, operation, (ConstraintLiteral(sort, value),))
+    assert predicate.subject == subject
+
+
+@pytest.mark.parametrize("unit", ["bytes", "codepoints", "utf16_code_units", "elements"])
+def test_slice_can_be_constrained_as_a_sequence(unit: Any) -> None:
+    subject = ArgumentRef(0, slices=(ConstraintSlice(0, None, unit),))
+    predicate = ConstraintPredicate(subject, "type", (ConstraintLiteral("text", "sequence"),))
+    assert predicate.subject == subject
+
+
+def test_type_predicates_still_reject_incompatible_nested_slice_units() -> None:
+    subject = ArgumentRef(
+        0,
+        slices=(
+            ConstraintSlice(0, 3, "bytes"),
+            ConstraintSlice(0, 1, "codepoints"),
+        ),
+    )
+    with pytest.raises(ValueError, match="units differ"):
+        ConstraintPredicate(subject, "type", (ConstraintLiteral("text", "sequence"),))
 
 
 def test_unverified_and_alias_frontend_profiles_remain_explicit() -> None:

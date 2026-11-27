@@ -313,6 +313,58 @@ def test_func_argument_groups_do_not_hide_or_invent_operands(
     assert "argument_syntax_unavailable" not in site.gaps
 
 
+def test_unsupported_statement_locations_preserve_an_explicit_arity_gap(tmp_path: Path) -> None:
+    from trailmark.parsers._common import make_location
+
+    path = tmp_path / "app.cs"
+    data = b"class App { void Caller() { Target(7); } }"
+    path.write_bytes(data)
+    graph = parse_file(str(path), "c_sharp")
+    graph.call_sites.clear()
+    root = get_parser("c_sharp").parse(data).root_node
+    pending = [root]
+    while (node := pending.pop()).type != "expression_statement":
+        pending.extend(node.named_children)
+    graph.edges = [
+        replace(edge, location=make_location(node, str(path)))
+        if edge.kind == EdgeKind.CALLS
+        else edge
+        for edge in graph.edges
+    ]
+    collect_call_sites(root, str(path), graph, source=data)
+    (site,) = graph.call_sites.values()
+    assert site.syntax == "Target(7);"
+    assert site.arguments == ()
+    assert "argument_syntax_unavailable" in site.gaps
+
+
+def test_ruby_string_keyed_hash_arguments_keep_the_whole_value(tmp_path: Path) -> None:
+    path = tmp_path / "app.rb"
+    path.write_text('def caller(value); target("key" => value); end\n')
+    graph = parse_file(str(path), "ruby")
+    (site,) = graph.call_sites.values()
+    assert [(arg.kind, arg.name, arg.expression) for arg in site.arguments] == [
+        ("positional", None, '"key" => value'),
+    ]
+
+
+def test_signature_evidence_is_never_borrowed_from_another_file(tmp_path: Path) -> None:
+    path = tmp_path / "app.py"
+    data = b"def caller(value): return target(value)\n"
+    path.write_bytes(data)
+    graph = parse_file(str(path), "python")
+    own = graph.nodes["app:caller"]
+    foreign = replace(
+        own,
+        id="other:caller",
+        location=replace(own.location, file_path=str(tmp_path / "other.py")),
+    )
+    graph.nodes[foreign.id] = foreign
+    collect_call_sites(get_parser("python").parse(data).root_node, str(path), graph, source=data)
+    assert "app:caller" in graph.parameter_bindings
+    assert "other:caller" not in graph.parameter_bindings
+
+
 def test_statement_locations_retain_the_invocations_operands(tmp_path: Path) -> None:
     from trailmark.parsers._common import make_location
 

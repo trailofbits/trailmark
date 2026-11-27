@@ -7,6 +7,7 @@ import json
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -30,6 +31,7 @@ from trailmark.models import (
     EntrypointKind,
     EntrypointTag,
     NodeKind,
+    ParameterRef,
     SourceLocation,
 )
 from trailmark.models.constraint_support import CONSTRAINT_LANGUAGES
@@ -75,6 +77,314 @@ def save(
         source="llm",
         reviewed=reviewed,
     )
+
+
+@pytest.mark.parametrize(
+    "predicate",
+    [ConstraintBoolean("false"), ConstraintBoolean("not", (ConstraintBoolean("true"),))],
+)
+@pytest.mark.parametrize("second_caller", [False, True])
+@pytest.mark.parametrize("reviewed", [False, True])
+def test_impossible_incoming_claim_does_not_establish_dead_code(
+    engine: QueryEngine, predicate: ConstraintExpr, second_caller: bool, reviewed: bool
+) -> None:
+    if not second_caller:
+        graph = engine._store._graph
+        graph.edges = [edge for edge in graph.edges if edge.source_id != "app:right"]
+        engine._store.rebuild_index()
+    site = engine._store.call_sites("app:left")[0]
+    engine.annotate_constraint(
+        "left",
+        site.id,
+        predicate,
+        semantics="python-3.15:text",
+        evidence=(ConstraintEvidence(site.location, site.source_sha256),),
+        reviewed=reviewed,
+    )
+    if second_caller:
+        save(engine, "right", "beta")
+    assumptions = (
+        ("complete_callers",) if reviewed else ("complete_callers", "accept_asserted_constraints")
+    )
+    summary = engine.constraint_summary("target", 0, assumptions=assumptions)
+    assert summary["status"] == "unknown"
+    assert summary["predicate"] == {"operation": "true", "terms": ()}
+    assert "unsatisfiable_incoming_constraint" in summary["gaps"]
+
+
+@pytest.mark.parametrize("excluded", ["unaccepted", "stale"])
+def test_excluded_false_claim_does_not_add_an_unsatisfiable_gap(
+    engine: QueryEngine, excluded: str
+) -> None:
+    site = engine._store.call_sites("app:left")[0]
+    engine.annotate_constraint(
+        "left",
+        site.id,
+        ConstraintBoolean("false"),
+        semantics="python-3.15:text",
+        evidence=(ConstraintEvidence(site.location, site.source_sha256),),
+    )
+    if excluded == "stale":
+        engine._store._graph.dependencies.append("changed")
+    assumptions = (
+        ("complete_callers", "accept_asserted_constraints")
+        if excluded == "stale"
+        else ("complete_callers",)
+    )
+    result = engine.constraint_summary("target", 0, assumptions=assumptions)
+    assert "unsatisfiable_incoming_constraint" not in result["gaps"]
+    assert result["status"] == "unknown"
+
+
+def test_constraint_calls_reuse_one_fingerprint_until_context_changes(engine: QueryEngine) -> None:
+    from trailmark.analysis.constraints import graph_fingerprint
+
+    with patch(
+        "trailmark.analysis.constraints.graph_fingerprint", wraps=graph_fingerprint
+    ) as compute:
+        save(engine, "left", "alpha")
+        save(engine, "right", "beta")
+        assert engine.constraints_of("left")[0]["active"]
+        assert (
+            engine.constraint_summary("target", 0, assumptions=("complete_callers",))["status"]
+            == "conditional"
+        )
+        assert compute.call_count == 1
+        engine._store._graph.dependencies.append("changed")
+        assert not engine.constraints_of("left")[0]["active"]
+        assert compute.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "writer", ["entrypoint", "binary", "call_site", "merge", "proxy", "rebuild"]
+)
+def test_public_graph_writes_invalidate_cached_constraint_context(
+    engine: QueryEngine, writer: str
+) -> None:
+    from trailmark.analysis.proxies import ensure_proxy_nodes
+
+    graph = engine._store._graph
+    site = engine._store.call_sites("app:left")[0]
+    if writer == "proxy":
+        nested = CodeUnit(
+            "app:left.nested",
+            "nested",
+            NodeKind.FUNCTION,
+            replace(site.location, start_line=3, end_line=3, start_col=0, end_col=8),
+        )
+        graph.nodes[nested.id] = nested
+        graph.edges.append(CodeEdge("app:left", nested.id, EdgeKind.CONTAINS))
+        engine._store.rebuild_index()
+    save(engine, "left", "alpha")
+    fingerprint = engine._store.graph_fingerprint()
+    assert engine.constraints_of("left")[0]["active"]
+    if writer == "entrypoint":
+        engine.add_entrypoint_evidence(
+            EntrypointEvidence(
+                "app:left",
+                "heuristic",
+                "review-test",
+                site.location,
+            )
+        )
+    elif writer == "binary":
+        artifact = BinaryArtifact(
+            "image", "image", "a" * 64, "elf", "aarch64", 64, "little", 0, 0, 16
+        )
+        engine._store.add_binary_graph(CodeGraph(binary_artifacts={artifact.id: artifact}))
+    elif writer == "call_site":
+        graph.add_call_site(replace(site, location=replace(site.location, start_col=1)))
+    elif writer == "merge":
+        graph.merge(CodeGraph(dependencies=["new-dependency"]))
+    elif writer == "proxy":
+        ensure_proxy_nodes(graph)
+    else:
+        graph.nodes["app:left"] = replace(graph.nodes["app:left"], docstring="changed")
+        engine._store.rebuild_index()
+    assert engine._store.graph_fingerprint() != fingerprint
+    assert not engine.constraints_of("left")[0]["active"]
+
+
+def test_nested_source_policy_edits_invalidate_the_fingerprint_cache(engine: QueryEngine) -> None:
+    graph = engine._store._graph
+    graph.source_policy["review"] = {"dependencies": ["original"]}
+    save(engine, "left", "alpha")
+    assert engine.constraints_of("left")[0]["active"]
+    graph.source_policy["review"]["dependencies"].append("changed")
+    assert not engine.constraints_of("left")[0]["active"]
+
+
+def test_annotations_and_subgraphs_preserve_a_cached_constraint_context(
+    engine: QueryEngine,
+) -> None:
+    from trailmark.analysis.constraints import graph_fingerprint
+
+    save(engine, "left", "alpha")
+    with patch(
+        "trailmark.analysis.constraints.graph_fingerprint", wraps=graph_fingerprint
+    ) as compute:
+        engine._store.add_annotation(
+            "app:left", Annotation(AnnotationKind.ASSUMPTION, "note", "manual")
+        )
+        engine._store.add_subgraph("reviewed", {"app:left"})
+        assert engine.constraints_of("left")[0]["active"]
+        assert compute.call_count == 0
+
+
+@pytest.mark.parametrize("value", [object(), CodeUnit, SourceLocation("app.py", 1, 1)])
+def test_fingerprint_rejects_unsupported_source_policy_values(
+    engine: QueryEngine, value: object
+) -> None:
+    engine._store._graph.source_policy["invalid"] = value
+    with pytest.raises(TypeError, match="Unsupported constraint context"):
+        engine._store.graph_fingerprint()
+
+
+def test_stored_claim_cannot_use_a_summary_parameter_reference(engine: QueryEngine) -> None:
+    site = engine._store.call_sites("app:left")[0]
+    with pytest.raises(ValueError, match="observed operand"):
+        engine.annotate_constraint(
+            "left",
+            site.id,
+            ConstraintPredicate(ParameterRef(0), "equals", (literal("x"),)),
+            semantics="python:text",
+            evidence=(ConstraintEvidence(site.location, site.source_sha256),),
+        )
+
+
+def test_receiver_claims_can_be_saved_and_restored(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text('def caller(data): return data.get("key")\n')
+    engine = QueryEngine.from_directory(str(tmp_path))
+    site = engine._store.call_sites("app:caller")[0]
+    predicate = ConstraintPredicate(ArgumentRef(receiver=True), "type", (literal("mapping"),))
+    assert engine.annotate_constraint(
+        "caller",
+        site.id,
+        predicate,
+        semantics="python:mapping",
+        evidence=(ConstraintEvidence(site.location, site.source_sha256),),
+        reviewed=True,
+    )
+    restored = QueryEngine.from_snapshot(engine.to_snapshot(), verify_sources=True)
+    claim = restored.constraints_of("caller")[0]
+    assert claim["active"]
+    assert claim["constraint"]["predicate"]["subject"] == {
+        "index": None,
+        "receiver": True,
+        "slices": (),
+    }
+
+
+def test_method_identity_assumptions_do_not_replace_argument_mapping(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "class Target:\n    def method(self, value): return value\n"
+        "    def caller(self, value): return self.method(value)\n"
+    )
+    engine = QueryEngine.from_directory(str(tmp_path))
+    save(engine, "Target.caller", "alpha")
+    site = engine.call_sites("Target.caller")[0]
+    result = engine.constraint_summary(
+        "Target.method",
+        0,
+        assumptions=(
+            "complete_callers",
+            f"identity_parameter_value:{site['id']}:0",
+        ),
+    )
+    assert result["status"] == "unknown"
+    assert "parameter_binding_unknown" in result["gaps"]
+
+
+@pytest.mark.parametrize("single_file", [False, True])
+@pytest.mark.parametrize("relative_path", ["nested/app.py", "__init__.py"])
+def test_call_site_ids_are_portable_between_identical_checkouts(
+    tmp_path: Path, single_file: bool, relative_path: str
+) -> None:
+    from trailmark.parse import parse_file
+
+    sites = []
+    for checkout in ("first", "second"):
+        root = tmp_path / checkout
+        source = root / relative_path
+        source.parent.mkdir(parents=True)
+        source.write_text("def caller(x):\n    target(x)\ndef target(y): return y\n")
+        graph = parse_file(str(source)) if single_file else parse_directory(str(root))
+        engine = QueryEngine.from_graph(graph)
+        site = engine.call_sites("caller")[0]
+        sites.append(site)
+        restored = QueryEngine.from_snapshot(engine.to_snapshot())
+        assert restored.call_sites("caller")[0]["id"] == site["id"]
+    assert sites[0]["location"]["file_path"] != sites[1]["location"]["file_path"]
+    assert sites[0]["id"] == sites[1]["id"]
+    expected_path = Path(relative_path).name if single_file else relative_path
+    assert sites[0]["source_key"] == ("root", expected_path)
+
+
+def test_call_site_identity_includes_the_selected_root_name(tmp_path: Path) -> None:
+    from trailmark.source_policy import SourcePolicy, SourceRoot
+
+    (tmp_path / "app.py").write_text("def caller(x):\n    target(x)\ndef target(y): return y\n")
+    sites = [
+        QueryEngine.from_directory(
+            str(tmp_path), source_policy=SourcePolicy((SourceRoot(str(tmp_path), name),))
+        ).call_sites("caller")[0]
+        for name in ("application", "dependency")
+    ]
+    assert sites[0]["id"] != sites[1]["id"]
+    assert sites[0]["source_key"] == ("application", "app.py")
+    assert sites[1]["source_key"] == ("dependency", "app.py")
+    assert [site["caller_id"] for site in sites] == ["app:caller", "app:caller"]
+
+
+def test_named_roots_keep_distinct_portable_call_site_identities(tmp_path: Path) -> None:
+    from trailmark.source_policy import SourcePolicy, SourceRoot
+
+    identities = []
+    for checkout in ("first", "second"):
+        roots = []
+        for name in ("application", "dependency"):
+            root = tmp_path / checkout / name
+            (root / "nested").mkdir(parents=True)
+            (root / "nested" / "app.py").write_text(
+                "def caller(x):\n    target(x)\ndef target(y): return y\n"
+            )
+            roots.append(SourceRoot(str(root), name))
+        engine = QueryEngine.from_directory(str(tmp_path), source_policy=SourcePolicy(tuple(roots)))
+        graph = engine._store._graph
+        keys = {site.source_key for site in graph.call_sites.values()}
+        assert keys == {("application", "nested/app.py"), ("dependency", "nested/app.py")}
+        assert {site.caller_id for site in graph.call_sites.values()} == {
+            "application::nested.app:caller",
+            "dependency::nested.app:caller",
+        }
+        restored = QueryEngine.from_snapshot(engine.to_snapshot())
+        assert set(restored._store._graph.call_sites) == set(graph.call_sites)
+        identities.append(set(graph.call_sites))
+    assert len(identities[0]) == 2
+    assert identities[0] == identities[1]
+
+
+def test_summary_does_not_claim_to_detect_semantic_contradictions(engine: QueryEngine) -> None:
+    graph = engine._store._graph
+    graph.edges = [edge for edge in graph.edges if edge.source_id != "app:right"]
+    engine._store.rebuild_index()
+    site = engine._store.call_sites("app:left")[0]
+    for length in (35, 36):
+        predicate = ConstraintPredicate(
+            ArgumentRef(0), "length", (ConstraintLiteral("integer", length),), "bytes"
+        )
+        engine.annotate_constraint(
+            "left",
+            site.id,
+            predicate,
+            semantics="python:bytes",
+            evidence=(ConstraintEvidence(site.location, site.source_sha256),),
+            reviewed=True,
+        )
+    summary = engine.constraint_summary("target", 0, assumptions=("complete_callers",))
+    assert summary["status"] == "conditional"
+    assert summary["predicate"]["operation"] == "and"
+    assert "unsatisfiable_incoming_constraint" not in summary["gaps"]
 
 
 def test_call_sites_and_claims_follow_the_three_layers(engine: QueryEngine) -> None:
@@ -954,6 +1264,7 @@ def test_call_occurrences_sort_by_columns_before_their_opaque_ids() -> None:
             replace(location, start_col=col, end_col=col + 8),
             "0" * 64,
             "target()",
+            source_key=("root", "app.py"),
         )
         for col in range(0, 80, 10)
     ]

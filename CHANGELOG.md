@@ -7,6 +7,10 @@
   workflow. Source gaps and unverified assumptions remain explicit.
 - Advance full analysis snapshots to format 2 for constraint evidence and
   parameter binding modes; rebuild format-1 snapshots.
+- Keep Boolean-false incoming constraints unknown with an explicit gap, and
+  reject predicates whose literal sorts cannot describe a sequence slice.
+- Give call sites portable identities based on named roots and relative files.
+  Reuse graph fingerprints for constraint operations while detecting context edits.
 
 ## 0.9.1 (2026-11-24)
 

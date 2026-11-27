@@ -106,12 +106,20 @@ class CodeGraph:
         self,
         node_id: str,
         annotation: Annotation,
+        *,
+        _fingerprint: str | None = None,
     ) -> None:
         """Append an annotation to the given node."""
         if annotation.constraint is not None:
             from trailmark.analysis.constraints import validate_claim
 
-            validate_claim(self, node_id, annotation.constraint, require_current=True)
+            validate_claim(
+                self,
+                node_id,
+                annotation.constraint,
+                require_current=True,
+                fingerprint=_fingerprint,
+            )
         self.annotations.setdefault(node_id, []).append(annotation)
 
     def add_call_site(self, site: CallSite) -> None:
