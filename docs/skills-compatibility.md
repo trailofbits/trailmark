@@ -67,6 +67,20 @@ Selected dependency roots and effective exclusions are exposed by
   the owner as a caller and `summary()["call_edges"]` counts deferred edges. Consumers
   needing to exclude them must inspect raw graph edges before traversal.
 
+## Constraint annotations (unreleased)
+
+Feature-detect all five methods before enabling this workflow: `call_sites()`,
+`annotate_constraint()`, `constraints_of()`, `constraint_summary()`, and
+`constraint_support()`. The typed models use constraint grammar version 1; full
+analysis persistence uses snapshot format 2. Reparse older snapshots rather than
+inventing the missing operands or parameter bindings.
+
+Follow the [constraint workflow](constraints.md#agent-workflow), inspect frontend
+capabilities, and preserve every assumption and gap in a summary. Claims remain
+agent assertions or review attestations. An active claim matches the saved graph
+context; it does not establish semantic truth or current filesystem contents.
+Automatic constraint inference is not supported in this milestone.
+
 ## Finding and state workflows
 
 Bind Solidity storage declarations as `state_variable` nodes and inspect

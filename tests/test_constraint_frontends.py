@@ -20,6 +20,8 @@ pytestmark = pytest.mark.mutation_fast
 def test_all_frontend_call_occurrences_keep_provenance(language: str, basename: str) -> None:
     path, _ = fixture_pair(language, basename)
     graph = parse_file(str(path), language)
+    if language not in {"python", "php"}:
+        assert graph.parameter_bindings == {}
     calls = {
         (edge.source_id, edge.location)
         for edge in graph.edges
@@ -27,6 +29,11 @@ def test_all_frontend_call_occurrences_keep_provenance(language: str, basename: 
     }
     sites = {(site.caller_id, site.location) for site in graph.call_sites.values()}
     assert calls <= sites
+    assert {
+        (site.caller_id, site.location)
+        for site in graph.call_sites.values()
+        if site.execution == "call"
+    } <= calls
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     for key, site in graph.call_sites.items():
         assert key == site.id
@@ -38,6 +45,8 @@ def test_all_frontend_call_occurrences_keep_provenance(language: str, basename: 
             assert argument.expression
         if site.execution != "call":
             assert site.gaps
+        if language == "masm":
+            assert "argument_syntax_unavailable" in site.gaps
     if constraint_support_for(language).call_sites in {"not_applicable", "unsupported"}:
         assert not calls
         assert not sites
@@ -66,7 +75,7 @@ def test_nonempty_operands_in_frontends_with_empty_taxonomy_calls(
     path.write_text(source)
     graph = parse_file(str(path), language)
     assert any(
-        argument.expression == ("(7)" if language == "func" else "7")
+        argument.expression == "7"
         for site in graph.call_sites.values()
         for argument in site.arguments
     )

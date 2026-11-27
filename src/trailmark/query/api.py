@@ -421,13 +421,16 @@ class QueryEngine:
         node_id = self._store.find_node_id(name)
         if node_id is None:
             return []
+        annotations = self._store.constraints_for(node_id)
+        if not annotations:
+            return []
         fingerprint = graph_fingerprint(self._store._graph)
         return [
             {
                 **_annotation_to_dict(annotation),
                 "active": current_claim(self._store._graph, annotation.constraint, fingerprint),
             }
-            for annotation in self._store.constraints_for(node_id)
+            for annotation in annotations
             if annotation.constraint is not None
         ]
 

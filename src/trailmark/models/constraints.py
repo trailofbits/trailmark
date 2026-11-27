@@ -6,12 +6,17 @@ import hashlib
 import json
 import math
 from dataclasses import asdict, dataclass
+from functools import cached_property
 from typing import Literal
 
 from trailmark.models.nodes import SourceLocation
 
 type ConstraintUnit = Literal["bytes", "codepoints", "utf16_code_units", "elements"]
 type ConstraintSort = Literal["bytes", "text", "integer", "real", "boolean", "null"]
+
+
+def _named(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
 
 
 def validate_digest(value: str) -> None:
@@ -26,7 +31,7 @@ def validate_digest(value: str) -> None:
 def _source_span(location: SourceLocation) -> None:
     if (
         not isinstance(location, SourceLocation)
-        or not location.file_path
+        or not _named(location.file_path)
         or type(location.start_line) is not int
         or type(location.end_line) is not int
         or location.start_line < 1
@@ -230,8 +235,12 @@ type ConstraintExpr = ConstraintPredicate | ConstraintBoolean
 
 
 def _source_text(text: str, raw: str | None) -> None:
+    if not isinstance(text, str):
+        raise ValueError("Source display text must be a string")
     if raw is None:
         return
+    if not isinstance(raw, str):
+        raise ValueError("Source bytes must be lowercase hexadecimal")
     try:
         data = bytes.fromhex(raw)
     except ValueError as error:
@@ -260,7 +269,9 @@ class CallArgument:
             or self.kind not in {"positional", "named", "unpacked", "implicit"}
         ):
             raise ValueError("Invalid call argument")
-        if not self.expression or (self.kind == "named") != bool(self.name):
+        if not self.expression or (
+            not _named(self.name) if self.kind == "named" else self.name is not None
+        ):
             raise ValueError("Call arguments require expressions and consistent labels")
 
 
@@ -284,8 +295,8 @@ class CallSite:
         _source_text(self.syntax, self.syntax_bytes)
         validate_digest(self.source_sha256)
         if (
-            not self.caller_id
-            or not self.language
+            not _named(self.caller_id)
+            or not _named(self.language)
             or self.execution not in {"call", "deferred", "unknown"}
         ):
             raise ValueError("Invalid call-site owner, language, or execution")
@@ -293,11 +304,15 @@ class CallSite:
             not isinstance(self.arguments, tuple)
             or any(not isinstance(argument, CallArgument) for argument in self.arguments)
             or tuple(arg.index for arg in self.arguments) != tuple(range(len(self.arguments)))
+            or self.receiver is not None
+            and not isinstance(self.receiver, CallArgument)
             or not isinstance(self.gaps, tuple)
+            or any(not _named(gap) for gap in self.gaps)
+            or len(set(self.gaps)) != len(self.gaps)
         ):
             raise ValueError("Call arguments require contiguous source-order indices")
 
-    @property
+    @cached_property
     def id(self) -> str:
         payload = {
             "caller": self.caller_id,
@@ -328,7 +343,7 @@ class ParameterBinding:
     def __post_init__(self) -> None:
         if type(self.value_preserving) is not bool:
             raise ValueError("Value preservation must be a Boolean")
-        if not self.name or self.kind not in {
+        if not _named(self.name) or self.kind not in {
             "positional_only",
             "positional_or_keyword",
             "keyword_only",
@@ -365,8 +380,8 @@ class ConstraintClaim:
     def __post_init__(self) -> None:
         validate_digest(self.graph_fingerprint)
         if (
-            not self.call_site_id
-            or not self.semantics
+            not _named(self.call_site_id)
+            or not _named(self.semantics)
             or not self.evidence
             or type(self.grammar_version) is not int
             or self.grammar_version != 1

@@ -28,9 +28,21 @@ if TYPE_CHECKING:
 def graph_fingerprint(graph: CodeGraph) -> str:
     """Bind claims to sources, selection, bindings, signatures, and operand evidence."""
     payload = {
+        "root": graph.root_path,
+        "language": graph.language,
         "sources": graph.source_digests,
+        "source_file_counts": graph.source_file_counts,
         "policy": graph.source_policy,
+        "dependencies": graph.dependencies,
         "entrypoints": {key: asdict(tag) for key, tag in graph.entrypoints.items()},
+        "entrypoint_evidence": {
+            key: asdict(item) for key, item in graph.entrypoint_evidence.items()
+        },
+        "binary_artifacts": {key: asdict(item) for key, item in graph.binary_artifacts.items()},
+        "binary_ranges": {key: asdict(item) for key, item in graph.binary_ranges.items()},
+        "binary_source_mappings": {
+            key: asdict(item) for key, item in graph.binary_source_mappings.items()
+        },
         "diagnostics": [asdict(item) for item in graph.parse_diagnostics],
         "nodes": {key: asdict(unit) for key, unit in graph.nodes.items()},
         "edges": [asdict(edge) for edge in graph.edges],
@@ -83,21 +95,16 @@ def validate_claim(
             and (subject.index is None or subject.index >= len(site.arguments))
         ):
             raise ValueError("Constraint subject is not an observed operand at this call site")
-    for evidence in claim.evidence:
-        span = evidence.location
-        if (
-            not span.file_path
-            or span.start_line < 1
-            or span.end_line < span.start_line
-            or graph.source_digests.get(span.file_path) != evidence.source_sha256
-        ):
-            raise ValueError("Constraint evidence has an invalid span or unknown source digest")
-    if require_current and claim.graph_fingerprint != graph_fingerprint(graph):
-        raise ValueError("Constraint claim refers to a different graph context")
+    if require_current:
+        for evidence in claim.evidence:
+            if graph.source_digests.get(evidence.location.file_path) != evidence.source_sha256:
+                raise ValueError("Constraint evidence has an unknown source digest")
+        if claim.graph_fingerprint != graph_fingerprint(graph):
+            raise ValueError("Constraint claim refers to a different graph context")
 
 
-def current_claim(graph: CodeGraph, claim: ConstraintClaim, fingerprint: str | None = None) -> bool:
-    return claim.graph_fingerprint == (fingerprint or graph_fingerprint(graph)) and all(
+def current_claim(graph: CodeGraph, claim: ConstraintClaim, fingerprint: str) -> bool:
+    return claim.graph_fingerprint == fingerprint and all(
         graph.source_digests.get(item.location.file_path) == item.source_sha256
         for item in claim.evidence
     )
@@ -144,10 +151,10 @@ def _bound_argument(
     graph: CodeGraph, node_id: str, site: CallSite, parameter: int, assumptions: tuple[str, ...]
 ) -> int | None:
     profile = graph.parameter_bindings.get(node_id)
-    if (
-        profile is not None
-        and parameter < len(profile)
-        and profile[parameter].kind in {"var_positional", "var_keyword"}
+    if profile is not None and (
+        tuple(slot.name for slot in profile)
+        != tuple(slot.name for slot in graph.nodes[node_id].parameters)
+        or profile[parameter].kind in {"var_positional", "var_keyword"}
     ):
         return None
     prefix = f"argument_mapping:{site.id}:{parameter}="
@@ -166,10 +173,8 @@ def _bound_argument(
             and (site.arguments[index].kind not in {"unpacked", "implicit"})
             else None
         )
-    profile = graph.parameter_bindings.get(node_id)
     if (
         profile is None
-        or parameter >= len(profile)
         or graph.nodes[node_id].kind == NodeKind.METHOD
         or any(argument.kind in {"unpacked", "implicit"} for argument in site.arguments)
     ):
@@ -241,7 +246,11 @@ def summarize(
             alternatives.append(ConstraintBoolean("true"))
             gaps.add("parameter_binding_unknown")
             profile = graph.parameter_bindings.get(node_id)
-            if profile is not None and not profile[parameter].value_preserving:
+            if (
+                profile is not None
+                and parameter < len(profile)
+                and not profile[parameter].value_preserving
+            ):
                 gaps.add("parameter_value_conversion_unknown")
             continue
         facts: list[ConstraintExpr] = []

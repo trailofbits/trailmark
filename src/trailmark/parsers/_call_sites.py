@@ -80,6 +80,12 @@ _IMPLICIT = frozenset(
 
 def _operands(node: Node) -> tuple[Node, list[Node], bool]:
     """Return the invocation, explicit operand nodes, and whether arity is known."""
+    if (
+        node.type in _LISTS
+        and node.parent is not None
+        and node.parent.child_by_field_name("arguments") == node
+    ):
+        node = node.parent
     while (
         node.parent is not None
         and node.parent.type in _APPLICATIONS
@@ -134,6 +140,16 @@ def _operands(node: Node) -> tuple[Node, list[Node], bool]:
                 if child.type in {"call_suffix", "argument_part"}
             )
     if container is not None:
+        if node.type in {"function_application", "method_call"} and container.type in {
+            "unit_literal",
+            "parenthesized_expression",
+            "tensor_expression",
+        }:
+            return (
+                invocation,
+                [child for child in container.named_children if "comment" not in child.type],
+                True,
+            )
         if container.type not in _LISTS:
             operands = []
             for field in ("arguments", "args", "func_arguments"):
@@ -145,6 +161,13 @@ def _operands(node: Node) -> tuple[Node, list[Node], bool]:
             True,
         )
     arguments = list(node.children_by_field_name("argument"))
+    if node.type == "apply":
+        arguments = []
+        current = node
+        while current.type == "apply":
+            arguments[0:0] = current.children_by_field_name("argument")
+            current = current.children_by_field_name("function")[0]
+        return invocation, arguments, True
     if arguments:
         return node, arguments, True
     if node.type in _APPLICATIONS:
@@ -180,6 +203,13 @@ def _argument(node: Node, index: int, path: str, data: bytes) -> CallArgument:
     value = node
     if node.type in _UNPACKED or any(child.type in _UNPACKED for child in node.named_children):
         kind = "unpacked"
+    elif (
+        node.type == "pair"
+        and (key := node.child_by_field_name("key")) is not None
+        and key.type == "hash_key_symbol"
+        and (operand := node.child_by_field_name("value")) is not None
+    ):
+        kind, name, value = "named", _source_text(data[key.start_byte : key.end_byte])[0], operand
     elif node.type in _LABELLED:
         label = node.child_by_field_name("name") or node.child_by_field_name("label")
         operand = node.child_by_field_name("value")
@@ -188,10 +218,20 @@ def _argument(node: Node, index: int, path: str, data: bytes) -> CallArgument:
         )
         if separator is not None:
             label = label or next(
-                (child for child in node.children[:separator] if child.is_named), None
+                (
+                    child
+                    for child in node.children[:separator]
+                    if child.is_named and "comment" not in child.type
+                ),
+                None,
             )
             operand = operand or next(
-                (child for child in node.children[separator + 1 :] if child.is_named), None
+                (
+                    child
+                    for child in node.children[separator + 1 :]
+                    if child.is_named and "comment" not in child.type
+                ),
+                None,
             )
         if label is None:
             wrapper = next(
@@ -205,7 +245,12 @@ def _argument(node: Node, index: int, path: str, data: bytes) -> CallArgument:
             if wrapper is not None:
                 label = wrapper.named_children[0] if wrapper.named_children else wrapper
                 operand = operand or next(
-                    (child for child in node.named_children if child != wrapper), None
+                    (
+                        child
+                        for child in node.named_children
+                        if child != wrapper and "comment" not in child.type
+                    ),
+                    None,
                 )
         if label is not None and operand is not None:
             kind, name, value = (
@@ -232,9 +277,64 @@ def _receiver(node: Node, path: str, data: bytes) -> CallArgument | None:
     )
     if receiver is None:
         callee = node.child_by_field_name("function")
+        if callee is None and node.named_children:
+            first = node.named_children[0]
+            if first.type == "navigation_expression":
+                callee = first
         if callee is not None:
-            receiver = callee.child_by_field_name("object") or callee.child_by_field_name("value")
+            fields = {
+                "member_access_expression": "expression",
+                "selector_expression": "operand",
+                "field_expression": "argument",
+                "navigation_expression": "target",
+            }
+            receiver = (
+                callee.child_by_field_name("object")
+                or callee.child_by_field_name("value")
+                or callee.child_by_field_name(fields.get(callee.type, "object"))
+            )
+            if receiver is None and callee.type == "navigation_expression":
+                receiver = callee.named_children[0]
     return _argument(receiver, 0, path, data) if receiver is not None else None
+
+
+def _dart_prefix(node: Node, path: str, data: bytes) -> tuple[int, CallArgument | None]:
+    """Recover a Dart invocation prefix split across sibling selectors."""
+    selectors = {"selector", "unconditional_assignable_selector"}
+    prefix = []
+    previous = node.prev_sibling
+    while previous is not None:
+        if "comment" in previous.type:
+            pass
+        elif previous.type in selectors:
+            prefix.insert(0, previous)
+        elif previous.is_named or previous.type in {"this", "super"}:
+            prefix.insert(0, previous)
+            break
+        else:
+            break
+        previous = previous.prev_sibling
+    if not prefix or prefix[0].type in selectors:
+        return node.start_byte, None
+    receiver = None
+    if prefix[-1].type in selectors and not any(
+        child.type == "argument_part" for child in prefix[-1].named_children
+    ):
+        first, last = prefix[0], prefix[-2]
+        text, raw = _source_text(data[first.start_byte : last.end_byte])
+        receiver = CallArgument(
+            0,
+            text,
+            SourceLocation(
+                path,
+                first.start_point.row + 1,
+                last.end_point.row + 1,
+                first.start_point.column,
+                last.end_point.column,
+            ),
+            expression_bytes=raw,
+        )
+    return prefix[0].start_byte, receiver
 
 
 def _signature(
@@ -334,8 +434,12 @@ def collect_call_sites(
             and graph.nodes[edge.source_id].location.file_path == path
         )
     ]
+
+    def key(location: SourceLocation) -> tuple[int, int | None, int, int | None]:
+        return location.start_line - 1, location.start_col, location.end_line - 1, location.end_col
+
     declarations = {
-        unit.location: unit
+        key(unit.location): unit
         for unit in graph.nodes.values()
         if graph.language in {"python", "php"}
         and unit.location.file_path == path
@@ -343,22 +447,23 @@ def collect_call_sites(
     }
     if not edges and not declarations:
         return
-    wanted = {edge.location for edge in edges if edge.location is not None}
-    syntax: dict[SourceLocation, Node] = {}
+    wanted = {key(edge.location) for edge in edges if edge.location is not None}
+    syntax: dict[tuple[int, int | None, int, int | None], Node] = {}
     pending = [root]
     while pending:
         node = pending.pop()
-        location = make_location(node, path)
-        if location in declarations:
-            unit = declarations[location]
+        start, end = node.start_point, node.end_point
+        position = start.row, start.column, end.row, end.column
+        if position in declarations:
+            unit = declarations[position]
             profile = _signature(node, unit, data, graph.language)
             if profile is not None:
                 graph.parameter_bindings[unit.id] = profile
-        if location in wanted and (
-            location not in syntax
-            or len(node.named_children) > len(syntax[location].named_children)
+        if position in wanted and (
+            position not in syntax
+            or len(node.named_children) > len(syntax[position].named_children)
         ):
-            syntax[location] = node
+            syntax[position] = node
         pending.extend(node.named_children)
     language = "c_sharp" if graph.language == "csharp" else graph.language
     for edge in edges:
@@ -366,7 +471,7 @@ def collect_call_sites(
         deferred = bool(dict(edge.attributes).get("deferred"))
         execution = "deferred" if deferred else "call"
         location = edge.location or graph.nodes[edge.source_id].location
-        node = syntax.get(location)
+        node = syntax.get(key(location))
         arguments = ()
         receiver = None
         text = ""
@@ -375,14 +480,22 @@ def collect_call_sites(
             gaps.append("call_syntax_unavailable")
             execution = "deferred" if deferred else "unknown"
         else:
+            if language == "dart":
+                while node.parent is not None and node.parent.type in {"argument_part", "selector"}:
+                    node = node.parent
             invocation, operands, known = _operands(node)
-            text, raw = _source_text(data[invocation.start_byte : invocation.end_byte])
+            start = invocation.start_byte
+            receiver = _receiver(invocation, path, data)
+            if language == "dart" and invocation.type == "selector":
+                start, receiver = _dart_prefix(invocation, path, data)
+                if start == invocation.start_byte:
+                    gaps.append("call_prefix_unavailable")
+            text, raw = _source_text(data[start : invocation.end_byte])
             if raw is not None:
                 gaps.append("source_encoding_unverified")
             arguments = tuple(
                 _argument(operand, index, path, data) for index, operand in enumerate(operands)
             )
-            receiver = _receiver(invocation, path, data)
             if not known:
                 gaps.append("argument_syntax_unavailable")
         if language in _IMPLICIT:

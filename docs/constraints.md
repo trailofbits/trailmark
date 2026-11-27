@@ -111,6 +111,10 @@ expressions, regular-expression engines, solvers, and general heap relationships
 are outside this grammar. Preserve unsupported reasoning in an explanatory note
 and leave the corresponding constraint unknown.
 
+Byte `prefix`, `suffix`, and `charset` predicates use `bytes`; their text forms
+use `codepoints`. Length predicates and slices also support `utf16_code_units`
+and `elements`. Stored expressions may nest up to 128 levels.
+
 ## Claims and summaries
 
 The `constraint` annotation kind requires a typed `ConstraintClaim` payload.
@@ -157,6 +161,8 @@ Methods, decorated Python functions, and other binding profiles require explicit
 mapping assumptions because receivers and wrappers can change value binding. Unpacking,
 implicit inputs, defaults without a supplied operand, recovered syntax, and missing
 call evidence retain explicit gaps.
+Receiver claims are retained at their source sites; parameter summaries currently
+project supplied argument operands only.
 
 When source operands contain non-UTF-8 bytes, `expression` and `syntax` use escaped
 display text. Their `expression_bytes` and `syntax_bytes` fields retain the original
@@ -174,18 +180,24 @@ SHA-256 digest. Repeated calls to one callee remain distinct. Target rebinding
 does not rename a source occurrence, but invalidates dependent claims.
 
 `active` means the claim's context matches this graph snapshot, including source
-fingerprints, selection policy, signatures, target edges, entrypoints, diagnostics,
-and operand evidence. It does not check the current filesystem. Use
+fingerprints, selection policy, signatures, target edges, entrypoint candidates,
+dependency and binary evidence, diagnostics, and operand evidence. It does not
+check the current filesystem. Use
 `QueryEngine.from_snapshot(snapshot, verify_sources=True)` when claims must match
 current source files. Historical snapshots remain usable without those files.
 
 Full analysis snapshots use **snapshot format 2** and preserve call sites,
 parameter binding modes, and typed annotations. Format-1 snapshots are rejected;
-rebuild them with the same tested Trailmark version. The lightweight `to_json()`
+reparse their sources with this Trailmark version because the older format lacks
+operand and binding evidence. The lightweight `to_json()`
 export continues to omit annotations and full call-site evidence.
 
 Changing context makes stored claims stale rather than deleting them.
 `constraints_of()` exposes stale claims for inspection; summaries exclude them.
+Historical supporting evidence can refer to a changed or excluded source file.
+Reloading preserves that evidence and keeps its claim inactive. New claims require
+current evidence. Reparsing a changed call creates a new occurrence ID; annotations
+are not migrated to that occurrence automatically.
 Missing-node reads return empty results. Invalid subjects, ownership, grammar,
 evidence references, and conflicting source identities raise `ValueError`.
 

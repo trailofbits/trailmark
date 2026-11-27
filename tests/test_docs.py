@@ -415,6 +415,11 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
         "Claims must use the same semantics profile across all incoming sites.",
     ),
     ("docs/constraints.md", "snapshot format 2"),
+    ("docs/constraints.md", "Reloading preserves that evidence and keeps its claim inactive."),
+    (
+        "docs/skills-compatibility.md",
+        "Feature-detect all five methods before enabling this workflow",
+    ),
     ("docs/python-api.md", "constraint_summary(name, parameter, assumptions=())"),
     ("docs/cli.md", "`trailmark augment --json`"),
     ("docs/cli.md", "JSON to stdout"),
