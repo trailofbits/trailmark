@@ -241,7 +241,8 @@ def test_export_markers_belong_to_the_declaration(
 ) -> None:
     (tmp_path / f"app.{extension}").write_text(source)
     engine = QueryEngine.from_directory(str(tmp_path), language=language)
-    assert {entry["node_id"] for entry in engine.attack_surface()} == {"app:exposed"}
+    module = rf"app\.{extension}" if language in {"c", "cpp", "objc"} else "app"
+    assert {entry["node_id"] for entry in engine.attack_surface()} == {f"{module}:exposed"}
 
 
 @pytest.mark.mutation_fast

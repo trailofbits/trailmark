@@ -69,9 +69,11 @@ _DIRECTORY_SOURCES: ContextVar[_DirectorySources | None] = ContextVar(
 )
 
 
-def _relative_module_id(path: Path, root: Path) -> str:
+def _relative_module_id(path: Path, root: Path, *, include_extension: bool) -> str:
     relative = path.relative_to(root)
-    if relative.stem == "__init__":
+    if include_extension:
+        module_path = relative
+    elif relative.stem == "__init__":
         module_path = relative.parent
         if module_path == Path("."):
             return _escape_module_path_part(root.name)
@@ -86,13 +88,17 @@ def directory_sources(
 ) -> Generator[None]:
     """Plan source ownership and module identities before any graph is merged.
 
-    Unique module IDs retain their historical form. Colliding stems use the
+    C-family identities always retain the extension. Other unique module IDs retain
+    their historical form. Colliding stems use the
     full root-relative filename, including its escaped extension. Planning all
     selected languages together makes identities independent of parser order.
     """
     root = _absolute_lexical_path(Path(dir_path))
     absolute_owners = {_absolute_lexical_path(Path(path)): lang for path, lang in owners.items()}
-    module_ids = {path: _relative_module_id(path, root) for path in absolute_owners}
+    module_ids = {
+        path: _relative_module_id(path, root, include_extension=lang in {"c", "cpp", "objc"})
+        for path, lang in absolute_owners.items()
+    }
     # An expanded name can itself meet an unexpanded stem (a.py vs a.py.py).
     # Expand the whole collision group until all relative filenames are unique.
     # Each collision pass expands at least one previously unexpanded path.

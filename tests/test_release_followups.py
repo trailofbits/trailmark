@@ -34,8 +34,10 @@ def test_block_external_prototype_is_scoped(tmp_path: Path, extension: str) -> N
     )
     graph = parse_directory(str(tmp_path), "c" if extension == "c" else "cpp")
     calls = {edge.source_id: edge for edge in _calls(graph)}
-    assert calls["app:run"].target_id != "util:helper"
-    assert calls["app:other"].target_id == "util:helper"
+    app = rf"app\.{extension}"
+    util = r"util\.hpp" if extension == "cpp" else r"util\.h"
+    assert calls[f"{app}:run"].target_id != f"{util}:helper"
+    assert calls[f"{app}:other"].target_id == f"{util}:helper"
 
 
 @pytest.mark.parametrize("language", ["python", "auto"])
@@ -258,8 +260,10 @@ def test_c_prototype_fallback_preserves_verified_includes(
         prefix + "int run(){extern int helper(int);return helper(1);}"
     )
     graph = parse_directory(str(tmp_path), language)
-    edge = next(edge for edge in _calls(graph) if edge.source_id == "app:run")
-    assert (edge.target_id == "util:helper") == include
+    app = rf"app\.{extension}"
+    util = rf"util\.{suffix}"
+    edge = next(edge for edge in _calls(graph) if edge.source_id == f"{app}:run")
+    assert (edge.target_id == f"{util}:helper") == include
 
 
 @pytest.mark.mutation_fast

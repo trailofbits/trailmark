@@ -24,10 +24,12 @@ def test_header_property_backing_ivars_prefer_implementation_methods(tmp_path: P
     calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
 
     assert len(calls) == 2
-    assert {e.target_id for e in calls} == {"Worker:Worker.reset"}
+    assert {e.target_id for e in calls} == {"Worker\\.m:Worker.reset"}
     assert all(e.confidence == EdgeConfidence.INFERRED for e in calls)
     assert len({e.location.start_col for e in calls if e.location}) == 2
-    assert QueryEngine.from_graph(graph).paths_between(calls[0].source_id, "Worker:Worker.reset")
+    assert QueryEngine.from_graph(graph).paths_between(
+        calls[0].source_id, "Worker\\.m:Worker.reset"
+    )
 
 
 def test_explicit_typed_ivar_and_selector_labels_are_retained(tmp_path: Path) -> None:

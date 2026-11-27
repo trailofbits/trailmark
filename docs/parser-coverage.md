@@ -633,3 +633,82 @@ Consecutive proven annotations must lead to that class's exact constructor or
 destructor name. Recovery preserves original bytes, source sites,
 and diagnostics; `cpp_declaration_markers` records each excluded token and role.
 Macro-generated namespace prefixes and unproven annotations remain unexpanded.
+
+## C-family preprocessing limitations
+
+The C, C++, and Objective-C frontends parse source without running a build's C preprocessor. Their bounded
+recovery handles selected patterns, but these cases can still omit a function or
+give it the wrong name:
+
+| Source pattern | Current limitation | Workaround |
+| --- | --- | --- |
+| C++ inline `bool Read(int n) REQUIRES(!mu) { ... }` | A trailing annotation macro can split the method and create a bogus function named after a macro argument. C++ and Objective-C can also lose annotated C-style functions. | Use a separate view with the known annotation expanded, or preprocess with the project's compiler configuration. |
+| `#ifdef` and `#else` arms each open `{`, with a shared closing `}` | C++ and Objective-C can lose the enclosing function and all of its calls. | Preprocess and analyze each relevant build configuration separately. |
+| `#define APP_MAIN int main(...)`, followed by `APP_MAIN { ... }` | An unexpanded signature can hide both `main` and its entrypoint status. | Expand a proven local definition in a separate view, or preprocess with the project's compiler configuration. |
+
+These correspond to [#222](https://github.com/trailofbits/trailmark/issues/222),
+[#224](https://github.com/trailofbits/trailmark/issues/224), and
+[#226](https://github.com/trailofbits/trailmark/issues/226). Better grammar recovery
+may help, but a syntax parser cannot infer arbitrary macro expansions or which
+compiler configuration applies.
+
+C already recovers some split-brace functions through at most 64 syntactic
+profiles, retaining `conditional_source`, uncertain calls, profile provenance,
+and the original syntax diagnostics. This does not prove build feasibility or
+cover every configuration. C++ and Objective-C do not currently share that
+recovery. Adapting it requires preserving their additional literal forms and
+declaration owners. C also retains the simple trailing-annotation free-function
+example above; that does not establish support for arbitrary macro expansions.
+
+Agents should use this workflow:
+
+1. Run `trailmark analyze --language cpp --summary --json /path/to/source`
+   (use `c` for C or `objc` for Objective-C), and inspect `parse_diagnostics`. Use `--strict` to reject
+   graphs with diagnostics when completeness is required. Also compare expected
+   entrypoints and relevant function declarations against the original source:
+   zero diagnostics or unresolved calls does not establish completeness.
+2. If a relevant function is missing or misnamed, inspect its original source
+   and nearby directives. `links.toml` and `entrypoints.toml` cannot restore an
+   omitted node. Do not attach findings to a bogus recovered name without
+   checking the declaration and body.
+3. Obtain the translation unit's actual compiler, include paths, language mode,
+   target, and `-D`/`-U` flags from its build configuration, such as
+   `compile_commands.json`. Create a separate preprocessed source view; keep the
+   original source unchanged. For a small self-contained example:
+
+   ```sh
+   mkdir -p /tmp/trailmark-preprocessed
+   clang++ -E -P -x c++ -D_WIN32 repro/setup.cpp \
+     -o /tmp/trailmark-preprocessed/setup.cpp
+   trailmark analyze --language cpp --summary --json /tmp/trailmark-preprocessed
+   ```
+
+   Adapt the compiler and flags to the project. `-P` removes line directives,
+   so graph locations refer to the generated view. Retain a source map or verify
+   every relevant declaration and call against the original source before
+   reporting original file locations. Preprocessing may also include dependency
+   headers; distinguish those declarations from authored source.
+4. Analyze each relevant configuration in its own graph and record its flags.
+   A single configuration omits inactive branches. Do not silently select the
+   first branch or merge graphs as though every branch executes together.
+   For a small known annotation or signature macro, a separately recorded,
+   narrowly expanded view is also useful; expanding text can change offsets.
+5. If the build configuration or macro definition is unavailable, review the
+   affected source manually and report the missing graph coverage explicitly.
+   Do not infer that an absent entrypoint or call is unreachable.
+
+## Other hierarchy coverage limits
+
+A comparison with the C++ struct-inheritance defect found related coverage gaps:
+
+- Java record declarations are currently skipped, including their explicit
+  methods and implemented interfaces.
+- Swift class inheritance and protocol-conformance edges are not extracted.
+- C# treats the first listed base as `inherits`, even when that base is an
+  interface; later listed bases use `implements`.
+
+Agents should inspect the original type headers and bodies before relying on a
+class-hierarchy diagram or the absence of inherited paths in these cases. The
+source declaration determines whether a relationship is inheritance or interface
+implementation. These gaps need frontend-specific handling; C++ base-clause
+extraction does not supply the missing semantics for another language.

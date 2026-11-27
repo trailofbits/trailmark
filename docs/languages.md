@@ -415,6 +415,15 @@ The C and C++ parsers recover functions inside preprocessor conditional blocks
 and tree-sitter error nodes, so code that does not parse cleanly as a whole
 still yields its functions.
 
+C++ structs retain `inherits` edges for their base classes, including implicit
+public inheritance and explicit access specifiers. C++ directory IDs always
+include escaped filename extensions, as do C and Objective-C directory IDs.
+Inline and out-of-line C++ qualified declaration
+IDs use `.`. See [Node IDs](graph-model.md#node-ids) for examples and migration.
+The [C-family preprocessing limitations](parser-coverage.md#c-family-preprocessing-limitations)
+guide covers omitted signatures, trailing annotation macros, and conditional
+branches that split braces, with workarounds for agents.
+
 The Objective-C parser retains recognized method definitions inside conditional
 implementation blocks, including nested `#if`, `#elif`, and `#else` arms. It
 preserves their class owners and physical call sites without evaluating the

@@ -41,13 +41,16 @@ def test_line_splices_join_macro_tokens_without_inserting_whitespace(
     path = tmp_path / "sample.c"
     path.write_bytes(source.replace("\n", newline).encode())
     start = prefix.count("\n") + 2
-    for graph in (parse_file(str(path), "c"), parse_directory(str(tmp_path), "c")):
+    for module, graph in (
+        ("sample", parse_file(str(path), "c")),
+        (r"sample\.c", parse_directory(str(tmp_path), "c")),
+    ):
         assert {node.id for node in graph.nodes.values() if node.kind == NodeKind.FUNCTION} == {
-            "sample:helper",
-            f"sample:{name}",
-            "sample:invoke",
+            f"{module}:helper",
+            f"{module}:{name}",
+            f"{module}:invoke",
         }
-        unit = graph.nodes[f"sample:{name}"]
+        unit = graph.nodes[f"{module}:{name}"]
         assert (unit.location.file_path, unit.location.start_line, unit.location.end_line) == (
             str(path),
             start,
@@ -66,9 +69,9 @@ def test_line_splices_join_macro_tokens_without_inserting_whitespace(
             } == {"macro_wrapper": "DECL", "source_alias": "action", "expansion_alias": name}
         calls = [edge for edge in graph.edges if edge.kind == EdgeKind.CALLS]
         assert [(edge.source_id, edge.target_id) for edge in calls] == [
-            (unit.id, "sample:helper"),
-            (unit.id, "sample:helper"),
-            ("sample:invoke", unit.id),
+            (unit.id, f"{module}:helper"),
+            (unit.id, f"{module}:helper"),
+            (f"{module}:invoke", unit.id),
         ]
         assert [edge.confidence for edge in calls] == [EdgeConfidence.CERTAIN] * 3
         assert [

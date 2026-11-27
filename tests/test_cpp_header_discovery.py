@@ -21,9 +21,11 @@ def test_explicit_cpp_directory_and_parser_include_h_headers(tmp_path: Path) -> 
         CppParser().parse_directory(str(tmp_path)),
     ):
         assert graph.source_file_counts == {"cpp": 1}
-        assert graph.nodes["widget:Widget"].kind == NodeKind.CLASS
+        assert graph.nodes[r"widget\.h:Widget"].kind == NodeKind.CLASS
         engine = QueryEngine.from_graph(graph)
-        assert {n["id"] for n in engine.callees_of("widget:Widget.run")} == {"widget:Widget.helper"}
+        assert {n["id"] for n in engine.callees_of(r"widget\.h:Widget.run")} == {
+            r"widget\.h:Widget.helper"
+        }
 
 
 @pytest.mark.parametrize("language", ["c,cpp", "cpp,c", "auto"])
@@ -33,7 +35,7 @@ def test_cpp_owns_h_in_mixed_c_cpp_scopes(tmp_path: Path, language: str) -> None
     (tmp_path / "plain.c").write_text("int plain(void) { return 0; }\n")
     graph = parse_directory(str(tmp_path), language)
     assert graph.source_file_counts == {"c": 1, "cpp": 2}
-    assert graph.nodes["widget:Widget"].kind == NodeKind.CLASS
+    assert graph.nodes[r"widget\.h:Widget"].kind == NodeKind.CLASS
     assert not graph.parse_diagnostics
 
 
@@ -45,7 +47,7 @@ def test_objc_header_precedence_remains_deterministic(tmp_path: Path) -> None:
     for language in ("auto", "cpp,c,objc", "objc,cpp,c"):
         graph = parse_directory(str(tmp_path), language)
         assert graph.source_file_counts == {"c": 1, "cpp": 1, "objc": 2}
-        assert "shared:Base" in graph.nodes
+        assert "shared\\.h:Base" in graph.nodes
 
 
 @pytest.mark.mutation_fast
@@ -85,9 +87,9 @@ def test_macro_inline_pointer_return_has_a_real_identifier_in_auto_mode(tmp_path
     )
     (tmp_path / "unrelated.cpp").write_text("/* unrelated */\n")
     graph = parse_directory(str(tmp_path), "auto")
-    assert graph.nodes["node:ngx_rbtree_min"].name == "ngx_rbtree_min"
-    assert dict(graph.nodes["node:ngx_rbtree_min"].attributes)["cpp_declarator_recovered"]
-    assert [n["id"] for n in QueryEngine.from_graph(graph).callees_of("main:caller")] == [
-        "node:ngx_rbtree_min"
+    assert graph.nodes[r"node\.h:ngx_rbtree_min"].name == "ngx_rbtree_min"
+    assert dict(graph.nodes[r"node\.h:ngx_rbtree_min"].attributes)["cpp_declarator_recovered"]
+    assert [n["id"] for n in QueryEngine.from_graph(graph).callees_of("main\\.c:caller")] == [
+        r"node\.h:ngx_rbtree_min"
     ]
     assert graph.parse_diagnostics

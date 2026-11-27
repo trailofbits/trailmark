@@ -28,6 +28,11 @@ task calls for graph analysis, select the skills that match it:
 The plugin README covers installation and compatibility. Check the installed
 Trailmark version and follow the selected skill's feature gates.
 
+When analyzing C-family source with macros or conditional compilation, follow the
+[preprocessing limitations and agent workarounds](docs/parser-coverage.md#c-family-preprocessing-limitations).
+Check diagnostics and expected source declarations before trusting graph coverage.
+Config overrides cannot restore a function that the parser omitted.
+
 ## Architecture
 
 ```

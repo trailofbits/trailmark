@@ -77,7 +77,7 @@ def test_visibility_prefix_links_from_another_file(tmp_path: Path) -> None:
     )
     graph = CParser().parse_directory(str(tmp_path))
     _assert_environment_links(graph)
-    assert graph.nodes["environment:php_hash_environment"].location.file_path == str(
+    assert graph.nodes["environment\\.c:php_hash_environment"].location.file_path == str(
         tmp_path / "environment.c"
     )
 

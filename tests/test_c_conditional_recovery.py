@@ -30,12 +30,12 @@ def test_split_conditional_braces_retain_the_handler_and_each_call(tmp_path: Pat
     path = tmp_path / "handler.c"
     path.write_text(SOURCE)
     graph = parse_directory(str(tmp_path), "c")
-    assert graph.nodes["handler:handler"].location.start_line == 2
-    assert dict(graph.nodes["handler:handler"].attributes)["conditional_source"]
+    assert graph.nodes["handler\\.c:handler"].location.start_line == 2
+    assert dict(graph.nodes["handler\\.c:handler"].attributes)["conditional_source"]
     calls = [e for e in graph.edges if e.kind == EdgeKind.CALLS]
     assert {(e.target_id, e.location.start_line if e.location else None) for e in calls} == {
-        ("handler:parse", 8),
-        ("handler:parse", 14),
+        ("handler\\.c:parse", 8),
+        ("handler\\.c:parse", 14),
     }
     assert all(e.confidence == EdgeConfidence.UNCERTAIN for e in calls)
     assert all("conditional_profiles" in dict(e.attributes) for e in calls)

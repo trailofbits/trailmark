@@ -701,17 +701,19 @@ def test_julia_destructuring_quotes_and_callable_methods(tmp_path: Path) -> None
 def test_c_indirect_calls_and_tag_namespaces() -> None:
     graph = parse_directory(str(FIXTURES / "c/shadowing"), "c")
     for name in ("dispatch", "explicit_indirect", "local_shadow"):
-        assert len(_calls(graph, f"shadow:{name}")) == 1
-        assert all(graph.nodes[t].kind == NodeKind.PROXY for t in _calls(graph, f"shadow:{name}"))
+        assert len(_calls(graph, f"shadow\\.c:{name}")) == 1
+        assert all(
+            graph.nodes[t].kind == NodeKind.PROXY for t in _calls(graph, f"shadow\\.c:{name}")
+        )
     graph = parse_directory(str(FIXTURES / "c/namespaces"), "c")
     for module, name, caller in (
         ("function_first", "object", "call_object"),
         ("tag_first", "item", "use"),
     ):
-        target = _calls(graph, f"{module}:{caller}")[0]
+        target = _calls(graph, f"{module}\\.c:{caller}")[0]
         assert graph.nodes[target].kind == NodeKind.FUNCTION
-        assert graph.nodes[f"{module}:{name}"].kind == NodeKind.STRUCT
-        assert target != f"{module}:{name}"
+        assert graph.nodes[f"{module}\\.c:{name}"].kind == NodeKind.STRUCT
+        assert target != f"{module}\\.c:{name}"
 
 
 @pytest.mark.mutation_fast
@@ -737,13 +739,15 @@ def test_solidity_call_options_and_declaration_arguments() -> None:
 def test_cpp_namespace_identity_and_deferred_ownership(tmp_path: Path) -> None:
     graph = parse_directory(str(FIXTURES / "cpp/namespace_scope"), "cpp")
     for namespace in ("alpha", "beta"):
-        assert graph.nodes[f"case:{namespace}.Worker"].kind == NodeKind.CLASS
-        assert _calls(graph, f"case:{namespace}.entry") == [f"case:{namespace}.sink"]
-    assert _calls(graph, "case:$anonymous.private_entry") == ["case:$anonymous.private_sink"]
+        assert graph.nodes[f"case\\.cpp:{namespace}.Worker"].kind == NodeKind.CLASS
+        assert _calls(graph, f"case\\.cpp:{namespace}.entry") == [f"case\\.cpp:{namespace}.sink"]
+    assert _calls(graph, "case\\.cpp:$anonymous.private_entry") == [
+        "case\\.cpp:$anonymous.private_sink"
+    ]
     graph = parse_directory(str(FIXTURES / "cpp/body_ownership"), "cpp")
-    _assert_deferred_reachable(graph, "case:outer")
-    assert graph.nodes["case:outer"].cyclomatic_complexity == 1
-    assert len([n for n in graph.nodes.values() if _calls(graph, n.id) == ["case:sink"]]) == 3
+    _assert_deferred_reachable(graph, "case\\.cpp:outer")
+    assert graph.nodes["case\\.cpp:outer"].cyclomatic_complexity == 1
+    assert len([n for n in graph.nodes.values() if _calls(graph, n.id) == ["case\\.cpp:sink"]]) == 3
     source = tmp_path / "captures.cpp"
     source.write_text(
         "void sink() {}\nint eager() { return 1; }\nvoid f() { auto cb=[x=eager()] { sink(); }; }\n"
@@ -759,8 +763,8 @@ def test_cpp_namespace_identity_and_deferred_ownership(tmp_path: Path) -> None:
     )
     graph = parse_directory(str(FIXTURES / "cpp/callable_shadow"), "cpp")
     for name in ("parameter", "pointer", "closure", "object", "Holder.method"):
-        assert "case:callback" not in _calls(graph, f"case:{name}")
-        assert "case:Holder.callback" not in _calls(graph, f"case:{name}")
+        assert "case\\.cpp:callback" not in _calls(graph, f"case\\.cpp:{name}")
+        assert "case\\.cpp:Holder.callback" not in _calls(graph, f"case\\.cpp:{name}")
 
 
 @pytest.mark.mutation_fast
@@ -848,13 +852,13 @@ def test_kotlin_nested_companions_and_local_owners() -> None:
 @pytest.mark.mutation_fast
 def test_objc_selectors_dispatch_identity_and_blocks() -> None:
     graph = parse_directory(str(FIXTURES / "objc/fixtures/selectors"), "objc")
-    assert _calls(graph, "Selectors:Worker.+touch") == ["Selectors:class_sink"]
-    assert _calls(graph, "Selectors:Worker.touch") == ["Selectors:instance_sink"]
+    assert _calls(graph, "Selectors\\.m:Worker.+touch") == ["Selectors\\.m:class_sink"]
+    assert _calls(graph, "Selectors\\.m:Worker.touch") == ["Selectors\\.m:instance_sink"]
     messages = [e for e in graph.edges if dict(e.attributes).get("objc_selector")]
     assert len(messages) == 3
     assert {dict(e.attributes)["objc_selector"] for e in messages} == {"touch", "perform:other:"}
     assert any(
-        e.target_id == "Selectors:Worker.touch" and e.confidence == EdgeConfidence.INFERRED
+        e.target_id == "Selectors\\.m:Worker.touch" and e.confidence == EdgeConfidence.INFERRED
         for e in messages
     )
     assert all(
@@ -864,13 +868,13 @@ def test_objc_selectors_dispatch_identity_and_blocks() -> None:
     )
     assert len([e for e in graph.edges if e.kind == EdgeKind.CALLS]) == 6
     graph = parse_directory(str(FIXTURES / "objc/fixtures/blocks"), "objc")
-    _assert_deferred_reachable(graph, "Blocks:build_callback")
-    assert graph.nodes["Blocks:build_callback"].cyclomatic_complexity == 1
+    _assert_deferred_reachable(graph, "Blocks\\.m:build_callback")
+    assert graph.nodes["Blocks\\.m:build_callback"].cyclomatic_complexity == 1
     block = next(
         n for n in graph.nodes.values() if "$block" in n.id and n.kind == NodeKind.FUNCTION
     )
     assert block.cyclomatic_complexity == 2
-    assert _calls(graph, block.id) == ["Blocks:callback_sink"]
+    assert _calls(graph, block.id) == ["Blocks\\.m:callback_sink"]
 
 
 @pytest.mark.mutation_fast
@@ -1225,8 +1229,8 @@ def test_static_namespace_linking_keeps_file_local_visibility(tmp_path: Path) ->
     )
     (tmp_path / "other.cpp").write_text("void other() { remote(); }")
     graph = parse_directory(str(tmp_path), "cpp")
-    assert _calls(graph, "owner:run") == ["owner:Util.local"]
-    assert "owner:Util.remote" not in _calls(graph, "other:other")
+    assert _calls(graph, "owner\\.cpp:run") == ["owner\\.cpp:Util.local"]
+    assert "owner\\.cpp:Util.remote" not in _calls(graph, "other\\.cpp:other")
 
 
 @pytest.mark.mutation_fast

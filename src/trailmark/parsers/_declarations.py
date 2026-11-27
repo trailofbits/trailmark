@@ -250,7 +250,14 @@ def _move_callable(declarations: _Declarations, base: str) -> None:
 
 
 def add_type(graph: CodeGraph, unit: CodeUnit) -> None:
-    """Reserve a type's historical ID without overwriting a same-named callable."""
+    """Prefer definitions to forwards, retaining same-named callable bodies."""
+    existing = graph.nodes.get(unit.id)
+    if (
+        dict(unit.attributes).get("declaration_only")
+        and existing is not None
+        and existing.kind in {NodeKind.CLASS, NodeKind.STRUCT, NodeKind.ENUM, NodeKind.INTERFACE}
+    ):
+        return
     declarations = _current_declarations(graph)
     if declarations.ids.get(unit.id) == [unit.id]:
         _move_callable(declarations, unit.id)

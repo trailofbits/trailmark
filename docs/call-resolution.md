@@ -113,15 +113,25 @@ not resolved.
 ## C++ out-of-line methods
 
 Simple qualified definitions such as `Stream::flush` and `Stream::~Stream`
-attach to an identifiable class or struct. A same-file declaration takes
-precedence; a cross-file owner must be unique. Namespace-qualified free
+attach to an identifiable class or struct definition. Forward declarations do
+not compete with definitions. A same-file definition takes precedence;
+a cross-file owner must be unique. Classes in an anonymous namespace can own
+qualified definitions in the enclosing namespace of the same source file.
+Their anonymous owners never bind definitions in another file. Namespace-qualified free
 functions, template-qualified owners, and ambiguous class owners are not
-reclassified. Existing definition IDs are preserved, while method names and
-containment reflect the class owner.
+reclassified. Qualified declaration IDs use `.` instead of `::`, while method
+names and containment reflect the class owner. For example, `Stream::flush`
+becomes `stream:Stream.flush` in single-file analysis. See
+[Node IDs](graph-model.md#node-ids) for directory identities and migration.
 
 Bare calls within those methods can navigate to a unique method in that class.
 Overloads and shadowing local values remain uncertain; header prototypes do
 not compete with extracted method definitions.
+
+Syntax recovery can still omit whole functions or misidentify their names when
+macros supply signatures or trailing annotations. See
+[C-family preprocessing limitations](parser-coverage.md#c-family-preprocessing-limitations)
+for an agent workflow that checks source completeness and analyzes preprocessed views.
 
 ## Dart explicit receivers
 

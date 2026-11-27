@@ -17,6 +17,7 @@ from trailmark.models import (
     NodeKind,
     SourceLocation,
 )
+from trailmark.parse import parse_file
 from trailmark.parsers._declarations import add_callable, callable_scope
 from trailmark.parsers.base import LanguageParser
 from trailmark.parsers.cpp import CppParser
@@ -25,6 +26,35 @@ from trailmark.parsers.java import JavaParser
 from trailmark.parsers.kotlin import KotlinParser
 from trailmark.parsers.solidity import SolidityParser
 from trailmark.parsers.swift import SwiftParser
+
+
+@pytest.mark.mutation_fast
+@pytest.mark.parametrize(
+    "language,extension,declaration,definition",
+    [
+        ("c", "c", "struct State;", "struct State { int value; };"),
+        ("c", "c", "enum State;", "enum State { Ready };"),
+        ("cpp", "cpp", "struct State;", "struct State { int value; };"),
+        ("cpp", "cpp", "class State;", "class State { int value; };"),
+        ("cpp", "cpp", "enum class State;", "enum class State { Ready };"),
+    ],
+)
+@pytest.mark.parametrize("forward_first", [False, True])
+def test_type_forward_declarations_preserve_the_definition(
+    tmp_path: Path,
+    language: str,
+    extension: str,
+    declaration: str,
+    definition: str,
+    forward_first: bool,
+) -> None:
+    path = tmp_path / f"types.{extension}"
+    lines = [declaration, definition, declaration] if forward_first else [definition, declaration]
+    path.write_text("\n".join(lines) + "\n")
+    graph = parse_file(str(path), language)
+    unit = graph.nodes["types:State"]
+    assert unit.location.start_line == (2 if forward_first else 1)
+    assert not dict(unit.attributes).get("declaration_only")
 
 
 @pytest.mark.mutation_fast
