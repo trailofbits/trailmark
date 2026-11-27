@@ -178,6 +178,14 @@ def _source_at(data: bytes, location: SourceLocation) -> bytes:
         (
             "perl",
             "pl",
+            "sub caller { my $obj = $_[0]; $obj->target(); }",
+            "$obj->target()",
+            "$obj",
+            (),
+        ),
+        (
+            "perl",
+            "pl",
             "sub caller { target((7,9)); }",
             "target((7,9))",
             None,

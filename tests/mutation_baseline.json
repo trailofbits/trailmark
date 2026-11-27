@@ -12,7 +12,14 @@
     "src/trailmark/models/snapshot.py": "*",
     "src/trailmark/_path_glob.py": "*",
     "src/trailmark/models/binary.py": "*",
-    "src/trailmark/query/api.py": "*"
+    "src/trailmark/query/api.py": "*",
+    "src/trailmark/models/constraints.py": "*",
+    "src/trailmark/models/constraint_support.py": "*",
+    "src/trailmark/analysis/constraints.py": "*",
+    "src/trailmark/parsers/_call_sites.py": "*",
+    "src/trailmark/parsers/_evidence.py": "*",
+    "src/trailmark/models/graph.py": "*",
+    "src/trailmark/storage/graph_store.py": "*"
   },
   "exceptions": [
     {
@@ -79,7 +86,150 @@
       "operator": "boolean",
       "original": "True",
       "mutated": "False",
-      "reason": "Equivalent after the explicit fixed-tuple length check immediately above: both input and type lists have equal lengths before zip runs. strict=True and strict=False therefore visit the same pairs and raise the same item-validation errors for every supported snapshot input. Wrong tuple lengths remain rejected before this iterator; malformed tuples and element types are covered by snapshot regressions. No other decoder mutation is exempted. Origin-aware node-location validation leaves this equal-length precondition unchanged."
+      "reason": "Equivalent after the explicit fixed-tuple length check immediately above: both input and type lists have equal lengths before zip runs. strict=True and strict=False therefore visit the same pairs and raise the same item-validation errors for every supported snapshot input. Wrong tuple lengths remain rejected before this iterator; malformed tuples and element types are covered by snapshot regressions. No other decoder mutation is exempted. Origin-aware node-location validation leaves this equal-length precondition unchanged. Re-reviewed after adding recursive constraint aliases: fixed tuple lengths are still checked before zip; aliases do not bypass that guard."
+    },
+    {
+      "fingerprint": "c4a10c16d7f6a40b3c3cc6c61f764e13f3bee2c46cfec03532b73df76cdedde2",
+      "source_hash": "6f68e142c400f4aaa21c93c4dc4ddc29d87baa1926980ecff0676f93833a9fb6",
+      "path": "src/trailmark/models/graph.py",
+      "function": "<module>",
+      "line": 46,
+      "operator": "boolean",
+      "original": "False",
+      "mutated": "True",
+      "reason": "Representation-only private-cache change: this flag controls whether ParseState or saved revision receipts appear in the generated CodeGraph debug repr. Queries, equality, graph fingerprints and both JSON serializers read explicit data fields and never consume repr(CodeGraph). The private cache has no published repr contract. Equality exclusion is separately tested and is not exempted; no public model immutability or constraint metadata is exempted."
+    },
+    {
+      "fingerprint": "e11fb75a413bee02fb417dccc335aac6c0b5e3742d8debc3469d2e6f859f860f",
+      "source_hash": "6f68e142c400f4aaa21c93c4dc4ddc29d87baa1926980ecff0676f93833a9fb6",
+      "path": "src/trailmark/models/graph.py",
+      "function": "<module>",
+      "line": 47,
+      "operator": "boolean",
+      "original": "False",
+      "mutated": "True",
+      "reason": "Representation-only private-cache change: this flag controls whether ParseState or saved revision receipts appear in the generated CodeGraph debug repr. Queries, equality, graph fingerprints and both JSON serializers read explicit data fields and never consume repr(CodeGraph). The private cache has no published repr contract. Equality exclusion is separately tested and is not exempted; no public model immutability or constraint metadata is exempted."
+    },
+    {
+      "fingerprint": "9a661ba7c87dd2776bbe554476eb702662fd5f0b1ae5f7c6e70962226b6d3673",
+      "source_hash": "2115c5f54659e769cc066db8ae2f9e7eb79cbe453505577c11c57c0ab5360abd",
+      "path": "src/trailmark/storage/graph_store.py",
+      "function": "GraphStore.binary_ranges_for_node",
+      "line": 347,
+      "operator": "comparison",
+      "original": "mapping.start < end",
+      "mutated": "mapping.start <= end",
+      "reason": "Equivalent for validated nonempty mappings: the preceding loop coalesces overlapping AND touching intervals into each returned union span. A mapping cannot start at the end of a different span, or end at its start, because touching intervals were merged. Changing this one strict overlap bound to inclusive therefore selects the same mappings. Range validation, interval merging, offsets and other overlap mutations remain gated."
+    },
+    {
+      "fingerprint": "c5c91e0cc138ee72877c171c945fa0d43701b9a73a08272ffb451fc38fbb2186",
+      "source_hash": "2115c5f54659e769cc066db8ae2f9e7eb79cbe453505577c11c57c0ab5360abd",
+      "path": "src/trailmark/storage/graph_store.py",
+      "function": "GraphStore.binary_ranges_for_node",
+      "line": 347,
+      "operator": "comparison",
+      "original": "start < mapping.end",
+      "mutated": "start <= mapping.end",
+      "reason": "Equivalent for validated nonempty mappings: the preceding loop coalesces overlapping AND touching intervals into each returned union span. A mapping cannot start at the end of a different span, or end at its start, because touching intervals were merged. Changing this one strict overlap bound to inclusive therefore selects the same mappings. Range validation, interval merging, offsets and other overlap mutations remain gated."
+    },
+    {
+      "fingerprint": "a6d7fbfd317b1a4ca9933f61fc971f3a261ae75b98e276a481ebb51a43951df0",
+      "source_hash": "44ba7c7b7d7a2cf2de0d6ff2ecf0336eea8eb1609dde8780497d770b26af0316",
+      "path": "src/trailmark/storage/graph_store.py",
+      "function": "GraphStore.connect_subgraphs",
+      "line": 735,
+      "operator": "boolean",
+      "original": "not source_ids or not target_ids",
+      "mutated": "not source_ids and (not target_ids)",
+      "reason": "Equivalent empty-input shortcut: if either named subgraph is empty, the following nested source/target loops emit no paths and return the same empty list even when this early return does not run. max_depth validation remains before the guard. Nonempty traversal, trivial shared-node paths and deduplication remain gated."
+    },
+    {
+      "fingerprint": "c61bd651f419d91670b4efb97452e1156521eff952db373372ea6ca78a852c08",
+      "source_hash": "26fa29e34f733d1de7c69abe7444cdb684651f769b01bef03baefd84fe1722f2",
+      "path": "src/trailmark/parsers/_call_sites.py",
+      "function": "_operands",
+      "line": 175,
+      "operator": "boundary",
+      "original": "len(parts) >= 2",
+      "mutated": "len(parts) >= 1",
+      "reason": "Equivalent for published application forms: these registered grammar application nodes contain a callee and at least one operand/suffix when they produce a CALLS edge. A lone identifier is a reference rather than such an application. The lower bound change cannot change extraction for an admitted application; malformed parse paths retain source_parse_errors and cannot establish a summary. Other arity and operand mutations remain gated."
+    },
+    {
+      "fingerprint": "199d3d784ce9a4692131046cf3bb077c6b9e44606d4773de164ad43fad7aad98",
+      "source_hash": "26fa29e34f733d1de7c69abe7444cdb684651f769b01bef03baefd84fe1722f2",
+      "path": "src/trailmark/parsers/_call_sites.py",
+      "function": "_operands",
+      "line": 180,
+      "operator": "comparison",
+      "original": "opening < closing",
+      "mutated": "opening <= closing",
+      "reason": "Equivalent token identity boundary: opening and closing are indices of different children whose types are '(' and ')'. One child cannot have both types, so the indices can never be equal. Both comparisons admit exactly the same token ranges. Reversed/missing bounds and punctuation filtering remain gated."
+    },
+    {
+      "fingerprint": "4d3647e5e92dbd8b11a787c45c791fac49ebad58563923f0745770bb7e408a1e",
+      "source_hash": "ab29eac8cfff2a856db943630ed9f0c747c6ff77d0c7950d2de3c8d9bbe2a9b2",
+      "path": "src/trailmark/parsers/_call_sites.py",
+      "function": "_argument",
+      "line": 214,
+      "operator": "boolean",
+      "original": "node.child_by_field_name('name') or node.child_by_field_name('label')",
+      "mutated": "node.child_by_field_name('name') and node.child_by_field_name('label')",
+      "reason": "Equivalent label lookup for the registered labelled-argument grammars: if this field lookup no longer supplies the label, the immediately following separator or label/name_colon/value_argument_label wrapper path recovers that same source node. Exact labels, value bytes, comments and units have frontend regressions. This exception covers only the redundant lookup, not either fallback or operand selection."
+    },
+    {
+      "fingerprint": "2f8534c32c0db2891605fc9c95f5393bbe28220e95ec09cf1424e8b524f5b803",
+      "source_hash": "ab29eac8cfff2a856db943630ed9f0c747c6ff77d0c7950d2de3c8d9bbe2a9b2",
+      "path": "src/trailmark/parsers/_call_sites.py",
+      "function": "_argument",
+      "line": 224,
+      "operator": "boolean",
+      "original": "child.is_named and 'comment' not in child.type",
+      "mutated": "child.is_named or 'comment' not in child.type",
+      "reason": "Equivalent pre-separator fallback for registered named-argument forms: the first child before the separator is the named label; other forms supply an explicit label field or wrapper. Leading argument-list comments belong outside that label node, and comments after the label do not change the first selected child. Value-side comment filtering remains independently tested and is not exempted. Re-review when adding a grammar with a different label production."
+    },
+    {
+      "fingerprint": "f2f4517fd8d9d3dc387074f9dce6ba56b7cb163b27dc46bfbdc341cfccec1951",
+      "source_hash": "2f2034d027695c3cd23362047c68f7601f6fb4fa33097fa045d23319d9827a50",
+      "path": "src/trailmark/parsers/_call_sites.py",
+      "function": "_dart_prefix",
+      "line": 317,
+      "operator": "boolean",
+      "original": "not prefix or prefix[0].type in selectors",
+      "mutated": "not prefix and prefix[0].type in selectors",
+      "reason": "Unreachable defensive fallback through the registered Dart frontend: it emits an argument-selector call edge only after _resolve_dart_callee or the detached-arrow resolver found its adjacent callee prefix. After selector normalization, this helper therefore receives a prefix containing a named primary expression, not an empty or selector-only sequence. Exact bare/member/chained/parenthesized/literal receivers are tested. Arbitrary unbound CST fragments passed directly to this private helper are outside this exception; re-review if the Dart call producer changes."
+    },
+    {
+      "fingerprint": "fb3692d1fba9ef60268625185bf8ba37087edeb34febc9691b6d338709fdef71",
+      "source_hash": "2f2034d027695c3cd23362047c68f7601f6fb4fa33097fa045d23319d9827a50",
+      "path": "src/trailmark/parsers/_call_sites.py",
+      "function": "_dart_prefix",
+      "line": 318,
+      "operator": "return",
+      "original": "return (node.start_byte, None)",
+      "mutated": "return",
+      "reason": "Unreachable defensive fallback through the registered Dart frontend: it emits an argument-selector call edge only after _resolve_dart_callee or the detached-arrow resolver found its adjacent callee prefix. After selector normalization, this helper therefore receives a prefix containing a named primary expression, not an empty or selector-only sequence. Exact bare/member/chained/parenthesized/literal receivers are tested. Arbitrary unbound CST fragments passed directly to this private helper are outside this exception; re-review if the Dart call producer changes."
+    },
+    {
+      "fingerprint": "6c43a335157429b1e11ec0b56f7a2f305746c898620a92853b70cb238b0bbd0d",
+      "source_hash": "4e1cf3114d4b7d145383af7ee9ce6f14656bf877a1989e422062399fed45804a",
+      "path": "src/trailmark/parsers/_call_sites.py",
+      "function": "collect_call_sites",
+      "line": 464,
+      "operator": "comparison",
+      "original": "len(node.named_children) > len(syntax[position].named_children)",
+      "mutated": "len(node.named_children) >= len(syntax[position].named_children)",
+      "reason": "Equivalent tie choice for the registered occurrence shapes: equal-span, equal-child-count candidates are transparent CST wrappers that yield the same normalized invocation, operands and gaps. Nodes with more named children still win under both comparisons; Dart argument wrappers normalize to their selector before extraction. Exact syntax, receiver and byte-span regressions cover the admitted forms. Re-review this tie exception when adding a new wrapper grammar."
+    },
+    {
+      "fingerprint": "77fd2467089404d2e8dd08617dcd846c9d1935d632ffb18559d7c4cf33988c91",
+      "source_hash": "4e1cf3114d4b7d145383af7ee9ce6f14656bf877a1989e422062399fed45804a",
+      "path": "src/trailmark/parsers/_call_sites.py",
+      "function": "collect_call_sites",
+      "line": 489,
+      "operator": "boolean",
+      "original": "language == 'dart' and invocation.type == 'selector'",
+      "mutated": "language == 'dart' or invocation.type == 'selector'",
+      "reason": "Equivalent producer invariant: current Dart call occurrences normalize to selector nodes, and other registered frontends do not supply selector invocation nodes to this branch. Both operands therefore have the same truth value for admitted occurrences. Missing syntax is handled before this branch, with an unknown execution/gap. Re-review if a frontend begins emitting a different Dart call shape or uses selector as its invocation kind."
     }
   ]
 }
