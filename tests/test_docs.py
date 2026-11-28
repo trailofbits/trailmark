@@ -312,6 +312,7 @@ PINNED_CONTRACTS: tuple[tuple[str, str], ...] = (
     ("docs/installation.md", "`tree-sitter-language-pack` 1.25.2 or newer"),
     ("docs/installation.md", "native Point lifetime regression"),
     ("docs/installation.md", "Root-owned grammar caches are supported"),
+    ("docs/installation.md", "The Apple Silicon Nix package requires macOS 15 or later."),
     ("docs/installation.md", "not group- or other-writable"),
     ("docs/installation.md", "C compiler (`cc`)"),
     ("docs/installation.md", "Python development headers"),

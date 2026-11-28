@@ -338,6 +338,15 @@ def test_unsupported_statement_locations_preserve_an_explicit_arity_gap(tmp_path
     assert "argument_syntax_unavailable" in site.gaps
 
 
+def test_c_call_retains_operands_before_a_missing_argument(tmp_path: Path) -> None:
+    path = tmp_path / "app.c"
+    path.write_text("void caller(void) { ADVANCE_MAP('}', 109,\n); }\n")
+    graph = parse_file(str(path), "c")
+    (site,) = graph.call_sites.values()
+    assert [arg.expression for arg in site.arguments] == ["'}'", "109"]
+    assert "argument_syntax_unavailable" in site.gaps
+
+
 def test_ruby_string_keyed_hash_arguments_keep_the_whole_value(tmp_path: Path) -> None:
     path = tmp_path / "app.rb"
     path.write_text('def caller(value); target("key" => value); end\n')

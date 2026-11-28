@@ -100,6 +100,7 @@ nix develop github:trailofbits/trailmark    # shell with trailmark and uv
 
 The Nix package is built from `uv.lock`, precompiles the bundled grammars for
 the read-only Nix store, and uses a root-owned language-pack grammar cache.
+The Apple Silicon Nix package requires macOS 15 or later.
 
 ## From a git checkout
 

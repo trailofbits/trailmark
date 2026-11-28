@@ -107,6 +107,45 @@ jobs:
       - run: uv sync --locked --all-groups --extra binary
       - run: uv run --locked --extra binary pytest -q tests/test_native_binary.py tests/test_binary_models.py
 
+  nix:
+    name: Nix (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b  # v31.11.3
+
+      - name: Restore Nix dependencies and build tools
+        id: nix-cache
+        uses: nix-community/cache-nix-action/restore@7df957e333c1e5da7721f60227dbba6d06080569  # v7.0.2
+        with:
+          primary-key: >-
+            nix-deps-${{ matrix.os }}-${{ hashFiles('flake.*', 'uv.lock', 'package.json', 'pyproject.toml') }}
+
+      - name: Build Nix dependencies and build tools
+        if: github.event_name == 'push' && steps.nix-cache.outputs.hit-primary-key != 'true'
+        run: nix build --no-update-lock-file --no-link .#trailmark.ciDependencies
+
+      - name: Save Nix dependencies and build tools
+        if: github.event_name == 'push' && steps.nix-cache.outputs.hit-primary-key != 'true'
+        uses: nix-community/cache-nix-action/save@7df957e333c1e5da7721f60227dbba6d06080569  # v7.0.2
+        with:
+          primary-key: ${{ steps.nix-cache.outputs.primary-key }}
+
+      - name: Build and run flake checks
+        run: nix flake check --no-update-lock-file --print-build-logs
+
+      - name: Smoke-test the app and development shell
+        run: |
+          nix run --no-update-lock-file . -- --version
+          nix develop --no-update-lock-file -c trailmark --version
+
   package:
     name: Package Smoke Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
