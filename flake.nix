@@ -242,9 +242,8 @@
                 buildInputs = [ pkgs.stdenv.cc.cc.lib ];
               }
               ''
-                cache="$out/tree-sitter-language-pack/v${version}/libs"
-                mkdir -p "$cache"
-                tar --zstd -xf ${parserArchive} -C "$cache"
+                mkdir -p "$out"
+                tar --zstd -xf ${parserArchive} -C "$out"
               '';
           env =
             (pythonSet.mkVirtualEnv "trailmark-env" workspace.deps.default).overrideAttrs
@@ -262,9 +261,9 @@
                     ++ old.nativeBuildInputs
                   );
                 };
-                # Configure both the CLI and Python library without patching dependencies.
+                # Load packaged libraries directly and honor an explicit download cache.
                 postInstall = (old.postInstall or "") + ''
-                  echo 'import os; os.environ.setdefault("TREE_SITTER_LANGUAGE_PACK_CACHE_DIR", "${parserLibraries}")' > "$out/${python.sitePackages}/trailmark-parsers.pth"
+                  echo 'import os; os.environ.setdefault("TREE_SITTER_LANGUAGE_PACK_LIBS_DIR", "${parserLibraries}") if "TREE_SITTER_LANGUAGE_PACK_CACHE_DIR" not in os.environ else None' > "$out/${python.sitePackages}/trailmark-parsers.pth"
                 '';
               });
         in
@@ -290,12 +289,6 @@
               }
               ''
                 export HOME=$(mktemp -d)
-                ${lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''
-                  # The Linux build sandbox can show the Nix store owner as an unmapped UID.
-                  parser_cache=$(python -c 'import os; print(os.environ["TREE_SITTER_LANGUAGE_PACK_CACHE_DIR"])')
-                  cp -R --reflink=auto "$parser_cache" "$HOME/parsers"
-                  export TREE_SITTER_LANGUAGE_PACK_CACHE_DIR="$HOME/parsers"
-                ''}
                 trailmark analyze ${self} --summary | tee "$out"
                 grep -q "Nodes: " "$out"
                 trailmark analyze ${self} > /dev/null
