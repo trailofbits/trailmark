@@ -106,7 +106,8 @@ def bundled_grammar(name: str) -> NativeGrammar:
     """Describe a generated grammar and every input to its shared binding."""
     if not name.isidentifier():
         raise ValueError(f"Invalid bundled grammar name: {name}")
-    directory = Path(__file__).parent / name
+    # Nix virtual environments symlink the installed files from the package output.
+    directory = Path(__file__).resolve().parent / name
     sources = tuple(
         path.relative_to(directory).as_posix()
         for path in sorted((directory / "src").rglob("*"))
@@ -126,7 +127,7 @@ def bundled_language(name: str) -> object:
 
 def precompile_all() -> None:
     """Populate the same caches used at runtime before installation becomes read-only."""
-    for directory in sorted(Path(__file__).parent.iterdir()):
+    for directory in sorted(Path(__file__).resolve().parent.iterdir()):
         if not (directory / "src/parser.c").is_file():
             continue
         bundled_language(directory.name)

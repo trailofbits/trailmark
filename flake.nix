@@ -90,11 +90,20 @@
 
       treeSitterCustomGrammar =
         pkgs: python: grammar:
+        let
+          grammarRoot = ./src/trailmark/tree_sitter_custom;
+        in
         pkgs.stdenv.mkDerivation {
           pname = "trailmark-tree-sitter-${grammar}";
           version = pyproject.project.version;
 
-          src = ./src/trailmark/tree_sitter_custom/${grammar};
+          src = lib.fileset.toSource {
+            root = grammarRoot;
+            fileset = lib.fileset.unions [
+              (grammarRoot + "/binding.c")
+              (grammarRoot + "/${grammar}")
+            ];
+          };
 
           dontConfigure = true;
 
@@ -109,16 +118,17 @@
           buildPhase = ''
             runHook preBuild
 
-            ${lib.optionalString (grammar == "circom") "tree-sitter generate --abi 14"}
+            ${lib.optionalString (grammar == "circom") ''(cd "${grammar}" && tree-sitter generate --abi 14)''}
 
             ext_suffix="$(${python.interpreter} -c 'import sysconfig; print(sysconfig.get_config_var("EXT_SUFFIX") or ".so")')"
             darwin_flags=(${pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin "-undefined dynamic_lookup"})
 
             cc -shared -fPIC -O2 -std=c11 "''${darwin_flags[@]}" \
               -I"${python}/include/${python.libPrefix}" \
-              -I"$PWD/src" \
-              "binding.c" \
-              "src/parser.c" \
+              -I"${grammar}/src" \
+              -DTRAILMARK_LANGUAGE=tree_sitter_${grammar} \
+              binding.c \
+              "${grammar}/src/parser.c" \
               -o "_binding$ext_suffix"
 
             runHook postBuild
@@ -147,6 +157,20 @@
             in
             {
               trailmark = prev.trailmark.overrideAttrs (old: {
+                passthru = old.passthru // { inherit grammarPython; };
+                # The Nix package builds a wheel. Test and CI inputs belong to the checks.
+                src = lib.fileset.toSource {
+                  root = ./.;
+                  fileset = lib.fileset.unions [
+                    ./.gitignore
+                    ./LICENSE
+                    ./NOTICE
+                    ./README.md
+                    ./hatch_build.py
+                    ./pyproject.toml
+                    ./src
+                  ];
+                };
                 nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
                   (treeSitterCli pkgs)
                   pkgs.nodejs
@@ -163,6 +187,16 @@
         in
         (pkgs.callPackage pyproject-nix.build.packages {
           inherit python;
+          # The language-pack wheel in uv.lock targets macOS 15 or newer.
+          stdenv =
+            if pkgs.stdenv.hostPlatform.isDarwin then
+              pkgs.stdenv.override {
+                targetPlatform = pkgs.stdenv.targetPlatform // {
+                  darwinSdkVersion = "15.0";
+                };
+              }
+            else
+              pkgs.stdenv;
         }).overrideScope
           (
             lib.composeManyExtensions [
@@ -179,6 +213,7 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
           python = pkgs.python3;
+          pythonSet = pythonSets.${system};
           tree-sitter-circom = treeSitterCustomGrammar pkgs python "circom";
           tree-sitter-masm = treeSitterCustomGrammar pkgs python "masm";
           parserBundles = {
@@ -192,7 +227,7 @@
             };
           };
           bundle = parserBundles.${system};
-          version = pythonSets.${system}.tree-sitter-language-pack.version;
+          version = pythonSet.tree-sitter-language-pack.version;
           parserArchive = pkgs.fetchurl {
             url = "https://github.com/xberg-io/tree-sitter-language-pack/releases/download/v${version}/parsers-${bundle.platform}.tar.zst";
             inherit (bundle) sha256;
@@ -207,16 +242,28 @@
                 buildInputs = [ pkgs.stdenv.cc.cc.lib ];
               }
               ''
-                cache="$out/tree-sitter-language-pack/v${version}/libs"
-                mkdir -p "$cache"
-                tar --zstd -xf ${parserArchive} -C "$cache"
+                mkdir -p "$out"
+                tar --zstd -xf ${parserArchive} -C "$out"
               '';
           env =
-            (pythonSets.${system}.mkVirtualEnv "trailmark-env" workspace.deps.default).overrideAttrs
+            (pythonSet.mkVirtualEnv "trailmark-env" workspace.deps.default).overrideAttrs
               (old: {
-                # Configure both the CLI and Python library without patching dependencies.
+                # Build the reusable inputs before CI saves its dependency cache.
+                passthru = (old.passthru or { }) // {
+                  ciDependencies = pkgs.linkFarmFromDrvs "trailmark-ci-dependencies" (
+                    [
+                      pythonSet.trailmark.grammarPython
+                      parserLibraries
+                      pkgs.uv
+                    ]
+                    ++ pythonSet.trailmark.nativeBuildInputs
+                    ++ pythonSet.trailmark.buildInputs
+                    ++ old.nativeBuildInputs
+                  );
+                };
+                # Load packaged libraries directly and honor an explicit download cache.
                 postInstall = (old.postInstall or "") + ''
-                  echo 'import os; os.environ.setdefault("TREE_SITTER_LANGUAGE_PACK_CACHE_DIR", "${parserLibraries}")' > "$out/${python.sitePackages}/trailmark-parsers.pth"
+                  echo 'import os; os.environ.setdefault("TREE_SITTER_LANGUAGE_PACK_LIBS_DIR", "${parserLibraries}") if "TREE_SITTER_LANGUAGE_PACK_CACHE_DIR" not in os.environ else None' > "$out/${python.sitePackages}/trailmark-parsers.pth"
                 '';
               });
         in
@@ -231,10 +278,10 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          trailmark = self.packages.${system}.trailmark;
+          inherit (self.packages.${system}) trailmark tree-sitter-circom tree-sitter-masm;
         in
         {
-          inherit trailmark;
+          inherit trailmark tree-sitter-circom tree-sitter-masm;
           trailmark-self =
             pkgs.runCommand "trailmark-self-check"
               {
@@ -272,6 +319,7 @@
         trailmark = {
           type = "app";
           program = "${self.packages.${system}.trailmark}/bin/trailmark";
+          meta.description = "Trailmark command-line interface";
         };
         default = trailmark;
       });

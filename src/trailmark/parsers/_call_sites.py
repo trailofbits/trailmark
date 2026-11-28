@@ -536,15 +536,16 @@ def _invocation_site(node: Node, language: str, path: str, data: bytes) -> _Invo
     text, raw = _source_text(data[start : invocation.end_byte])
     if raw is not None:
         gaps.append("source_encoding_unverified")
+    arguments = []
+    for index, operand in enumerate(operands):
+        # Tree-sitter can insert a zero-width operand during error recovery.
+        if operand.is_missing:
+            known = False
+            break
+        arguments.append(_argument(operand, index, path, data))
     if not known:
         gaps.append("argument_syntax_unavailable")
-    return _Invocation(
-        text,
-        raw,
-        tuple(_argument(operand, index, path, data) for index, operand in enumerate(operands)),
-        receiver,
-        tuple(gaps),
-    )
+    return _Invocation(text, raw, tuple(arguments), receiver, tuple(gaps))
 
 
 def _call_site(
