@@ -143,7 +143,7 @@ jobs:
 
       - name: Smoke-test the app and development shell
         run: |
-          nix run --no-update-lock-file . -- --version
+          nix run --no-update-lock-file . -- analyze --summary src
           nix develop --no-update-lock-file -c trailmark --version
 
   package:

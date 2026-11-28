@@ -290,6 +290,12 @@
               }
               ''
                 export HOME=$(mktemp -d)
+                ${lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''
+                  # The Linux build sandbox can show the Nix store owner as an unmapped UID.
+                  parser_cache=$(python -c 'import os; print(os.environ["TREE_SITTER_LANGUAGE_PACK_CACHE_DIR"])')
+                  cp -R --reflink=auto "$parser_cache" "$HOME/parsers"
+                  export TREE_SITTER_LANGUAGE_PACK_CACHE_DIR="$HOME/parsers"
+                ''}
                 trailmark analyze ${self} --summary | tee "$out"
                 grep -q "Nodes: " "$out"
                 trailmark analyze ${self} > /dev/null
